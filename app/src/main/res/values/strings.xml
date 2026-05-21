@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">KalaKartta</string>
+    <string name="add_catch">Lisää kala</string>
+    <string name="my_location">Oma sijainti</string>
+    <string name="settings">Asetukset</string>
+    <string name="ok">OK</string>
+    <string name="plus">+</string>
 </resources>

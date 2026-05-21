@@ -12,6 +12,8 @@ import android.content.Intent
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.createBitmap
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
@@ -137,6 +139,7 @@ class MarkerManager(
         dialog.enlargeButtons()
     }
 
+    @Suppress("DiscouragedApi")
     private fun getDrawableId(iconName: String): Int {
         if (iconName.isEmpty()) return R.drawable.default_point
         
@@ -148,7 +151,7 @@ class MarkerManager(
         val drawable = ContextCompat.getDrawable(context, drawableId) ?: ContextCompat.getDrawable(context, R.drawable.default_point)!!
         val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt()
         val bitmap = drawable.toBitmap(sizePx, sizePx)
-        return BitmapDrawable(context.resources, bitmap)
+        return bitmap.toDrawable(context.resources)
     }
 
     private fun getSmallIconWithLargeTouchArea(drawableId: Int, visibleSizeDp: Int, touchSizeDp: Int): BitmapDrawable {
@@ -158,7 +161,7 @@ class MarkerManager(
         val visibleSizePx = (visibleSizeDp * density).toInt()
         val touchSizePx = (touchSizeDp * density).toInt()
         
-        val bitmap = android.graphics.Bitmap.createBitmap(touchSizePx, touchSizePx, android.graphics.Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(touchSizePx, touchSizePx, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         
         val left = (touchSizePx - visibleSizePx) / 2
@@ -167,6 +170,6 @@ class MarkerManager(
         drawable.setBounds(left, top, left + visibleSizePx, top + visibleSizePx)
         drawable.draw(canvas)
         
-        return BitmapDrawable(context.resources, bitmap)
+        return bitmap.toDrawable(context.resources)
     }
 }

@@ -2,8 +2,10 @@
 
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:ignore="MergeRootFrame">
 
     <org.osmdroid.views.MapView
         android:id="@+id/map"
@@ -16,7 +18,7 @@
         android:layout_height="40dp"
         android:layout_gravity="center"
         android:gravity="center"
-        android:text="+"
+        android:text="@string/plus"
         android:textSize="32sp"
         android:textStyle="bold"
         android:elevation="8dp" />
@@ -29,7 +31,7 @@
         android:layout_gravity="bottom|start"
         android:layout_marginStart="@dimen/side_margin"
         android:layout_marginBottom="@dimen/button_margin_bottom"
-        android:contentDescription="Oma sijainti"
+        android:contentDescription="@string/my_location"
         android:insetLeft="0dp"
         android:insetTop="0dp"
         android:insetRight="0dp"
@@ -55,7 +57,7 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="@dimen/side_margin"
         android:layout_marginBottom="@dimen/button_margin_bottom"
-        android:contentDescription="Lisää kala"
+        android:contentDescription="@string/add_catch"
         android:insetLeft="0dp"
         android:insetTop="0dp"
         android:insetRight="0dp"
@@ -80,7 +82,7 @@
         android:layout_gravity="top|start"
         android:layout_marginTop="@dimen/settings_button_margin_top"
         android:layout_marginStart="@dimen/side_margin"
-        android:contentDescription="Asetukset"
+        android:contentDescription="@string/settings"
         android:insetLeft="0dp"
         android:insetTop="0dp"
         android:insetRight="0dp"

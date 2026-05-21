@@ -4,7 +4,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
-import fi.anssi.kalakartta.data.FishSpecies
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 
@@ -31,7 +30,7 @@ class CatchManager(
                 .setTitle("Valitse kalalaji")
                 .setItems(fallbackNames) { _, which ->
                     val selected = fallbacks[which]
-                    addCatchAtSelectedLocation(selected.first, selected.second)
+                    addCatchAtSelectedLocation(selected.first)
                 }
                 .show()
             return
@@ -41,12 +40,12 @@ class CatchManager(
             .setTitle("Valitse kalalaji")
             .setItems(names) { _, which ->
                 val selected = speciesList[which]
-                addCatchAtSelectedLocation(selected.id, selected.name)
+                addCatchAtSelectedLocation(selected.id)
             }
             .show()
     }
 
-    private fun addCatchAtSelectedLocation(speciesId: String, speciesName: String) {
+    private fun addCatchAtSelectedLocation(speciesId: String) {
         val point = map.mapCenter as GeoPoint
 
         val fish = FishCatch(

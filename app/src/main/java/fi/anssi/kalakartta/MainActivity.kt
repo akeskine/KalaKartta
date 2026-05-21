@@ -10,24 +10,17 @@ import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import android.graphics.drawable.BitmapDrawable
-import androidx.core.graphics.drawable.toBitmap
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.data.*
 import androidx.room.Room
 import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
-import fi.anssi.kalakartta.utils.enlargeButtons
-import androidx.room.RoomDatabase
-import androidx.sqlite.db.SupportSQLiteDatabase
 
 class MainActivity : AppCompatActivity() {
 
@@ -170,7 +163,7 @@ class MainActivity : AppCompatActivity() {
         val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
         val isGpsEnabled = try {
             locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
         

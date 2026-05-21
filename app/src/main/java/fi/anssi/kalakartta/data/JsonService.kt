@@ -59,7 +59,7 @@ class JsonService {
 
             val caughtAtStr = obj.optString("caughtAt", "")
             val caughtAtLong = if (caughtAtStr.isNotEmpty()) {
-                try { isoFormat.parse(caughtAtStr)?.time ?: 0L } catch (e: Exception) { 0L }
+                try { isoFormat.parse(caughtAtStr)?.time ?: 0L } catch (_: Exception) { 0L }
             } else {
                 obj.optLong("caughtAt", 0L)
             }
