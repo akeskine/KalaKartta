@@ -177,4 +177,11 @@ class MainActivity : AppCompatActivity() {
             updateMyLocationButtonVisibility()
         }
     }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            reloadMarkersFromDb()
+        }
+    }
 }

@@ -18,4 +18,10 @@ interface FishCatchDao {
 
     @Query("DELETE FROM FishCatch")
     fun deleteAll()
+
+    @Query("SELECT * FROM FishCatch WHERE id = :id")
+    fun getById(id: Long): FishCatch?
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    fun update(fishCatch: FishCatch)
 }

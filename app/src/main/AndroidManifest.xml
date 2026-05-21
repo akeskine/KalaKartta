@@ -26,6 +26,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.TripNotesActivity" />
+        <activity android:name=".ui.EditCatchActivity" />
     </application>
 
 </manifest>

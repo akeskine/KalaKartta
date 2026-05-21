@@ -126,12 +126,15 @@ class MarkerManager(
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     0 -> {
-                        // Placeholder muokkaukselle
-                        AlertDialog.Builder(context)
-                            .setMessage("Muokkaus tulossa tähän myöhemmin.")
-                            .setPositiveButton(R.string.ok, null)
-                            .show()
-                            .enlargeButtons()
+                        val intent = Intent(context, EditCatchActivity::class.java)
+                        intent.putExtra("EXTRA_CATCH_ID", fish?.id)
+                        if (context is android.app.Activity) {
+                            context.startActivityForResult(intent, 1001)
+                        } else {
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        }
+                        dialog.dismiss()
                         true
                     }
                     1 -> {
