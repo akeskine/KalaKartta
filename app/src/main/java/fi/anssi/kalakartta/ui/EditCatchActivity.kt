@@ -106,14 +106,33 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun loadData() {
         val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
+        val allSpecies = db.fishSpeciesDao().getAll()
+        
+        // Lisätään tyhjä valinta listan alkuun
+        val emptySpecies = FishSpecies(id = "", name = getString(R.string.empty_selection))
+        speciesList = listOf(emptySpecies) + allSpecies
+
         if (catchId == -1L) {
+            val lat = intent.getDoubleExtra("EXTRA_LATITUDE", 0.0)
+            val lon = intent.getDoubleExtra("EXTRA_LONGITUDE", 0.0)
+            
+            fishCatch = FishCatch(
+                species = "", // Oletusarvoksi tyhjä laji
+                latitude = lat,
+                longitude = lon,
+                caughtAt = System.currentTimeMillis()
+            )
+            setTitle(R.string.add_detailed)
+        } else {
+            fishCatch = db.fishCatchDao().getById(catchId)
+            setTitle(R.string.edit_catch_title)
+        }
+
+        if (fishCatch == null) {
             Toast.makeText(this, getString(R.string.edit_error), Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-
-        fishCatch = db.fishCatchDao().getById(catchId)
-        speciesList = db.fishSpeciesDao().getAll()
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, speciesList.map { it.name })
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -121,7 +140,7 @@ class EditCatchActivity : AppCompatActivity() {
 
         fishCatch?.let { fc ->
             val speciesIndex = speciesList.indexOfFirst { it.id == fc.species }
-            if (speciesIndex != -1) speciesSpinner.setSelection(speciesIndex)
+            speciesSpinner.setSelection(if (speciesIndex != -1) speciesIndex else 0)
 
             selectedCalendar.timeInMillis = fc.caughtAt
             updateDateTimeButtonText()
@@ -226,10 +245,16 @@ class EditCatchActivity : AppCompatActivity() {
                 longitude = lonEditText.text.toString().toDoubleOrNull() ?: fc.longitude
             )
 
-            db.fishCatchDao().update(updatedCatch)
+            if (updatedCatch.id == 0L) {
+                db.fishCatchDao().insert(updatedCatch)
+            } else {
+                db.fishCatchDao().update(updatedCatch)
+            }
+            
+            val message = if (updatedCatch.id == 0L) getString(R.string.save_success) else getString(R.string.edit_success)
             
             AlertDialog.Builder(this)
-                .setMessage(getString(R.string.edit_success))
+                .setMessage(message)
                 .setPositiveButton(getString(R.string.ok)) { _, _ ->
                     setResult(RESULT_OK)
                     finish()

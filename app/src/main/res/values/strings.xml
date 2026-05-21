@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">KalaKartta</string>
-    <string name="add_catch">Lisää kala</string>
+    <string name="add_catch">Lisää merkintä</string>
+    <string name="add_detailed">Lisää tarkemmin…</string>
     <string name="my_location">Oma sijainti</string>
     <string name="settings">Asetukset</string>
     <string name="ok">OK</string>
@@ -28,7 +29,9 @@
     <string name="save">Tallenna</string>
     <string name="cancel">Peruuta</string>
     <string name="edit_success">Tietojen muokkaus onnistui</string>
+    <string name="save_success">Tietojen tallennus onnistui</string>
     <string name="edit_error">Tietojen muokkaus epäonnistui</string>
     <string name="unsaved_changes_warning">Sinulla on tallentamattomia muutoksia. Haluatko varmasti poistua?</string>
     <string name="discard">Hylkää muutokset</string>
+    <string name="empty_selection"></string>
 </resources>
