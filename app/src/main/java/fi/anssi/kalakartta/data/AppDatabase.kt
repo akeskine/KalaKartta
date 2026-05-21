@@ -1,9 +1,11 @@
 package fi.anssi.kalakartta.data
 
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import android.content.Context
 
 @Database(
     entities = [FishCatch::class, FishSpecies::class],
@@ -15,6 +17,25 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fishSpeciesDao(): FishSpeciesDao
 
     companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getInstance(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "kalakartta-db"
+                )
+                .addMigrations(MIGRATION_2_3)
+                .fallbackToDestructiveMigration()
+                .allowMainThreadQueries()
+                .build()
+                INSTANCE = instance
+                instance
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE FishCatch ADD COLUMN tripNotes TEXT NOT NULL DEFAULT ''")

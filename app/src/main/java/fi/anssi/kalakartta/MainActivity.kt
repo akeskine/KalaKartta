@@ -21,6 +21,7 @@ import androidx.room.Room
 import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
+import fi.anssi.kalakartta.ui.FilterManager
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settingsManager: SettingsManager
     private lateinit var catchManager: CatchManager
     private lateinit var markerManager: MarkerManager
+    private lateinit var filterManager: FilterManager
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
 
@@ -77,15 +79,7 @@ class MainActivity : AppCompatActivity() {
             settingsManager.openSettings()
         }
 
-        db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "kalakartta-db"
-        )
-        .addMigrations(AppDatabase.MIGRATION_2_3)
-        .fallbackToDestructiveMigration()
-        .allowMainThreadQueries()
-        .build()
+        db = AppDatabase.getInstance(this)
 
         // Esitäyttö taustasäikeessä jos tietokanta on tyhjä
         Thread {
@@ -114,18 +108,34 @@ class MainActivity : AppCompatActivity() {
             map.invalidate()
         }
 
+        filterManager = FilterManager(this)
+
         catchManager = CatchManager(this, map, db) { fish ->
             markerManager.addMarker(fish)
             map.invalidate()
         }
 
         loadCatches()
+        updateFilterStatusUI()
     }
 
     private fun loadCatches() {
         val catches = db.fishCatchDao().getAll()
-        catches.forEach { markerManager.addMarker(it) }
+        val filteredCatches = filterManager.applyFilter(catches)
+        filteredCatches.forEach { markerManager.addMarker(it) }
         map.invalidate()
+    }
+
+    private fun updateFilterStatusUI() {
+        val layout = findViewById<android.view.View>(R.id.filterStatusLayout)
+        val text = findViewById<android.widget.TextView>(R.id.filterStatusText)
+        
+        if (filterManager.hasActiveFilters()) {
+            layout.visibility = android.view.View.VISIBLE
+            text.text = filterManager.getFilterDescription()
+        } else {
+            layout.visibility = android.view.View.GONE
+        }
     }
 
     private fun reloadMarkersFromDb() {
@@ -180,8 +190,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1001 && resultCode == RESULT_OK) {
+        if ((requestCode == 1001 || requestCode == 1002) && resultCode == RESULT_OK) {
             reloadMarkersFromDb()
+            updateFilterStatusUI()
         }
     }
 }

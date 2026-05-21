@@ -34,4 +34,15 @@
     <string name="unsaved_changes_warning">Sinulla on tallentamattomia muutoksia. Haluatko varmasti poistua?</string>
     <string name="discard">Hylkää muutokset</string>
     <string name="empty_selection"></string>
+    <string name="data_filtering">Tiedon suodatus</string>
+    <string name="clear_filters">Poista suodattimet</string>
+    <string name="date_range">Aikaväli (pvm)</string>
+    <string name="annual_date_range">Päivämäärä (vuosittainen)</string>
+    <string name="time_range">Kellonaika</string>
+    <string name="start_date">Alku</string>
+    <string name="end_date">Loppu</string>
+    <string name="start_time">Alku (klo)</string>
+    <string name="end_time">Loppu (klo)</string>
+    <string name="filter_active">Suodatin päällä</string>
+    <string name="filters_cleared">Suodattimet poistettu</string>
 </resources>

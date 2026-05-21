@@ -27,6 +27,7 @@
         </activity>
         <activity android:name=".ui.TripNotesActivity" />
         <activity android:name=".ui.EditCatchActivity" />
+        <activity android:name=".ui.FilterActivity" />
     </application>
 
 </manifest>

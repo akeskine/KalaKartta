@@ -16,13 +16,19 @@ class SettingsManager(
     fun openSettings() {
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Asetukset")
-            .setItems(arrayOf("Tiedonsiirto")) { _, which ->
+            .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus")) { _, which ->
                 when (which) {
                     0 -> openDataTransferSettings()
+                    1 -> openFilterSettings()
                 }
             }
             .show()
         dialog.enlargeButtons()
+    }
+
+    private fun openFilterSettings() {
+        val intent = android.content.Intent(activity, FilterActivity::class.java)
+        activity.startActivityForResult(intent, 1002)
     }
 
     private fun openDataTransferSettings() {

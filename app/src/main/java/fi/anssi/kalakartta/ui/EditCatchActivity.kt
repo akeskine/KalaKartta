@@ -97,11 +97,7 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun setupDatabase() {
-        db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "kalakartta-db"
-        ).allowMainThreadQueries().build()
+        db = AppDatabase.getInstance(this)
     }
 
     private fun loadData() {
