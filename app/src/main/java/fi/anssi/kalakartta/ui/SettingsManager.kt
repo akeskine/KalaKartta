@@ -55,5 +55,11 @@ class SettingsManager(
     private fun deleteAllCatches() {
         db.fishCatchDao().deleteAll()
         onDataChanged()
+
+        val dialog = AlertDialog.Builder(activity)
+            .setMessage("Kaikki pisteet poistettu.")
+            .setPositiveButton("OK", null)
+            .show()
+        dialog.enlargeButtons()
     }
 }

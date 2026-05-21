@@ -4,5 +4,7 @@
     <string name="my_location">Oma sijainti</string>
     <string name="settings">Asetukset</string>
     <string name="ok">OK</string>
+    <string name="delete">Poista</string>
+    <string name="edit">Muokkaa</string>
     <string name="plus">+</string>
 </resources>

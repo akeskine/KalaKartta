@@ -3,8 +3,10 @@ package fi.anssi.kalakartta.io
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.JsonService
+import fi.anssi.kalakartta.utils.enlargeButtons
 
 class ImportExportManager(
     private val activity: ComponentActivity,
@@ -37,6 +39,7 @@ class ImportExportManager(
         Thread {
             val list = db.fishCatchDao().getAll()
             jsonService.export(activity.contentResolver, uri, list)
+            showConfirmationDialog("Tietojen vienti valmis.")
         }.start()
     }
 
@@ -48,7 +51,18 @@ class ImportExportManager(
 
             activity.runOnUiThread {
                 onImportDone()
+                showConfirmationDialog("Tietojen tuonti valmis.")
             }
         }.start()
+    }
+
+    private fun showConfirmationDialog(message: String) {
+        activity.runOnUiThread {
+            val dialog = AlertDialog.Builder(activity)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show()
+            dialog.enlargeButtons()
+        }
     }
 }

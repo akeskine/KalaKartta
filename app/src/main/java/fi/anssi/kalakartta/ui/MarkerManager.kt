@@ -8,6 +8,7 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.view.View
 import android.widget.TextView
+import android.widget.PopupMenu
 import android.content.Intent
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
@@ -45,7 +46,7 @@ class MarkerManager(
         val iconName = species?.icon_default ?: ""
         val drawableId = getDrawableId(iconName)
         
-        val iconSize = if (drawableId == R.drawable.default_point) 8 else 20
+        val iconSize = if (drawableId == R.drawable.default_point) 8 else 40
         marker.icon = if (drawableId == R.drawable.default_point) {
             getSmallIconWithLargeTouchArea(drawableId, 8, 48)
         } else {
@@ -107,14 +108,42 @@ class MarkerManager(
             messageText
         }
 
+        val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
+        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = if (hasSpecies) "Saaliin tiedot" else "Pisteen tiedot"
+
         val dialog = AlertDialog.Builder(context)
-            .setTitle(if (hasSpecies) "Saaliin tiedot" else "Pisteen tiedot")
+            .setCustomTitle(titleView)
             .setMessage(finalMessage)
             .setPositiveButton("OK", null)
-            .setNegativeButton("Poista") { _, _ ->
-                confirmDeleteMarker(marker)
-            }
             .create()
+
+        val editMenuButton = titleView.findViewById<android.view.View>(R.id.editMenuButton)
+        editMenuButton.setOnClickListener {
+            val popup = PopupMenu(context, editMenuButton)
+            popup.menu.add(0, 0, 0, context.getString(R.string.edit))
+            popup.menu.add(0, 1, 1, context.getString(R.string.delete))
+
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    0 -> {
+                        // Placeholder muokkaukselle
+                        AlertDialog.Builder(context)
+                            .setMessage("Muokkaus tulossa tähän myöhemmin.")
+                            .setPositiveButton(R.string.ok, null)
+                            .show()
+                            .enlargeButtons()
+                        true
+                    }
+                    1 -> {
+                        dialog.dismiss()
+                        confirmDeleteMarker(marker)
+                        true
+                    }
+                    else -> false
+                }
+            }
+            popup.show()
+        }
 
         if (fish != null && fish.tripNotes.isNotEmpty()) {
             dialog.setOnShowListener {
