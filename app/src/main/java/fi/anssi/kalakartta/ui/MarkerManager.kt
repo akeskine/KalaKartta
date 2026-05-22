@@ -106,10 +106,17 @@ class MarkerManager(
         val iconName = species?.icon_default ?: ""
         val drawableId = getDrawableId(iconName)
         
-        val iconSize = if (drawableId == R.drawable.default_point) 24 else 40
+        var iconSize = if (drawableId == R.drawable.default_point) 24 else 40
+        var visibleSize = if (drawableId == R.drawable.default_point) 8 else iconSize
+        
+        if (fish.species == "SALMON") {
+            iconSize = (iconSize * 1.3).toInt()
+            visibleSize = (visibleSize * 1.3).toInt()
+        }
+
         marker.icon = if (drawableId == R.drawable.default_point) {
-            val key = Triple(drawableId, 8, 48)
-            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, 8, 48) }
+            val key = Triple(drawableId, visibleSize, 48)
+            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, visibleSize, 48) }
         } else {
             val key = Pair(drawableId, iconSize)
             iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
@@ -144,7 +151,10 @@ class MarkerManager(
             marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, 8, 48) }
             marker.title = "Tuntematon laji"
         } else {
-            val iconSize = 40
+            var iconSize = 40
+            if (speciesId == "SALMON") {
+                iconSize = (iconSize * 1.3).toInt()
+            }
             val key = Triple(drawableId, iconSize, count)
             marker.icon = clusterIconCache.getOrPut(key) { 
                 getClusteredMarkerIcon(drawableId, iconSize, count) 
