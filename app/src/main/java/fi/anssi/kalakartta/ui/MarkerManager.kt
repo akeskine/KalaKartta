@@ -24,6 +24,7 @@ import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.utils.enlargeButtons
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
@@ -116,6 +117,7 @@ class MarkerManager(
         marker.relatedObject = fish
 
         marker.setOnMarkerClickListener { clickedMarker, _ ->
+            map.controller.animateTo(clickedMarker.position)
             showCatchDetailsDialog(clickedMarker)
             true
         }
@@ -153,9 +155,30 @@ class MarkerManager(
         marker.relatedObject = clusterList
 
         marker.setOnMarkerClickListener { clickedMarker, _ ->
-            // Zoomataan lähemmäs klusteria klikatessa
-            map.controller.animateTo(clickedMarker.position)
-            map.controller.zoomIn()
+            // Zoomataan klusteriin sisään
+            val list = clickedMarker.relatedObject as? List<FishCatch>
+            if (list != null && list.isNotEmpty()) {
+                val minLat = list.minOf { it.latitude }
+                val maxLat = list.maxOf { it.latitude }
+                val minLon = list.minOf { it.longitude }
+                val maxLon = list.maxOf { it.longitude }
+                
+                if (minLat == maxLat && minLon == maxLon) {
+                    // Kaikki pisteet samassa kohdassa, nostetaan zoomia vain vähän (max 16.0)
+                    // Käytetään +2.0 ja max 16.0, jotta ei zoomata liian lähelle "tyhjään"
+                    val targetZoom = (map.zoomLevelDouble + 2.0).coerceAtMost(16.0)
+                    map.controller.animateTo(clickedMarker.position, targetZoom, 500L)
+                } else {
+                    // Luodaan rajoittava laatikko ja lisätään 50% marginaali (1.5f)
+                    val box = BoundingBox(maxLat, maxLon, minLat, minLon)
+                    // Käytetään zoomToBoundingBoxia mutta rajoitetaan maksimizoomia tasolle 16.0
+                    // 16.0 on riittävä taso nähdä pisteet erikseen, koska klusterointi loppuu jo 14.5 tasolla
+                    map.zoomToBoundingBox(box.increaseByScale(1.5f), true, 0, 16.0, 500L)
+                }
+            } else {
+                val targetZoom = (map.zoomLevelDouble + 1.0).coerceAtMost(16.0)
+                map.controller.animateTo(clickedMarker.position, targetZoom, 500L)
+            }
             true
         }
 
