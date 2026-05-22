@@ -1,6 +1,10 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.text.SpannableString
 import android.text.Spanned
@@ -23,6 +27,7 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
+import org.osmdroid.views.overlay.FolderOverlay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,14 +37,67 @@ class MarkerManager(
     private val db: AppDatabase,
     private val onDeleteConfirmed: (Marker) -> Unit
 ) {
+    private val markersFolder = FolderOverlay()
+    private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
+    private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
+    private val clusterIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
+    private val allCatches = mutableListOf<FishCatch>()
+    private var lastZoom = -1.0
+
+    init {
+        map.overlays.add(markersFolder)
+    }
 
     fun addMarker(fish: FishCatch) {
+        allCatches.add(fish)
+    }
+
+    fun rebuildMarkers(zoom: Double) {
+        lastZoom = zoom
+        markersFolder.items.clear()
+        
+        if (allCatches.isEmpty()) {
+            map.invalidate()
+            return
+        }
+
+        // Kynnysarvo klusteroinnille (esim. zoom < 13)
+        if (zoom < 13.0) {
+            clusterMarkers(zoom)
+        } else {
+            allCatches.forEach { addIndividualMarker(it) }
+        }
+        map.invalidate()
+    }
+
+    private fun clusterMarkers(zoom: Double) {
+        val gridSize = 360.0 / (Math.pow(2.0, zoom) * 8.0) // Laskennallinen ruudukon koko
+        val groupedBySpecies = allCatches.groupBy { it.species }
+
+        for ((speciesId, catches) in groupedBySpecies) {
+            val grid = mutableMapOf<Pair<Int, Int>, MutableList<FishCatch>>()
+            for (fish in catches) {
+                val gx = (fish.longitude / gridSize).toInt()
+                val gy = (fish.latitude / gridSize).toInt()
+                grid.getOrPut(gx to gy) { mutableListOf() }.add(fish)
+            }
+
+            for (clusterList in grid.values) {
+                if (clusterList.size == 1) {
+                    addIndividualMarker(clusterList[0])
+                } else {
+                    addClusterMarker(speciesId, clusterList)
+                }
+            }
+        }
+    }
+
+    private fun addIndividualMarker(fish: FishCatch) {
         val point = GeoPoint(fish.latitude, fish.longitude)
         val marker = Marker(map)
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         
-        // Hae lajin nimi ja kuvake tietokannasta
         val species = db.fishSpeciesDao().getById(fish.species)
         marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
         
@@ -48,9 +106,11 @@ class MarkerManager(
         
         val iconSize = if (drawableId == R.drawable.default_point) 24 else 40
         marker.icon = if (drawableId == R.drawable.default_point) {
-            getSmallIconWithLargeTouchArea(drawableId, 16, 48)
+            val key = Triple(drawableId, 8, 48)
+            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, 8, 48) }
         } else {
-            getScaledMarkerIcon(drawableId, iconSize)
+            val key = Pair(drawableId, iconSize)
+            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
         }
         marker.relatedObject = fish
 
@@ -59,7 +119,82 @@ class MarkerManager(
             true
         }
 
-        map.overlays.add(marker)
+        markersFolder.add(marker)
+    }
+
+    private fun addClusterMarker(speciesId: String, clusterList: List<FishCatch>) {
+        val avgLat = clusterList.map { it.latitude }.average()
+        val avgLon = clusterList.map { it.longitude }.average()
+        val point = GeoPoint(avgLat, avgLon)
+        
+        val marker = Marker(map)
+        marker.position = point
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        
+        val species = db.fishSpeciesDao().getById(speciesId)
+        val iconName = species?.icon_default ?: ""
+        val drawableId = getDrawableId(iconName)
+        val count = clusterList.size
+
+        if (speciesId == "UNKNOWN") {
+            val key = Triple(drawableId, 8, 48)
+            marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, 8, 48) }
+            marker.title = "Tuntematon laji"
+        } else {
+            val iconSize = 40
+            val key = Triple(drawableId, iconSize, count)
+            marker.icon = clusterIconCache.getOrPut(key) { 
+                getClusteredMarkerIcon(drawableId, iconSize, count) 
+            }
+            marker.title = (species?.name ?: speciesId) + " ($count kpl)"
+        }
+        
+        marker.relatedObject = clusterList
+
+        marker.setOnMarkerClickListener { clickedMarker, _ ->
+            // Zoomataan lähemmäs klusteria klikatessa
+            map.controller.animateTo(clickedMarker.position)
+            map.controller.zoomIn()
+            true
+        }
+
+        markersFolder.add(marker)
+    }
+
+    fun setMarkersVisible(visible: Boolean, zoom: Double) {
+        if (markersFolder.isEnabled != visible || Math.abs(lastZoom - zoom) > 0.1) {
+            markersFolder.isEnabled = visible
+            if (visible) {
+                // Tarkistetaan pitääkö klusterointi päivittää
+                // Jos zoom on muuttunut merkittävästi tai eka kerta
+                if (shouldRebuild(zoom)) {
+                    rebuildMarkers(zoom)
+                }
+            } else {
+                map.invalidate()
+            }
+        }
+    }
+
+    private fun shouldRebuild(zoom: Double): Boolean {
+        if (lastZoom < 0) return true
+        
+        // Jos ollaan klusterointialueella (zoom < 13), päivitys jokaisesta zoom-askeleesta
+        if (zoom < 13.0 || lastZoom < 13.0) {
+            return Math.abs(lastZoom - zoom) >= 1.0
+        }
+        return false
+    }
+
+    fun clearMarkers() {
+        allCatches.clear()
+        markersFolder.items.clear()
+        lastZoom = -1.0
+    }
+
+    fun removeMarker(marker: Marker) {
+        markersFolder.remove(marker)
+        map.invalidate()
     }
 
     private fun showCatchDetailsDialog(marker: Marker) {
@@ -177,6 +312,42 @@ class MarkerManager(
         
         val id = context.resources.getIdentifier(iconName, "drawable", context.packageName)
         return if (id != 0) id else R.drawable.default_point
+    }
+
+    private fun getClusteredMarkerIcon(drawableId: Int, sizeDp: Int, count: Int): BitmapDrawable {
+        val baseIcon = getScaledMarkerIcon(drawableId, sizeDp).bitmap
+        val density = context.resources.displayMetrics.density
+        
+        // Luodaan kopio jota muokataan
+        val bitmap = baseIcon.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(bitmap)
+        
+        val paint = Paint().apply {
+            color = Color.RED
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+        
+        val textPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 12 * density
+            isFakeBoldText = true
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+        
+        val text = count.toString()
+        val bounds = Rect()
+        textPaint.getTextBounds(text, 0, text.length, bounds)
+        
+        val radius = (bounds.width().coerceAtLeast(bounds.height()) / 2f) + (4 * density)
+        val centerX = bitmap.width - radius
+        val centerY = radius
+        
+        canvas.drawCircle(centerX, centerY, radius, paint)
+        canvas.drawText(text, centerX, centerY + (bounds.height() / 2f), textPaint)
+        
+        return bitmap.toDrawable(context.resources)
     }
 
     private fun getScaledMarkerIcon(drawableId: Int, sizeDp: Int): BitmapDrawable {

@@ -14,6 +14,9 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import androidx.core.content.ContextCompat
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.data.*
@@ -117,18 +120,27 @@ class MainActivity : AppCompatActivity() {
             if (fish != null) {
                 db.fishCatchDao().deleteById(fish.id)
             }
-            map.overlays.remove(marker)
-            map.invalidate()
+            markerManager.removeMarker(marker)
         }
+
+        map.addMapListener(object : MapListener {
+            override fun onScroll(event: ScrollEvent?): Boolean = false
+            override fun onZoom(event: ZoomEvent?): Boolean {
+                updateMarkersVisibility()
+                return true
+            }
+        })
 
         filterManager = FilterManager(this)
 
         catchManager = CatchManager(this, map, db) { fish ->
             markerManager.addMarker(fish)
-            map.invalidate()
+            markerManager.rebuildMarkers(map.zoomLevelDouble)
         }
 
         loadCatches()
+        markerManager.rebuildMarkers(map.zoomLevelDouble)
+        updateMarkersVisibility()
         updateFilterStatusUI()
     }
 
@@ -136,7 +148,7 @@ class MainActivity : AppCompatActivity() {
         val catches = db.fishCatchDao().getAll()
         val filteredCatches = filterManager.applyFilter(catches)
         filteredCatches.forEach { markerManager.addMarker(it) }
-        map.invalidate()
+        // Poistettu map.invalidate() tästä, koska rebuildMarkers hoitaa sen
     }
 
     private fun updateFilterStatusUI() {
@@ -152,8 +164,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reloadMarkersFromDb() {
-        map.overlays.removeAll { it is Marker }
+        markerManager.clearMarkers()
         loadCatches()
+        markerManager.rebuildMarkers(map.zoomLevelDouble)
+    }
+
+    private fun updateMarkersVisibility() {
+        // Näytetään pisteet laajemmalla zoom-alueella (alk. tasolta 1.0)
+        // Optimointi on tehty MarkerManagerin kuvakevälimuistilla ja klusteroinnilla
+        markerManager.setMarkersVisible(map.zoomLevelDouble >= 1.0, map.zoomLevelDouble)
     }
 
     private fun requestLocationPermission() {
