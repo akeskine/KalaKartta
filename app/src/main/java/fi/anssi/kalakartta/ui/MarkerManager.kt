@@ -107,6 +107,9 @@ class MarkerManager(
         if (fish.species == "SALMON") {
             iconSize = (iconSize * 1.3).toInt()
             visibleSize = (visibleSize * 1.3).toInt()
+        } else if (fish.species == "PERCH") {
+            iconSize = (iconSize * 0.8).toInt()
+            visibleSize = (visibleSize * 0.8).toInt()
         }
 
         marker.icon = if (drawableId == R.drawable.default_point) {
@@ -226,6 +229,9 @@ class MarkerManager(
         if (fish.species == "SALMON") {
             iconSize = (iconSize * 1.3).toInt()
             visibleSize = (visibleSize * 1.3).toInt()
+        } else if (fish.species == "PERCH") {
+            iconSize = (iconSize * 0.8).toInt()
+            visibleSize = (visibleSize * 0.8).toInt()
         }
 
         marker.icon = if (drawableId == R.drawable.default_point) {
@@ -268,6 +274,8 @@ class MarkerManager(
             var iconSize = 40
             if (speciesId == "SALMON") {
                 iconSize = (iconSize * 1.3).toInt()
+            } else if (speciesId == "PERCH") {
+                iconSize = (iconSize * 0.8).toInt()
             }
             val key = Triple(drawableId, iconSize, count)
             marker.icon = clusterIconCache.getOrPut(key) { 
