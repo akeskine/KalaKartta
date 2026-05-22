@@ -30,7 +30,11 @@ class CatchManager(
             val fallbacks = listOf(
                 FishSpecies("PERCH", "Ahven", icon_default = "ahven"),
                 FishSpecies("PIKE", "Hauki", icon_default = "hauki"),
-                FishSpecies("ZANDER", "Kuha", icon_default = "kuha")
+                FishSpecies("ZANDER", "Kuha", icon_default = "kuha"),
+                FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
+                FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
+                FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
+                FishSpecies("WHITEFISH", "Siika", icon_default = "siika")
             )
             showSpeciesDialogWithData(fallbacks)
             return

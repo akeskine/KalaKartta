@@ -81,13 +81,26 @@ class MainActivity : AppCompatActivity() {
 
         db = AppDatabase.getInstance(this)
 
-        // Esitäyttö taustasäikeessä jos tietokanta on tyhjä
+        // Esitäyttö taustasäikeessä
         Thread {
             val speciesDao = db.fishSpeciesDao()
-            if (speciesDao.getAll().isEmpty()) {
-                speciesDao.insert(FishSpecies("PERCH", "Ahven", icon_default = "ahven"))
-                speciesDao.insert(FishSpecies("PIKE", "Hauki", icon_default = "hauki"))
-                speciesDao.insert(FishSpecies("ZANDER", "Kuha", icon_default = "kuha"))
+            val defaults = listOf(
+                FishSpecies("PERCH", "Ahven", icon_default = "ahven"),
+                FishSpecies("PIKE", "Hauki", icon_default = "hauki"),
+                FishSpecies("ZANDER", "Kuha", icon_default = "kuha"),
+                FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
+                FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
+                FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
+                FishSpecies("WHITEFISH", "Siika", icon_default = "siika")
+            )
+
+            defaults.forEach { species ->
+                val existing = speciesDao.getById(species.id)
+                if (existing == null) {
+                    speciesDao.insert(species)
+                } else if (existing.icon_default.isEmpty() && species.icon_default.isNotEmpty()) {
+                    speciesDao.insert(existing.copy(icon_default = species.icon_default))
+                }
             }
         }.start()
 
