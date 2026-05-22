@@ -41,14 +41,14 @@ class MarkerManager(
         
         // Hae lajin nimi ja kuvake tietokannasta
         val species = db.fishSpeciesDao().getById(fish.species)
-        marker.title = species?.name ?: fish.species
+        marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
         
         val iconName = species?.icon_default ?: ""
         val drawableId = getDrawableId(iconName)
         
-        val iconSize = if (drawableId == R.drawable.default_point) 8 else 40
+        val iconSize = if (drawableId == R.drawable.default_point) 24 else 40
         marker.icon = if (drawableId == R.drawable.default_point) {
-            getSmallIconWithLargeTouchArea(drawableId, 8, 48)
+            getSmallIconWithLargeTouchArea(drawableId, 16, 48)
         } else {
             getScaledMarkerIcon(drawableId, iconSize)
         }

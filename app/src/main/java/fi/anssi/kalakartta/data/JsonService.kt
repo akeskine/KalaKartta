@@ -55,38 +55,47 @@ class JsonService {
         val result = mutableListOf<FishCatch>()
 
         for (i in 0 until jsonArray.length()) {
-            val obj = jsonArray.getJSONObject(i)
+            try {
+                val obj = jsonArray.getJSONObject(i)
 
-            val caughtAtStr = obj.optString("caughtAt", "")
-            val caughtAtLong = if (caughtAtStr.isNotEmpty()) {
-                try { isoFormat.parse(caughtAtStr)?.time ?: 0L } catch (_: Exception) { 0L }
-            } else {
-                obj.optLong("caughtAt", 0L)
-            }
+                val caughtAtStr = obj.optString("caughtAt", "")
+                val caughtAtLong = if (caughtAtStr.isNotEmpty()) {
+                    try {
+                        isoFormat.parse(caughtAtStr)?.time ?: 0L
+                    } catch (_: Exception) {
+                        0L
+                    }
+                } else {
+                    obj.optLong("caughtAt", 0L)
+                }
 
-            result.add(
-                FishCatch(
-                    id = 0,
-                    species = obj.getString("species"),
-                    latitude = obj.getDouble("latitude"),
-                    longitude = obj.getDouble("longitude"),
-                    caughtAt = caughtAtLong,
-                    weight = obj.optLong("weight", 0),
-                    length = obj.optLong("length", 0),
-                    method = obj.optString("method", ""),
-                    strikeDepth = obj.optDouble("strikeDepth", 0.0),
-                    waterDepth = obj.optDouble("waterDepth", 0.0),
-                    waterTemp = obj.optDouble("waterTemp", 0.0),
-                    airTemp = obj.optDouble("airTemp", 0.0),
-                    cloudiness = obj.optLong("cloudiness", 0),
-                    rain = obj.optLong("rain", 0),
-                    windSpeed = obj.optDouble("windSpeed", 0.0),
-                    windDirection = obj.optLong("windDirection", 0),
-                    additionalInfo = obj.optString("additionalInfo", ""),
-                    originalRef = obj.optString("originalRef", ""),
-                    tripNotes = obj.optString("tripNotes", "")
+                result.add(
+                    FishCatch(
+                        id = 0,
+                        species = obj.optString("species", "UNKNOWN"),
+                        latitude = obj.optDouble("latitude", 0.0),
+                        longitude = obj.optDouble("longitude", 0.0),
+                        caughtAt = caughtAtLong,
+                        weight = obj.optLong("weight", 0),
+                        length = obj.optLong("length", 0),
+                        method = obj.optString("method", ""),
+                        strikeDepth = obj.optDouble("strikeDepth", 0.0),
+                        waterDepth = obj.optDouble("waterDepth", 0.0),
+                        waterTemp = obj.optDouble("waterTemp", 0.0),
+                        airTemp = obj.optDouble("airTemp", 0.0),
+                        cloudiness = obj.optLong("cloudiness", 0),
+                        rain = obj.optLong("rain", 0),
+                        windSpeed = obj.optDouble("windSpeed", 0.0),
+                        windDirection = obj.optLong("windDirection", 0),
+                        additionalInfo = obj.optString("additionalInfo", ""),
+                        originalRef = obj.optString("originalRef", ""),
+                        tripNotes = obj.optString("tripNotes", "")
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                // Skip invalid objects
+                android.util.Log.e("JsonService", "Error parsing JSON object at index $i", e)
+            }
         }
 
         return result

@@ -7,8 +7,11 @@ import androidx.room.Query
 @Dao
 interface FishCatchDao {
 
-    @Insert
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
     fun insert(fishCatch: FishCatch): Long
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    fun insertAll(fishCatches: List<FishCatch>)
 
     @Query("SELECT * FROM FishCatch")
     fun getAll(): List<FishCatch>
