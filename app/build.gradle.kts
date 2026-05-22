@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.android.application)
-    id("com.google.devtools.ksp") version "2.2.20-2.0.3"
+    id("com.android.application")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)

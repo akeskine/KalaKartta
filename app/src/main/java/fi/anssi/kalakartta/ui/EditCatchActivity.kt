@@ -252,7 +252,9 @@ class EditCatchActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setMessage(message)
                 .setPositiveButton(getString(R.string.ok)) { _, _ ->
-                    setResult(RESULT_OK)
+                    val resultIntent = android.content.Intent()
+                    resultIntent.putExtra("EXTRA_CATCH_ID", updatedCatch.id)
+                    setResult(RESULT_OK, resultIntent)
                     finish()
                 }
                 .show()

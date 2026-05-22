@@ -121,10 +121,20 @@ class MainActivity : AppCompatActivity() {
                 db.fishCatchDao().deleteById(fish.id)
             }
             markerManager.removeMarker(marker)
+            // Päivitetään klusterit jos tarpeen
+            if (map.zoomLevelDouble < 14.5) {
+                markerManager.rebuildMarkers(map.zoomLevelDouble)
+            }
         }
 
         map.addMapListener(object : MapListener {
-            override fun onScroll(event: ScrollEvent?): Boolean = false
+            override fun onScroll(event: ScrollEvent?): Boolean {
+                // Kun ollaan zoomed in, päivitetään näkyvät markerit (clipping)
+                if (map.zoomLevelDouble >= 14.5) {
+                    markerManager.setMarkersVisible(true, map.zoomLevelDouble, forceRebuild = true)
+                }
+                return false
+            }
             override fun onZoom(event: ZoomEvent?): Boolean {
                 updateMarkersVisibility()
                 return true
@@ -134,8 +144,7 @@ class MainActivity : AppCompatActivity() {
         filterManager = FilterManager(this)
 
         catchManager = CatchManager(this, map, db) { fish ->
-            markerManager.addMarker(fish)
-            markerManager.rebuildMarkers(map.zoomLevelDouble)
+            markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
         }
 
         loadCatches()
@@ -222,8 +231,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if ((requestCode == 1001 || requestCode == 1002) && resultCode == RESULT_OK) {
-            reloadMarkersFromDb()
+        if (resultCode == RESULT_OK) {
+            val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
+            
+            if (requestCode == 1001 && catchId != -1L) {
+                // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
+                val fish = db.fishCatchDao().getById(catchId)
+                if (fish != null) {
+                    markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
+                } else {
+                    reloadMarkersFromDb()
+                }
+            } else {
+                // Muut tapaukset (import, asetukset tms.): täysi reload
+                reloadMarkersFromDb()
+            }
             updateFilterStatusUI()
         }
     }
