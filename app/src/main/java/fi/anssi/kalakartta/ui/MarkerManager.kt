@@ -61,8 +61,8 @@ class MarkerManager(
             return
         }
 
-        // Kynnysarvo klusteroinnille (esim. zoom < 13)
-        if (zoom < 13.0) {
+        // Kynnysarvo klusteroinnille (nostettu 14.5:een)
+        if (zoom < 14.5) {
             clusterMarkers(zoom)
         } else {
             allCatches.forEach { addIndividualMarker(it) }
@@ -71,7 +71,8 @@ class MarkerManager(
     }
 
     private fun clusterMarkers(zoom: Double) {
-        val gridSize = 360.0 / (Math.pow(2.0, zoom) * 8.0) // Laskennallinen ruudukon koko
+        // Suurempi ruudukko (jakaja 5.0 -> n. 50-60px tiilillä) vähentää markerien määrää
+        val gridSize = 360.0 / (Math.pow(2.0, zoom) * 5.0) 
         val groupedBySpecies = allCatches.groupBy { it.species }
 
         for ((speciesId, catches) in groupedBySpecies) {
@@ -179,9 +180,9 @@ class MarkerManager(
     private fun shouldRebuild(zoom: Double): Boolean {
         if (lastZoom < 0) return true
         
-        // Jos ollaan klusterointialueella (zoom < 13), päivitys jokaisesta zoom-askeleesta
-        if (zoom < 13.0 || lastZoom < 13.0) {
-            return Math.abs(lastZoom - zoom) >= 1.0
+        // Jos ollaan klusterointialueella tai siirtymässä sinne, päivitys 0.8 askeleen välein
+        if (zoom < 14.5 || lastZoom < 14.5) {
+            return Math.abs(lastZoom - zoom) >= 0.8
         }
         return false
     }

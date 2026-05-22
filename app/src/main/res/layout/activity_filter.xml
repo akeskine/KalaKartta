@@ -52,16 +52,20 @@
                 android:orientation="horizontal">
                 <Button
                     android:id="@+id/startDateButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
+                    app:backgroundTint="@color/white"
                     android:text="@string/start_date" />
                 <Button
                     android:id="@+id/endDateButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
+                    app:backgroundTint="@color/white"
                     android:text="@string/end_date" />
             </LinearLayout>
 
@@ -79,16 +83,20 @@
                 android:orientation="horizontal">
                 <Button
                     android:id="@+id/annualStartButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
+                    app:backgroundTint="@color/white"
                     android:text="@string/start_date" />
                 <Button
                     android:id="@+id/annualEndButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
+                    app:backgroundTint="@color/white"
                     android:text="@string/end_date" />
             </LinearLayout>
 
@@ -106,16 +114,20 @@
                 android:orientation="horizontal">
                 <Button
                     android:id="@+id/startTimeButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
+                    app:backgroundTint="@color/white"
                     android:text="@string/start_time" />
                 <Button
                     android:id="@+id/endTimeButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
+                    app:backgroundTint="@color/white"
                     android:text="@string/end_time" />
             </LinearLayout>
 
@@ -132,16 +144,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:minHeight="48dp" />
+                android:minHeight="48dp"
+                android:background="@android:drawable/btn_dropdown"
+                android:backgroundTint="@color/white" />
 
         </LinearLayout>
     </ScrollView>
 
     <Button
         android:id="@+id/okButton"
+        style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
+        android:layout_marginBottom="40dp"
         android:text="@string/ok" />
 
 </LinearLayout>
