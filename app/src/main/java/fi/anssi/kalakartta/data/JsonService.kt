@@ -20,21 +20,21 @@ class JsonService {
             val obj = JSONObject()
             obj.put("id", it.id)
             obj.put("species", it.species)
-            obj.put("latitude", it.latitude)
-            obj.put("longitude", it.longitude)
+            obj.putSafe("latitude", it.latitude)
+            obj.putSafe("longitude", it.longitude)
             obj.put("caughtAt", isoFormat.format(Date(it.caughtAt)))
             obj.put("weight", it.weight)
             obj.put("length", it.length)
             obj.put("method", it.method)
-            obj.put("strikeDepth", it.strikeDepth)
-            obj.put("waterDepth", it.waterDepth)
-            obj.put("waterTemp", it.waterTemp)
-            obj.put("airTemp", it.airTemp)
+            obj.putSafe("strikeDepth", it.strikeDepth)
+            obj.putSafe("waterDepth", it.waterDepth)
+            obj.putSafe("waterTemp", it.waterTemp)
+            obj.putSafe("airTemp", it.airTemp)
             obj.put("cloudiness", it.cloudiness)
             obj.put("rain", it.rain)
-            obj.put("windSpeed", it.windSpeed)
+            obj.putSafe("windSpeed", it.windSpeed)
             obj.put("windDirection", it.windDirection)
-            obj.put("pressure", it.pressure)
+            obj.putSafe("pressure", it.pressure)
             obj.put("weatherSource", it.weatherSource)
             obj.put("weatherTime", if (it.weatherTime > 0) isoFormat.format(Date(it.weatherTime)) else "")
             obj.put("weatherStation", it.weatherStation)
@@ -88,21 +88,21 @@ class JsonService {
                     FishCatch(
                         id = 0,
                         species = obj.optString("species", "UNKNOWN"),
-                        latitude = obj.optDouble("latitude", 0.0),
-                        longitude = obj.optDouble("longitude", 0.0),
+                        latitude = obj.optDoubleSafe("latitude", 0.0),
+                        longitude = obj.optDoubleSafe("longitude", 0.0),
                         caughtAt = caughtAtLong,
                         weight = obj.optLong("weight", 0),
                         length = obj.optLong("length", 0),
                         method = obj.optString("method", ""),
-                        strikeDepth = obj.optDouble("strikeDepth", 0.0),
-                        waterDepth = obj.optDouble("waterDepth", 0.0),
-                        waterTemp = obj.optDouble("waterTemp", 0.0),
-                        airTemp = obj.optDouble("airTemp", 0.0),
+                        strikeDepth = obj.optDoubleSafe("strikeDepth", 0.0),
+                        waterDepth = obj.optDoubleSafe("waterDepth", 0.0),
+                        waterTemp = obj.optDoubleSafe("waterTemp", 0.0),
+                        airTemp = obj.optDoubleSafe("airTemp", 0.0),
                         cloudiness = obj.optLong("cloudiness", 0),
                         rain = obj.optLong("rain", 0),
-                        windSpeed = obj.optDouble("windSpeed", 0.0),
+                        windSpeed = obj.optDoubleSafe("windSpeed", 0.0),
                         windDirection = obj.optLong("windDirection", 0),
-                        pressure = obj.optDouble("pressure", 0.0),
+                        pressure = obj.optDoubleSafe("pressure", 0.0),
                         weatherSource = obj.optString("weatherSource", ""),
                         weatherTime = weatherTimeLong,
                         weatherStation = obj.optString("weatherStation", ""),
@@ -118,5 +118,18 @@ class JsonService {
         }
 
         return result
+    }
+
+    private fun JSONObject.optDoubleSafe(key: String, defaultValue: Double): Double {
+        val value = optDouble(key, defaultValue)
+        return if (value.isNaN()) defaultValue else value
+    }
+
+    private fun JSONObject.putSafe(key: String, value: Double) {
+        if (value.isNaN() || value.isInfinite()) {
+            put(key, 0.0)
+        } else {
+            put(key, value)
+        }
     }
 }

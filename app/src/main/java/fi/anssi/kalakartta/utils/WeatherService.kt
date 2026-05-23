@@ -110,7 +110,7 @@ class WeatherService(private val context: Context) {
                             "ParameterValue" -> {
                                 val valueStr = parser.nextText()
                                 val value = valueStr.toDoubleOrNull()
-                                if (value != null && currentParam.isNotEmpty() && currentTime != null) {
+                                if (value != null && !value.isNaN() && currentParam.isNotEmpty() && currentTime != null) {
                                     val observation = allObservations.getOrPut(currentTime!!) { mutableMapOf() }
                                     observation[currentParam] = value
                                 }
@@ -310,8 +310,10 @@ class WeatherService(private val context: Context) {
                             "pos" -> {
                                 val pos = parser.nextText().split(" ")
                                 if (pos.size >= 2) {
-                                    currentLat = pos[0].toDoubleOrNull() ?: 0.0
-                                    currentLon = pos[1].toDoubleOrNull() ?: 0.0
+                                    val lat = pos[0].toDoubleOrNull() ?: 0.0
+                                    val lon = pos[1].toDoubleOrNull() ?: 0.0
+                                    currentLat = if (lat.isNaN()) 0.0 else lat
+                                    currentLon = if (lon.isNaN()) 0.0 else lon
                                 }
                             }
                             "beginPosition" -> {

@@ -174,12 +174,12 @@ class EditCatchActivity : AppCompatActivity() {
             selectedCalendar.timeInMillis = fc.caughtAt
             updateDateTimeButtonText()
 
-            val airTemp = if (fc.airTemp != 0.0) fc.airTemp.toString() else ""
+            val airTemp = if (fc.airTemp != 0.0 && !fc.airTemp.isNaN()) fc.airTemp.toString() else ""
             val cloudiness = fc.cloudiness.toString()
             val rain = fc.rain.toString()
-            val windSpeed = if (fc.windSpeed != 0.0) fc.windSpeed.toString() else ""
+            val windSpeed = if (fc.windSpeed != 0.0 && !fc.windSpeed.isNaN()) fc.windSpeed.toString() else ""
             val windDirection = fc.windDirection.toString()
-            val pressure = if (fc.pressure != 0.0) fc.pressure.toString() else ""
+            val pressure = if (fc.pressure != 0.0 && !fc.pressure.isNaN()) fc.pressure.toString() else ""
 
             weightEditText.setText(if (fc.weight > 0) fc.weight.toString() else "")
             lengthEditText.setText(if (fc.length > 0) fc.length.toString() else "")
@@ -305,8 +305,8 @@ class EditCatchActivity : AppCompatActivity() {
                     fetchWeatherForDisplay()
                 } else {
                     // Jos sääasemaa ei ole vielä löydetty, yritetään hakea se
-                    val lat = latEditText.text.toString().toDoubleOrNull() ?: fishCatch?.latitude ?: 0.0
-                    val lon = lonEditText.text.toString().toDoubleOrNull() ?: fishCatch?.longitude ?: 0.0
+                    val lat = latEditText.text.toString().toDoubleSafe(fishCatch?.latitude ?: 0.0)
+                    val lon = lonEditText.text.toString().toDoubleSafe(fishCatch?.longitude ?: 0.0)
                     weatherService.fetchNearestStation(lat, lon, selectedCalendar.timeInMillis) { station, _ ->
                         runOnUiThread {
                             if (station != null) {
@@ -410,8 +410,8 @@ class EditCatchActivity : AppCompatActivity() {
                 
                 // Päivitetään sääasema ja tiedot jos automaattinen haku on päällä
                 if (autoWeatherCheckBox.isChecked) {
-                    val lat = latEditText.text.toString().toDoubleOrNull() ?: fishCatch?.latitude ?: 0.0
-                    val lon = lonEditText.text.toString().toDoubleOrNull() ?: fishCatch?.longitude ?: 0.0
+                    val lat = latEditText.text.toString().toDoubleSafe(fishCatch?.latitude ?: 0.0)
+                    val lon = lonEditText.text.toString().toDoubleSafe(fishCatch?.longitude ?: 0.0)
                     setupWeatherForNewCatch(lat, lon)
                 }
             }
@@ -498,22 +498,22 @@ class EditCatchActivity : AppCompatActivity() {
                 weight = weightEditText.text.toString().toLongOrNull() ?: 0L,
                 length = lengthEditText.text.toString().toLongOrNull() ?: 0L,
                 method = methodEditText.text.toString(),
-                strikeDepth = strikeDepthEditText.text.toString().toDoubleOrNull() ?: 0.0,
-                waterDepth = waterDepthEditText.text.toString().toDoubleOrNull() ?: 0.0,
-                waterTemp = waterTempEditText.text.toString().toDoubleOrNull() ?: 0.0,
-                airTemp = airTempEditText.text.toString().toDoubleOrNull() ?: 0.0,
+                strikeDepth = strikeDepthEditText.text.toString().toDoubleSafe(),
+                waterDepth = waterDepthEditText.text.toString().toDoubleSafe(),
+                waterTemp = waterTempEditText.text.toString().toDoubleSafe(),
+                airTemp = airTempEditText.text.toString().toDoubleSafe(),
                 cloudiness = cloudinessEditText.text.toString().toLongOrNull() ?: 0L,
                 rain = rainEditText.text.toString().toLongOrNull() ?: 0L,
-                windSpeed = windSpeedEditText.text.toString().toDoubleOrNull() ?: 0.0,
+                windSpeed = windSpeedEditText.text.toString().toDoubleSafe(),
                 windDirection = windDirectionEditText.text.toString().toLongOrNull() ?: 0L,
-                pressure = pressureEditText.text.toString().toDoubleOrNull() ?: 0.0,
+                pressure = pressureEditText.text.toString().toDoubleSafe(),
                 weatherSource = if (currentWeatherSource == "FMI") "FMI" else "MANUAL",
                 weatherTime = if (currentWeatherSource == "FMI") currentWeatherTime else selectedCalendar.timeInMillis,
                 weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
                 additionalInfo = additionalInfoEditText.text.toString(),
                 tripNotes = tripNotesEditText.text.toString(),
-                latitude = latEditText.text.toString().toDoubleOrNull() ?: fc.latitude,
-                longitude = lonEditText.text.toString().toDoubleOrNull() ?: fc.longitude
+                latitude = latEditText.text.toString().toDoubleSafe(fc.latitude),
+                longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude)
             )
 
             Thread {
@@ -587,5 +587,10 @@ class EditCatchActivity : AppCompatActivity() {
             .setNegativeButton(getString(R.string.cancel), null)
             .show()
         dialog.enlargeButtons()
+    }
+
+    private fun String.toDoubleSafe(default: Double = 0.0): Double {
+        val d = this.toDoubleOrNull()
+        return if (d == null || d.isNaN()) default else d
     }
 }
