@@ -225,7 +225,7 @@ class MainActivity : AppCompatActivity() {
 
         weatherCheckDone = true
 
-        weatherService.fetchNearestStation(myLocation.latitude, myLocation.longitude) { station, error ->
+        weatherService.fetchNearestStation(myLocation.latitude, myLocation.longitude, System.currentTimeMillis()) { station, error ->
             runOnUiThread {
                 if (error != null) {
                     AlertDialog.Builder(this)

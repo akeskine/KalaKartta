@@ -267,7 +267,7 @@ class EditCatchActivity : AppCompatActivity() {
             autoWeatherCheckBox.isChecked = true
             nearestStationText.visibility = android.view.View.VISIBLE
             
-            weatherService.fetchNearestStation(lat, lon) { station, error ->
+            weatherService.fetchNearestStation(lat, lon, selectedCalendar.timeInMillis) { station, error ->
                 runOnUiThread {
                     if (station != null) {
                         nearestStation = station
@@ -323,6 +323,13 @@ class EditCatchActivity : AppCompatActivity() {
                 selectedCalendar.set(Calendar.MINUTE, minute)
                 updateDateTimeButtonText()
                 isChanged = true
+                
+                // Päivitetään sääasema ja tiedot jos automaattinen haku on päällä
+                if (autoWeatherCheckBox.isChecked) {
+                    val lat = latEditText.text.toString().toDoubleOrNull() ?: fishCatch?.latitude ?: 0.0
+                    val lon = lonEditText.text.toString().toDoubleOrNull() ?: fishCatch?.longitude ?: 0.0
+                    setupWeatherForNewCatch(lat, lon)
+                }
             }
 
             TimePickerDialog(
