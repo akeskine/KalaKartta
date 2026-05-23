@@ -26,7 +26,24 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="48dp"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="8dp" />
+
+        <CheckBox
+            android:id="@+id/autoWeatherCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Lisää säätiedot automaattisesti"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/nearestStationText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Lähin sääasema: haetaan..."
+            android:textSize="12sp"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
 
         <TextView
             android:layout_width="match_parent"

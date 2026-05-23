@@ -199,11 +199,14 @@ class MainActivity : AppCompatActivity() {
             weatherCheckDone = false
         }
         
-        if (weatherCheckDone) return
-
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val isEnabled = prefs.getBoolean("weather_enabled", true)
         if (!isEnabled) return
+
+        // Haetaan kaikki sääasemat muistiin taustalla, jos niitä ei vielä ole
+        weatherService.fetchAllStations()
+
+        if (weatherCheckDone) return
 
         val myLocation = locationOverlay.myLocation
         if (myLocation == null) {
@@ -266,6 +269,11 @@ class MainActivity : AppCompatActivity() {
         map.onResume()
         locationOverlay.enableMyLocation()
         updateMyLocationButtonVisibility()
+        
+        // Yritetään näyttää sääasema jos se on vielä näyttämättä
+        if (!weatherCheckDone) {
+            checkWeather()
+        }
     }
 
     override fun onPause() {

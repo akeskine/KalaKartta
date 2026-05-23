@@ -14,6 +14,8 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.FishSpecies
+import fi.anssi.kalakartta.utils.WeatherService
+import fi.anssi.kalakartta.utils.WeatherStation
 import fi.anssi.kalakartta.utils.enlargeButtons
 import java.text.SimpleDateFormat
 import java.util.*
@@ -41,6 +43,11 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var tripNotesEditText: EditText
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
+    
+    private lateinit var autoWeatherCheckBox: CheckBox
+    private lateinit var nearestStationText: TextView
+    private lateinit var weatherService: WeatherService
+    private var nearestStation: WeatherStation? = null
     
     private var selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
     private var isChanged = false
@@ -94,6 +101,10 @@ class EditCatchActivity : AppCompatActivity() {
         tripNotesEditText = findViewById(R.id.tripNotesEditText)
         latEditText = findViewById(R.id.latEditText)
         lonEditText = findViewById(R.id.lonEditText)
+        
+        autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
+        nearestStationText = findViewById(R.id.nearestStationText)
+        weatherService = WeatherService(this)
     }
 
     private fun setupDatabase() {
@@ -119,6 +130,8 @@ class EditCatchActivity : AppCompatActivity() {
                 caughtAt = System.currentTimeMillis()
             )
             setTitle(R.string.add_detailed)
+            
+            setupWeatherForNewCatch(lat, lon)
         } else {
             fishCatch = db.fishCatchDao().getById(catchId)
             setTitle(R.string.edit_catch_title)
@@ -181,6 +194,56 @@ class EditCatchActivity : AppCompatActivity() {
                 finish()
             }
         }
+        
+        autoWeatherCheckBox.setOnCheckedChangeListener { _, isChecked ->
+            nearestStationText.visibility = if (isChecked) android.view.View.VISIBLE else android.view.View.GONE
+            if (isChecked && nearestStation != null && airTempEditText.text.isEmpty()) {
+                fetchWeatherForDisplay()
+            }
+            isChanged = true
+        }
+    }
+
+    private fun setupWeatherForNewCatch(lat: Double, lon: Double) {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
+        
+        if (isWeatherEnabled) {
+            autoWeatherCheckBox.visibility = android.view.View.VISIBLE
+            autoWeatherCheckBox.isChecked = true
+            nearestStationText.visibility = android.view.View.VISIBLE
+            
+            weatherService.fetchNearestStation(lat, lon) { station, error ->
+                runOnUiThread {
+                    if (station != null) {
+                        nearestStation = station
+                        nearestStationText.text = "Sääasema: ${station.name}"
+                        // Haetaan säätiedot automaattisesti jos mahdollista
+                        if (autoWeatherCheckBox.isChecked) {
+                            fetchWeatherForDisplay()
+                        }
+                    } else {
+                        nearestStationText.text = "Sääasemaa ei löytynyt: $error"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun fetchWeatherForDisplay() {
+        val station = nearestStation ?: return
+        nearestStationText.text = "Sääasema: ${station.name} (haetaan säätietoja...)"
+        
+        weatherService.fetchWeatherData(station.fmisid) { data, error ->
+            runOnUiThread {
+                if (data != null) {
+                    nearestStationText.text = "Sääasema: ${station.name}"
+                    applyWeatherData(data)
+                } else {
+                    nearestStationText.text = "Sääasema: ${station.name} (säätietojen haku epäonnistui)"
+                }
+            }
+        }
     }
 
     private fun showDateTimePicker() {
@@ -216,6 +279,40 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun saveChanges() {
+        if (autoWeatherCheckBox.visibility == android.view.View.VISIBLE && autoWeatherCheckBox.isChecked && nearestStation != null) {
+            val progressDialog = AlertDialog.Builder(this)
+                .setMessage("Haetaan säätietoja asemalta ${nearestStation?.name}...")
+                .setCancelable(false)
+                .show()
+            
+            weatherService.fetchWeatherData(nearestStation!!.fmisid) { data, error ->
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    if (data != null) {
+                        applyWeatherData(data)
+                        Toast.makeText(this, "Säätiedot päivitetty asemalta ${nearestStation?.name}", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Säätietojen haku epäonnistui: $error", Toast.LENGTH_SHORT).show()
+                    }
+                    performFinalSave()
+                }
+            }
+        } else {
+            performFinalSave()
+        }
+    }
+
+    private fun applyWeatherData(data: Map<String, Double>) {
+        // FMI parametrit: t2m (temp), ws_10min (wind speed), wd_10min (wind direction), 
+        // n_man (cloudiness), r_1h (rain)
+        data["t2m"]?.let { airTempEditText.setText(it.toString()) }
+        data["ws_10min"]?.let { windSpeedEditText.setText(it.toString()) }
+        data["wd_10min"]?.let { windDirectionEditText.setText(it.toInt().toString()) }
+        data["n_man"]?.let { cloudinessEditText.setText(it.toInt().toString()) }
+        data["r_1h"]?.let { rainEditText.setText(it.toInt().toString()) }
+    }
+
+    private fun performFinalSave() {
         try {
             val fc = fishCatch ?: return
             
@@ -241,24 +338,28 @@ class EditCatchActivity : AppCompatActivity() {
                 longitude = lonEditText.text.toString().toDoubleOrNull() ?: fc.longitude
             )
 
-            if (updatedCatch.id == 0L) {
-                db.fishCatchDao().insert(updatedCatch)
-            } else {
-                db.fishCatchDao().update(updatedCatch)
-            }
-            
-            val message = if (updatedCatch.id == 0L) getString(R.string.save_success) else getString(R.string.edit_success)
-            
-            AlertDialog.Builder(this)
-                .setMessage(message)
-                .setPositiveButton(getString(R.string.ok)) { _, _ ->
-                    val resultIntent = android.content.Intent()
-                    resultIntent.putExtra("EXTRA_CATCH_ID", updatedCatch.id)
-                    setResult(RESULT_OK, resultIntent)
-                    finish()
+            Thread {
+                if (updatedCatch.id == 0L) {
+                    db.fishCatchDao().insert(updatedCatch)
+                } else {
+                    db.fishCatchDao().update(updatedCatch)
                 }
-                .show()
-                .enlargeButtons()
+                
+                runOnUiThread {
+                    val message = if (updatedCatch.id == 0L) getString(R.string.save_success) else getString(R.string.edit_success)
+                    
+                    AlertDialog.Builder(this)
+                        .setMessage(message)
+                        .setPositiveButton(getString(R.string.ok)) { _, _ ->
+                            val resultIntent = android.content.Intent()
+                            resultIntent.putExtra("EXTRA_CATCH_ID", updatedCatch.id)
+                            setResult(RESULT_OK, resultIntent)
+                            finish()
+                        }
+                        .show()
+                        .enlargeButtons()
+                }
+            }.start()
 
         } catch (e: Exception) {
             AlertDialog.Builder(this)

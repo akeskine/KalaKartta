@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.utils.enlargeButtons
+import fi.anssi.kalakartta.utils.WeatherService
 
 class SettingsManager(
     private val activity: AppCompatActivity,
@@ -41,10 +42,13 @@ class SettingsManager(
             .setPositiveButton("OK") { _, _ ->
                 if (isEnabledCurrent != isEnabledInitial) {
                     prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
+                    if (isEnabledCurrent) {
+                        // Ladataan sääasemat muistiin heti, jos ne puuttuvat
+                        WeatherService(activity).fetchAllStations()
+                    }
                     onWeatherSettingsChanged(isEnabledCurrent)
                 }
             }
-            .setNegativeButton("Peruuta", null)
             .show()
         dialog.enlargeButtons()
     }
