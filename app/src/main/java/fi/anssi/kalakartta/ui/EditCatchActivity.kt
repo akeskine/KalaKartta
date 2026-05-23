@@ -55,6 +55,17 @@ class EditCatchActivity : AppCompatActivity() {
     private var currentWeatherStation: String = ""
     private var currentPressure: Double = 0.0
     
+    // Alkuperäiset säätiedot palautusta varten
+    private var originalAirTemp: String = ""
+    private var originalCloudiness: String = ""
+    private var originalRain: String = ""
+    private var originalWindSpeed: String = ""
+    private var originalWindDirection: String = ""
+    private var originalPressure: String = ""
+    private var originalWeatherSource: String = ""
+    private var originalWeatherTime: Long = 0
+    private var originalWeatherStation: String = ""
+    
     private var selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
     private var isChanged = false
     private var isUpdatingFromCode = false
@@ -163,39 +174,77 @@ class EditCatchActivity : AppCompatActivity() {
             selectedCalendar.timeInMillis = fc.caughtAt
             updateDateTimeButtonText()
 
+            val airTemp = if (fc.airTemp != 0.0) fc.airTemp.toString() else ""
+            val cloudiness = fc.cloudiness.toString()
+            val rain = fc.rain.toString()
+            val windSpeed = if (fc.windSpeed != 0.0) fc.windSpeed.toString() else ""
+            val windDirection = fc.windDirection.toString()
+            val pressure = if (fc.pressure != 0.0) fc.pressure.toString() else ""
+
             weightEditText.setText(if (fc.weight > 0) fc.weight.toString() else "")
             lengthEditText.setText(if (fc.length > 0) fc.length.toString() else "")
             methodEditText.setText(fc.method)
             strikeDepthEditText.setText(if (fc.strikeDepth != 0.0) fc.strikeDepth.toString() else "")
             waterDepthEditText.setText(if (fc.waterDepth != 0.0) fc.waterDepth.toString() else "")
             waterTempEditText.setText(if (fc.waterTemp != 0.0) fc.waterTemp.toString() else "")
-            airTempEditText.setText(if (fc.airTemp != 0.0) fc.airTemp.toString() else "")
+            airTempEditText.setText(airTemp)
+            
             currentWeatherSource = fc.weatherSource
             currentWeatherTime = fc.weatherTime
             currentWeatherStation = fc.weatherStation
             currentPressure = fc.pressure
+
+            // Tallenna alkuperäiset arvot
+            originalAirTemp = airTemp
+            originalCloudiness = cloudiness
+            originalRain = rain
+            originalWindSpeed = windSpeed
+            originalWindDirection = windDirection
+            originalPressure = pressure
+            originalWeatherSource = fc.weatherSource
+            originalWeatherTime = fc.weatherTime
+            originalWeatherStation = fc.weatherStation
             
-            if (fc.weatherStation.isNotEmpty()) {
-                val parts = fc.weatherStation.split(":", limit = 2)
-                if (parts.size == 2) {
-                    val fmisid = parts[0]
-                    val name = parts[1]
-                    nearestStation = WeatherStation(fmisid, name, 0.0, 0.0)
-                    updateWeatherStationText(nearestStation!!, fc.weatherTime)
-                    nearestStationText.visibility = android.view.View.VISIBLE
-                    autoWeatherCheckBox.visibility = android.view.View.VISIBLE
-                    autoWeatherCheckBox.isChecked = (fc.weatherSource == "FMI")
+            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+            val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
+            
+            if (isWeatherEnabled) {
+                autoWeatherCheckBox.visibility = android.view.View.VISIBLE
+                autoWeatherCheckBox.isChecked = (fc.weatherSource == "FMI")
+                
+                if (fc.weatherStation.isNotEmpty()) {
+                    val parts = fc.weatherStation.split(":", limit = 2)
+                    if (parts.size == 2) {
+                        val fmisid = parts[0]
+                        val name = parts[1]
+                        nearestStation = WeatherStation(fmisid, name, 0.0, 0.0)
+                        updateWeatherStationText(nearestStation!!, fc.weatherTime)
+                        nearestStationText.visibility = android.view.View.VISIBLE
+                    }
+                } else {
+                    // Jos sääasemaa ei ole, haetaan lähin
+                    weatherService.fetchNearestStation(fc.latitude, fc.longitude, fc.caughtAt) { station, _ ->
+                        runOnUiThread {
+                            if (station != null) {
+                                nearestStation = station
+                                if (autoWeatherCheckBox.isChecked) {
+                                    updateWeatherStationText(station, null)
+                                    nearestStationText.visibility = android.view.View.VISIBLE
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            cloudinessEditText.setText(fc.cloudiness.toString())
-            rainEditText.setText(fc.rain.toString())
-            windSpeedEditText.setText(if (fc.windSpeed != 0.0) fc.windSpeed.toString() else "")
-            windDirectionEditText.setText(fc.windDirection.toString())
-            pressureEditText.setText(if (fc.pressure != 0.0) fc.pressure.toString() else "")
+            cloudinessEditText.setText(cloudiness)
+            rainEditText.setText(rain)
+            windSpeedEditText.setText(windSpeed)
+            windDirectionEditText.setText(windDirection)
+            pressureEditText.setText(pressure)
             
             // Jos painetta ei ole vielä asetettu (esim. vanha piste), mutta säätiedot on haettu,
-            // yritetään täyttää se uudelleen FMI:ltä jos asetus on päällä
+            // yritetään täyttää se uudelleen FMI:ltä
             if (fc.pressure == 0.0 && fc.weatherSource == "FMI" && nearestStation != null) {
                 fetchWeatherForDisplay()
             }
@@ -251,8 +300,43 @@ class EditCatchActivity : AppCompatActivity() {
         
         autoWeatherCheckBox.setOnCheckedChangeListener { _, isChecked ->
             nearestStationText.visibility = if (isChecked) android.view.View.VISIBLE else android.view.View.GONE
-            if (isChecked && nearestStation != null && airTempEditText.text.isEmpty()) {
-                fetchWeatherForDisplay()
+            if (isChecked) {
+                if (nearestStation != null) {
+                    fetchWeatherForDisplay()
+                } else {
+                    // Jos sääasemaa ei ole vielä löydetty, yritetään hakea se
+                    val lat = latEditText.text.toString().toDoubleOrNull() ?: fishCatch?.latitude ?: 0.0
+                    val lon = lonEditText.text.toString().toDoubleOrNull() ?: fishCatch?.longitude ?: 0.0
+                    weatherService.fetchNearestStation(lat, lon, selectedCalendar.timeInMillis) { station, _ ->
+                        runOnUiThread {
+                            if (station != null) {
+                                nearestStation = station
+                                fetchWeatherForDisplay()
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Palautetaan alkuperäiset arvot
+                isUpdatingFromCode = true
+                airTempEditText.setText(originalAirTemp)
+                cloudinessEditText.setText(originalCloudiness)
+                rainEditText.setText(originalRain)
+                windSpeedEditText.setText(originalWindSpeed)
+                windDirectionEditText.setText(originalWindDirection)
+                pressureEditText.setText(originalPressure)
+                currentWeatherSource = originalWeatherSource
+                currentWeatherTime = originalWeatherTime
+                currentWeatherStation = originalWeatherStation
+                
+                if (nearestStation != null) {
+                    if (originalWeatherStation.isNotEmpty()) {
+                        updateWeatherStationText(nearestStation!!, originalWeatherTime)
+                    } else {
+                        nearestStationText.text = "Sääasema: ${nearestStation?.name}"
+                    }
+                }
+                isUpdatingFromCode = false
             }
             isChanged = true
         }
@@ -352,6 +436,9 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun saveChanges() {
         if (autoWeatherCheckBox.visibility == android.view.View.VISIBLE && autoWeatherCheckBox.isChecked && nearestStation != null) {
+            // Jos lähde on jo FMI, ei välttämättä tarvitse hakea uudelleen jos mitään ei ole muuttunut,
+            // mutta varmuuden vuoksi haetaan jos käyttäjä on juuri ruksannut sen päälle.
+            // Pidetään logiikka ennallaan: jos ruksattu, haetaan tallennushetkellä.
             val progressDialog = AlertDialog.Builder(this)
                 .setMessage("Haetaan säätietoja asemalta ${nearestStation?.name}...")
                 .setCancelable(false)
