@@ -25,6 +25,9 @@ import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
+import fi.anssi.kalakartta.utils.WeatherService
+import androidx.appcompat.app.AlertDialog
+import fi.anssi.kalakartta.utils.enlargeButtons
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,6 +37,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var catchManager: CatchManager
     private lateinit var markerManager: MarkerManager
     private lateinit var filterManager: FilterManager
+    private lateinit var weatherService: WeatherService
+    private var weatherCheckDone = false
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
 
@@ -62,6 +67,11 @@ class MainActivity : AppCompatActivity() {
         locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
         locationOverlay.enableMyLocation()
         locationOverlay.enableFollowLocation()
+        locationOverlay.runOnFirstFix {
+            runOnUiThread {
+                checkWeather()
+            }
+        }
         map.overlays.add(locationOverlay)
 
         requestLocationPermission()
@@ -111,7 +121,11 @@ class MainActivity : AppCompatActivity() {
             reloadMarkersFromDb()
         }
 
-        settingsManager = SettingsManager(this, db, importExportManager) {
+        settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
+            if (isEnabled) {
+                checkWeather(force = true)
+            }
+        }) {
             reloadMarkersFromDb()
         }
 
@@ -147,6 +161,8 @@ class MainActivity : AppCompatActivity() {
             markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
         }
 
+        weatherService = WeatherService(this)
+
         loadCatches()
         markerManager.rebuildMarkers(map.zoomLevelDouble)
         updateMarkersVisibility()
@@ -176,6 +192,55 @@ class MainActivity : AppCompatActivity() {
         markerManager.clearMarkers()
         loadCatches()
         markerManager.rebuildMarkers(map.zoomLevelDouble)
+    }
+
+    private fun checkWeather(force: Boolean = false) {
+        if (force) {
+            weatherCheckDone = false
+        }
+        
+        if (weatherCheckDone) return
+
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val isEnabled = prefs.getBoolean("weather_enabled", true)
+        if (!isEnabled) return
+
+        val myLocation = locationOverlay.myLocation
+        if (myLocation == null) {
+            if (force) {
+                runOnUiThread {
+                    AlertDialog.Builder(this)
+                        .setTitle("Säätiedot")
+                        .setMessage("Lähimmän sääaseman haku epäonnistui: Sijaintia ei ole vielä saatavilla.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                        .enlargeButtons()
+                }
+            }
+            return
+        }
+
+        weatherCheckDone = true
+
+        weatherService.fetchNearestStation(myLocation.latitude, myLocation.longitude) { station, error ->
+            runOnUiThread {
+                if (error != null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Säätiedot")
+                        .setMessage("Säätietojen haku epäonnistui: $error")
+                        .setPositiveButton("OK", null)
+                        .show()
+                        .enlargeButtons()
+                } else if (station != null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Säätiedot")
+                        .setMessage("Säädatan automaattinen haku on käytössä.\n\nLähin sääasema:\n${station.name}\nfmisid: ${station.fmisid}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                        .enlargeButtons()
+                }
+            }
+        }
     }
 
     private fun updateMarkersVisibility() {

@@ -10,18 +10,41 @@ class SettingsManager(
     private val activity: AppCompatActivity,
     private val db: AppDatabase,
     private val importExportManager: ImportExportManager,
+    private val onWeatherSettingsChanged: (Boolean) -> Unit = {},
     private val onDataChanged: () -> Unit
 ) {
 
     fun openSettings() {
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Asetukset")
-            .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus")) { _, which ->
+            .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää")) { _, which ->
                 when (which) {
                     0 -> openDataTransferSettings()
                     1 -> openFilterSettings()
+                    2 -> openWeatherSettings()
                 }
             }
+            .show()
+        dialog.enlargeButtons()
+    }
+
+    private fun openWeatherSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+        val isEnabledInitial = prefs.getBoolean("weather_enabled", true)
+        var isEnabledCurrent = isEnabledInitial
+        
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Sääasetukset")
+            .setMultiChoiceItems(arrayOf("Säädatan automaattinen haku"), booleanArrayOf(isEnabledInitial)) { _, _, isChecked ->
+                isEnabledCurrent = isChecked
+            }
+            .setPositiveButton("OK") { _, _ ->
+                if (isEnabledCurrent != isEnabledInitial) {
+                    prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
+                    onWeatherSettingsChanged(isEnabledCurrent)
+                }
+            }
+            .setNegativeButton("Peruuta", null)
             .show()
         dialog.enlargeButtons()
     }
