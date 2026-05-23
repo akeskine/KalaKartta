@@ -41,6 +41,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var windDirectionEditText: EditText
     private lateinit var additionalInfoEditText: EditText
     private lateinit var tripNotesEditText: EditText
+    private lateinit var pressureEditText: EditText
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
     
@@ -49,8 +50,14 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var weatherService: WeatherService
     private var nearestStation: WeatherStation? = null
     
+    private var currentWeatherSource: String = ""
+    private var currentWeatherTime: Long = 0
+    private var currentWeatherStation: String = ""
+    private var currentPressure: Double = 0.0
+    
     private var selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
     private var isChanged = false
+    private var isUpdatingFromCode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -99,6 +106,7 @@ class EditCatchActivity : AppCompatActivity() {
         windDirectionEditText = findViewById(R.id.windDirectionEditText)
         additionalInfoEditText = findViewById(R.id.additionalInfoEditText)
         tripNotesEditText = findViewById(R.id.tripNotesEditText)
+        pressureEditText = findViewById(R.id.pressureEditText)
         latEditText = findViewById(R.id.latEditText)
         lonEditText = findViewById(R.id.lonEditText)
         
@@ -148,6 +156,7 @@ class EditCatchActivity : AppCompatActivity() {
         speciesSpinner.adapter = adapter
 
         fishCatch?.let { fc ->
+            isUpdatingFromCode = true
             val speciesIndex = speciesList.indexOfFirst { it.id == fc.species }
             speciesSpinner.setSelection(if (speciesIndex != -1) speciesIndex else 0)
 
@@ -161,14 +170,40 @@ class EditCatchActivity : AppCompatActivity() {
             waterDepthEditText.setText(if (fc.waterDepth != 0.0) fc.waterDepth.toString() else "")
             waterTempEditText.setText(if (fc.waterTemp != 0.0) fc.waterTemp.toString() else "")
             airTempEditText.setText(if (fc.airTemp != 0.0) fc.airTemp.toString() else "")
+            currentWeatherSource = fc.weatherSource
+            currentWeatherTime = fc.weatherTime
+            currentWeatherStation = fc.weatherStation
+            currentPressure = fc.pressure
+            
+            if (fc.weatherStation.isNotEmpty()) {
+                val parts = fc.weatherStation.split(":", limit = 2)
+                if (parts.size == 2) {
+                    val fmisid = parts[0]
+                    val name = parts[1]
+                    nearestStation = WeatherStation(fmisid, name, 0.0, 0.0)
+                    updateWeatherStationText(nearestStation!!, fc.weatherTime)
+                    nearestStationText.visibility = android.view.View.VISIBLE
+                    autoWeatherCheckBox.visibility = android.view.View.VISIBLE
+                    autoWeatherCheckBox.isChecked = (fc.weatherSource == "FMI")
+                }
+            }
+
             cloudinessEditText.setText(fc.cloudiness.toString())
             rainEditText.setText(fc.rain.toString())
             windSpeedEditText.setText(if (fc.windSpeed != 0.0) fc.windSpeed.toString() else "")
             windDirectionEditText.setText(fc.windDirection.toString())
+            pressureEditText.setText(if (fc.pressure != 0.0) fc.pressure.toString() else "")
+            
+            // Jos painetta ei ole vielä asetettu (esim. vanha piste), mutta säätiedot on haettu,
+            // yritetään täyttää se uudelleen FMI:ltä jos asetus on päällä
+            if (fc.pressure == 0.0 && fc.weatherSource == "FMI" && nearestStation != null) {
+                fetchWeatherForDisplay()
+            }
             additionalInfoEditText.setText(fc.additionalInfo)
             tripNotesEditText.setText(fc.tripNotes)
             latEditText.setText(fc.latitude.toString())
             lonEditText.setText(fc.longitude.toString())
+            isUpdatingFromCode = false
         }
     }
 
@@ -194,6 +229,25 @@ class EditCatchActivity : AppCompatActivity() {
                 finish()
             }
         }
+        
+        val weatherWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (!isUpdatingFromCode) {
+                    currentWeatherSource = "MANUAL"
+                    currentWeatherStation = ""
+                    currentWeatherTime = selectedCalendar.timeInMillis
+                }
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        }
+        
+        airTempEditText.addTextChangedListener(weatherWatcher)
+        cloudinessEditText.addTextChangedListener(weatherWatcher)
+        rainEditText.addTextChangedListener(weatherWatcher)
+        windSpeedEditText.addTextChangedListener(weatherWatcher)
+        windDirectionEditText.addTextChangedListener(weatherWatcher)
+        pressureEditText.addTextChangedListener(weatherWatcher)
         
         autoWeatherCheckBox.setOnCheckedChangeListener { _, isChecked ->
             nearestStationText.visibility = if (isChecked) android.view.View.VISIBLE else android.view.View.GONE
@@ -234,15 +288,26 @@ class EditCatchActivity : AppCompatActivity() {
         val station = nearestStation ?: return
         nearestStationText.text = "Sääasema: ${station.name} (haetaan säätietoja...)"
         
-        weatherService.fetchWeatherData(station.fmisid) { data, error ->
+        weatherService.fetchWeatherData(station.fmisid, selectedCalendar.timeInMillis) { data, time, error ->
             runOnUiThread {
                 if (data != null) {
-                    nearestStationText.text = "Sääasema: ${station.name}"
-                    applyWeatherData(data)
+                    updateWeatherStationText(station, time)
+                    applyWeatherData(data, time, station)
                 } else {
                     nearestStationText.text = "Sääasema: ${station.name} (säätietojen haku epäonnistui)"
                 }
             }
+        }
+    }
+
+    private fun updateWeatherStationText(station: WeatherStation, time: Long?) {
+        if (time != null) {
+            val df = SimpleDateFormat("HH:mm", Locale("fi", "FI"))
+            df.timeZone = TimeZone.getTimeZone("Europe/Helsinki")
+            val timeStr = df.format(Date(time))
+            nearestStationText.text = "Sääasema: ${station.name} (klo $timeStr)"
+        } else {
+            nearestStationText.text = "Sääasema: ${station.name}"
         }
     }
 
@@ -285,11 +350,12 @@ class EditCatchActivity : AppCompatActivity() {
                 .setCancelable(false)
                 .show()
             
-            weatherService.fetchWeatherData(nearestStation!!.fmisid) { data, error ->
+            weatherService.fetchWeatherData(nearestStation!!.fmisid, selectedCalendar.timeInMillis) { data, time, error ->
                 runOnUiThread {
                     progressDialog.dismiss()
                     if (data != null) {
-                        applyWeatherData(data)
+                        applyWeatherData(data, time, nearestStation!!)
+                        updateWeatherStationText(nearestStation!!, time)
                         Toast.makeText(this, "Säätiedot päivitetty asemalta ${nearestStation?.name}", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(this, "Säätietojen haku epäonnistui: $error", Toast.LENGTH_SHORT).show()
@@ -302,14 +368,28 @@ class EditCatchActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyWeatherData(data: Map<String, Double>) {
+    private fun applyWeatherData(data: Map<String, Double>, time: Long?, station: WeatherStation?) {
+        isUpdatingFromCode = true
         // FMI parametrit: t2m (temp), ws_10min (wind speed), wd_10min (wind direction), 
-        // n_man (cloudiness), r_1h (rain)
+        // n_man (cloudiness), r_1h (rain), p_msl tai p_sea (pressure)
         data["t2m"]?.let { airTempEditText.setText(it.toString()) }
         data["ws_10min"]?.let { windSpeedEditText.setText(it.toString()) }
         data["wd_10min"]?.let { windDirectionEditText.setText(it.toInt().toString()) }
         data["n_man"]?.let { cloudinessEditText.setText(it.toInt().toString()) }
         data["r_1h"]?.let { rainEditText.setText(it.toInt().toString()) }
+        
+        val pressureValue = data["p_msl"] ?: data["p_sea"]
+        pressureValue?.let { 
+            currentPressure = it
+            pressureEditText.setText(it.toString())
+        }
+        
+        if (station != null) {
+            currentWeatherSource = "FMI"
+            currentWeatherStation = "${station.fmisid}:${station.name}"
+            currentWeatherTime = time ?: selectedCalendar.timeInMillis
+        }
+        isUpdatingFromCode = false
     }
 
     private fun performFinalSave() {
@@ -332,6 +412,10 @@ class EditCatchActivity : AppCompatActivity() {
                 rain = rainEditText.text.toString().toLongOrNull() ?: 0L,
                 windSpeed = windSpeedEditText.text.toString().toDoubleOrNull() ?: 0.0,
                 windDirection = windDirectionEditText.text.toString().toLongOrNull() ?: 0L,
+                pressure = pressureEditText.text.toString().toDoubleOrNull() ?: 0.0,
+                weatherSource = if (currentWeatherSource == "FMI") "FMI" else "MANUAL",
+                weatherTime = if (currentWeatherSource == "FMI") currentWeatherTime else selectedCalendar.timeInMillis,
+                weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
                 additionalInfo = additionalInfoEditText.text.toString(),
                 tripNotes = tripNotesEditText.text.toString(),
                 latitude = latEditText.text.toString().toDoubleOrNull() ?: fc.latitude,
@@ -388,6 +472,10 @@ class EditCatchActivity : AppCompatActivity() {
         if (rainEditText.text.toString() != fc.rain.toString()) return true
         if (windSpeedEditText.text.toString() != (if (fc.windSpeed != 0.0) fc.windSpeed.toString() else "")) return true
         if (windDirectionEditText.text.toString() != fc.windDirection.toString()) return true
+        if (pressureEditText.text.toString() != (if (fc.pressure != 0.0) fc.pressure.toString() else "")) return true
+        if (currentWeatherSource != fc.weatherSource) return true
+        if (currentWeatherTime != fc.weatherTime) return true
+        if (currentWeatherStation != fc.weatherStation) return true
         if (additionalInfoEditText.text.toString() != fc.additionalInfo) return true
         if (tripNotesEditText.text.toString() != fc.tripNotes) return true
         if (latEditText.text.toString() != fc.latitude.toString()) return true

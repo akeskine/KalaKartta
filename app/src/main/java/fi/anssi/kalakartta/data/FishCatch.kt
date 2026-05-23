@@ -21,6 +21,10 @@ data class FishCatch(
     val rain: Long = 0,
     val windSpeed: Double = 0.0,
     val windDirection: Long = 0,
+    val pressure: Double = 0.0,
+    val weatherSource: String = "",
+    val weatherTime: Long = 0,
+    val weatherStation: String = "",
     val additionalInfo: String = "",
     val originalRef: String = "",
     val tripNotes: String = ""

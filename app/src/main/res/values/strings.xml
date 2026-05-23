@@ -22,6 +22,7 @@
     <string name="rain">Sade (0-3)</string>
     <string name="wind_speed">Tuulen nopeus (m/s)</string>
     <string name="wind_direction">Tuulen suunta (astetta)</string>
+    <string name="pressure">Ilmanpaine (hPa)</string>
     <string name="additional_info">Lisätiedot</string>
     <string name="latitude">Leveysaste (Lat)</string>
     <string name="longitude">Pituusaste (Lon)</string>

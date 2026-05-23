@@ -34,6 +34,10 @@ class JsonService {
             obj.put("rain", it.rain)
             obj.put("windSpeed", it.windSpeed)
             obj.put("windDirection", it.windDirection)
+            obj.put("pressure", it.pressure)
+            obj.put("weatherSource", it.weatherSource)
+            obj.put("weatherTime", if (it.weatherTime > 0) isoFormat.format(Date(it.weatherTime)) else "")
+            obj.put("weatherStation", it.weatherStation)
             obj.put("additionalInfo", it.additionalInfo)
             obj.put("originalRef", it.originalRef)
             obj.put("tripNotes", it.tripNotes)
@@ -69,6 +73,17 @@ class JsonService {
                     obj.optLong("caughtAt", 0L)
                 }
 
+                val weatherTimeStr = obj.optString("weatherTime", "")
+                val weatherTimeLong = if (weatherTimeStr.isNotEmpty()) {
+                    try {
+                        isoFormat.parse(weatherTimeStr)?.time ?: 0L
+                    } catch (_: Exception) {
+                        0L
+                    }
+                } else {
+                    obj.optLong("weatherTime", 0L)
+                }
+
                 result.add(
                     FishCatch(
                         id = 0,
@@ -87,6 +102,10 @@ class JsonService {
                         rain = obj.optLong("rain", 0),
                         windSpeed = obj.optDouble("windSpeed", 0.0),
                         windDirection = obj.optLong("windDirection", 0),
+                        pressure = obj.optDouble("pressure", 0.0),
+                        weatherSource = obj.optString("weatherSource", ""),
+                        weatherTime = weatherTimeLong,
+                        weatherStation = obj.optString("weatherStation", ""),
                         additionalInfo = obj.optString("additionalInfo", ""),
                         originalRef = obj.optString("originalRef", ""),
                         tripNotes = obj.optString("tripNotes", "")

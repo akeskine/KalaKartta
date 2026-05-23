@@ -27,7 +27,7 @@ class WeatherService(private val context: Context) {
     private val STATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::ef::stations"
     private val OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::observations::weather::simple&fmisid="
 
-    fun fetchWeatherData(fmisid: String, callback: (Map<String, Double>?, String?) -> Unit) {
+    fun fetchWeatherData(fmisid: String, targetTime: Long? = null, callback: (Map<String, Double>?, Long?, String?) -> Unit) {
         Thread {
             try {
                 val url = URL(OBSERVATIONS_URL + fmisid)
@@ -36,37 +36,52 @@ class WeatherService(private val context: Context) {
                 connection.readTimeout = 10000
 
                 if (connection.responseCode != 200) {
-                    callback(null, "Virhe ladattaessa säätietoja: ${connection.responseCode}")
+                    callback(null, null, "Virhe ladattaessa säätietoja: ${connection.responseCode}")
                     return@Thread
                 }
 
-                val data = parseWeatherObservations(connection.inputStream)
-                callback(data, null)
+                val (data, observationTime) = parseWeatherObservations(connection.inputStream, targetTime)
+                callback(data, observationTime, null)
             } catch (e: Exception) {
-                callback(null, "Virhe haettaessa säätietoja: ${e.message}")
+                callback(null, null, "Virhe haettaessa säätietoja: ${e.message}")
             }
         }.start()
     }
 
-    private fun parseWeatherObservations(inputStream: java.io.InputStream): Map<String, Double> {
-        val data = mutableMapOf<String, Double>()
+    private fun parseWeatherObservations(inputStream: java.io.InputStream, targetTime: Long?): Pair<Map<String, Double>, Long?> {
+        val allObservations = mutableMapOf<Long, MutableMap<String, Double>>()
         val parser = Xml.newPullParser()
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
         parser.setInput(inputStream, null)
 
+        val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+
         var eventType = parser.eventType
         var currentParam = ""
+        var currentTime: Long? = null
         
         while (eventType != XmlPullParser.END_DOCUMENT) {
             val tagName = parser.name
             when (eventType) {
                 XmlPullParser.START_TAG -> {
                     when (tagName) {
+                        "Time" -> {
+                            val timeStr = parser.nextText()
+                            if (timeStr.isNotEmpty()) {
+                                try {
+                                    currentTime = isoFormat.parse(timeStr)?.time
+                                } catch (_: Exception) {}
+                            }
+                        }
                         "ParameterName" -> currentParam = parser.nextText()
                         "ParameterValue" -> {
-                            val value = parser.nextText().toDoubleOrNull()
-                            if (value != null && currentParam.isNotEmpty()) {
-                                data[currentParam] = value
+                            val valueStr = parser.nextText()
+                            val value = valueStr.toDoubleOrNull()
+                            if (value != null && currentParam.isNotEmpty() && currentTime != null) {
+                                val observation = allObservations.getOrPut(currentTime!!) { mutableMapOf() }
+                                observation[currentParam] = value
                             }
                         }
                     }
@@ -74,7 +89,25 @@ class WeatherService(private val context: Context) {
             }
             eventType = parser.next()
         }
-        return data
+
+        if (allObservations.isEmpty()) {
+            return Pair(emptyMap(), null)
+        }
+
+        // Valitaan lähin havainto
+        val finalTargetTime = targetTime ?: System.currentTimeMillis()
+        var bestTime = allObservations.keys.first()
+        var minDiff = abs(bestTime - finalTargetTime)
+
+        for (time in allObservations.keys) {
+            val diff = abs(time - finalTargetTime)
+            if (diff < minDiff) {
+                minDiff = diff
+                bestTime = time
+            }
+        }
+
+        return Pair(allObservations[bestTime]!!, bestTime)
     }
 
     fun fetchAllStations(callback: ((List<WeatherStation>?, String?) -> Unit)? = null) {
