@@ -75,7 +75,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
             val targets = allCatches.filter {
-                it.weatherSource != "MANUAL" && (it.weatherSource == "" || it.weatherStation == "" || it.weatherTime == 0L || it.pressure == 0.0)
+                it.caughtAt > 0L && it.weatherSource != "MANUAL" && (it.weatherSource == "" || it.weatherStation == "" || it.weatherTime == 0L || it.pressure == 0.0)
             }
             
             withContext(Dispatchers.Main) {
@@ -100,7 +100,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
             try {
                 val allCatches = db.fishCatchDao().getAll()
                 val targetsAll = allCatches.filter {
-                    it.weatherSource != "MANUAL" && (it.weatherSource == "" || it.weatherStation == "" || it.weatherTime == 0L || it.pressure == 0.0)
+                    it.caughtAt > 0L && it.weatherSource != "MANUAL" && (it.weatherSource == "" || it.weatherStation == "" || it.weatherTime == 0L || it.pressure == 0.0)
                 }
                 
                 val targets = if (maxCount > 0) targetsAll.take(maxCount) else targetsAll
