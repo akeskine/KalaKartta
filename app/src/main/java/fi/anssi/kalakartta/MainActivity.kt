@@ -57,6 +57,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var isUserScrolling = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -81,25 +83,58 @@ class MainActivity : AppCompatActivity() {
 
         locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
         locationOverlay.enableMyLocation()
-        locationOverlay.enableFollowLocation()
+        // Älä käytä enableFollowLocation tässä, se estää kartan vapaan selailun
+        // locationOverlay.enableFollowLocation() 
         locationOverlay.runOnFirstFix {
             runOnUiThread {
                 checkWeather()
             }
         }
         map.overlays.add(locationOverlay)
+        
+        // Varmistetaan, että overlay piirtää sijainnin (sininen pallo)
+        locationOverlay.setPersonIcon(null) // Käytetään oletuskuvaketta
+        locationOverlay.enableMyLocation()
 
         requestLocationPermission()
+
+        map.setOnTouchListener { _, event ->
+            if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                isUserScrolling = true
+            } else if (event.action == android.view.MotionEvent.ACTION_UP || event.action == android.view.MotionEvent.ACTION_CANCEL) {
+                // Pieni viive, jotta scroll-tapahtuma ehtii tulla ennen kuin nollataan
+                map.postDelayed({ isUserScrolling = false }, 500)
+            }
+            false
+        }
 
         findViewById<MaterialButton>(R.id.addCatchButton).setOnClickListener {
             catchManager.showSpeciesDialog()
         }
 
         findViewById<MaterialButton>(R.id.myLocationButton).setOnClickListener {
+            // Aktivoi seuranta (keskittää sijaintiin)
+            locationOverlay.enableFollowLocation()
+            
             val myLocation = locationOverlay.myLocation
             if (myLocation != null) {
-                // Nelinkertaistetaan nopeus (oletus 1000ms -> 250ms)
                 map.controller.animateTo(myLocation, map.zoomLevelDouble, 250L)
+            } else {
+                // Jos overlaylla ei ole vielä sijaintia, kokeillaan järjestelmän LocationManageria
+                val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+                val lastKnown = try {
+                    locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                        ?: locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                } catch (e: SecurityException) {
+                    null
+                }
+
+                if (lastKnown != null) {
+                    val geoPoint = org.osmdroid.util.GeoPoint(lastKnown.latitude, lastKnown.longitude)
+                    map.controller.animateTo(geoPoint, map.zoomLevelDouble, 250L)
+                } else {
+                    android.widget.Toast.makeText(this, "Sijaintia ei ole vielä saatavilla", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
@@ -160,6 +195,11 @@ class MainActivity : AppCompatActivity() {
 
         map.addMapListener(object : MapListener {
             override fun onScroll(event: ScrollEvent?): Boolean {
+                // Jos käyttäjä skrollaa itse, poistetaan automaattinen seuranta
+                if (isUserScrolling) {
+                     locationOverlay.disableFollowLocation()
+                }
+
                 // Kun ollaan zoomed in, päivitetään näkyvät markerit (clipping)
                 if (map.zoomLevelDouble >= 14.5) {
                     markerManager.setMarkersVisible(true, map.zoomLevelDouble, forceRebuild = true)
@@ -326,9 +366,14 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
             false
         }
+        val isNetworkEnabled = try {
+            locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
         
         findViewById<MaterialButton>(R.id.myLocationButton).visibility = 
-            if (hasPermission && isGpsEnabled) android.view.View.VISIBLE else android.view.View.GONE
+            if (hasPermission && (isGpsEnabled || isNetworkEnabled)) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
