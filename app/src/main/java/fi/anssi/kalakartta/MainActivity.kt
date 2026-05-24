@@ -1,5 +1,10 @@
 package fi.anssi.kalakartta
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.location.LocationManager
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -43,6 +48,14 @@ class MainActivity : AppCompatActivity() {
     private var lastFoundStation: fi.anssi.kalakartta.utils.WeatherStation? = null
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
+
+    private val locationProviderReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
+                updateMyLocationButtonVisibility()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -289,6 +302,9 @@ class MainActivity : AppCompatActivity() {
         locationOverlay.enableMyLocation()
         updateMyLocationButtonVisibility()
         
+        // Rekisteröidään sijaintipalveluiden seuranta
+        registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
+        
         // Yritetään näyttää sääasema jos se on vielä näyttämättä
         if (!weatherCheckDone) {
             checkWeather()
@@ -296,6 +312,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        unregisterReceiver(locationProviderReceiver)
         locationOverlay.disableMyLocation()
         map.onPause()
         super.onPause()

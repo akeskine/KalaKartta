@@ -386,10 +386,10 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun updateWeatherStationText(station: WeatherStation, time: Long?) {
         if (time != null) {
-            val df = SimpleDateFormat("HH:mm", Locale("fi", "FI"))
+            val df = SimpleDateFormat("dd.MM.yyyy 'klo' HH:mm", Locale("fi", "FI"))
             df.timeZone = TimeZone.getTimeZone("Europe/Helsinki")
             val timeStr = df.format(Date(time))
-            nearestStationText.text = "Sääasema: ${station.name} (klo $timeStr)"
+            nearestStationText.text = "Sääasema: ${station.name} ($timeStr)"
         } else {
             nearestStationText.text = "Sääasema: ${station.name}"
         }
