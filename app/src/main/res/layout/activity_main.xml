@@ -40,7 +40,8 @@
             android:textStyle="bold"
             android:background="#80000000"
             android:paddingHorizontal="8dp"
-            android:paddingVertical="2dp" />
+            android:paddingVertical="2dp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/weatherStationText"
@@ -53,7 +54,6 @@
             android:paddingHorizontal="6dp"
             android:paddingVertical="1dp"
             android:visibility="gone"
-            tools:visibility="visible"
             tools:text="Säätiedot: Helsinki Kaisaniemi" />
 
         <LinearLayout

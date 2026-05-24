@@ -123,6 +123,7 @@ class EditCatchActivity : AppCompatActivity() {
         
         autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
         nearestStationText = findViewById(R.id.nearestStationText)
+        nearestStationText.visibility = android.view.View.GONE
         weatherService = WeatherService(this)
     }
 
@@ -378,21 +379,15 @@ class EditCatchActivity : AppCompatActivity() {
                     updateWeatherStationText(station, time)
                     applyWeatherData(data, time, station)
                 } else {
-                    nearestStationText.text = "Sääasema: ${station.name} (säätietojen haku epäonnistui)"
+                    // Epäonnistumisesta ei välttämättä tarvitse ilmoittaa tekstikentällä jos se on piilotettu
+                    updateWeatherStationText(station, time)
                 }
             }
         }
     }
 
     private fun updateWeatherStationText(station: WeatherStation, time: Long?) {
-        if (time != null) {
-            val df = SimpleDateFormat("dd.MM.yyyy 'klo' HH:mm", Locale("fi", "FI"))
-            df.timeZone = TimeZone.getTimeZone("Europe/Helsinki")
-            val timeStr = df.format(Date(time))
-            nearestStationText.text = "Sääasema: ${station.name} ($timeStr)"
-        } else {
-            nearestStationText.text = "Sääasema: ${station.name}"
-        }
+        nearestStationText.visibility = android.view.View.GONE
     }
 
     private fun showDateTimePicker() {
@@ -450,7 +445,7 @@ class EditCatchActivity : AppCompatActivity() {
                     if (data != null) {
                         applyWeatherData(data, time, nearestStation!!)
                         updateWeatherStationText(nearestStation!!, time)
-                        Toast.makeText(this, "Säätiedot päivitetty asemalta ${nearestStation?.name}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Säätiedot päivitetty", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(this, "Säätietojen haku epäonnistui: $error", Toast.LENGTH_SHORT).show()
                     }

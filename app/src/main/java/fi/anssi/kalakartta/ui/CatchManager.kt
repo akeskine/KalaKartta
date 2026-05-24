@@ -71,26 +71,13 @@ class CatchManager(
 
         val builder = AlertDialog.Builder(activity)
         
-        // Kustomoitu otsikko sääasemalle
+        // Kustomoitu otsikko sääasemalle (ei näytetä enää sääasemaa käyttäjän toiveesta)
         val inflater = LayoutInflater.from(activity)
         val titleView = inflater.inflate(R.layout.dialog_species_title, null)
         builder.setCustomTitle(titleView)
         
         val stationInfo = titleView.findViewById<TextView>(R.id.weatherStationInfo)
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val weatherEnabled = prefs.getBoolean("weather_enabled", true)
-        
-        if (weatherEnabled) {
-            val point = map.mapCenter as GeoPoint
-            weatherService.fetchNearestStation(point.latitude, point.longitude, System.currentTimeMillis()) { station, _ ->
-                if (station != null) {
-                    activity.runOnUiThread {
-                        stationInfo.text = "Säätiedot: ${station.name}"
-                        stationInfo.visibility = View.VISIBLE
-                    }
-                }
-            }
-        }
+        stationInfo.visibility = View.GONE
 
         builder.setAdapter(adapter) { _, which ->
             if (which < speciesList.size) {

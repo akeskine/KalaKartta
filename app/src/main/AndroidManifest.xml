@@ -28,6 +28,8 @@
         <activity android:name=".ui.TripNotesActivity" />
         <activity android:name=".ui.EditCatchActivity" />
         <activity android:name=".ui.FilterActivity" />
+        <activity android:name=".ui.WeatherUpdateActivity" />
+        <activity android:name=".ui.WeatherErrorLogActivity" />
     </application>
 
 </manifest>

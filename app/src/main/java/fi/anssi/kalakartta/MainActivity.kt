@@ -217,11 +217,10 @@ class MainActivity : AppCompatActivity() {
         weatherService = WeatherService(this)
 
         catchManager = CatchManager(this, map, db, weatherService) { fish ->
-            markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
+            markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
         }
 
         loadCatches()
-        markerManager.rebuildMarkers(map.zoomLevelDouble)
         updateMarkersVisibility()
         updateFilterStatusUI()
     }
@@ -229,8 +228,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadCatches() {
         val catches = db.fishCatchDao().getAll()
         val filteredCatches = filterManager.applyFilter(catches)
-        filteredCatches.forEach { markerManager.addMarker(it) }
-        // Poistettu map.invalidate() tästä, koska rebuildMarkers hoitaa sen
+        markerManager.setAllCatches(filteredCatches)
     }
 
     private fun updateFilterStatusUI() {
@@ -246,7 +244,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reloadMarkersFromDb() {
-        markerManager.clearMarkers()
         loadCatches()
         markerManager.rebuildMarkers(map.zoomLevelDouble)
     }
@@ -267,16 +264,7 @@ class MainActivity : AppCompatActivity() {
 
         val myLocation = locationOverlay.myLocation
         if (myLocation == null) {
-            if (force) {
-                runOnUiThread {
-                    AlertDialog.Builder(this)
-                        .setTitle("Säätiedot")
-                        .setMessage("Lähimmän sääaseman haku epäonnistui: Sijaintia ei ole vielä saatavilla.")
-                        .setPositiveButton("OK", null)
-                        .show()
-                        .enlargeButtons()
-                }
-            }
+            // Poistettu automaattinen virheilmoitus puuttuvasta sijainnista
             return
         }
 
@@ -285,21 +273,10 @@ class MainActivity : AppCompatActivity() {
         weatherService.fetchNearestStation(myLocation.latitude, myLocation.longitude, System.currentTimeMillis()) { station, error ->
             runOnUiThread {
                 if (error != null) {
-                    AlertDialog.Builder(this)
-                        .setTitle("Säätiedot")
-                        .setMessage("Säätietojen haku epäonnistui: $error")
-                        .setPositiveButton("OK", null)
-                        .show()
-                        .enlargeButtons()
+                    // Epäonnistumisesta ei välttämättä tarvitse ilmoittaa käyttäjälle automaattisessa haussa
                 } else if (station != null) {
                     lastFoundStation = station
                     updateWeatherUI()
-                    AlertDialog.Builder(this)
-                        .setTitle("Säätiedot")
-                        .setMessage("Säädatan automaattinen haku on käytössä.\n\nLähin sääasema:\n${station.name}\nfmisid: ${station.fmisid}")
-                        .setPositiveButton("OK", null)
-                        .show()
-                        .enlargeButtons()
                 }
             }
         }
@@ -307,15 +284,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateWeatherUI() {
         val weatherStationText = findViewById<TextView>(R.id.weatherStationText)
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val isEnabled = prefs.getBoolean("weather_enabled", true)
-        
-        if (isEnabled && lastFoundStation != null) {
-            weatherStationText.text = "Säätiedot: ${lastFoundStation?.name}"
-            weatherStationText.visibility = android.view.View.VISIBLE
-        } else {
-            weatherStationText.visibility = android.view.View.GONE
-        }
+        weatherStationText.visibility = android.view.View.GONE
     }
 
     private fun updateMarkersVisibility() {

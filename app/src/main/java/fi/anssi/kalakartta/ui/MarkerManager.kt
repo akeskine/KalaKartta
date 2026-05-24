@@ -46,8 +46,10 @@ class MarkerManager(
     private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
     private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
     private val clusterIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
+    private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val allCatches = mutableListOf<FishCatch>()
     private var lastZoom = -1.0
+    private var lastBBox: BoundingBox? = null
 
     init {
         map.overlays.add(markersFolder)
@@ -64,13 +66,39 @@ class MarkerManager(
         }
     }
 
+    fun setAllCatches(catches: List<FishCatch>) {
+        synchronized(allCatches) {
+            allCatches.clear()
+            allCatches.addAll(catches)
+        }
+    }
+
     /**
      * Lisää tai päivittää yksittäisen markerin kartalle ilman koko aineiston uudelleenlatausta.
      * Käytetään kun lisätään yksi uusi kala.
      */
-    fun addOrUpdateMarkerIncremental(fish: FishCatch, zoom: Double) {
+    fun addOrUpdateMarkerIncremental(fish: FishCatch, zoom: Double, filterManager: FilterManager? = null) {
         // Päivitetään sisäinen lista
         addMarker(fish)
+
+        // Tarkistetaan suodatus jos filterManager on annettu
+        if (filterManager != null) {
+            val filtered = filterManager.applyFilter(listOf(fish))
+            if (filtered.isEmpty()) {
+                // Jos kala ei läpäise suodatinta, poistetaan se kartalta (jos oli siellä) ja poistutaan
+                val existingMarker = markersFolder.items.find { (it as? Marker)?.relatedObject is FishCatch && ((it as? Marker)?.relatedObject as FishCatch).id == fish.id } as? Marker
+                if (existingMarker != null) {
+                    markersFolder.remove(existingMarker)
+                    map.invalidate()
+                }
+                
+                // Poistetaan myös allCatches-listasta jotta rebuildMarkers ei tuo sitä takaisin
+                synchronized(allCatches) {
+                    allCatches.removeAll { it.id == fish.id }
+                }
+                return
+            }
+        }
 
         // Jos ollaan klusterointialueella, on turvallisempaa rakentaa kaikki uudelleen taustalla,
         // koska uusi piste voi muuttaa klusterien koostumusta.
@@ -95,7 +123,7 @@ class MarkerManager(
         val point = GeoPoint(fish.latitude, fish.longitude)
         marker.position = point
         
-        val species = db.fishSpeciesDao().getById(fish.species)
+        val species = speciesCache[fish.species]
         marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
         
         val iconName = species?.icon_default ?: ""
@@ -128,7 +156,9 @@ class MarkerManager(
         rebuildJob?.cancel()
         rebuildJob = scope.launch {
             // Pieni viive jotta ei turhaan lasketa jos zoom/scroll on kesken
-            delay(100)
+            // Mutta jos lista on pieni, voidaan päivittää nopeammin
+            val catchesCount = synchronized(allCatches) { allCatches.size }
+            delay(if (catchesCount < 100) 20 else 60)
             
             val catchesCopy = synchronized(allCatches) { allCatches.toList() }
             
@@ -140,34 +170,63 @@ class MarkerManager(
                 return@launch
             }
 
+            // Ladataan lajit välimuistiin jos puuttuu
+            if (speciesCache.isEmpty()) {
+                withContext(Dispatchers.IO) {
+                    db.fishSpeciesDao().getAll().forEach {
+                        speciesCache[it.id] = it
+                    }
+                }
+            }
+
             if (zoom < 14.5) {
                 // Klusterointi voidaan laskea taustalla
-                val clusters = withContext(Dispatchers.Default) {
+                val clusters =withContext(Dispatchers.Default) {
                     calculateClusters(catchesCopy, zoom)
                 }
                 
                 // Markerien luonti on tehtävä Main-säikeessä
                 if (isActive) {
                     withContext(Dispatchers.Main) {
-                        markersFolder.items.clear()
-                        clusters.forEach { (speciesId, clusterList) ->
-                            if (clusterList.size == 1) {
-                                addIndividualMarker(clusterList[0])
-                            } else {
-                                addClusterMarker(speciesId, clusterList)
+                        val newMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                        clusters.forEach { (speciesId, speciesClusters) ->
+                            speciesClusters.forEach { clusterList ->
+                                if (clusterList.size == 1) {
+                                    createIndividualMarker(clusterList[0])?.let { newMarkers.add(it) }
+                                } else {
+                                    createClusterMarker(speciesId, clusterList)?.let { newMarkers.add(it) }
+                                }
                             }
                         }
-                        map.invalidate()
+                        
+                        if (isActive) {
+                            markersFolder.items.clear()
+                            markersFolder.items.addAll(newMarkers)
+                            map.invalidate()
+                        }
                     }
                 }
             } else {
-                // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
-                // jotta ei luoda tuhansia turhia markereita
-                val visibleCatches = withContext(Dispatchers.Default) {
-                    val bbox = map.boundingBox
-                    // Marginaali 50% molempiin suuntiin sulavamman skrollauksen takia
-                    val latMargin = bbox.latitudeSpan * 0.5
-                    val lonMargin = bbox.longitudeSpan * 0.5
+        // Jos pisteitä on vähän, ei tarvita clippingiä ollenkaan.
+        // Tämä estää pisteiden katoamisen ja välkkymisen heikolla sijainnilla.
+        val visibleCatches = if (catchesCopy.size < 2000) {
+            catchesCopy
+        } else {
+            // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
+            // jos pisteitä on todella paljon (> 2000) suorituskyvyn takia.
+            var bbox = map.boundingBox
+            
+            // Jos bbox ei ole vielä valmis, kokeillaan käyttää viimeisintä tunnettua
+            if (bbox == null || (bbox.latNorth == 0.0 && bbox.latSouth == 0.0) || bbox.latitudeSpan == 0.0) {
+                bbox = lastBBox
+            }
+
+            if (bbox != null && bbox.latNorth != 0.0 && bbox.latitudeSpan > 0.0) {
+                lastBBox = bbox
+                withContext(Dispatchers.Default) {
+                    // Marginaali 100% molempiin suuntiin sulavamman skrollauksen takia
+                    val latMargin = bbox.latitudeSpan * 1.0
+                    val lonMargin = bbox.longitudeSpan * 1.0
                     
                     catchesCopy.filter { fish ->
                         fish.latitude >= bbox.latSouth - latMargin && 
@@ -176,48 +235,43 @@ class MarkerManager(
                         fish.longitude <= bbox.lonEast + lonMargin
                     }
                 }
+            } else {
+                // Jos bboxia ei ole vieläkään, ja pisteitä on paljon, näytetään kaikki fallbackina tyhjän sijasta.
+                // Tämä estää pisteiden häviämisen käynnistyksessä tai animaatioiden aikana.
+                catchesCopy
+            }
+        }
 
+        if (isActive) {
+            withContext(Dispatchers.Main) {
+                // Luodaan markerit ensin väliaikaiseen listaan, jotta vältetään vilkkuminen
+                val newMarkers = mutableListOf<Marker>()
+                visibleCatches.forEach { fish ->
+                    createIndividualMarker(fish)?.let { newMarkers.add(it) }
+                }
+                
                 if (isActive) {
-                    withContext(Dispatchers.Main) {
-                        markersFolder.items.clear()
-                        visibleCatches.forEach { addIndividualMarker(it) }
-                        map.invalidate()
-                    }
+                    markersFolder.items.clear()
+                    markersFolder.items.addAll(newMarkers)
+                    map.invalidate()
                 }
             }
         }
-    }
-
-    private fun calculateClusters(catches: List<FishCatch>, zoom: Double): List<Pair<String, List<FishCatch>>> {
-        val gridSize = 360.0 / (Math.pow(2.0, zoom) * 5.0)
-        val groupedBySpecies = catches.groupBy { it.species }
-        val result = mutableListOf<Pair<String, List<FishCatch>>>()
-
-        for ((speciesId, speciesCatches) in groupedBySpecies) {
-            val grid = mutableMapOf<Pair<Int, Int>, MutableList<FishCatch>>()
-            for (fish in speciesCatches) {
-                val gx = (fish.longitude / gridSize).toInt()
-                val gy = (fish.latitude / gridSize).toInt()
-                grid.getOrPut(gx to gy) { mutableListOf() }.add(fish)
-            }
-            for (clusterList in grid.values) {
-                result.add(speciesId to clusterList)
             }
         }
-        return result
-    }
-
-    private fun clusterMarkers(zoom: Double) {
-        // Poistettu käytöstä, korvattu calculateClusters + rebuildMarkers logiikalla
     }
 
     private fun addIndividualMarker(fish: FishCatch) {
+        createIndividualMarker(fish)?.let { markersFolder.add(it) }
+    }
+
+    private fun createIndividualMarker(fish: FishCatch): Marker? {
         val point = GeoPoint(fish.latitude, fish.longitude)
         val marker = Marker(map)
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         
-        val species = db.fishSpeciesDao().getById(fish.species)
+        val species = speciesCache[fish.species]
         marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
         
         val iconName = species?.icon_default ?: ""
@@ -248,11 +302,10 @@ class MarkerManager(
             showCatchDetailsDialog(clickedMarker)
             true
         }
-
-        markersFolder.add(marker)
+        return marker
     }
 
-    private fun addClusterMarker(speciesId: String, clusterList: List<FishCatch>) {
+    private fun createClusterMarker(speciesId: String, clusterList: List<FishCatch>): Marker? {
         val avgLat = clusterList.map { it.latitude }.average()
         val avgLon = clusterList.map { it.longitude }.average()
         val point = GeoPoint(avgLat, avgLon)
@@ -261,7 +314,7 @@ class MarkerManager(
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         
-        val species = db.fishSpeciesDao().getById(speciesId)
+        val species = speciesCache[speciesId]
         val iconName = species?.icon_default ?: ""
         val drawableId = getDrawableId(iconName)
         val count = clusterList.size
@@ -287,7 +340,6 @@ class MarkerManager(
         marker.relatedObject = clusterList
 
         marker.setOnMarkerClickListener { clickedMarker, _ ->
-            // Zoomataan klusteriin sisään
             val list = clickedMarker.relatedObject as? List<FishCatch>
             if (list != null && list.isNotEmpty()) {
                 val minLat = list.minOf { it.latitude }
@@ -296,15 +348,10 @@ class MarkerManager(
                 val maxLon = list.maxOf { it.longitude }
                 
                 if (minLat == maxLat && minLon == maxLon) {
-                    // Kaikki pisteet samassa kohdassa, nostetaan zoomia vain vähän (max 16.0)
-                    // Käytetään +2.0 ja max 16.0, jotta ei zoomata liian lähelle "tyhjään"
                     val targetZoom = (map.zoomLevelDouble + 2.0).coerceAtMost(16.0)
                     map.controller.animateTo(clickedMarker.position, targetZoom, 500L)
                 } else {
-                    // Luodaan rajoittava laatikko ja lisätään 50% marginaali (1.5f)
                     val box = BoundingBox(maxLat, maxLon, minLat, minLon)
-                    // Käytetään zoomToBoundingBoxia mutta rajoitetaan maksimizoomia tasolle 16.0
-                    // 16.0 on riittävä taso nähdä pisteet erikseen, koska klusterointi loppuu jo 14.5 tasolla
                     map.zoomToBoundingBox(box.increaseByScale(1.5f), true, 0, 16.0, 500L)
                 }
             } else {
@@ -313,8 +360,7 @@ class MarkerManager(
             }
             true
         }
-
-        markersFolder.add(marker)
+        return marker
     }
 
     fun setMarkersVisible(visible: Boolean, zoom: Double, forceRebuild: Boolean = false) {
@@ -324,6 +370,23 @@ class MarkerManager(
                 // Tarkistetaan pitääkö klusterointi päivittää
                 // Jos zoom on muuttunut merkittävästi tai eka kerta tai pakotettu (skrollaus)
                 if (forceRebuild || shouldRebuild(zoom)) {
+                    // Jos kyseessä on vain skrollaus (forceRebuild), tarkistetaan onko näkymäalue muuttunut tarpeeksi
+                    if (forceRebuild && lastZoom >= 14.5 && zoom >= 14.5) {
+                        // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta)
+                        // OSMDroid hoitaa pienen määrän markereita tehokkaasti.
+                        val catchesCount = synchronized(allCatches) { allCatches.size }
+                        if (catchesCount < 2000) return
+
+                        val bbox = map.boundingBox
+                        if (bbox != null && lastBBox != null) {
+                            val latDiff = Math.abs(bbox.centerLatitude - lastBBox!!.centerLatitude)
+                            val lonDiff = Math.abs(bbox.centerLongitude - lastBBox!!.centerLongitude)
+                            // Päivitetään vain jos näkymä on siirtynyt yli 10% leveydestä/korkeudesta
+                            if (latDiff < bbox.latitudeSpan * 0.1 && lonDiff < bbox.longitudeSpan * 0.1) {
+                                return
+                            }
+                        }
+                    }
                     rebuildMarkers(zoom)
                 }
             } else {
@@ -476,6 +539,40 @@ class MarkerManager(
         
         val id = context.resources.getIdentifier(iconName, "drawable", context.packageName)
         return if (id != 0) id else R.drawable.default_point
+    }
+
+    private fun calculateClusters(catches: List<FishCatch>, zoom: Double): Map<String, List<List<FishCatch>>> {
+        val result = mutableMapOf<String, MutableList<MutableList<FishCatch>>>()
+        
+        // Ryhmitellään lajeittain
+        val bySpecies = catches.groupBy { it.species }
+        
+        // Etäisyyskynnys pikseleinä (muunnetaan asteiksi)
+        val threshold = if (zoom < 10) 0.5 else if (zoom < 12) 0.1 else 0.02
+        
+        bySpecies.forEach { (species, speciesCatches) ->
+            val clusters = mutableListOf<MutableList<FishCatch>>()
+            
+            speciesCatches.forEach { fish ->
+                var found = false
+                for (cluster in clusters) {
+                    val first = cluster[0]
+                    val dist = Math.sqrt(Math.pow(fish.latitude - first.latitude, 2.0) + Math.pow(fish.longitude - first.longitude, 2.0))
+                    if (dist < threshold) {
+                        cluster.add(fish)
+                        found = true
+                        break
+                    }
+                }
+                
+                if (!found) {
+                    clusters.add(mutableListOf(fish))
+                }
+            }
+            result[species] = clusters
+        }
+        
+        return result
     }
 
     private fun getClusteredMarkerIcon(drawableId: Int, sizeDp: Int, count: Int): BitmapDrawable {
