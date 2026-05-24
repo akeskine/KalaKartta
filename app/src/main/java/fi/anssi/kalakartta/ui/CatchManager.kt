@@ -9,10 +9,12 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import android.content.Context
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.FishSpecies
+import fi.anssi.kalakartta.utils.WeatherService
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 
@@ -20,6 +22,7 @@ class CatchManager(
     private val activity: AppCompatActivity,
     private val map: MapView,
     private val db: AppDatabase,
+    private val weatherService: WeatherService,
     private val onCatchAdded: (FishCatch) -> Unit
 ) {
     fun showSpeciesDialog() {
@@ -66,16 +69,38 @@ class CatchManager(
             }
         }
 
-        AlertDialog.Builder(activity)
-            .setTitle(R.string.add_catch)
-            .setAdapter(adapter) { _, which ->
-                if (which < speciesList.size) {
-                    addCatchAtSelectedLocation(speciesList[which].id)
-                } else {
-                    openEditCatchForNewEntry()
+        val builder = AlertDialog.Builder(activity)
+        
+        // Kustomoitu otsikko sääasemalle
+        val inflater = LayoutInflater.from(activity)
+        val titleView = inflater.inflate(R.layout.dialog_species_title, null)
+        builder.setCustomTitle(titleView)
+        
+        val stationInfo = titleView.findViewById<TextView>(R.id.weatherStationInfo)
+        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val weatherEnabled = prefs.getBoolean("weather_enabled", true)
+        
+        if (weatherEnabled) {
+            val point = map.mapCenter as GeoPoint
+            weatherService.fetchNearestStation(point.latitude, point.longitude, System.currentTimeMillis()) { station, _ ->
+                if (station != null) {
+                    activity.runOnUiThread {
+                        stationInfo.text = "Säätiedot: ${station.name}"
+                        stationInfo.visibility = View.VISIBLE
+                    }
                 }
             }
-            .show()
+        }
+
+        builder.setAdapter(adapter) { _, which ->
+            if (which < speciesList.size) {
+                addCatchAtSelectedLocation(speciesList[which].id)
+            } else {
+                openEditCatchForNewEntry()
+            }
+        }
+        
+        builder.show()
     }
 
     private fun openEditCatchForNewEntry() {
@@ -95,17 +120,52 @@ class CatchManager(
 
     private fun addCatchAtSelectedLocation(speciesId: String) {
         val point = map.mapCenter as GeoPoint
+        val caughtAt = System.currentTimeMillis()
 
         val fish = FishCatch(
             species = speciesId,
             latitude = point.latitude,
             longitude = point.longitude,
-            caughtAt = System.currentTimeMillis()
+            caughtAt = caughtAt
         )
 
-        val id = db.fishCatchDao().insert(fish)
-        val fishWithId = fish.copy(id = id)
+        // Tallennetaan taustalla ja päivitetään UI
+        Thread {
+            val id = db.fishCatchDao().insert(fish)
+            val fishWithId = fish.copy(id = id)
 
-        onCatchAdded(fishWithId)
+            activity.runOnUiThread {
+                onCatchAdded(fishWithId)
+            }
+
+            // Haetaan säätiedot automaattisesti jos asetus on päällä
+            val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val weatherEnabled = prefs.getBoolean("weather_enabled", true)
+            if (weatherEnabled) {
+                weatherService.fetchNearestStation(point.latitude, point.longitude, caughtAt) { station, _ ->
+                    if (station != null) {
+                        weatherService.fetchWeatherData(station.fmisid, caughtAt) { data, obsTime, _ ->
+                            if (data != null) {
+                                val updatedFish = fishWithId.copy(
+                                    airTemp = data["t2m"] ?: 0.0,
+                                    cloudiness = (data["nn_ll01"] ?: 0.0).toLong(),
+                                    rain = (data["r_1h"] ?: 0.0).toLong(),
+                                    windSpeed = data["ws_10min"] ?: 0.0,
+                                    windDirection = (data["wd_10min"] ?: 0.0).toLong(),
+                                    pressure = data["p_sea"] ?: data["p_msl"] ?: 0.0,
+                                    weatherSource = "FMI",
+                                    weatherTime = obsTime ?: caughtAt,
+                                    weatherStation = "${station.fmisid}:${station.name}"
+                                )
+                                db.fishCatchDao().update(updatedFish)
+                                activity.runOnUiThread {
+                                    onCatchAdded(updatedFish)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }.start()
     }
 }

@@ -26,6 +26,7 @@ import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
 import fi.anssi.kalakartta.utils.WeatherService
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import fi.anssi.kalakartta.utils.enlargeButtons
 
@@ -39,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var filterManager: FilterManager
     private lateinit var weatherService: WeatherService
     private var weatherCheckDone = false
+    private var lastFoundStation: fi.anssi.kalakartta.utils.WeatherStation? = null
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
 
@@ -124,6 +126,8 @@ class MainActivity : AppCompatActivity() {
         settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
             if (isEnabled) {
                 checkWeather(force = true)
+            } else {
+                updateWeatherUI()
             }
         }) {
             reloadMarkersFromDb()
@@ -157,11 +161,11 @@ class MainActivity : AppCompatActivity() {
 
         filterManager = FilterManager(this)
 
-        catchManager = CatchManager(this, map, db) { fish ->
+        weatherService = WeatherService(this)
+
+        catchManager = CatchManager(this, map, db, weatherService) { fish ->
             markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
         }
-
-        weatherService = WeatherService(this)
 
         loadCatches()
         markerManager.rebuildMarkers(map.zoomLevelDouble)
@@ -235,6 +239,8 @@ class MainActivity : AppCompatActivity() {
                         .show()
                         .enlargeButtons()
                 } else if (station != null) {
+                    lastFoundStation = station
+                    updateWeatherUI()
                     AlertDialog.Builder(this)
                         .setTitle("Säätiedot")
                         .setMessage("Säädatan automaattinen haku on käytössä.\n\nLähin sääasema:\n${station.name}\nfmisid: ${station.fmisid}")
@@ -243,6 +249,19 @@ class MainActivity : AppCompatActivity() {
                         .enlargeButtons()
                 }
             }
+        }
+    }
+
+    private fun updateWeatherUI() {
+        val weatherStationText = findViewById<TextView>(R.id.weatherStationText)
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val isEnabled = prefs.getBoolean("weather_enabled", true)
+        
+        if (isEnabled && lastFoundStation != null) {
+            weatherStationText.text = "Säätiedot: ${lastFoundStation?.name}"
+            weatherStationText.visibility = android.view.View.VISIBLE
+        } else {
+            weatherStationText.visibility = android.view.View.GONE
         }
     }
 

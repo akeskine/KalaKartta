@@ -24,31 +24,64 @@
         android:elevation="8dp" />
 
     <LinearLayout
-        android:id="@+id/filterStatusLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="16dp"
-        android:background="#80000000"
-        android:padding="8dp"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@android:drawable/ic_menu_search"
-            app:tint="@color/white"
-            tools:ignore="ContentDescription" />
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
 
         <TextView
-            android:id="@+id/filterStatusText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
+            android:text="KalaKartta"
             android:textColor="@color/white"
-            android:textSize="14sp"
-            tools:text="Ahven 1.1.-31.3." />
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:background="#80000000"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp" />
+
+        <TextView
+            android:id="@+id/weatherStationText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:background="#80000000"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:visibility="gone"
+            tools:visibility="visible"
+            tools:text="Säätiedot: Helsinki Kaisaniemi" />
+
+        <LinearLayout
+            android:id="@+id/filterStatusLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="#80000000"
+            android:padding="8dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@android:drawable/ic_menu_search"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <TextView
+                android:id="@+id/filterStatusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                tools:text="Ahven 1.1.-31.3." />
+        </LinearLayout>
     </LinearLayout>
 
     <com.google.android.material.button.MaterialButton
