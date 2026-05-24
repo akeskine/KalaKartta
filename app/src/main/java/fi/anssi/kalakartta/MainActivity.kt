@@ -85,20 +85,18 @@ class MainActivity : AppCompatActivity() {
         val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
         map.controller.setCenter(helsinkiCenter)
 
-        locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
-        locationOverlay.enableMyLocation()
-        // Älä käytä enableFollowLocation tässä, se estää kartan vapaan selailun
-        // locationOverlay.enableFollowLocation() 
-        locationOverlay.runOnFirstFix {
-            runOnUiThread {
-                checkWeather()
+        locationOverlay = object : MyLocationNewOverlay(GpsMyLocationProvider(this), map) {
+            override fun draw(canvas: android.graphics.Canvas, map: MapView, shadow: Boolean) {
+                try {
+                    super.draw(canvas, map, shadow)
+                } catch (e: Exception) {
+                    // Hiljennetään mahdolliset piirto-virheet (esim. Bitmap NPE)
+                    android.util.Log.e("MainActivity", "Error drawing locationOverlay: ${e.message}")
+                }
             }
         }
-        map.overlays.add(locationOverlay)
-        
-        // Varmistetaan, että overlay piirtää sijainnin (sininen pallo)
-        locationOverlay.setPersonIcon(null) // Käytetään oletuskuvaketta
         locationOverlay.enableMyLocation()
+        map.overlays.add(locationOverlay)
 
         requestLocationPermission()
 
@@ -266,7 +264,7 @@ class MainActivity : AppCompatActivity() {
 
         if (weatherCheckDone) return
 
-        val myLocation = locationOverlay.myLocation
+        val myLocation = if (::locationOverlay.isInitialized) locationOverlay.myLocation else null
         if (myLocation == null) {
             // Poistettu automaattinen virheilmoitus puuttuvasta sijainnista
             return

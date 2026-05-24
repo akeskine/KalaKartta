@@ -219,19 +219,20 @@ class MarkerManager(
             // Jos bbox ei ole vielä valmis, käytetään fallbackina kaikkien näyttämistä.
             // Älä käytä lastBBoxia tässä, koska se voi olla kaukana nykyisestä sijainnista
             // ja aiheuttaa kaikkien pisteiden katoamisen (clipping väärälle alueelle).
-            if (bbox != null && bbox.latNorth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.longitudeSpan > 0.0)) {
+            if (bbox != null && bbox.latNorth != 0.0 && bbox.latSouth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.longitudeSpan > 0.0)) {
                 lastBBox = bbox
                 withContext(Dispatchers.Default) {
                     // Marginaali 200% molempiin suuntiin sulavamman skrollauksen takia
                     val latMargin = bbox.latitudeSpan * 2.0
                     val lonMargin = bbox.longitudeSpan * 2.0
                     
-                    catchesCopy.filter { fish ->
+                    val filtered = catchesCopy.filter { fish ->
                         fish.latitude >= bbox.latSouth - latMargin && 
                         fish.latitude <= bbox.latNorth + latMargin &&
                         fish.longitude >= bbox.lonWest - lonMargin &&
                         fish.longitude <= bbox.lonEast + lonMargin
                     }
+                    filtered
                 }
             } else {
                 // Jos bboxia ei ole vielä, ja pisteitä on paljon, näytetään kaikki fallbackina tyhjän sijasta.
@@ -255,8 +256,8 @@ class MarkerManager(
                 }
             }
         }
-            }
-        }
+    }
+}
     }
 
     private fun addIndividualMarker(fish: FishCatch) {
@@ -372,8 +373,14 @@ class MarkerManager(
                     if (forceRebuild && lastZoom >= 13.0 && zoom >= 13.0) {
                         // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta)
                         // OSMDroid hoitaa pienen määrän markereita tehokkaasti.
+                        // Poistetaan pakotettu päivitys kokonaan jos määrä on pieni.
                         val catchesCount = synchronized(allCatches) { allCatches.size }
-                        if (catchesCount < 15000) return
+                        if (catchesCount < 15000) {
+                            // Varmistetaan että markerit on ladattu joskus, mutta ei ladata niitä joka skrollauksella
+                            if (markersFolder.items.isNotEmpty()) {
+                                return
+                            }
+                        }
  
                         val bbox = map.boundingBox
                         if (bbox != null && lastBBox != null) {
