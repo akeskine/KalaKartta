@@ -192,7 +192,7 @@ class MainActivity : AppCompatActivity() {
             }
             markerManager.removeMarker(marker)
             // Päivitetään klusterit jos tarpeen
-            if (map.zoomLevelDouble < 14.5) {
+            if (map.zoomLevelDouble < 13.0) {
                 markerManager.rebuildMarkers(map.zoomLevelDouble)
             }
         }
@@ -205,7 +205,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 // Kun ollaan zoomed in, päivitetään näkyvät markerit (clipping)
-                if (map.zoomLevelDouble >= 14.5) {
+                if (map.zoomLevelDouble >= 13.0) {
                     markerManager.setMarkersVisible(true, map.zoomLevelDouble, forceRebuild = true)
                 }
                 return false

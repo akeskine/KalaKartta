@@ -27,4 +27,7 @@ interface FishCatchDao {
 
     @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
     fun update(fishCatch: FishCatch)
+
+    @Query("SELECT COUNT(*) FROM FishCatch")
+    fun getCount(): Int
 }

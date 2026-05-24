@@ -32,6 +32,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
     private lateinit var failureCountText: TextView
     private lateinit var errorLogButton: Button
     private lateinit var okButton: Button
+    private lateinit var backButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +60,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
         failureCountText = findViewById(R.id.failureCountText)
         errorLogButton = findViewById(R.id.errorLogButton)
         okButton = findViewById(R.id.okButton)
+        backButton = findViewById(R.id.backButton)
 
         startButton.setOnClickListener { startUpdate() }
         cancelButton.setOnClickListener { stopUpdate() }
@@ -66,6 +68,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
             startActivity(Intent(this, WeatherErrorLogActivity::class.java))
         }
         okButton.setOnClickListener { finish() }
+        backButton.setOnClickListener { finish() }
     }
 
     private fun loadStats() {

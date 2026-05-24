@@ -24,17 +24,23 @@ class SettingsManager(
 ) {
 
     fun openSettings() {
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle("Asetukset")
-            .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää")) { _, which ->
-                when (which) {
-                    0 -> openDataTransferSettings()
-                    1 -> openFilterSettings()
-                    2 -> openWeatherSettings()
-                }
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            val count = db.fishCatchDao().getCount()
+            withContext(Dispatchers.Main) {
+                val dialog = AlertDialog.Builder(activity)
+                    .setTitle("Asetukset")
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Takaisin")) { _, which ->
+                        when (which) {
+                            0 -> openDataTransferSettings(count)
+                            1 -> openFilterSettings()
+                            2 -> openWeatherSettings()
+                            3 -> { /* Sulje valikko */ }
+                        }
+                    }
+                    .show()
+                dialog.enlargeButtons()
             }
-            .show()
-        dialog.enlargeButtons()
+        }
     }
 
     private fun openWeatherSettings() {
@@ -81,6 +87,9 @@ class SettingsManager(
                     onWeatherSettingsChanged(isEnabledCurrent)
                 }
             }
+            .setNegativeButton("Takaisin") { _, _ ->
+                openSettings()
+            }
             .show()
         dialog.enlargeButtons()
     }
@@ -92,14 +101,15 @@ class SettingsManager(
         activity.startActivityForResult(intent, 1002)
     }
 
-    private fun openDataTransferSettings() {
+    private fun openDataTransferSettings(count: Int) {
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Tiedonsiirto")
-            .setItems(arrayOf("Vie tiedot", "Tuo tiedot", "Poista kaikki pisteet")) { _, which ->
+            .setTitle("Tiedonsiirto ($count pistettä)")
+            .setItems(arrayOf("Vie tiedot", "Tuo tiedot", "Poista kaikki pisteet", "Takaisin")) { _, which ->
                 when (which) {
                     0 -> importExportManager.launchExport()
                     1 -> importExportManager.launchImport()
                     2 -> confirmDeleteAllCatches()
+                    3 -> openSettings()
                 }
             }
             .show()

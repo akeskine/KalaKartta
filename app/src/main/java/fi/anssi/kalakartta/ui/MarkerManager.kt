@@ -102,7 +102,7 @@ class MarkerManager(
 
         // Jos ollaan klusterointialueella, on turvallisempaa rakentaa kaikki uudelleen taustalla,
         // koska uusi piste voi muuttaa klusterien koostumusta.
-        if (zoom < 14.5) {
+        if (zoom < 13.0) {
             rebuildMarkers(zoom)
             return
         }
@@ -179,7 +179,7 @@ class MarkerManager(
                 }
             }
 
-            if (zoom < 14.5) {
+            if (zoom < 13.0) {
                 // Klusterointi voidaan laskea taustalla
                 val clusters =withContext(Dispatchers.Default) {
                     calculateClusters(catchesCopy, zoom)
@@ -209,24 +209,22 @@ class MarkerManager(
             } else {
         // Jos pisteitä on vähän, ei tarvita clippingiä ollenkaan.
         // Tämä estää pisteiden katoamisen ja välkkymisen heikolla sijainnilla.
-        val visibleCatches = if (catchesCopy.size < 2000) {
+        val visibleCatches = if (catchesCopy.size < 15000) {
             catchesCopy
         } else {
             // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
-            // jos pisteitä on todella paljon (> 2000) suorituskyvyn takia.
+            // jos pisteitä on todella paljon (> 15000) suorituskyvyn takia.
             var bbox = map.boundingBox
             
-            // Jos bbox ei ole vielä valmis, kokeillaan käyttää viimeisintä tunnettua
-            if (bbox == null || (bbox.latNorth == 0.0 && bbox.latSouth == 0.0) || bbox.latitudeSpan == 0.0) {
-                bbox = lastBBox
-            }
-
-            if (bbox != null && bbox.latNorth != 0.0 && bbox.latitudeSpan > 0.0) {
+            // Jos bbox ei ole vielä valmis, käytetään fallbackina kaikkien näyttämistä.
+            // Älä käytä lastBBoxia tässä, koska se voi olla kaukana nykyisestä sijainnista
+            // ja aiheuttaa kaikkien pisteiden katoamisen (clipping väärälle alueelle).
+            if (bbox != null && bbox.latNorth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.longitudeSpan > 0.0)) {
                 lastBBox = bbox
                 withContext(Dispatchers.Default) {
-                    // Marginaali 100% molempiin suuntiin sulavamman skrollauksen takia
-                    val latMargin = bbox.latitudeSpan * 1.0
-                    val lonMargin = bbox.longitudeSpan * 1.0
+                    // Marginaali 200% molempiin suuntiin sulavamman skrollauksen takia
+                    val latMargin = bbox.latitudeSpan * 2.0
+                    val lonMargin = bbox.longitudeSpan * 2.0
                     
                     catchesCopy.filter { fish ->
                         fish.latitude >= bbox.latSouth - latMargin && 
@@ -236,7 +234,7 @@ class MarkerManager(
                     }
                 }
             } else {
-                // Jos bboxia ei ole vieläkään, ja pisteitä on paljon, näytetään kaikki fallbackina tyhjän sijasta.
+                // Jos bboxia ei ole vielä, ja pisteitä on paljon, näytetään kaikki fallbackina tyhjän sijasta.
                 // Tämä estää pisteiden häviämisen käynnistyksessä tai animaatioiden aikana.
                 catchesCopy
             }
@@ -371,18 +369,19 @@ class MarkerManager(
                 // Jos zoom on muuttunut merkittävästi tai eka kerta tai pakotettu (skrollaus)
                 if (forceRebuild || shouldRebuild(zoom)) {
                     // Jos kyseessä on vain skrollaus (forceRebuild), tarkistetaan onko näkymäalue muuttunut tarpeeksi
-                    if (forceRebuild && lastZoom >= 14.5 && zoom >= 14.5) {
+                    if (forceRebuild && lastZoom >= 13.0 && zoom >= 13.0) {
                         // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta)
                         // OSMDroid hoitaa pienen määrän markereita tehokkaasti.
                         val catchesCount = synchronized(allCatches) { allCatches.size }
-                        if (catchesCount < 2000) return
-
+                        if (catchesCount < 15000) return
+ 
                         val bbox = map.boundingBox
                         if (bbox != null && lastBBox != null) {
                             val latDiff = Math.abs(bbox.centerLatitude - lastBBox!!.centerLatitude)
                             val lonDiff = Math.abs(bbox.centerLongitude - lastBBox!!.centerLongitude)
-                            // Päivitetään vain jos näkymä on siirtynyt yli 10% leveydestä/korkeudesta
-                            if (latDiff < bbox.latitudeSpan * 0.1 && lonDiff < bbox.longitudeSpan * 0.1) {
+                            // Päivitetään vain jos näkymä on siirtynyt yli 150% leveydestä/korkeudesta
+                            // koska clipping-marginaali on 200%.
+                            if (latDiff < bbox.latitudeSpan * 1.5 && lonDiff < bbox.longitudeSpan * 1.5) {
                                 return
                             }
                         }
@@ -399,7 +398,7 @@ class MarkerManager(
         if (lastZoom < 0) return true
         
         // Jos ollaan klusterointialueella tai siirtymässä sinne, päivitys 0.8 askeleen välein
-        if (zoom < 14.5 || lastZoom < 14.5) {
+        if (zoom < 13.0 || lastZoom < 13.0) {
             return Math.abs(lastZoom - zoom) >= 0.8
         }
         return false
