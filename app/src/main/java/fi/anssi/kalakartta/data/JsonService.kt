@@ -23,7 +23,9 @@ class JsonService {
             obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
             obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
             android.util.Log.d("JsonService", "Exporting catch: species=${it.species}, lat=${it.latitude}, lon=${it.longitude}")
-            obj.put("caughtAt", isoFormat.format(Date(it.caughtAt)))
+            if (it.caughtAt > 0) {
+                obj.put("caughtAt", isoFormat.format(Date(it.caughtAt)))
+            }
             if (it.weight != null) obj.put("weight", it.weight)
             if (it.length != null) obj.put("length", it.length)
             obj.put("method", it.method)
