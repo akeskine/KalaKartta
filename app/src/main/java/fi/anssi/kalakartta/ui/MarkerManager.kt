@@ -444,7 +444,30 @@ class MarkerManager(
 
             if (it.weight > 0) details.append("Paino: ${it.weight} g\n")
             if (it.length > 0) details.append("Pituus: ${it.length} cm\n")
-            if (it.additionalInfo.isNotEmpty()) details.append("Lisätieto: ${it.additionalInfo}\n")
+            
+            // Säätiedot
+            if (it.weatherSource.isNotEmpty()) {
+                details.append("\nSää (${it.weatherSource}):\n")
+                if (it.airTemp != 0.0) details.append("  Ilma: ${it.airTemp} °C\n")
+                if (it.waterTemp != 0.0) details.append("  Vesi: ${it.waterTemp} °C\n")
+                if (it.windSpeed > 0) {
+                    val dir = if (it.windDirection > 0) " (${it.windDirection}°)" else ""
+                    details.append("  Tuuli: ${it.windSpeed} m/s$dir\n")
+                }
+                if (it.pressure > 0) details.append("  Paine: ${it.pressure} hPa\n")
+                if (it.cloudiness > 0 || it.rain > 0) {
+                    val c = if (it.cloudiness > 0) "Pilvisyys: ${it.cloudiness}/8" else ""
+                    val r = if (it.rain > 0) "Sade: ${it.rain} mm" else ""
+                    val weather = listOf(c, r).filter { s -> s.isNotEmpty() }.joinToString(", ")
+                    details.append("  $weather\n")
+                }
+                if (it.weatherStation.isNotEmpty()) {
+                    val stationName = it.weatherStation.substringAfter(":")
+                    details.append("  Asema: $stationName\n")
+                }
+            }
+
+            if (it.additionalInfo.isNotEmpty()) details.append("\nLisätieto: ${it.additionalInfo}\n")
             if (it.originalRef.isNotEmpty()) details.append("Alkuperäinen viite: ${it.originalRef}\n")
         }
 

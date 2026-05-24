@@ -80,6 +80,10 @@ class MainActivity : AppCompatActivity() {
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setMultiTouchControls(true)
         map.controller.setZoom(15.0)
+        
+        // Asetetaan alkusijainti Helsingin keskustaan, jos omaa sijaintia ei vielä ole
+        val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
+        map.controller.setCenter(helsinkiCenter)
 
         locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
         locationOverlay.enableMyLocation()
