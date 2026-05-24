@@ -145,8 +145,8 @@ class EditCatchActivity : AppCompatActivity() {
             
             fishCatch = FishCatch(
                 species = "", // Oletusarvoksi tyhjä laji
-                latitude = lat,
-                longitude = lon,
+                latitude = String.format(java.util.Locale.US, "%.5f", lat).toDouble(),
+                longitude = String.format(java.util.Locale.US, "%.5f", lon).toDouble(),
                 caughtAt = System.currentTimeMillis()
             )
             setTitle(R.string.add_detailed)
@@ -175,27 +175,25 @@ class EditCatchActivity : AppCompatActivity() {
             selectedCalendar.timeInMillis = fc.caughtAt
             updateDateTimeButtonText()
 
-            val airTemp = if (fc.airTemp != 0.0 && !fc.airTemp.isNaN()) fc.airTemp.toString() else ""
-            val cloudiness = fc.cloudiness.toString()
-            val rain = fc.rain.toString()
-            val windSpeed = if (fc.windSpeed != 0.0 && !fc.windSpeed.isNaN()) fc.windSpeed.toString() else ""
-            val windDirection = fc.windDirection.toString()
-            val pressure = if (fc.pressure != 0.0 && !fc.pressure.isNaN()) fc.pressure.toString() else ""
+            val airTemp = if (fc.airTemp != null && !fc.airTemp!!.isNaN()) fc.airTemp.toString() else ""
+            val cloudiness = fc.cloudiness?.toString() ?: ""
+            val rain = fc.rain?.toString() ?: ""
+            val windSpeed = if (fc.windSpeed != null && !fc.windSpeed!!.isNaN()) fc.windSpeed.toString() else ""
+            val windDirection = fc.windDirection?.toString() ?: ""
+            val pressure = if (fc.pressure != null && !fc.pressure!!.isNaN()) fc.pressure.toString() else ""
 
-            weightEditText.setText(if (fc.weight > 0) fc.weight.toString() else "")
-            lengthEditText.setText(if (fc.length > 0) fc.length.toString() else "")
+            weightEditText.setText(if (fc.weight != null && fc.weight!! > 0) fc.weight.toString() else "")
+            lengthEditText.setText(if (fc.length != null && fc.length!! > 0) fc.length.toString() else "")
             methodEditText.setText(fc.method)
-            strikeDepthEditText.setText(if (fc.strikeDepth != 0.0) fc.strikeDepth.toString() else "")
-            waterDepthEditText.setText(if (fc.waterDepth != 0.0) fc.waterDepth.toString() else "")
-            waterTempEditText.setText(if (fc.waterTemp != 0.0) fc.waterTemp.toString() else "")
+            strikeDepthEditText.setText(fc.strikeDepth?.toString() ?: "")
+            waterDepthEditText.setText(fc.waterDepth?.toString() ?: "")
+            waterTempEditText.setText(fc.waterTemp?.toString() ?: "")
             airTempEditText.setText(airTemp)
             
             currentWeatherSource = fc.weatherSource
-            currentWeatherTime = fc.weatherTime
+            currentWeatherTime = fc.weatherTime ?: 0L
             currentWeatherStation = fc.weatherStation
-            currentPressure = fc.pressure
-
-            // Tallenna alkuperäiset arvot
+            currentPressure = fc.pressure ?: 0.0
             originalAirTemp = airTemp
             originalCloudiness = cloudiness
             originalRain = rain
@@ -203,7 +201,7 @@ class EditCatchActivity : AppCompatActivity() {
             originalWindDirection = windDirection
             originalPressure = pressure
             originalWeatherSource = fc.weatherSource
-            originalWeatherTime = fc.weatherTime
+            originalWeatherTime = fc.weatherTime ?: 0L
             originalWeatherStation = fc.weatherStation
             
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)
@@ -490,25 +488,25 @@ class EditCatchActivity : AppCompatActivity() {
             val updatedCatch = fc.copy(
                 species = selectedSpecies.id,
                 caughtAt = selectedCalendar.timeInMillis,
-                weight = weightEditText.text.toString().toLongOrNull() ?: 0L,
-                length = lengthEditText.text.toString().toLongOrNull() ?: 0L,
+                weight = weightEditText.text.toString().toLongOrNull(),
+                length = lengthEditText.text.toString().toLongOrNull(),
                 method = methodEditText.text.toString(),
-                strikeDepth = strikeDepthEditText.text.toString().toDoubleSafe(),
-                waterDepth = waterDepthEditText.text.toString().toDoubleSafe(),
-                waterTemp = waterTempEditText.text.toString().toDoubleSafe(),
-                airTemp = airTempEditText.text.toString().toDoubleSafe(),
-                cloudiness = cloudinessEditText.text.toString().toLongOrNull() ?: 0L,
-                rain = rainEditText.text.toString().toLongOrNull() ?: 0L,
-                windSpeed = windSpeedEditText.text.toString().toDoubleSafe(),
-                windDirection = windDirectionEditText.text.toString().toLongOrNull() ?: 0L,
-                pressure = pressureEditText.text.toString().toDoubleSafe(),
+                strikeDepth = strikeDepthEditText.text.toString().toDoubleOrNull(),
+                waterDepth = waterDepthEditText.text.toString().toDoubleOrNull(),
+                waterTemp = waterTempEditText.text.toString().toDoubleOrNull(),
+                airTemp = airTempEditText.text.toString().toDoubleOrNull(),
+                cloudiness = cloudinessEditText.text.toString().toLongOrNull(),
+                rain = rainEditText.text.toString().toLongOrNull(),
+                windSpeed = windSpeedEditText.text.toString().toDoubleOrNull(),
+                windDirection = windDirectionEditText.text.toString().toLongOrNull(),
+                pressure = pressureEditText.text.toString().toDoubleOrNull(),
                 weatherSource = if (currentWeatherSource == "FMI") "FMI" else "MANUAL",
                 weatherTime = if (currentWeatherSource == "FMI") currentWeatherTime else selectedCalendar.timeInMillis,
                 weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
                 additionalInfo = additionalInfoEditText.text.toString(),
                 tripNotes = tripNotesEditText.text.toString(),
-                latitude = latEditText.text.toString().toDoubleSafe(fc.latitude),
-                longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude)
+                latitude = String.format(java.util.Locale.US, "%.5f", latEditText.text.toString().toDoubleOrNull() ?: fc.latitude).toDouble(),
+                longitude = String.format(java.util.Locale.US, "%.5f", lonEditText.text.toString().toDoubleOrNull() ?: fc.longitude).toDouble()
             )
 
             Thread {
@@ -550,20 +548,20 @@ class EditCatchActivity : AppCompatActivity() {
         val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id
         if (selectedSpeciesId != fc.species) return true
         if (selectedCalendar.timeInMillis != fc.caughtAt) return true
-        if (weightEditText.text.toString() != (if (fc.weight > 0) fc.weight.toString() else "")) return true
-        if (lengthEditText.text.toString() != (if (fc.length > 0) fc.length.toString() else "")) return true
+        if (weightEditText.text.toString() != (fc.weight?.toString() ?: "")) return true
+        if (lengthEditText.text.toString() != (fc.length?.toString() ?: "")) return true
         if (methodEditText.text.toString() != fc.method) return true
-        if (strikeDepthEditText.text.toString() != (if (fc.strikeDepth != 0.0) fc.strikeDepth.toString() else "")) return true
-        if (waterDepthEditText.text.toString() != (if (fc.waterDepth != 0.0) fc.waterDepth.toString() else "")) return true
-        if (waterTempEditText.text.toString() != (if (fc.waterTemp != 0.0) fc.waterTemp.toString() else "")) return true
-        if (airTempEditText.text.toString() != (if (fc.airTemp != 0.0) fc.airTemp.toString() else "")) return true
-        if (cloudinessEditText.text.toString() != fc.cloudiness.toString()) return true
-        if (rainEditText.text.toString() != fc.rain.toString()) return true
-        if (windSpeedEditText.text.toString() != (if (fc.windSpeed != 0.0) fc.windSpeed.toString() else "")) return true
-        if (windDirectionEditText.text.toString() != fc.windDirection.toString()) return true
-        if (pressureEditText.text.toString() != (if (fc.pressure != 0.0) fc.pressure.toString() else "")) return true
+        if (strikeDepthEditText.text.toString() != (fc.strikeDepth?.toString() ?: "")) return true
+        if (waterDepthEditText.text.toString() != (fc.waterDepth?.toString() ?: "")) return true
+        if (waterTempEditText.text.toString() != (fc.waterTemp?.toString() ?: "")) return true
+        if (airTempEditText.text.toString() != (fc.airTemp?.toString() ?: "")) return true
+        if (cloudinessEditText.text.toString() != (fc.cloudiness?.toString() ?: "")) return true
+        if (rainEditText.text.toString() != (fc.rain?.toString() ?: "")) return true
+        if (windSpeedEditText.text.toString() != (fc.windSpeed?.toString() ?: "")) return true
+        if (windDirectionEditText.text.toString() != (fc.windDirection?.toString() ?: "")) return true
+        if (pressureEditText.text.toString() != (fc.pressure?.toString() ?: "")) return true
         if (currentWeatherSource != fc.weatherSource) return true
-        if (currentWeatherTime != fc.weatherTime) return true
+        if (currentWeatherTime != (fc.weatherTime ?: 0L)) return true
         if (currentWeatherStation != fc.weatherStation) return true
         if (additionalInfoEditText.text.toString() != fc.additionalInfo) return true
         if (tripNotesEditText.text.toString() != fc.tripNotes) return true

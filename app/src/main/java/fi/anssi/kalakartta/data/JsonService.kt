@@ -20,23 +20,26 @@ class JsonService {
             val obj = JSONObject()
             obj.put("id", it.id)
             obj.put("species", it.species)
-            obj.putSafe("latitude", it.latitude)
-            obj.putSafe("longitude", it.longitude)
+            obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
+            obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
+            android.util.Log.d("JsonService", "Exporting catch: species=${it.species}, lat=${it.latitude}, lon=${it.longitude}")
             obj.put("caughtAt", isoFormat.format(Date(it.caughtAt)))
-            obj.put("weight", it.weight)
-            obj.put("length", it.length)
+            if (it.weight != null) obj.put("weight", it.weight)
+            if (it.length != null) obj.put("length", it.length)
             obj.put("method", it.method)
-            obj.putSafe("strikeDepth", it.strikeDepth)
-            obj.putSafe("waterDepth", it.waterDepth)
-            obj.putSafe("waterTemp", it.waterTemp)
-            obj.putSafe("airTemp", it.airTemp)
-            obj.put("cloudiness", it.cloudiness)
-            obj.put("rain", it.rain)
-            obj.putSafe("windSpeed", it.windSpeed)
-            obj.put("windDirection", it.windDirection)
-            obj.putSafe("pressure", it.pressure)
+            if (it.strikeDepth != null) obj.put("strikeDepth", it.strikeDepth)
+            if (it.waterDepth != null) obj.put("waterDepth", it.waterDepth)
+            if (it.waterTemp != null) obj.put("waterTemp", it.waterTemp)
+            if (it.airTemp != null) obj.put("airTemp", it.airTemp)
+            if (it.cloudiness != null) obj.put("cloudiness", it.cloudiness)
+            if (it.rain != null) obj.put("rain", it.rain)
+            if (it.windSpeed != null) obj.put("windSpeed", it.windSpeed)
+            if (it.windDirection != null) obj.put("windDirection", it.windDirection)
+            if (it.pressure != null) obj.put("pressure", it.pressure)
             obj.put("weatherSource", it.weatherSource)
-            obj.put("weatherTime", if (it.weatherTime > 0) isoFormat.format(Date(it.weatherTime)) else "")
+            if (it.weatherTime != null && it.weatherTime!! > 0) {
+                obj.put("weatherTime", isoFormat.format(Date(it.weatherTime!!)))
+            }
             obj.put("weatherStation", it.weatherStation)
             obj.put("additionalInfo", it.additionalInfo)
             obj.put("originalRef", it.originalRef)
@@ -76,33 +79,32 @@ class JsonService {
                 val weatherTimeStr = obj.optString("weatherTime", "")
                 val weatherTimeLong = if (weatherTimeStr.isNotEmpty()) {
                     try {
-                        isoFormat.parse(weatherTimeStr)?.time ?: 0L
+                        isoFormat.parse(weatherTimeStr)?.time
                     } catch (_: Exception) {
-                        0L
+                        null
                     }
                 } else {
-                    obj.optLong("weatherTime", 0L)
+                    if (obj.has("weatherTime") && !obj.isNull("weatherTime")) obj.optLong("weatherTime") else null
                 }
 
-                result.add(
-                    FishCatch(
+                val catch = FishCatch(
                         id = 0,
                         species = obj.optString("species", "UNKNOWN"),
-                        latitude = obj.optDoubleSafe("latitude", 0.0),
-                        longitude = obj.optDoubleSafe("longitude", 0.0),
+                        latitude = String.format(Locale.US, "%.5f", if (obj.isNull("latitude") || !obj.has("latitude")) 60.0 else obj.optDouble("latitude", 60.0)).toDouble(),
+                        longitude = String.format(Locale.US, "%.5f", if (obj.isNull("longitude") || !obj.has("longitude")) 24.0 else obj.optDouble("longitude", 24.0)).toDouble(),
                         caughtAt = caughtAtLong,
-                        weight = obj.optLong("weight", 0),
-                        length = obj.optLong("length", 0),
+                        weight = if (obj.isNull("weight")) null else obj.optLong("weight"),
+                        length = if (obj.isNull("length")) null else obj.optLong("length"),
                         method = obj.optString("method", ""),
-                        strikeDepth = obj.optDoubleSafe("strikeDepth", 0.0),
-                        waterDepth = obj.optDoubleSafe("waterDepth", 0.0),
-                        waterTemp = obj.optDoubleSafe("waterTemp", 0.0),
-                        airTemp = obj.optDoubleSafe("airTemp", 0.0),
-                        cloudiness = obj.optLong("cloudiness", 0),
-                        rain = obj.optLong("rain", 0),
-                        windSpeed = obj.optDoubleSafe("windSpeed", 0.0),
-                        windDirection = obj.optLong("windDirection", 0),
-                        pressure = obj.optDoubleSafe("pressure", 0.0),
+                        strikeDepth = if (obj.isNull("strikeDepth")) null else obj.optDouble("strikeDepth"),
+                        waterDepth = if (obj.isNull("waterDepth")) null else obj.optDouble("waterDepth"),
+                        waterTemp = if (obj.isNull("waterTemp")) null else obj.optDouble("waterTemp"),
+                        airTemp = if (obj.isNull("airTemp")) null else obj.optDouble("airTemp"),
+                        cloudiness = if (obj.isNull("cloudiness")) null else obj.optLong("cloudiness"),
+                        rain = if (obj.isNull("rain")) null else obj.optLong("rain"),
+                        windSpeed = if (obj.isNull("windSpeed")) null else obj.optDouble("windSpeed"),
+                        windDirection = if (obj.isNull("windDirection")) null else obj.optLong("windDirection"),
+                        pressure = if (obj.isNull("pressure")) null else obj.optDouble("pressure"),
                         weatherSource = obj.optString("weatherSource", ""),
                         weatherTime = weatherTimeLong,
                         weatherStation = obj.optString("weatherStation", ""),
@@ -110,7 +112,8 @@ class JsonService {
                         originalRef = obj.optString("originalRef", ""),
                         tripNotes = obj.optString("tripNotes", "")
                     )
-                )
+                android.util.Log.d("JsonService", "Imported catch: species=${catch.species}, lat=${catch.latitude}, lon=${catch.longitude}")
+                result.add(catch)
             } catch (e: Exception) {
                 // Skip invalid objects
                 android.util.Log.e("JsonService", "Error parsing JSON object at index $i", e)

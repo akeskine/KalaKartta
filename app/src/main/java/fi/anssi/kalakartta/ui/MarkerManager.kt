@@ -70,7 +70,9 @@ class MarkerManager(
         synchronized(allCatches) {
             allCatches.clear()
             allCatches.addAll(catches)
+            android.util.Log.d("MarkerManager", "setAllCatches: list size = ${allCatches.size}")
         }
+        rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
     }
 
     /**
@@ -81,6 +83,23 @@ class MarkerManager(
         // Päivitetään sisäinen lista
         addMarker(fish)
 
+        // Ladataan lajit välimuistiin jos puuttuu
+        if (speciesCache.isEmpty()) {
+            scope.launch {
+                val species = withContext(Dispatchers.IO) { db.fishSpeciesDao().getAll() }
+                species.forEach {
+                    speciesCache[it.id] = it
+                }
+                // Jatka päivitystä kun lajit on ladattu
+                addOrUpdateMarkerIncrementalInternal(fish, zoom, filterManager)
+            }
+            return
+        }
+
+        addOrUpdateMarkerIncrementalInternal(fish, zoom, filterManager)
+    }
+
+    private fun addOrUpdateMarkerIncrementalInternal(fish: FishCatch, zoom: Double, filterManager: FilterManager? = null) {
         // Tarkistetaan suodatus jos filterManager on annettu
         if (filterManager != null) {
             val filtered = filterManager.applyFilter(listOf(fish))
@@ -161,6 +180,7 @@ class MarkerManager(
             delay(if (catchesCount < 100) 20 else 60)
             
             val catchesCopy = synchronized(allCatches) { allCatches.toList() }
+            android.util.Log.d("MarkerManager", "rebuildMarkers: allCatches size = ${catchesCopy.size}")
             
             if (catchesCopy.isEmpty()) {
                 withContext(Dispatchers.Main) {
@@ -173,8 +193,11 @@ class MarkerManager(
             // Ladataan lajit välimuistiin jos puuttuu
             if (speciesCache.isEmpty()) {
                 withContext(Dispatchers.IO) {
-                    db.fishSpeciesDao().getAll().forEach {
-                        speciesCache[it.id] = it
+                    val species = db.fishSpeciesDao().getAll()
+                    withContext(Dispatchers.Main) {
+                        species.forEach {
+                            speciesCache[it.id] = it
+                        }
                     }
                 }
             }
@@ -210,8 +233,8 @@ class MarkerManager(
         // Jos pisteitä on vähän, ei tarvita clippingiä ollenkaan.
         // Tämä estää pisteiden katoamisen ja välkkymisen heikolla sijainnilla.
         val visibleCatches = if (catchesCopy.size < 15000) {
-            catchesCopy
-        } else {
+                catchesCopy
+            } else {
             // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
             // jos pisteitä on todella paljon (> 15000) suorituskyvyn takia.
             var bbox = map.boundingBox
@@ -448,22 +471,22 @@ class MarkerManager(
                 details.append("Saantiaika: $dateStr\n")
             }
 
-            if (it.weight > 0) details.append("Paino: ${it.weight} g\n")
-            if (it.length > 0) details.append("Pituus: ${it.length} cm\n")
+            if (it.weight != null && it.weight!! > 0) details.append("Paino: ${it.weight} g\n")
+            if (it.length != null && it.length!! > 0) details.append("Pituus: ${it.length} cm\n")
             
             // Säätiedot
             if (it.weatherSource.isNotEmpty()) {
                 details.append("\nSää (${it.weatherSource}):\n")
-                if (it.airTemp != 0.0) details.append("  Ilma: ${it.airTemp} °C\n")
-                if (it.waterTemp != 0.0) details.append("  Vesi: ${it.waterTemp} °C\n")
-                if (it.windSpeed > 0) {
-                    val dir = if (it.windDirection > 0) " (${it.windDirection}°)" else ""
+                if (it.airTemp != null) details.append("  Ilma: ${it.airTemp} °C\n")
+                if (it.waterTemp != null) details.append("  Vesi: ${it.waterTemp} °C\n")
+                if (it.windSpeed != null) {
+                    val dir = if (it.windDirection != null) " (${it.windDirection}°)" else ""
                     details.append("  Tuuli: ${it.windSpeed} m/s$dir\n")
                 }
-                if (it.pressure > 0) details.append("  Paine: ${it.pressure} hPa\n")
-                if (it.cloudiness > 0 || it.rain > 0) {
-                    val c = if (it.cloudiness > 0) "Pilvisyys: ${it.cloudiness}/8" else ""
-                    val r = if (it.rain > 0) "Sade: ${it.rain} mm" else ""
+                if (it.pressure != null) details.append("  Paine: ${it.pressure} hPa\n")
+                if ((it.cloudiness != null && it.cloudiness!! > 0) || (it.rain != null && it.rain!! > 0)) {
+                    val c = if (it.cloudiness != null && it.cloudiness!! > 0) "Pilvisyys: ${it.cloudiness}/8" else ""
+                    val r = if (it.rain != null && it.rain!! > 0) "Sade: ${it.rain} mm" else ""
                     val weather = listOf(c, r).filter { s -> s.isNotEmpty() }.joinToString(", ")
                     details.append("  $weather\n")
                 }

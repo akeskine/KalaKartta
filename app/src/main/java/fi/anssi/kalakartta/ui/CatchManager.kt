@@ -111,8 +111,8 @@ class CatchManager(
 
         val fish = FishCatch(
             species = speciesId,
-            latitude = point.latitude,
-            longitude = point.longitude,
+            latitude = String.format(java.util.Locale.US, "%.5f", point.latitude).toDouble(),
+            longitude = String.format(java.util.Locale.US, "%.5f", point.longitude).toDouble(),
             caughtAt = caughtAt
         )
 
@@ -134,12 +134,12 @@ class CatchManager(
                         weatherService.fetchWeatherData(station.fmisid, caughtAt) { data, obsTime, _ ->
                             if (data != null) {
                                 val updatedFish = fishWithId.copy(
-                                    airTemp = data["t2m"] ?: 0.0,
-                                    cloudiness = (data["nn_ll01"] ?: 0.0).toLong(),
-                                    rain = (data["r_1h"] ?: 0.0).toLong(),
-                                    windSpeed = data["ws_10min"] ?: 0.0,
-                                    windDirection = (data["wd_10min"] ?: 0.0).toLong(),
-                                    pressure = data["p_sea"] ?: data["p_msl"] ?: 0.0,
+                                    airTemp = data["t2m"],
+                                    cloudiness = data["nn_ll01"]?.toLong(),
+                                    rain = data["r_1h"]?.toLong(),
+                                    windSpeed = data["ws_10min"],
+                                    windDirection = data["wd_10min"]?.toLong(),
+                                    pressure = data["p_sea"] ?: data["p_msl"],
                                     weatherSource = "FMI",
                                     weatherTime = obsTime ?: caughtAt,
                                     weatherStation = "${station.fmisid}:${station.name}"
