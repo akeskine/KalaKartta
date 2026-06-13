@@ -531,7 +531,8 @@ class EditCatchActivity : AppCompatActivity() {
         val cloudiness = data["nn_ll01"] ?: data["n_man"]
         cloudiness?.let { setTextIfEmpty(cloudinessEditText, it.toInt().toString()) }
         
-        data["r_1h"]?.let { setTextIfEmpty(rainHourMmEditText, it.toString()) }
+        val rainHour = data["r_1h"] ?: data["ri_10min"]
+        rainHour?.let { setTextIfEmpty(rainHourMmEditText, it.toString()) }
         
         val pressureValue = data["p_msl"] ?: data["p_sea"]
         pressureValue?.let { 

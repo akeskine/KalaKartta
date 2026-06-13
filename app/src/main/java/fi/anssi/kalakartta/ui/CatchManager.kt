@@ -166,10 +166,11 @@ class CatchManager(
             if (weatherEnabled) {
                 weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt) { data, obsTime, _, stations ->
                     if (data != null) {
+                        val rainHour = data["r_1h"] ?: data["ri_10min"]
                         val updatedFish = fishWithId.copy(
                             airTemp = data["t2m"],
                             cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
-                            rainHourMm = data["r_1h"],
+                            rainHourMm = rainHour,
                             windSpeed = data["ws_10min"],
                             windDirection = data["wd_10min"]?.toLong(),
                             pressure = data["p_sea"] ?: data["p_msl"],

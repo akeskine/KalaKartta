@@ -48,7 +48,7 @@ class WeatherService(private val context: Context) {
                 val usedStations = mutableListOf<String>()
                 var bestTime: Long? = null
 
-                val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl")
+                val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
 
                 for (station in stations) {
                     val result = fetchWeatherDataSync(station.fmisid, targetTime)
@@ -62,6 +62,20 @@ class WeatherService(private val context: Context) {
                                 // Jos saatiin jompikumpi pilvisyys, poistetaan molemmat listalta
                                 if (key == "nn_ll01") keysToFill.remove("n_man")
                                 if (key == "n_man") keysToFill.remove("nn_ll01")
+                                
+                                // Ensisijaisesti ri_10min (intensiteetti), varalla r_1h (tunnin kertymä)
+                                if (key == "ri_10min") {
+                                    finalData["r_1h"] = data["ri_10min"]!!
+                                    keysToFill.remove("r_1h")
+                                    keysToFill.remove("ri_10min")
+                                } else if (key == "r_1h") {
+                                    if (!finalData.containsKey("r_1h")) {
+                                        finalData["r_1h"] = data["r_1h"]!!
+                                    }
+                                    keysToFill.remove("r_1h")
+                                    keysToFill.remove("ri_10min")
+                                }
+
                                 addedAny = true
                             }
                         }
@@ -143,7 +157,7 @@ class WeatherService(private val context: Context) {
             val usedStations = mutableListOf<String>()
             var bestTime: Long? = null
 
-            val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl")
+            val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
 
             for (station in stations) {
                 val result = fetchWeatherDataSync(station.fmisid, targetTime)
@@ -156,6 +170,20 @@ class WeatherService(private val context: Context) {
                             keysToFill.remove(key)
                             if (key == "nn_ll01") keysToFill.remove("n_man")
                             if (key == "n_man") keysToFill.remove("nn_ll01")
+                            
+                            // Ensisijaisesti ri_10min (intensiteetti), varalla r_1h (tunnin kertymä)
+                            if (key == "ri_10min") {
+                                finalData["r_1h"] = data["ri_10min"]!!
+                                keysToFill.remove("r_1h")
+                                keysToFill.remove("ri_10min")
+                            } else if (key == "r_1h") {
+                                if (!finalData.containsKey("r_1h")) {
+                                    finalData["r_1h"] = data["r_1h"]!!
+                                }
+                                keysToFill.remove("r_1h")
+                                keysToFill.remove("ri_10min")
+                            }
+
                             addedAny = true
                         }
                     }
