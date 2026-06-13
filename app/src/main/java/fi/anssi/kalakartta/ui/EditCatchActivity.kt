@@ -267,6 +267,10 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun updateDateTimeButtonText() {
+        if (selectedCalendar.timeInMillis <= 0) {
+            dateTimeButton.text = "Ei päivämäärää"
+            return
+        }
         val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
         sdf.timeZone = TimeZone.getTimeZone("Europe/Helsinki")
         dateTimeButton.text = sdf.format(selectedCalendar.time)

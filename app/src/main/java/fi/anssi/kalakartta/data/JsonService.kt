@@ -72,10 +72,11 @@ class JsonService {
                     try {
                         isoFormat.parse(caughtAtStr)?.time ?: 0L
                     } catch (_: Exception) {
-                        0L
+                        // If parsing as ISO string fails, try to read as Long (legacy or missing)
+                        if (obj.has("caughtAt") && !obj.isNull("caughtAt")) obj.optLong("caughtAt", 0L) else 0L
                     }
                 } else {
-                    obj.optLong("caughtAt", 0L)
+                    if (obj.has("caughtAt") && !obj.isNull("caughtAt")) obj.optLong("caughtAt", 0L) else 0L
                 }
 
                 val weatherTimeStr = obj.optString("weatherTime", "")
@@ -83,7 +84,8 @@ class JsonService {
                     try {
                         isoFormat.parse(weatherTimeStr)?.time
                     } catch (_: Exception) {
-                        null
+                        // If parsing as ISO string fails, try to read as Long (legacy or missing)
+                        if (obj.has("weatherTime") && !obj.isNull("weatherTime")) obj.optLong("weatherTime") else null
                     }
                 } else {
                     if (obj.has("weatherTime") && !obj.isNull("weatherTime")) obj.optLong("weatherTime") else null
