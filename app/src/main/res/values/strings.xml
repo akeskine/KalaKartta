@@ -48,6 +48,7 @@
     <string name="filter_active">Suodatin päällä</string>
     <string name="filters_cleared">Suodattimet poistettu</string>
     <string-array name="rain_levels">
+        <item></item>
         <item>Ei sadetta</item>
         <item>Tihkusade</item>
         <item>Normaali sade</item>

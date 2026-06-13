@@ -535,7 +535,7 @@ class MarkerManager(
                 if (it.pressure != null) details.append("  Paine: ${it.pressure} hPa\n")
                 
                 val rainLevels = context.resources.getStringArray(R.array.rain_levels)
-                val rainDesc = if (it.rain != null && it.rain!! >= 0 && it.rain!! < rainLevels.size) rainLevels[it.rain!!.toInt()] else ""
+                val rainDesc = if (it.rain != null && (it.rain!!.toInt() + 1) < rainLevels.size) rainLevels[it.rain!!.toInt() + 1] else ""
                 
                 if (it.cloudiness != null || rainDesc.isNotEmpty() || it.rainHourMm != null) {
                     val parts = mutableListOf<String>()

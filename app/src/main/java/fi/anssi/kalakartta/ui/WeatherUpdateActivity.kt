@@ -131,47 +131,25 @@ class WeatherUpdateActivity : AppCompatActivity() {
                     attempted++
                     
                     try {
-                        var nearest: fi.anssi.kalakartta.utils.WeatherStation? = null
-                        var minDistance = Double.MAX_VALUE
-                        for (station in stations) {
-                            if (station.startTime != null && fishCatch.caughtAt < station.startTime) continue
-                            if (station.endTime != null && fishCatch.caughtAt > station.endTime) continue
-
-                            val distance = weatherService.calculateDistance(fishCatch.latitude, fishCatch.longitude, station.latitude, station.longitude)
-                            if (distance > 300.0) continue
-
-                            if (distance < minDistance) {
-                                minDistance = distance
-                                nearest = station
-                            }
-                        }
-
-                        if (nearest != null) {
-                            val result = weatherService.fetchWeatherDataSync(nearest.fmisid, fishCatch.caughtAt)
-                            if (result.first != null && result.first!!.isNotEmpty()) {
-                                val data = result.first!!
-                                val updatedCatch = fishCatch.copy(
-                                    airTemp = data["t2m"],
-                                    cloudiness = data["n_man"]?.toLong() ?: data["nn_4h"]?.toLong(),
-                                    rain = data["r_1h"]?.toLong(),
-                                    windSpeed = data["ws_10min"],
-                                    windDirection = data["wd_10min"]?.toLong(),
-                                    pressure = data["p_sea"] ?: data["p_msl"],
-                                    weatherSource = "FMI",
-                                    weatherTime = result.second ?: fishCatch.weatherTime,
-                                    weatherStation = "${nearest.fmisid}:${nearest.name}"
-                                )
-                                db.fishCatchDao().update(updatedCatch)
-                                successful++
-                            } else {
-                                failed++
-                                val errorMsg = result.third ?: "Ei säädataa saatavilla."
-                                db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = errorMsg, catchId = fishCatch.id))
-                            }
+                        val result = weatherService.fetchWeatherFromMultipleStationsSuspend(fishCatch.latitude, fishCatch.longitude, fishCatch.caughtAt)
+                        if (result.first != null && result.first!!.isNotEmpty()) {
+                            val data = result.first!!
+                            val updatedCatch = fishCatch.copy(
+                                airTemp = data["t2m"],
+                                cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
+                                rainHourMm = data["r_1h"],
+                                windSpeed = data["ws_10min"],
+                                windDirection = data["wd_10min"]?.toLong(),
+                                pressure = data["p_sea"] ?: data["p_msl"],
+                                weatherSource = "FMI",
+                                weatherTime = result.second ?: fishCatch.weatherTime,
+                                weatherStation = result.third
+                            )
+                            db.fishCatchDao().update(updatedCatch)
+                            successful++
                         } else {
                             failed++
-                            val errorMsg = "Lähintä sääasemaa ei löytynyt (300km säde)."
-                            db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = errorMsg, catchId = fishCatch.id))
+                            db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = "Ei säädataa saatavilla.", catchId = fishCatch.id))
                         }
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e

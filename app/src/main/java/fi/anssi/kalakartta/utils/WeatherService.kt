@@ -36,6 +36,66 @@ class WeatherService(private val context: Context) {
         }.start()
     }
 
+    fun fetchWeatherFromMultipleStations(lat: Double, lon: Double, targetTime: Long? = null, callback: (Map<String, Double>?, Long?, String?, String) -> Unit) {
+        Thread {
+            fetchNearestStations(lat, lon, targetTime, 5) { stations, error ->
+                if (stations.isNullOrEmpty()) {
+                    callback(null, null, error ?: "Ei sopivia sääasemia.", "")
+                    return@fetchNearestStations
+                }
+
+                val finalData = mutableMapOf<String, Double>()
+                val usedStations = mutableListOf<String>()
+                var bestTime: Long? = null
+
+                val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl")
+
+                for (station in stations) {
+                    val result = fetchWeatherDataSync(station.fmisid, targetTime)
+                    val data = result.first
+                    if (data != null && data.isNotEmpty()) {
+                        var addedAny = false
+                        for (key in keysToFill.toList()) {
+                            if (data.containsKey(key)) {
+                                finalData[key] = data[key]!!
+                                keysToFill.remove(key)
+                                // Jos saatiin jompikumpi pilvisyys, poistetaan molemmat listalta
+                                if (key == "nn_ll01") keysToFill.remove("n_man")
+                                if (key == "n_man") keysToFill.remove("nn_ll01")
+                                addedAny = true
+                            }
+                        }
+                        
+                        // Erikoiskäsittely paineelle, jos p_sea puuttuu mutta p_msl löytyy (tai päinvastoin)
+                        if (keysToFill.contains("p_sea") && data.containsKey("p_msl")) {
+                            finalData["p_sea"] = data["p_msl"]!!
+                            keysToFill.remove("p_sea")
+                            keysToFill.remove("p_msl")
+                            addedAny = true
+                        } else if (keysToFill.contains("p_msl") && data.containsKey("p_sea")) {
+                            finalData["p_msl"] = data["p_sea"]!!
+                            keysToFill.remove("p_msl")
+                            keysToFill.remove("p_sea")
+                            addedAny = true
+                        }
+
+                        if (addedAny) {
+                            usedStations.add("${station.fmisid}:${station.name}")
+                            if (bestTime == null) bestTime = result.second
+                        }
+                    }
+                    if (keysToFill.isEmpty()) break
+                }
+
+                if (finalData.isEmpty()) {
+                    callback(null, null, "Ei säädataa saatavilla.", "")
+                } else {
+                    callback(finalData, bestTime, null, usedStations.joinToString(", "))
+                }
+            }
+        }.start()
+    }
+
     fun fetchWeatherDataSync(fmisid: String, targetTime: Long? = null): Triple<Map<String, Double>?, Long?, String?> {
         return try {
             val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
@@ -69,6 +129,69 @@ class WeatherService(private val context: Context) {
             }
         } catch (e: Exception) {
             Triple(null, null, "Virhe haettaessa säätietoja: ${e.message}")
+        }
+    }
+
+    suspend fun fetchWeatherFromMultipleStationsSuspend(lat: Double, lon: Double, targetTime: Long? = null): Triple<Map<String, Double>?, Long?, String> {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val stations = fetchNearestStationsSuspend(lat, lon, targetTime, 5)
+            if (stations.isNullOrEmpty()) {
+                return@withContext Triple(null, null, "")
+            }
+
+            val finalData = mutableMapOf<String, Double>()
+            val usedStations = mutableListOf<String>()
+            var bestTime: Long? = null
+
+            val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl")
+
+            for (station in stations) {
+                val result = fetchWeatherDataSync(station.fmisid, targetTime)
+                val data = result.first
+                if (data != null && data.isNotEmpty()) {
+                    var addedAny = false
+                    for (key in keysToFill.toList()) {
+                        if (data.containsKey(key)) {
+                            finalData[key] = data[key]!!
+                            keysToFill.remove(key)
+                            if (key == "nn_ll01") keysToFill.remove("n_man")
+                            if (key == "n_man") keysToFill.remove("nn_ll01")
+                            addedAny = true
+                        }
+                    }
+                    
+                    if (keysToFill.contains("p_sea") && data.containsKey("p_msl")) {
+                        finalData["p_sea"] = data["p_msl"]!!
+                        keysToFill.remove("p_sea")
+                        keysToFill.remove("p_msl")
+                        addedAny = true
+                    } else if (keysToFill.contains("p_msl") && data.containsKey("p_sea")) {
+                        finalData["p_msl"] = data["p_sea"]!!
+                        keysToFill.remove("p_msl")
+                        keysToFill.remove("p_sea")
+                        addedAny = true
+                    }
+
+                    if (addedAny) {
+                        usedStations.add("${station.fmisid}:${station.name}")
+                        if (bestTime == null) bestTime = result.second
+                    }
+                }
+                if (keysToFill.isEmpty()) break
+            }
+
+            Triple(finalData.ifEmpty { null }, bestTime, usedStations.joinToString(", "))
+        }
+    }
+
+    suspend fun fetchNearestStationsSuspend(currentLat: Double, currentLon: Double, targetTime: Long? = null, maxStations: Int = 5): List<WeatherStation>? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val stations = fetchAllStationsSuspend()
+            if (stations != null) {
+                findNearestList(currentLat, currentLon, targetTime, stations, maxStations)
+            } else {
+                null
+            }
         }
     }
 
@@ -229,6 +352,47 @@ class WeatherService(private val context: Context) {
                 callback(null, "Sääasemia ei saatu ladattua.")
             }
         }
+    }
+
+    fun fetchNearestStations(currentLat: Double, currentLon: Double, targetTime: Long? = null, maxStations: Int = 5, callback: (List<WeatherStation>?, String?) -> Unit) {
+        val stations = synchronized(fetchLock) { cachedStations }
+        if (stations != null) {
+            val nearest = findNearestList(currentLat, currentLon, targetTime, stations, maxStations)
+            callback(nearest, if (nearest.isEmpty()) "Ei sopivia sääasemia 300 km säteellä." else null)
+            return
+        }
+
+        fetchAllStations { fetchedStations, error ->
+            if (error != null) {
+                callback(null, error)
+            } else if (fetchedStations != null) {
+                val nearest = findNearestList(currentLat, currentLon, targetTime, fetchedStations, maxStations)
+                callback(nearest, if (nearest.isEmpty()) "Ei sopivia sääasemia 300 km säteellä." else null)
+            } else {
+                callback(null, "Sääasemia ei saatu ladattua.")
+            }
+        }
+    }
+
+    private fun findNearestList(lat: Double, lon: Double, targetTime: Long?, stations: List<WeatherStation>, maxStations: Int): List<WeatherStation> {
+        if (stations.isEmpty()) return emptyList()
+
+        return stations.asSequence()
+            .filter { station ->
+                if (targetTime != null) {
+                    if (station.startTime != null && targetTime < station.startTime) return@filter false
+                    if (station.endTime != null && targetTime > station.endTime) return@filter false
+                }
+                true
+            }
+            .map { station ->
+                station to calculateDistance(lat, lon, station.latitude, station.longitude)
+            }
+            .filter { it.second <= 300.0 }
+            .sortedBy { it.second }
+            .take(maxStations)
+            .map { it.first }
+            .toList()
     }
 
     private fun findNearest(lat: Double, lon: Double, targetTime: Long?, stations: List<WeatherStation>, callback: (WeatherStation?, String?) -> Unit) {

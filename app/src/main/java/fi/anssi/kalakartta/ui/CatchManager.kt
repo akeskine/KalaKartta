@@ -144,26 +144,22 @@ class CatchManager(
             val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
             val weatherEnabled = prefs.getBoolean("weather_enabled", true)
             if (weatherEnabled) {
-                weatherService.fetchNearestStation(point.latitude, point.longitude, caughtAt) { station, _ ->
-                    if (station != null) {
-                        weatherService.fetchWeatherData(station.fmisid, caughtAt) { data, obsTime, _ ->
-                            if (data != null) {
-                                val updatedFish = fishWithId.copy(
-                                    airTemp = data["t2m"],
-                                    cloudiness = data["nn_ll01"]?.toLong(),
-                                    rainHourMm = data["r_1h"],
-                                    windSpeed = data["ws_10min"],
-                                    windDirection = data["wd_10min"]?.toLong(),
-                                    pressure = data["p_sea"] ?: data["p_msl"],
-                                    weatherSource = "FMI",
-                                    weatherTime = obsTime ?: caughtAt,
-                                    weatherStation = "${station.fmisid}:${station.name}"
-                                )
-                                db.fishCatchDao().update(updatedFish)
-                                activity.runOnUiThread {
-                                    onCatchAdded(updatedFish)
-                                }
-                            }
+                weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt) { data, obsTime, _, stations ->
+                    if (data != null) {
+                        val updatedFish = fishWithId.copy(
+                            airTemp = data["t2m"],
+                            cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
+                            rainHourMm = data["r_1h"],
+                            windSpeed = data["ws_10min"],
+                            windDirection = data["wd_10min"]?.toLong(),
+                            pressure = data["p_sea"] ?: data["p_msl"],
+                            weatherSource = "FMI",
+                            weatherTime = obsTime ?: caughtAt,
+                            weatherStation = stations
+                        )
+                        db.fishCatchDao().update(updatedFish)
+                        activity.runOnUiThread {
+                            onCatchAdded(updatedFish)
                         }
                     }
                 }

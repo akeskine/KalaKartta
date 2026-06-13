@@ -184,7 +184,7 @@ class EditCatchActivity : AppCompatActivity() {
 
             val airTemp = if (fc.airTemp != null && !fc.airTemp!!.isNaN()) fc.airTemp.toString() else ""
             val cloudiness = fc.cloudiness?.toString() ?: ""
-            val rain = fc.rain?.toInt() ?: 0
+            val rain = if (fc.rain != null) fc.rain!!.toInt() + 1 else 0
             val rainHourMm = if (fc.rainHourMm != null && !fc.rainHourMm!!.isNaN()) fc.rainHourMm.toString() else ""
             
             val windSpeed = if (fc.windSpeed != null && !fc.windSpeed!!.isNaN()) fc.windSpeed.toString() else ""
@@ -373,8 +373,9 @@ class EditCatchActivity : AppCompatActivity() {
             autoWeatherCheckBox.isChecked = true
             nearestStationText.visibility = android.view.View.VISIBLE
             
-            weatherService.fetchNearestStation(lat, lon, selectedCalendar.timeInMillis) { station, error ->
+            weatherService.fetchNearestStations(lat, lon, selectedCalendar.timeInMillis, 1) { stations, error ->
                 runOnUiThread {
+                    val station = stations?.firstOrNull()
                     if (station != null) {
                         nearestStation = station
                         nearestStationText.text = "Sääasema: ${station.name}"
@@ -391,17 +392,21 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun fetchWeatherForDisplay() {
-        val station = nearestStation ?: return
-        nearestStationText.text = "Sääasema: ${station.name} (haetaan säätietoja...)"
+        val lat = latEditText.text.toString().toDoubleSafe(fishCatch?.latitude ?: 0.0)
+        val lon = lonEditText.text.toString().toDoubleSafe(fishCatch?.longitude ?: 0.0)
         
-        weatherService.fetchWeatherData(station.fmisid, selectedCalendar.timeInMillis) { data, time, error ->
+        nearestStationText.text = "Haetaan säätietoja..."
+        
+        weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis) { data, time, error, stations ->
             runOnUiThread {
                 if (data != null) {
-                    updateWeatherStationText(station, time)
-                    applyWeatherData(data, time, station)
+                    nearestStationText.visibility = android.view.View.GONE
+                    applyWeatherData(data, time, null)
+                    // Päivitetään weatherStation kenttä suoraan tai pidetään muistissa
+                    // applyWeatherData asettaa weatherSource = "FMI"
+                    currentWeatherStation = stations
                 } else {
-                    // Epäonnistumisesta ei välttämättä tarvitse ilmoittaa tekstikentällä jos se on piilotettu
-                    updateWeatherStationText(station, time)
+                    nearestStationText.text = "Säätietojen haku epäonnistui: $error"
                 }
             }
         }
@@ -451,21 +456,22 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun saveChanges() {
-        if (autoWeatherCheckBox.visibility == android.view.View.VISIBLE && autoWeatherCheckBox.isChecked && nearestStation != null) {
-            // Jos lähde on jo FMI, ei välttämättä tarvitse hakea uudelleen jos mitään ei ole muuttunut,
-            // mutta varmuuden vuoksi haetaan jos käyttäjä on juuri ruksannut sen päälle.
-            // Pidetään logiikka ennallaan: jos ruksattu, haetaan tallennushetkellä.
+        if (autoWeatherCheckBox.visibility == android.view.View.VISIBLE && autoWeatherCheckBox.isChecked) {
             val progressDialog = AlertDialog.Builder(this)
-                .setMessage("Haetaan säätietoja asemalta ${nearestStation?.name}...")
+                .setMessage("Haetaan säätietoja...")
                 .setCancelable(false)
                 .show()
             
-            weatherService.fetchWeatherData(nearestStation!!.fmisid, selectedCalendar.timeInMillis) { data, time, error ->
+            val lat = latEditText.text.toString().toDoubleSafe(fishCatch?.latitude ?: 0.0)
+            val lon = lonEditText.text.toString().toDoubleSafe(fishCatch?.longitude ?: 0.0)
+
+            weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis) { data, time, error, stations ->
                 runOnUiThread {
                     progressDialog.dismiss()
                     if (data != null) {
-                        applyWeatherData(data, time, nearestStation!!)
-                        updateWeatherStationText(nearestStation!!, time)
+                        applyWeatherData(data, time, null)
+                        currentWeatherStation = stations
+                        currentWeatherSource = "FMI"
                         Toast.makeText(this, "Säätiedot päivitetty", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(this, "Säätietojen haku epäonnistui: $error", Toast.LENGTH_SHORT).show()
@@ -485,7 +491,7 @@ class EditCatchActivity : AppCompatActivity() {
         data["t2m"]?.let { airTempEditText.setText(it.toString()) }
         data["ws_10min"]?.let { windSpeedEditText.setText(it.toString()) }
         data["wd_10min"]?.let { windDirectionEditText.setText(it.toInt().toString()) }
-        data["n_man"]?.let { cloudinessEditText.setText(it.toInt().toString()) }
+        data["nn_ll01"]?.let { cloudinessEditText.setText(it.toInt().toString()) } ?: data["n_man"]?.let { cloudinessEditText.setText(it.toInt().toString()) }
         data["r_1h"]?.let { rainHourMmEditText.setText(it.toString()) }
         
         val pressureValue = data["p_msl"] ?: data["p_sea"]
@@ -494,10 +500,10 @@ class EditCatchActivity : AppCompatActivity() {
             pressureEditText.setText(it.toString())
         }
         
+        currentWeatherSource = "FMI"
+        currentWeatherTime = time ?: selectedCalendar.timeInMillis
         if (station != null) {
-            currentWeatherSource = "FMI"
             currentWeatherStation = "${station.fmisid}:${station.name}"
-            currentWeatherTime = time ?: selectedCalendar.timeInMillis
         }
         isUpdatingFromCode = false
     }
@@ -519,7 +525,7 @@ class EditCatchActivity : AppCompatActivity() {
                 waterTemp = waterTempEditText.text.toString().toDoubleOrNull(),
                 airTemp = airTempEditText.text.toString().toDoubleOrNull(),
                 cloudiness = cloudinessEditText.text.toString().toLongOrNull(),
-                rain = rainSpinner.selectedItemPosition.toLong(),
+                rain = if (rainSpinner.selectedItemPosition > 0) (rainSpinner.selectedItemPosition - 1).toLong() else null,
                 rainHourMm = rainHourMmEditText.text.toString().toDoubleOrNull(),
                 windSpeed = windSpeedEditText.text.toString().toDoubleOrNull(),
                 windDirection = windDirectionEditText.text.toString().toLongOrNull(),
@@ -580,7 +586,9 @@ class EditCatchActivity : AppCompatActivity() {
         if (waterTempEditText.text.toString() != (fc.waterTemp?.toString() ?: "")) return true
         if (airTempEditText.text.toString() != (fc.airTemp?.toString() ?: "")) return true
         if (cloudinessEditText.text.toString() != (fc.cloudiness?.toString() ?: "")) return true
-        if (rainSpinner.selectedItemPosition.toLong() != (fc.rain ?: 0L)) return true
+        val currentRainPos = rainSpinner.selectedItemPosition
+        val fcRainPos = if (fc.rain != null) (fc.rain!!.toInt() + 1) else 0
+        if (currentRainPos != fcRainPos) return true
         if (rainHourMmEditText.text.toString() != (fc.rainHourMm?.toString() ?: "")) return true
         if (windSpeedEditText.text.toString() != (fc.windSpeed?.toString() ?: "")) return true
         if (windDirectionEditText.text.toString() != (fc.windDirection?.toString() ?: "")) return true
