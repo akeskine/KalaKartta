@@ -19,6 +19,7 @@ data class FishCatch(
     val airTemp: Double? = null,
     val cloudiness: Long? = null,
     val rain: Long? = null,
+    val rainHourMm: Double? = null,
     val windSpeed: Double? = null,
     val windDirection: Long? = null,
     val pressure: Double? = null,

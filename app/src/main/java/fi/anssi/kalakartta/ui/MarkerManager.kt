@@ -533,11 +533,16 @@ class MarkerManager(
                     details.append("  Tuuli: ${it.windSpeed} m/s$dir\n")
                 }
                 if (it.pressure != null) details.append("  Paine: ${it.pressure} hPa\n")
-                if ((it.cloudiness != null && it.cloudiness!! > 0) || (it.rain != null && it.rain!! > 0)) {
-                    val c = if (it.cloudiness != null && it.cloudiness!! > 0) "Pilvisyys: ${it.cloudiness}/8" else ""
-                    val r = if (it.rain != null && it.rain!! > 0) "Sade: ${it.rain} mm" else ""
-                    val weather = listOf(c, r).filter { s -> s.isNotEmpty() }.joinToString(", ")
-                    details.append("  $weather\n")
+                
+                val rainLevels = context.resources.getStringArray(R.array.rain_levels)
+                val rainDesc = if (it.rain != null && it.rain!! >= 0 && it.rain!! < rainLevels.size) rainLevels[it.rain!!.toInt()] else ""
+                
+                if (it.cloudiness != null || rainDesc.isNotEmpty() || it.rainHourMm != null) {
+                    val parts = mutableListOf<String>()
+                    if (it.cloudiness != null) parts.add("Pilvisyys: ${it.cloudiness}/8")
+                    if (rainDesc.isNotEmpty()) parts.add("Sade: $rainDesc")
+                    if (it.rainHourMm != null) parts.add("Sade: ${it.rainHourMm} mm/h")
+                    details.append("  ${parts.joinToString(", ")}\n")
                 }
                 if (it.weatherStation.isNotEmpty()) {
                     val stationName = it.weatherStation.substringAfter(":")

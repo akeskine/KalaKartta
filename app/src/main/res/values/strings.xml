@@ -19,7 +19,8 @@
     <string name="water_temp">Veden lämpötila (°C)</string>
     <string name="air_temp">Ilman lämpötila (°C)</string>
     <string name="cloudiness">Pilvisyys (0-8)</string>
-    <string name="rain">Sade (0-3)</string>
+    <string name="rain">Sade</string>
+    <string name="rain_hour_mm">Sade (mm / h)</string>
     <string name="wind_speed">Tuulen nopeus (m/s)</string>
     <string name="wind_direction">Tuulen suunta (astetta)</string>
     <string name="pressure">Ilmanpaine (hPa)</string>
@@ -46,4 +47,10 @@
     <string name="end_time">Loppu (klo)</string>
     <string name="filter_active">Suodatin päällä</string>
     <string name="filters_cleared">Suodattimet poistettu</string>
+    <string-array name="rain_levels">
+        <item>Ei sadetta</item>
+        <item>Tihkusade</item>
+        <item>Normaali sade</item>
+        <item>Rankkasade</item>
+    </string-array>
 </resources>

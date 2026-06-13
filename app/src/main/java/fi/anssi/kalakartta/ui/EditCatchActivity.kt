@@ -36,7 +36,8 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var waterTempEditText: EditText
     private lateinit var airTempEditText: EditText
     private lateinit var cloudinessEditText: EditText
-    private lateinit var rainEditText: EditText
+    private lateinit var rainSpinner: Spinner
+    private lateinit var rainHourMmEditText: EditText
     private lateinit var windSpeedEditText: EditText
     private lateinit var windDirectionEditText: EditText
     private lateinit var additionalInfoEditText: EditText
@@ -58,7 +59,8 @@ class EditCatchActivity : AppCompatActivity() {
     // Alkuperäiset säätiedot palautusta varten
     private var originalAirTemp: String = ""
     private var originalCloudiness: String = ""
-    private var originalRain: String = ""
+    private var originalRain: Int = 0
+    private var originalRainHourMm: String = ""
     private var originalWindSpeed: String = ""
     private var originalWindDirection: String = ""
     private var originalPressure: String = ""
@@ -112,7 +114,8 @@ class EditCatchActivity : AppCompatActivity() {
         waterTempEditText = findViewById(R.id.waterTempEditText)
         airTempEditText = findViewById(R.id.airTempEditText)
         cloudinessEditText = findViewById(R.id.cloudinessEditText)
-        rainEditText = findViewById(R.id.rainEditText)
+        rainSpinner = findViewById(R.id.rainSpinner)
+        rainHourMmEditText = findViewById(R.id.rainHourMmEditText)
         windSpeedEditText = findViewById(R.id.windSpeedEditText)
         windDirectionEditText = findViewById(R.id.windDirectionEditText)
         additionalInfoEditText = findViewById(R.id.additionalInfoEditText)
@@ -167,6 +170,10 @@ class EditCatchActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         speciesSpinner.adapter = adapter
 
+        val rainAdapter = ArrayAdapter.createFromResource(this, R.array.rain_levels, android.R.layout.simple_spinner_item)
+        rainAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        rainSpinner.adapter = rainAdapter
+
         fishCatch?.let { fc ->
             isUpdatingFromCode = true
             val speciesIndex = speciesList.indexOfFirst { it.id == fc.species }
@@ -177,7 +184,9 @@ class EditCatchActivity : AppCompatActivity() {
 
             val airTemp = if (fc.airTemp != null && !fc.airTemp!!.isNaN()) fc.airTemp.toString() else ""
             val cloudiness = fc.cloudiness?.toString() ?: ""
-            val rain = fc.rain?.toString() ?: ""
+            val rain = fc.rain?.toInt() ?: 0
+            val rainHourMm = if (fc.rainHourMm != null && !fc.rainHourMm!!.isNaN()) fc.rainHourMm.toString() else ""
+            
             val windSpeed = if (fc.windSpeed != null && !fc.windSpeed!!.isNaN()) fc.windSpeed.toString() else ""
             val windDirection = fc.windDirection?.toString() ?: ""
             val pressure = if (fc.pressure != null && !fc.pressure!!.isNaN()) fc.pressure.toString() else ""
@@ -197,6 +206,7 @@ class EditCatchActivity : AppCompatActivity() {
             originalAirTemp = airTemp
             originalCloudiness = cloudiness
             originalRain = rain
+            originalRainHourMm = rainHourMm
             originalWindSpeed = windSpeed
             originalWindDirection = windDirection
             originalPressure = pressure
@@ -237,7 +247,9 @@ class EditCatchActivity : AppCompatActivity() {
             }
 
             cloudinessEditText.setText(cloudiness)
-            rainEditText.setText(rain)
+            rainSpinner.setSelection(rain)
+            
+            rainHourMmEditText.setText(rainHourMm)
             windSpeedEditText.setText(windSpeed)
             windDirectionEditText.setText(windDirection)
             pressureEditText.setText(pressure)
@@ -292,7 +304,17 @@ class EditCatchActivity : AppCompatActivity() {
         
         airTempEditText.addTextChangedListener(weatherWatcher)
         cloudinessEditText.addTextChangedListener(weatherWatcher)
-        rainEditText.addTextChangedListener(weatherWatcher)
+        
+        rainSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                if (!isUpdatingFromCode) {
+                    isChanged = true
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        
+        rainHourMmEditText.addTextChangedListener(weatherWatcher)
         windSpeedEditText.addTextChangedListener(weatherWatcher)
         windDirectionEditText.addTextChangedListener(weatherWatcher)
         pressureEditText.addTextChangedListener(weatherWatcher)
@@ -320,7 +342,8 @@ class EditCatchActivity : AppCompatActivity() {
                 isUpdatingFromCode = true
                 airTempEditText.setText(originalAirTemp)
                 cloudinessEditText.setText(originalCloudiness)
-                rainEditText.setText(originalRain)
+                rainSpinner.setSelection(originalRain)
+                rainHourMmEditText.setText(originalRainHourMm)
                 windSpeedEditText.setText(originalWindSpeed)
                 windDirectionEditText.setText(originalWindDirection)
                 pressureEditText.setText(originalPressure)
@@ -463,7 +486,7 @@ class EditCatchActivity : AppCompatActivity() {
         data["ws_10min"]?.let { windSpeedEditText.setText(it.toString()) }
         data["wd_10min"]?.let { windDirectionEditText.setText(it.toInt().toString()) }
         data["n_man"]?.let { cloudinessEditText.setText(it.toInt().toString()) }
-        data["r_1h"]?.let { rainEditText.setText(it.toInt().toString()) }
+        data["r_1h"]?.let { rainHourMmEditText.setText(it.toString()) }
         
         val pressureValue = data["p_msl"] ?: data["p_sea"]
         pressureValue?.let { 
@@ -496,7 +519,8 @@ class EditCatchActivity : AppCompatActivity() {
                 waterTemp = waterTempEditText.text.toString().toDoubleOrNull(),
                 airTemp = airTempEditText.text.toString().toDoubleOrNull(),
                 cloudiness = cloudinessEditText.text.toString().toLongOrNull(),
-                rain = rainEditText.text.toString().toLongOrNull(),
+                rain = rainSpinner.selectedItemPosition.toLong(),
+                rainHourMm = rainHourMmEditText.text.toString().toDoubleOrNull(),
                 windSpeed = windSpeedEditText.text.toString().toDoubleOrNull(),
                 windDirection = windDirectionEditText.text.toString().toLongOrNull(),
                 pressure = pressureEditText.text.toString().toDoubleOrNull(),
@@ -556,7 +580,8 @@ class EditCatchActivity : AppCompatActivity() {
         if (waterTempEditText.text.toString() != (fc.waterTemp?.toString() ?: "")) return true
         if (airTempEditText.text.toString() != (fc.airTemp?.toString() ?: "")) return true
         if (cloudinessEditText.text.toString() != (fc.cloudiness?.toString() ?: "")) return true
-        if (rainEditText.text.toString() != (fc.rain?.toString() ?: "")) return true
+        if (rainSpinner.selectedItemPosition.toLong() != (fc.rain ?: 0L)) return true
+        if (rainHourMmEditText.text.toString() != (fc.rainHourMm?.toString() ?: "")) return true
         if (windSpeedEditText.text.toString() != (fc.windSpeed?.toString() ?: "")) return true
         if (windDirectionEditText.text.toString() != (fc.windDirection?.toString() ?: "")) return true
         if (pressureEditText.text.toString() != (fc.pressure?.toString() ?: "")) return true

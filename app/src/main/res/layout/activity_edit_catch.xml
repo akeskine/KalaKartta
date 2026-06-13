@@ -236,13 +236,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/rain" />
-                <EditText
-                    android:id="@+id/rainEditText"
+                <Spinner
+                    android:id="@+id/rainSpinner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="number"
-                    android:minHeight="48dp"
-                    android:importantForAutofill="no" />
+                    android:minHeight="48dp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -261,9 +259,9 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/wind_speed" />
+                    android:text="@string/rain_hour_mm" />
                 <EditText
-                    android:id="@+id/windSpeedEditText"
+                    android:id="@+id/rainHourMmEditText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="numberDecimal"
@@ -279,6 +277,31 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:text="@string/wind_speed" />
+                <EditText
+                    android:id="@+id/windSpeedEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal"
+                    android:minHeight="48dp"
+                    android:importantForAutofill="no" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false"
+            android:layout_marginTop="16dp">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginEnd="8dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:text="@string/wind_direction" />
                 <EditText
                     android:id="@+id/windDirectionEditText"
@@ -288,6 +311,11 @@
                     android:minHeight="48dp"
                     android:importantForAutofill="no" />
             </LinearLayout>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp" />
         </LinearLayout>
 
         <LinearLayout

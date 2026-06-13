@@ -151,7 +151,7 @@ class CatchManager(
                                 val updatedFish = fishWithId.copy(
                                     airTemp = data["t2m"],
                                     cloudiness = data["nn_ll01"]?.toLong(),
-                                    rain = data["r_1h"]?.toLong(),
+                                    rainHourMm = data["r_1h"],
                                     windSpeed = data["ws_10min"],
                                     windDirection = data["wd_10min"]?.toLong(),
                                     pressure = data["p_sea"] ?: data["p_msl"],
