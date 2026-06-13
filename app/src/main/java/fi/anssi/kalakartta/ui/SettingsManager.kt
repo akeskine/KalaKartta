@@ -98,7 +98,7 @@ class SettingsManager(
 
     private fun openFilterSettings() {
         val intent = android.content.Intent(activity, FilterActivity::class.java)
-        activity.startActivityForResult(intent, 1002)
+        activity.startActivityForResult(intent, 2001)
     }
 
     private fun openDataTransferSettings(count: Int) {

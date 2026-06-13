@@ -20,6 +20,10 @@ class FilterManager(private val context: Context) {
         val annualEndMonth: Int? = null,
         val startTimeMinutes: Int? = null, // Minutes from midnight
         val endTimeMinutes: Int? = null,
+        val windMin: Float? = null,
+        val windMax: Float? = null,
+        val pressureMin: Float? = null,
+        val pressureMax: Float? = null,
         val speciesId: String? = null
     )
 
@@ -32,6 +36,10 @@ class FilterManager(private val context: Context) {
         val annualEndMonth = if (prefs.contains("annualEndMonth")) prefs.getInt("annualEndMonth", 0) else null
         val startTimeMinutes = if (prefs.contains("startTimeMinutes")) prefs.getInt("startTimeMinutes", 0) else null
         val endTimeMinutes = if (prefs.contains("endTimeMinutes")) prefs.getInt("endTimeMinutes", 0) else null
+        val windMin = if (prefs.contains("windMin")) prefs.getFloat("windMin", 0f) else null
+        val windMax = if (prefs.contains("windMax")) prefs.getFloat("windMax", 0f) else null
+        val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
+        val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
         val speciesId = prefs.getString("speciesId", null)
 
         return Filters(
@@ -39,6 +47,8 @@ class FilterManager(private val context: Context) {
             annualStartDay, annualStartMonth,
             annualEndDay, annualEndMonth,
             startTimeMinutes, endTimeMinutes,
+            windMin, windMax,
+            pressureMin, pressureMax,
             speciesId
         )
     }
@@ -53,6 +63,10 @@ class FilterManager(private val context: Context) {
             if (filters.annualEndMonth != null) putInt("annualEndMonth", filters.annualEndMonth) else remove("annualEndMonth")
             if (filters.startTimeMinutes != null) putInt("startTimeMinutes", filters.startTimeMinutes) else remove("startTimeMinutes")
             if (filters.endTimeMinutes != null) putInt("endTimeMinutes", filters.endTimeMinutes) else remove("endTimeMinutes")
+            if (filters.windMin != null) putFloat("windMin", filters.windMin) else remove("windMin")
+            if (filters.windMax != null) putFloat("windMax", filters.windMax) else remove("windMax")
+            if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
+            if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
             apply()
         }
@@ -64,6 +78,8 @@ class FilterManager(private val context: Context) {
                 f.annualStartDay != null || f.annualStartMonth != null ||
                 f.annualEndDay != null || f.annualEndMonth != null ||
                 f.startTimeMinutes != null || f.endTimeMinutes != null ||
+                f.windMin != null || f.windMax != null ||
+                f.pressureMin != null || f.pressureMax != null ||
                 f.speciesId != null
     }
 
@@ -111,6 +127,24 @@ class FilterManager(private val context: Context) {
                 }
             }
 
+            // Wind Direction Range
+            if (f.windMin != null && f.windMax != null) {
+                val windDir = fish.windDirection
+                if (windDir == null) return@filter false // Ei tuulitietoa -> suodatetaan pois jos rajattu
+                
+                if (f.windMin <= f.windMax) {
+                    if (windDir < f.windMin || windDir > f.windMax) return@filter false
+                } else {
+                    // Sektori ylittää 360/0 rajan
+                    if (windDir < f.windMin && windDir > f.windMax) return@filter false
+                }
+            }
+
+            // Pressure Range
+            if (f.pressureMin != null && fish.pressure != null && fish.pressure < f.pressureMin) return@filter false
+            if (f.pressureMax != null && fish.pressure != null && fish.pressure > f.pressureMax) return@filter false
+            if ((f.pressureMin != null || f.pressureMax != null) && fish.pressure == null) return@filter false
+
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
 
@@ -152,6 +186,16 @@ class FilterManager(private val context: Context) {
             val start = String.format(Locale.getDefault(), "%d:%02d", startH, startM)
             val end = String.format(Locale.getDefault(), "%d:%02d", endH, endM)
             parts.add("klo $start-$end")
+        }
+
+        if (f.windMin != null && f.windMax != null) {
+            parts.add("tuuli ${f.windMin.toInt()}°-${f.windMax.toInt()}°")
+        }
+
+        if (f.pressureMin != null || f.pressureMax != null) {
+            val min = f.pressureMin?.toInt()?.toString() ?: "..."
+            val max = f.pressureMax?.toInt()?.toString() ?: "..."
+            parts.add("paine $min-$max hPa")
         }
 
         return parts.joinToString(" ")

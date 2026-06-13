@@ -54,4 +54,8 @@
         <item>Normaali sade</item>
         <item>Rankkasade</item>
     </string-array>
+    <string name="min_degrees">Min (°)</string>
+    <string name="max_degrees">Max (°)</string>
+    <string name="min_pressure">Min (hPa)</string>
+    <string name="max_pressure">Max (hPa)</string>
 </resources>

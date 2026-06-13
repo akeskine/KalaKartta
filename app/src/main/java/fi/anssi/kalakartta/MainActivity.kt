@@ -30,6 +30,7 @@ import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
+import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -317,10 +318,19 @@ class MainActivity : AppCompatActivity() {
     private fun updateFilterStatusUI() {
         val layout = findViewById<android.view.View>(R.id.filterStatusLayout)
         val text = findViewById<android.widget.TextView>(R.id.filterStatusText)
+        val windView = findViewById<WindDirectionView>(R.id.filterWindView)
         
+        val filters = filterManager.getFilters()
         if (filterManager.hasActiveFilters()) {
             layout.visibility = android.view.View.VISIBLE
             text.text = filterManager.getFilterDescription()
+            
+            if (filters.windMin != null && filters.windMax != null) {
+                windView.visibility = android.view.View.VISIBLE
+                windView.setRange(filters.windMin, filters.windMax)
+            } else {
+                windView.visibility = android.view.View.GONE
+            }
         } else {
             layout.visibility = android.view.View.GONE
         }
@@ -468,6 +478,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     reloadMarkersFromDb()
                 }
+            } else if (requestCode == 2001) {
+                // Suodattimet päivitetty
+                reloadMarkersFromDb()
             } else {
                 // Muut tapaukset (import, asetukset tms.): täysi reload
                 reloadMarkersFromDb()

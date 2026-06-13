@@ -4,6 +4,8 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +30,11 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var startTimeButton: Button
     private lateinit var endTimeButton: Button
     private lateinit var speciesSpinner: Spinner
+    private lateinit var windMinEdit: EditText
+    private lateinit var windMaxEdit: EditText
+    private lateinit var windDirectionPreview: WindDirectionView
+    private lateinit var pressureMinEdit: EditText
+    private lateinit var pressureMaxEdit: EditText
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     private val annualFormat = SimpleDateFormat("dd.MM.", Locale.getDefault())
@@ -71,6 +78,12 @@ class FilterActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, speciesList.map { it.name })
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         speciesSpinner.adapter = adapter
+
+        windMinEdit = findViewById(R.id.windMinEdit)
+        windMaxEdit = findViewById(R.id.windMaxEdit)
+        windDirectionPreview = findViewById(R.id.windDirectionPreview)
+        pressureMinEdit = findViewById(R.id.pressureMinEdit)
+        pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
     }
 
     private fun loadFilters() {
@@ -81,6 +94,19 @@ class FilterActivity : AppCompatActivity() {
         if (selectedIndex >= 0) {
             speciesSpinner.setSelection(selectedIndex)
         }
+
+        windMinEdit.setText(currentFilters.windMin?.toString() ?: "")
+        windMaxEdit.setText(currentFilters.windMax?.toString() ?: "")
+        updateWindPreview()
+
+        pressureMinEdit.setText(currentFilters.pressureMin?.toString() ?: "")
+        pressureMaxEdit.setText(currentFilters.pressureMax?.toString() ?: "")
+    }
+
+    private fun updateWindPreview() {
+        val min = windMinEdit.text.toString().toFloatOrNull()
+        val max = windMaxEdit.text.toString().toFloatOrNull()
+        windDirectionPreview.setRange(min, max)
     }
 
     private fun updateButtons() {
@@ -128,16 +154,42 @@ class FilterActivity : AppCompatActivity() {
             currentFilters = FilterManager.Filters()
             updateButtons()
             speciesSpinner.setSelection(0)
+            windMinEdit.setText("")
+            windMaxEdit.setText("")
+            updateWindPreview()
+            pressureMinEdit.setText("")
+            pressureMaxEdit.setText("")
             Toast.makeText(this, R.string.filters_cleared, Toast.LENGTH_SHORT).show()
         }
 
         findViewById<Button>(R.id.okButton).setOnClickListener {
             val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
-            currentFilters = currentFilters.copy(speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id)
+            val windMin = windMinEdit.text.toString().toFloatOrNull()
+            val windMax = windMaxEdit.text.toString().toFloatOrNull()
+            val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
+            val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
+            
+            currentFilters = currentFilters.copy(
+                speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
+                windMin = windMin,
+                windMax = windMax,
+                pressureMin = pressureMin,
+                pressureMax = pressureMax
+            )
             filterManager.saveFilters(currentFilters)
             setResult(RESULT_OK)
             finish()
         }
+
+        val windWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateWindPreview()
+            }
+        }
+        windMinEdit.addTextChangedListener(windWatcher)
+        windMaxEdit.addTextChangedListener(windWatcher)
     }
 
     private fun showFullDateTimePicker(isStart: Boolean) {
