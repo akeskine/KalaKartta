@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
@@ -40,6 +41,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var rainHourMmEditText: EditText
     private lateinit var windSpeedEditText: EditText
     private lateinit var windDirectionEditText: EditText
+    private lateinit var windDirectionArrow: ImageView
     private lateinit var additionalInfoEditText: EditText
     private lateinit var tripNotesEditText: EditText
     private lateinit var pressureEditText: EditText
@@ -121,6 +123,7 @@ class EditCatchActivity : AppCompatActivity() {
         rainHourMmEditText = findViewById(R.id.rainHourMmEditText)
         windSpeedEditText = findViewById(R.id.windSpeedEditText)
         windDirectionEditText = findViewById(R.id.windDirectionEditText)
+        windDirectionArrow = findViewById(R.id.windDirectionArrow)
         additionalInfoEditText = findViewById(R.id.additionalInfoEditText)
         tripNotesEditText = findViewById(R.id.tripNotesEditText)
         pressureEditText = findViewById(R.id.pressureEditText)
@@ -192,6 +195,7 @@ class EditCatchActivity : AppCompatActivity() {
             
             val windSpeed = if (fc.windSpeed != null && !fc.windSpeed!!.isNaN()) fc.windSpeed.toString() else ""
             val windDirection = fc.windDirection?.toString() ?: ""
+            updateWindArrow(windDirection)
             val pressure = if (fc.pressure != null && !fc.pressure!!.isNaN()) fc.pressure.toString() else ""
 
             weightEditText.setText(if (fc.weight != null && fc.weight!! > 0) fc.weight.toString() else "")
@@ -266,6 +270,16 @@ class EditCatchActivity : AppCompatActivity() {
         isUpdatingFromCode = false
     }
 
+    private fun updateWindArrow(directionStr: String?) {
+        val direction = directionStr?.toFloatOrNull()
+        if (direction != null) {
+            windDirectionArrow.rotation = (direction + 180) % 360
+            windDirectionArrow.visibility = View.VISIBLE
+        } else {
+            windDirectionArrow.visibility = View.INVISIBLE
+        }
+    }
+
     private fun updateDateTimeButtonText() {
         if (selectedCalendar.timeInMillis <= 0) {
             dateTimeButton.text = "Ei päivämäärää"
@@ -336,6 +350,16 @@ class EditCatchActivity : AppCompatActivity() {
         rainHourMmEditText.addTextChangedListener(weatherWatcher)
         windSpeedEditText.addTextChangedListener(weatherWatcher)
         windDirectionEditText.addTextChangedListener(weatherWatcher)
+
+        val windDirectionWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateWindArrow(s?.toString())
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        }
+        windDirectionEditText.addTextChangedListener(windDirectionWatcher)
+
         pressureEditText.addTextChangedListener(weatherWatcher)
         
         autoWeatherCheckBox.setOnCheckedChangeListener { _, isChecked ->
@@ -520,6 +544,9 @@ class EditCatchActivity : AppCompatActivity() {
             if (value != null) {
                 if (!onlyMissing || editText.text.isNullOrEmpty()) {
                     editText.setText(value)
+                    if (editText == windDirectionEditText) {
+                        updateWindArrow(value)
+                    }
                 }
             }
         }

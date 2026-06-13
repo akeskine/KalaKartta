@@ -533,7 +533,11 @@ class MarkerManager(
                 if (it.waterTemp != null) details.append("  Vesi: ${it.waterTemp} °C\n")
                 if (it.windSpeed != null) {
                     val dir = if (it.windDirection != null) " (${it.windDirection}°)" else ""
-                    details.append("  Tuuli: ${it.windSpeed} m/s$dir\n")
+                    details.append("  Tuuli: ${it.windSpeed} m/s$dir")
+                    if (it.windDirection != null) {
+                        details.append(" ")
+                    }
+                    details.append("\n")
                 }
                 if (it.pressure != null) details.append("  Paine: ${it.pressure} hPa\n")
                 
@@ -557,10 +561,50 @@ class MarkerManager(
             if (it.originalRef.isNotEmpty()) details.append("Alkuperäinen viite: ${it.originalRef}\n")
         }
 
+        val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
+        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = if (hasSpecies) "Saaliin tiedot" else "Pisteen tiedot"
+
         val messageText = details.toString().trim()
+        val spannableMessage = SpannableString(messageText)
+        
+        fish?.windDirection?.let { direction ->
+            val windMarker = "Tuuli: "
+            val windIndex = messageText.indexOf(windMarker)
+            if (windIndex != -1) {
+                val endOfLine = messageText.indexOf("\n", windIndex)
+                val insertPos = if (endOfLine != -1) endOfLine else messageText.length
+                
+                // Käytetään ImageSpania nuolen lisäämiseen
+                val arrowDrawable = ContextCompat.getDrawable(context, R.drawable.ic_wind_arrow)?.mutate()
+                arrowDrawable?.let { drawable ->
+                    drawable.setBounds(0, 0, (16 * context.resources.displayMetrics.density).toInt(), (16 * context.resources.displayMetrics.density).toInt())
+                    val rotatedDrawable = run {
+                        // Pyöritys on tehtävä dynaamisesti
+                        val bitmap = android.graphics.Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(bitmap)
+                        canvas.rotate((direction.toFloat() + 180) % 360, bitmap.width / 2f, bitmap.height / 2f)
+                        drawable.draw(canvas)
+                        android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                    }
+                    rotatedDrawable.setBounds(0, 0, (16 * context.resources.displayMetrics.density).toInt(), (16 * context.resources.displayMetrics.density).toInt())
+                    
+                    val imageSpan = android.text.style.ImageSpan(rotatedDrawable, android.text.style.ImageSpan.ALIGN_BOTTOM)
+                    // Koska lisäsimme välilyönnin jo aiemmin, korvataan se nuolella
+                    val spacePos = insertPos - 1
+                    if (spacePos >= 0 && messageText[spacePos] == ' ') {
+                        spannableMessage.setSpan(imageSpan, spacePos, insertPos, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
+                }
+            }
+        }
+
         val finalMessage: CharSequence = if (fish != null && fish.tripNotes.isNotEmpty()) {
             val linkText = "Kalapäiväkirjan merkinnät"
-            val spannable = SpannableString("$messageText\n\n$linkText")
+            val combinedSpannable = android.text.SpannableStringBuilder(spannableMessage)
+            combinedSpannable.append("\n\n")
+            val linkStart = combinedSpannable.length
+            combinedSpannable.append(linkText)
+            
             val clickableSpan = object : ClickableSpan() {
                 override fun onClick(widget: View) {
                     val intent = Intent(context, TripNotesActivity::class.java)
@@ -571,16 +615,11 @@ class MarkerManager(
                     context.startActivity(intent)
                 }
             }
-            val start = spannable.length - linkText.length
-            val end = spannable.length
-            spannable.setSpan(clickableSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            spannable
+            combinedSpannable.setSpan(clickableSpan, linkStart, combinedSpannable.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            combinedSpannable
         } else {
-            messageText
+            spannableMessage
         }
-
-        val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
-        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = if (hasSpecies) "Saaliin tiedot" else "Pisteen tiedot"
 
         val dialog = AlertDialog.Builder(context)
             .setCustomTitle(titleView)
