@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.EditText
+import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.content.Context
@@ -86,23 +88,39 @@ class CatchManager(
 
         val builder = AlertDialog.Builder(activity)
         
-        // Kustomoitu otsikko sääasemalle (ei näytetä enää sääasemaa käyttäjän toiveesta)
         val inflater = LayoutInflater.from(activity)
-        val titleView = inflater.inflate(R.layout.dialog_species_title, null)
-        builder.setCustomTitle(titleView)
+        val contentView = inflater.inflate(R.layout.dialog_species_title, null)
         
-        val stationInfo = titleView.findViewById<TextView>(R.id.weatherStationInfo)
+        val stationInfo = contentView.findViewById<TextView>(R.id.weatherStationInfo)
         stationInfo.visibility = View.GONE
 
-        builder.setAdapter(adapter) { _, which ->
+        val weightInput = contentView.findViewById<EditText>(R.id.weightInput)
+        val lengthInput = contentView.findViewById<EditText>(R.id.lengthInput)
+
+        // Lisätään lista suoraan näkymään
+        val listView = android.widget.ListView(activity)
+        listView.adapter = adapter
+        
+        contentView.findViewById<LinearLayout>(R.id.dialog_species_root).addView(listView, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+
+        builder.setView(contentView)
+        val dialog = builder.create()
+        
+        listView.setOnItemClickListener { _, _, which, _ ->
             if (which < speciesList.size) {
-                addCatchAtSelectedLocation(speciesList[which].id)
+                val weight = weightInput.text.toString().toLongOrNull()
+                val length = lengthInput.text.toString().toLongOrNull()
+                addCatchAtSelectedLocation(speciesList[which].id, weight, length)
             } else {
                 openEditCatchForNewEntry()
             }
+            dialog.dismiss()
         }
-        
-        builder.show()
+
+        dialog.show()
     }
 
     private fun openEditCatchForNewEntry() {
@@ -120,7 +138,7 @@ class CatchManager(
         return if (id != 0) id else R.drawable.default_point
     }
 
-    private fun addCatchAtSelectedLocation(speciesId: String) {
+    private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null) {
         val point = map.mapCenter as GeoPoint
         val caughtAt = System.currentTimeMillis()
 
@@ -128,7 +146,9 @@ class CatchManager(
             species = speciesId,
             latitude = String.format(java.util.Locale.US, "%.5f", point.latitude).toDouble(),
             longitude = String.format(java.util.Locale.US, "%.5f", point.longitude).toDouble(),
-            caughtAt = caughtAt
+            caughtAt = caughtAt,
+            weight = weight,
+            length = length
         )
 
         // Tallennetaan taustalla ja päivitetään UI

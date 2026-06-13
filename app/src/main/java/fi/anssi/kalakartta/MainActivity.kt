@@ -60,210 +60,252 @@ class MainActivity : AppCompatActivity() {
     private var isUserScrolling = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
+        val crashFile = java.io.File(filesDir, "startup-crash.txt")
 
-        super.onCreate(savedInstanceState)
-
-        Configuration.getInstance().userAgentValue = packageName
-        setContentView(R.layout.activity_main)
-
-        map = findViewById(R.id.map)
-        map.setTileSource(TileSourceFactory.MAPNIK)
-        map.setMultiTouchControls(true)
-        map.controller.setZoom(15.0)
-        
-        // Asetetaan alkusijainti Helsingin keskustaan, jos omaa sijaintia ei vielä ole
-        val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
-        map.controller.setCenter(helsinkiCenter)
-
-        locationOverlay = object : MyLocationNewOverlay(GpsMyLocationProvider(this), map) {
-            override fun draw(canvas: android.graphics.Canvas, map: MapView, shadow: Boolean) {
-                try {
-                    super.draw(canvas, map, shadow)
-                } catch (e: Exception) {
-                    // Hiljennetään mahdolliset piirto-virheet (esim. Bitmap NPE)
-                    android.util.Log.e("MainActivity", "Error drawing locationOverlay: ${e.message}")
+        if (crashFile.exists()) {
+            val errorText = try {
+                crashFile.readText()
+            } catch (e: Exception) {
+                "Virheen lukeminen epäonnistui"
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Edellinen käynnistys kaatui")
+                .setMessage(errorText)
+                .setPositiveButton("OK") { _, _ ->
+                    crashFile.delete()
                 }
-            }
-        }
-        locationOverlay.enableMyLocation()
-        map.overlays.add(locationOverlay)
-
-        requestLocationPermission()
-
-        map.setOnTouchListener { _, event ->
-            if (event.action == android.view.MotionEvent.ACTION_DOWN) {
-                isUserScrolling = true
-            } else if (event.action == android.view.MotionEvent.ACTION_UP || event.action == android.view.MotionEvent.ACTION_CANCEL) {
-                // Pieni viive, jotta scroll-tapahtuma ehtii tulla ennen kuin nollataan
-                map.postDelayed({ isUserScrolling = false }, 500)
-            }
-            false
+                .setCancelable(false)
+                .show()
         }
 
-        findViewById<MaterialButton>(R.id.addCatchButton).setOnClickListener {
-            catchManager.showSpeciesDialog()
-        }
-
-        findViewById<MaterialButton>(R.id.myLocationButton).setOnClickListener {
-            // Aktivoi seuranta (keskittää sijaintiin)
-            locationOverlay.enableFollowLocation()
-            
-            val myLocation = locationOverlay.myLocation
-            if (myLocation != null) {
-                map.controller.animateTo(myLocation, map.zoomLevelDouble, 250L)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
             } else {
-                // Jos overlaylla ei ole vielä sijaintia, kokeillaan järjestelmän LocationManageria
-                val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-                val lastKnown = try {
-                    locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                        ?: locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                } catch (e: SecurityException) {
-                    null
-                }
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                )
+            }
 
-                if (lastKnown != null) {
-                    val geoPoint = org.osmdroid.util.GeoPoint(lastKnown.latitude, lastKnown.longitude)
-                    map.controller.animateTo(geoPoint, map.zoomLevelDouble, 250L)
+            super.onCreate(savedInstanceState)
+
+            android.util.Log.d("KalaKartta", "before config init")
+            Configuration.getInstance().userAgentValue = packageName
+            setContentView(R.layout.activity_main)
+
+            android.util.Log.d("KalaKartta", "before map init")
+            map = findViewById(R.id.map)
+            map.setTileSource(TileSourceFactory.MAPNIK)
+            map.setMultiTouchControls(true)
+            map.controller.setZoom(15.0)
+
+            // Asetetaan alkusijainti Helsingin keskustaan, jos omaa sijaintia ei vielä ole
+            val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
+            map.controller.setCenter(helsinkiCenter)
+
+            locationOverlay = object : MyLocationNewOverlay(GpsMyLocationProvider(this), map) {
+                override fun draw(canvas: android.graphics.Canvas, map: MapView, shadow: Boolean) {
+                    try {
+                        super.draw(canvas, map, shadow)
+                    } catch (e: Exception) {
+                        // Hiljennetään mahdolliset piirto-virheet (esim. Bitmap NPE)
+                        android.util.Log.e("MainActivity", "Error drawing locationOverlay: ${e.message}")
+                    }
+                }
+            }
+            // Poistettu: locationOverlay.enableMyLocation() - siirretty lupien tarkistuksen jälkeen
+            map.overlays.add(locationOverlay)
+
+            requestLocationPermission()
+
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                locationOverlay.enableMyLocation()
+            }
+
+            map.setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                    isUserScrolling = true
+                } else if (event.action == android.view.MotionEvent.ACTION_UP || event.action == android.view.MotionEvent.ACTION_CANCEL) {
+                    // Pieni viive, jotta scroll-tapahtuma ehtii tulla ennen kuin nollataan
+                    map.postDelayed({ isUserScrolling = false }, 500)
+                }
+                false
+            }
+
+            findViewById<MaterialButton>(R.id.addCatchButton).setOnClickListener {
+                catchManager.showSpeciesDialog()
+            }
+
+            findViewById<MaterialButton>(R.id.myLocationButton).setOnClickListener {
+                // Aktivoi seuranta (keskittää sijaintiin)
+                locationOverlay.enableFollowLocation()
+
+                val myLocation = locationOverlay.myLocation
+                if (myLocation != null) {
+                    map.controller.animateTo(myLocation, map.zoomLevelDouble, 250L)
                 } else {
-                    android.widget.Toast.makeText(this, "Sijaintia ei ole vielä saatavilla", android.widget.Toast.LENGTH_SHORT).show()
+                    // Jos overlaylla ei ole vielä sijaintia, kokeillaan järjestelmän LocationManageria
+                    val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+                    val lastKnown = try {
+                        locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                            ?: locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                    } catch (e: SecurityException) {
+                        null
+                    }
+
+                    if (lastKnown != null) {
+                        val geoPoint = org.osmdroid.util.GeoPoint(lastKnown.latitude, lastKnown.longitude)
+                        map.controller.animateTo(geoPoint, map.zoomLevelDouble, 250L)
+                    } else {
+                        android.widget.Toast.makeText(this, "Sijaintia ei ole vielä saatavilla", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
-        }
 
-        findViewById<MaterialButton?>(R.id.settingsButton)?.setOnClickListener {
-            settingsManager.openSettings()
-        }
+            findViewById<MaterialButton?>(R.id.settingsButton)?.setOnClickListener {
+                settingsManager.openSettings()
+            }
 
-        db = AppDatabase.getInstance(this)
+            android.util.Log.d("KalaKartta", "before db init")
+            db = AppDatabase.getInstance(this)
+            android.util.Log.d("KalaKartta", "after db init")
 
-        // Esitäyttö taustasäikeessä
-        Thread {
-            val speciesDao = db.fishSpeciesDao()
-            val defaults = listOf(
-                FishSpecies(
-                    "PERCH", "Ahven", icon_default = "ahven",
-                    small_weight = 200, small_length = 25,
-                    large_weight = 500, large_length = 35,
-                    giant_weight = 800, giant_length = 40
-                ),
-                FishSpecies(
-                    "PIKE", "Hauki", icon_default = "hauki",
-                    small_weight = 1000, small_length = 55,
-                    large_weight = 3000, large_length = 80,
-                    giant_weight = 8000, giant_length = 100
-                ),
-                FishSpecies(
-                    "ZANDER", "Kuha", icon_default = "kuha",
-                    small_weight = 800, small_length = 42,
-                    large_weight = 2000, large_length = 60,
-                    giant_weight = 5000, giant_length = 80
-                ),
-                FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
-                FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
-                FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
-                FishSpecies("WHITEFISH", "Siika", icon_default = "siika")
-            )
+            // Esitäyttö taustasäikeessä
+            Thread {
+                val speciesDao = db.fishSpeciesDao()
+                val defaults = listOf(
+                    FishSpecies(
+                        "PERCH", "Ahven", icon_default = "ahven",
+                        small_weight = 200, small_length = 25,
+                        large_weight = 500, large_length = 35,
+                        giant_weight = 800, giant_length = 40
+                    ),
+                    FishSpecies(
+                        "PIKE", "Hauki", icon_default = "hauki",
+                        small_weight = 1000, small_length = 55,
+                        large_weight = 3000, large_length = 80,
+                        giant_weight = 8000, giant_length = 100
+                    ),
+                    FishSpecies(
+                        "ZANDER", "Kuha", icon_default = "kuha",
+                        small_weight = 800, small_length = 42,
+                        large_weight = 2000, large_length = 60,
+                        giant_weight = 5000, giant_length = 80
+                    ),
+                    FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
+                    FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
+                    FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
+                    FishSpecies("WHITEFISH", "Siika", icon_default = "siika")
+                )
 
-            defaults.forEach { species ->
-                val existing = speciesDao.getById(species.id)
-                if (existing == null) {
-                    speciesDao.insert(species)
+                defaults.forEach { species ->
+                    val existing = speciesDao.getById(species.id)
+                    if (existing == null) {
+                        speciesDao.insert(species)
+                    } else {
+                        var updated = false
+                        var toUpdate = existing
+
+                        // Päivitetään oletusikonit jos ne puuttuvat
+                        if (existing.icon_default.isEmpty() && species.icon_default.isNotEmpty()) {
+                            toUpdate = toUpdate.copy(icon_default = species.icon_default)
+                            updated = true
+                        }
+
+                        // Päivitetään paino- ja pituusrajat jos ne ovat 0 (eli ei vielä asetettu)
+                        if (existing.small_weight == 0L && species.small_weight != 0L) {
+                            toUpdate = toUpdate.copy(
+                                small_weight = species.small_weight,
+                                small_length = species.small_length,
+                                large_weight = species.large_weight,
+                                large_length = species.large_length,
+                                giant_weight = species.giant_weight,
+                                giant_length = species.giant_length
+                            )
+                            updated = true
+                        }
+
+                        if (updated) {
+                            speciesDao.insert(toUpdate)
+                        }
+                    }
+                }
+            }.start()
+
+            importExportManager = ImportExportManager(this, db) {
+                reloadMarkersFromDb()
+            }
+
+            settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
+                if (isEnabled) {
+                    checkWeather(force = true)
                 } else {
-                    var updated = false
-                    var toUpdate = existing
+                    updateWeatherUI()
+                }
+            }) {
+                reloadMarkersFromDb()
+            }
 
-                    // Päivitetään oletusikonit jos ne puuttuvat
-                    if (existing.icon_default.isEmpty() && species.icon_default.isNotEmpty()) {
-                        toUpdate = toUpdate.copy(icon_default = species.icon_default)
-                        updated = true
-                    }
-
-                    // Päivitetään paino- ja pituusrajat jos ne ovat 0 (eli ei vielä asetettu)
-                    if (existing.small_weight == 0L && species.small_weight != 0L) {
-                        toUpdate = toUpdate.copy(
-                            small_weight = species.small_weight,
-                            small_length = species.small_length,
-                            large_weight = species.large_weight,
-                            large_length = species.large_length,
-                            giant_weight = species.giant_weight,
-                            giant_length = species.giant_length
-                        )
-                        updated = true
-                    }
-
-                    if (updated) {
-                        speciesDao.insert(toUpdate)
-                    }
+            markerManager = MarkerManager(this, map, db) { marker ->
+                val fish = marker.relatedObject as? FishCatch
+                if (fish != null) {
+                    db.fishCatchDao().deleteById(fish.id)
+                }
+                markerManager.removeMarker(marker)
+                // Päivitetään klusterit jos tarpeen
+                if (map.zoomLevelDouble < 13.0) {
+                    markerManager.rebuildMarkers(map.zoomLevelDouble)
                 }
             }
-        }.start()
 
-        importExportManager = ImportExportManager(this, db) {
-            reloadMarkersFromDb()
-        }
+            map.addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    // Jos käyttäjä skrollaa itse, poistetaan automaattinen seuranta
+                    if (isUserScrolling) {
+                        locationOverlay.disableFollowLocation()
+                    }
 
-        settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
-            if (isEnabled) {
-                checkWeather(force = true)
-            } else {
-                updateWeatherUI()
-            }
-        }) {
-            reloadMarkersFromDb()
-        }
-
-        markerManager = MarkerManager(this, map, db) { marker ->
-            val fish = marker.relatedObject as? FishCatch
-            if (fish != null) {
-                db.fishCatchDao().deleteById(fish.id)
-            }
-            markerManager.removeMarker(marker)
-            // Päivitetään klusterit jos tarpeen
-            if (map.zoomLevelDouble < 13.0) {
-                markerManager.rebuildMarkers(map.zoomLevelDouble)
-            }
-        }
-
-        map.addMapListener(object : MapListener {
-            override fun onScroll(event: ScrollEvent?): Boolean {
-                // Jos käyttäjä skrollaa itse, poistetaan automaattinen seuranta
-                if (isUserScrolling) {
-                     locationOverlay.disableFollowLocation()
+                    // Kun ollaan zoomed in, päivitetään näkyvät markerit (clipping)
+                    if (map.zoomLevelDouble >= 13.0) {
+                        markerManager.setMarkersVisible(true, map.zoomLevelDouble, forceRebuild = true)
+                    }
+                    return false
                 }
-
-                // Kun ollaan zoomed in, päivitetään näkyvät markerit (clipping)
-                if (map.zoomLevelDouble >= 13.0) {
-                    markerManager.setMarkersVisible(true, map.zoomLevelDouble, forceRebuild = true)
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    updateMarkersVisibility()
+                    return true
                 }
-                return false
+            })
+
+            filterManager = FilterManager(this)
+
+            weatherService = WeatherService(this)
+
+            catchManager = CatchManager(this, map, db, weatherService) { fish ->
+                markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
             }
-            override fun onZoom(event: ZoomEvent?): Boolean {
-                updateMarkersVisibility()
-                return true
+
+            android.util.Log.d("KalaKartta", "before loadCatches")
+            loadCatches()
+            android.util.Log.d("KalaKartta", "after loadCatches")
+
+            updateMarkersVisibility()
+            updateFilterStatusUI()
+
+            if (crashFile.exists()) {
+                crashFile.delete()
             }
-        })
-
-        filterManager = FilterManager(this)
-
-        weatherService = WeatherService(this)
-
-        catchManager = CatchManager(this, map, db, weatherService) { fish ->
-            markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
+        } catch (t: Throwable) {
+            crashFile.writeText(t.stackTraceToString())
+            throw t
         }
-
-        loadCatches()
-        updateMarkersVisibility()
-        updateFilterStatusUI()
     }
 
     private fun loadCatches() {
@@ -349,12 +391,26 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         map.onResume()
-        locationOverlay.enableMyLocation()
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            locationOverlay.enableMyLocation()
+        }
+
         updateMyLocationButtonVisibility()
-        
+
         // Rekisteröidään sijaintipalveluiden seuranta
-        registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
-        
+        val filter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(locationProviderReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(locationProviderReceiver, filter)
+        }
+
         // Yritetään näyttää sääasema jos se on vielä näyttämättä
         if (!weatherCheckDone) {
             checkWeather()
@@ -362,7 +418,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        unregisterReceiver(locationProviderReceiver)
+        try {
+            unregisterReceiver(locationProviderReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
         locationOverlay.disableMyLocation()
         map.onPause()
         super.onPause()
@@ -389,6 +448,9 @@ class MainActivity : AppCompatActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                locationOverlay.enableMyLocation()
+            }
             updateMyLocationButtonVisibility()
         }
     }
