@@ -150,9 +150,24 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val speciesDao = db.fishSpeciesDao()
             val defaults = listOf(
-                FishSpecies("PERCH", "Ahven", icon_default = "ahven"),
-                FishSpecies("PIKE", "Hauki", icon_default = "hauki"),
-                FishSpecies("ZANDER", "Kuha", icon_default = "kuha"),
+                FishSpecies(
+                    "PERCH", "Ahven", icon_default = "ahven",
+                    small_weight = 200, small_length = 25,
+                    large_weight = 500, large_length = 35,
+                    giant_weight = 800, giant_length = 40
+                ),
+                FishSpecies(
+                    "PIKE", "Hauki", icon_default = "hauki",
+                    small_weight = 1000, small_length = 55,
+                    large_weight = 3000, large_length = 80,
+                    giant_weight = 8000, giant_length = 100
+                ),
+                FishSpecies(
+                    "ZANDER", "Kuha", icon_default = "kuha",
+                    small_weight = 800, small_length = 42,
+                    large_weight = 2000, large_length = 60,
+                    giant_weight = 5000, giant_length = 80
+                ),
                 FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
                 FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
                 FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
@@ -163,8 +178,32 @@ class MainActivity : AppCompatActivity() {
                 val existing = speciesDao.getById(species.id)
                 if (existing == null) {
                     speciesDao.insert(species)
-                } else if (existing.icon_default.isEmpty() && species.icon_default.isNotEmpty()) {
-                    speciesDao.insert(existing.copy(icon_default = species.icon_default))
+                } else {
+                    var updated = false
+                    var toUpdate = existing
+
+                    // Päivitetään oletusikonit jos ne puuttuvat
+                    if (existing.icon_default.isEmpty() && species.icon_default.isNotEmpty()) {
+                        toUpdate = toUpdate.copy(icon_default = species.icon_default)
+                        updated = true
+                    }
+
+                    // Päivitetään paino- ja pituusrajat jos ne ovat 0 (eli ei vielä asetettu)
+                    if (existing.small_weight == 0L && species.small_weight != 0L) {
+                        toUpdate = toUpdate.copy(
+                            small_weight = species.small_weight,
+                            small_length = species.small_length,
+                            large_weight = species.large_weight,
+                            large_length = species.large_length,
+                            giant_weight = species.giant_weight,
+                            giant_length = species.giant_length
+                        )
+                        updated = true
+                    }
+
+                    if (updated) {
+                        speciesDao.insert(toUpdate)
+                    }
                 }
             }
         }.start()

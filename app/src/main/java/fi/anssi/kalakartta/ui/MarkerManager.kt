@@ -296,26 +296,73 @@ class MarkerManager(
         val species = speciesCache[fish.species]
         marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
         
-        val iconName = species?.icon_default ?: ""
-        val drawableId = getDrawableId(iconName)
+        var iconName = species?.icon_default ?: ""
+        var scaleFactor = 1.0
         
-        var iconSize = if (drawableId == R.drawable.default_point) 24 else 40
-        var visibleSize = if (drawableId == R.drawable.default_point) 8 else iconSize
-        
-        if (fish.species == "SALMON") {
-            iconSize = (iconSize * 1.3).toInt()
-            visibleSize = (visibleSize * 1.3).toInt()
-        } else if (fish.species == "PERCH") {
-            iconSize = (iconSize * 0.8).toInt()
-            visibleSize = (visibleSize * 0.8).toInt()
+        if (species != null) {
+            val weight = fish.weight ?: 0L
+            val length = fish.length ?: 0L
+            
+            val smallWeight = species.small_weight
+            val smallLength = species.small_length
+            val largeWeight = species.large_weight
+            val largeLength = species.large_length
+            val giantWeight = species.giant_weight
+            val giantLength = species.giant_length
+
+            // Tarkistetaan koot suurimmasta pienimpään
+            if ((giantWeight > 0 && weight >= giantWeight) || (giantLength > 0 && length >= giantLength)) {
+                if (species.icon_giant.isNotEmpty()) {
+                    iconName = species.icon_giant
+                } else {
+                    scaleFactor = 1.6
+                }
+            } else if ((largeWeight > 0 && weight >= largeWeight) || (largeLength > 0 && length >= largeLength)) {
+                if (species.icon_large.isNotEmpty()) {
+                    iconName = species.icon_large
+                } else {
+                    scaleFactor = 1.3
+                }
+            } else if (smallWeight > 0 && smallLength > 0 && weight < smallWeight && length < smallLength) {
+                // Sääntö: paino JA pituus pienempiä kuin small_weight JA small_length
+                if (species.icon_small.isNotEmpty()) {
+                    iconName = species.icon_small
+                } else {
+                    scaleFactor = 0.7
+                }
+            }
         }
 
+        val drawableId = getDrawableId(iconName)
+        
+        var baseIconSize = if (drawableId == R.drawable.default_point) 24 else 40
+        var visibleSize = if (drawableId == R.drawable.default_point) 8 else baseIconSize
+
+        // Punaiset oletuspisteet (default_point) 20% pienemmiksi
+        if (drawableId == R.drawable.default_point) {
+            scaleFactor *= 0.8
+        }
+        
+        // Alkuperäinen poikkeuslohi/ahven skaalaus säilytetään pohjana jos tarpeen? 
+        // Ohjeessa ei mainittu näitä, mutta ne olivat koodissa. 
+        // Ehkä parempi luottaa nyt uuteen logiikkaan ja säilyttää nämä vain jos raja-arvoja ei ole.
+        if (species != null && species.small_weight == 0L) {
+             if (fish.species == "SALMON") {
+                scaleFactor *= 1.3
+            } else if (fish.species == "PERCH") {
+                scaleFactor *= 0.8
+            }
+        }
+        
+        val finalIconSize = (baseIconSize * scaleFactor).toInt()
+        val finalVisibleSize = (visibleSize * scaleFactor).toInt()
+
         marker.icon = if (drawableId == R.drawable.default_point) {
-            val key = Triple(drawableId, visibleSize, 48)
-            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, visibleSize, 48) }
+            val key = Triple(drawableId, finalVisibleSize, 48)
+            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, finalVisibleSize, 48) }
         } else {
-            val key = Pair(drawableId, iconSize)
-            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
+            val key = Pair(drawableId, finalIconSize)
+            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, finalIconSize) }
         }
         marker.relatedObject = fish
 
@@ -342,15 +389,17 @@ class MarkerManager(
         val count = clusterList.size
 
         if (speciesId == "UNKNOWN") {
-            val key = Triple(drawableId, 8, 48)
-            marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, 8, 48) }
+            val key = Triple(drawableId, (8 * 0.8).toInt(), 48)
+            marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, (8 * 0.8).toInt(), 48) }
             marker.title = "Tuntematon laji"
         } else {
             var iconSize = 40
-            if (speciesId == "SALMON") {
-                iconSize = (iconSize * 1.3).toInt()
-            } else if (speciesId == "PERCH") {
-                iconSize = (iconSize * 0.8).toInt()
+            if (species != null && species.small_weight == 0L) {
+                if (speciesId == "SALMON") {
+                    iconSize = (iconSize * 1.3).toInt()
+                } else if (speciesId == "PERCH") {
+                    iconSize = (iconSize * 0.8).toInt()
+                }
             }
             val key = Triple(drawableId, iconSize, count)
             marker.icon = clusterIconCache.getOrPut(key) { 
