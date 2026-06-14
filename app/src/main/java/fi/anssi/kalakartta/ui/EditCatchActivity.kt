@@ -445,7 +445,7 @@ class EditCatchActivity : AppCompatActivity() {
         nearestStationText.text = "Haetaan säätietoja..."
         nearestStationText.visibility = android.view.View.VISIBLE
         
-        weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis) { data, time, error, stations ->
+        weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis, null) { data, time, error, stations ->
             runOnUiThread {
                 val wasUpdating = isUpdatingFromCode
                 isUpdatingFromCode = true
@@ -517,7 +517,7 @@ class EditCatchActivity : AppCompatActivity() {
             val lat = latEditText.text.toString().toDoubleSafe(fishCatch?.latitude ?: 0.0)
             val lon = lonEditText.text.toString().toDoubleSafe(fishCatch?.longitude ?: 0.0)
 
-            weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis) { data, time, error, stations ->
+            weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis, null) { data, time, error, stations ->
                 runOnUiThread {
                     progressDialog.dismiss()
                     if (data != null) {

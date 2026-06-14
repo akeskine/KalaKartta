@@ -36,7 +36,7 @@ class WeatherService(private val context: Context) {
         }.start()
     }
 
-    fun fetchWeatherFromMultipleStations(lat: Double, lon: Double, targetTime: Long? = null, callback: (Map<String, Double>?, Long?, String?, String) -> Unit) {
+    fun fetchWeatherFromMultipleStations(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null, callback: (Map<String, Double>?, Long?, String?, String) -> Unit) {
         Thread {
             fetchNearestStations(lat, lon, targetTime, 5) { stations, error ->
                 if (stations.isNullOrEmpty()) {
@@ -45,20 +45,42 @@ class WeatherService(private val context: Context) {
                 }
 
                 val finalData = mutableMapOf<String, Double>()
+                if (existingData != null) {
+                    finalData.putAll(existingData)
+                }
                 val usedStations = mutableListOf<String>()
                 var bestTime: Long? = null
 
                 val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
 
+                // Poistetaan jo olemassa olevat avaimet
+                for (key in finalData.keys) {
+                    keysToFill.remove(key)
+                    if (key == "r_1h") keysToFill.remove("ri_10min")
+                    if (key == "p_sea") keysToFill.remove("p_msl")
+                    if (key == "p_msl") keysToFill.remove("p_sea")
+                    if (key == "nn_ll01") keysToFill.remove("n_man")
+                    if (key == "n_man") keysToFill.remove("nn_ll01")
+                }
+
+                if (keysToFill.isEmpty()) {
+                    callback(finalData, bestTime, null, "EI_MUUTOKSIA")
+                    return@fetchNearestStations
+                }
+
+                var anyNewData = false
                 for (station in stations) {
                     val result = fetchWeatherDataSync(station.fmisid, targetTime)
                     val data = result.first
                     if (data != null && data.isNotEmpty()) {
-                        var addedAny = false
+                        var addedAnyFromThisStation = false
                         for (key in keysToFill.toList()) {
                             if (data.containsKey(key)) {
                                 finalData[key] = data[key]!!
                                 keysToFill.remove(key)
+                                anyNewData = true
+                                addedAnyFromThisStation = true
+                                
                                 // Jos saatiin jompikumpi pilvisyys, poistetaan molemmat listalta
                                 if (key == "nn_ll01") keysToFill.remove("n_man")
                                 if (key == "n_man") keysToFill.remove("nn_ll01")
@@ -67,16 +89,10 @@ class WeatherService(private val context: Context) {
                                 if (key == "ri_10min") {
                                     finalData["r_1h"] = data["ri_10min"]!!
                                     keysToFill.remove("r_1h")
-                                    keysToFill.remove("ri_10min")
                                 } else if (key == "r_1h") {
-                                    if (!finalData.containsKey("r_1h")) {
-                                        finalData["r_1h"] = data["r_1h"]!!
-                                    }
-                                    keysToFill.remove("r_1h")
+                                    finalData["r_1h"] = data["r_1h"]!!
                                     keysToFill.remove("ri_10min")
                                 }
-
-                                addedAny = true
                             }
                         }
                         
@@ -85,15 +101,17 @@ class WeatherService(private val context: Context) {
                             finalData["p_sea"] = data["p_msl"]!!
                             keysToFill.remove("p_sea")
                             keysToFill.remove("p_msl")
-                            addedAny = true
+                            anyNewData = true
+                            addedAnyFromThisStation = true
                         } else if (keysToFill.contains("p_msl") && data.containsKey("p_sea")) {
                             finalData["p_msl"] = data["p_sea"]!!
                             keysToFill.remove("p_msl")
                             keysToFill.remove("p_sea")
-                            addedAny = true
+                            anyNewData = true
+                            addedAnyFromThisStation = true
                         }
 
-                        if (addedAny) {
+                        if (addedAnyFromThisStation) {
                             usedStations.add("${station.fmisid}:${station.name}")
                             if (bestTime == null) bestTime = result.second
                         }
@@ -101,10 +119,20 @@ class WeatherService(private val context: Context) {
                     if (keysToFill.isEmpty()) break
                 }
 
-                if (finalData.isEmpty()) {
-                    callback(null, null, "Ei säädataa saatavilla.", "")
+                val stationInfo = if (usedStations.isNotEmpty()) {
+                    usedStations.joinToString(", ")
+                } else if (bestTime != null) {
+                    "FMI (asema tuntematon)"
+                } else if (anyNewData) {
+                    "FMI"
                 } else {
-                    callback(finalData, bestTime, null, usedStations.joinToString(", "))
+                    "Ei uutta dataa saatavilla (300km säteellä)"
+                }
+
+                if (!anyNewData) {
+                    callback(finalData, bestTime, null, "EI_MUUTOKSIA")
+                } else {
+                    callback(finalData, bestTime, null, stationInfo)
                 }
             }
         }.start()
@@ -146,7 +174,7 @@ class WeatherService(private val context: Context) {
         }
     }
 
-    suspend fun fetchWeatherFromMultipleStationsSuspend(lat: Double, lon: Double, targetTime: Long? = null): Triple<Map<String, Double>?, Long?, String> {
+    suspend fun fetchWeatherFromMultipleStationsSuspend(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null): Triple<Map<String, Double>?, Long?, String> {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             val stations = fetchNearestStationsSuspend(lat, lon, targetTime, 5)
             if (stations.isNullOrEmpty()) {
@@ -154,20 +182,42 @@ class WeatherService(private val context: Context) {
             }
 
             val finalData = mutableMapOf<String, Double>()
+            if (existingData != null) {
+                finalData.putAll(existingData)
+            }
             val usedStations = mutableListOf<String>()
             var bestTime: Long? = null
 
             val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
+            
+            // Poistetaan jo olemassa olevat avaimet
+            for (key in finalData.keys) {
+                keysToFill.remove(key)
+                if (key == "r_1h") keysToFill.remove("ri_10min")
+                if (key == "p_sea") keysToFill.remove("p_msl")
+                if (key == "p_msl") keysToFill.remove("p_sea")
+                if (key == "nn_ll01") keysToFill.remove("n_man")
+                if (key == "n_man") keysToFill.remove("nn_ll01")
+            }
+            
+            if (keysToFill.isEmpty()) {
+                return@withContext Triple(finalData, null, "EI_MUUTOKSIA")
+            }
 
+            var anyNewData = false
             for (station in stations) {
                 val result = fetchWeatherDataSync(station.fmisid, targetTime)
                 val data = result.first
                 if (data != null && data.isNotEmpty()) {
-                    var addedAny = false
+                    var addedAnyFromThisStation = false
                     for (key in keysToFill.toList()) {
                         if (data.containsKey(key)) {
                             finalData[key] = data[key]!!
                             keysToFill.remove(key)
+                            anyNewData = true
+                            addedAnyFromThisStation = true
+
+                            // Jos saatiin jompikumpi pilvisyys, poistetaan molemmat listalta
                             if (key == "nn_ll01") keysToFill.remove("n_man")
                             if (key == "n_man") keysToFill.remove("nn_ll01")
                             
@@ -175,32 +225,31 @@ class WeatherService(private val context: Context) {
                             if (key == "ri_10min") {
                                 finalData["r_1h"] = data["ri_10min"]!!
                                 keysToFill.remove("r_1h")
-                                keysToFill.remove("ri_10min")
                             } else if (key == "r_1h") {
-                                if (!finalData.containsKey("r_1h")) {
-                                    finalData["r_1h"] = data["r_1h"]!!
-                                }
-                                keysToFill.remove("r_1h")
+                                // Varmistetaan ettei ylikirjoiteta ri_10min:stä tullutta tarkempaa tietoa
+                                // (vaikka keysToFill.remove("r_1h") pitäisi hoitaa tämä)
+                                finalData["r_1h"] = data["r_1h"]!!
                                 keysToFill.remove("ri_10min")
                             }
-
-                            addedAny = true
                         }
                     }
                     
+                    // Erikoiskäsittely paineelle, jos p_sea puuttuu mutta p_msl löytyy (tai päinvastoin)
                     if (keysToFill.contains("p_sea") && data.containsKey("p_msl")) {
                         finalData["p_sea"] = data["p_msl"]!!
                         keysToFill.remove("p_sea")
                         keysToFill.remove("p_msl")
-                        addedAny = true
+                        anyNewData = true
+                        addedAnyFromThisStation = true
                     } else if (keysToFill.contains("p_msl") && data.containsKey("p_sea")) {
                         finalData["p_msl"] = data["p_sea"]!!
                         keysToFill.remove("p_msl")
                         keysToFill.remove("p_sea")
-                        addedAny = true
+                        anyNewData = true
+                        addedAnyFromThisStation = true
                     }
 
-                    if (addedAny) {
+                    if (addedAnyFromThisStation) {
                         usedStations.add("${station.fmisid}:${station.name}")
                         if (bestTime == null) bestTime = result.second
                     }
@@ -208,7 +257,21 @@ class WeatherService(private val context: Context) {
                 if (keysToFill.isEmpty()) break
             }
 
-            Triple(finalData.ifEmpty { null }, bestTime, usedStations.joinToString(", "))
+            val stationInfo = if (usedStations.isNotEmpty()) {
+                usedStations.joinToString(", ")
+            } else if (bestTime != null) {
+                "FMI (asema tuntematon)"
+            } else if (anyNewData) {
+                "FMI"
+            } else {
+                "Ei uutta dataa saatavilla (300km säteellä)"
+            }
+
+            if (!anyNewData) {
+                Triple(finalData, bestTime, "EI_MUUTOKSIA")
+            } else {
+                Triple(finalData, bestTime, stationInfo)
+            }
         }
     }
 

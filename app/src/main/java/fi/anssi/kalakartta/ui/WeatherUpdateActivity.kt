@@ -75,7 +75,18 @@ class WeatherUpdateActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
             val targets = allCatches.filter {
-                it.caughtAt > 0L && it.weatherSource != "MANUAL" && (it.weatherSource == "" || it.weatherStation == "" || it.weatherTime == 0L || it.pressure == 0.0)
+                it.caughtAt > 0L && (
+                    it.airTemp == null || 
+                    it.cloudiness == null || 
+                    it.rainHourMm == null || 
+                    it.windSpeed == null || 
+                    it.windDirection == null || 
+                    it.pressure == null ||
+                    it.weatherSource == "" || 
+                    it.weatherStation == "" || 
+                    it.weatherTime == null || 
+                    it.weatherTime == 0L
+                )
             }
             
             withContext(Dispatchers.Main) {
@@ -97,10 +108,22 @@ class WeatherUpdateActivity : AppCompatActivity() {
         updateJob = lifecycleScope.launch(Dispatchers.IO) {
             var successful = 0
             var failed = 0
+            var noChanges = 0
             try {
                 val allCatches = db.fishCatchDao().getAll()
                 val targetsAll = allCatches.filter {
-                    it.caughtAt > 0L && it.weatherSource != "MANUAL" && (it.weatherSource == "" || it.weatherStation == "" || it.weatherTime == 0L || it.pressure == 0.0)
+                    it.caughtAt > 0L && (
+                        it.airTemp == null || 
+                        it.cloudiness == null || 
+                        it.rainHourMm == null || 
+                        it.windSpeed == null || 
+                        it.windDirection == null || 
+                        it.pressure == null ||
+                        it.weatherSource == "" || 
+                        it.weatherStation == "" || 
+                        it.weatherTime == null || 
+                        it.weatherTime == 0L
+                    )
                 }
                 
                 val targets = if (maxCount > 0) targetsAll.take(maxCount) else targetsAll
@@ -131,8 +154,30 @@ class WeatherUpdateActivity : AppCompatActivity() {
                     attempted++
                     
                     try {
-                        val result = weatherService.fetchWeatherFromMultipleStationsSuspend(fishCatch.latitude, fishCatch.longitude, fishCatch.caughtAt)
-                        if (result.first != null && result.first!!.isNotEmpty()) {
+                        val existingData = mutableMapOf<String, Double>()
+                        fishCatch.airTemp?.let { existingData["t2m"] = it }
+                        fishCatch.cloudiness?.let { existingData["nn_ll01"] = it.toDouble() }
+                        fishCatch.rainHourMm?.let { existingData["r_1h"] = it }
+                        fishCatch.windSpeed?.let { existingData["ws_10min"] = it }
+                        fishCatch.windDirection?.let { existingData["wd_10min"] = it.toDouble() }
+                        fishCatch.pressure?.let { existingData["p_sea"] = it }
+
+                        val result = weatherService.fetchWeatherFromMultipleStationsSuspend(
+                            fishCatch.latitude, 
+                            fishCatch.longitude, 
+                            fishCatch.caughtAt,
+                            existingData.ifEmpty { null }
+                        )
+                        if (result.third == "EI_MUUTOKSIA") {
+                            noChanges++
+                            // Päivitetään silti weatherStation jos se oli tyhjä, jotta se ei tule uudelleen listalle
+                            if (fishCatch.weatherStation.isEmpty()) {
+                                val updatedCatch = fishCatch.copy(
+                                    weatherStation = "Ei uutta dataa saatavilla (300km säteellä)"
+                                )
+                                db.fishCatchDao().update(updatedCatch)
+                            }
+                        } else if (result.first != null && result.first!!.isNotEmpty()) {
                             val data = result.first!!
                             val rainHour = data["r_1h"] ?: data["ri_10min"]
                             val updatedCatch = fishCatch.copy(
@@ -162,20 +207,20 @@ class WeatherUpdateActivity : AppCompatActivity() {
                         val progressPercent = (attempted * 100) / total
                         progressBar.progress = progressPercent
                         statusText.text = "Päivitetään... $progressPercent %"
-                        statsText.text = "Yritetty: $attempted / $total\nOnnistuneet: $successful\nEpäonnistuneet: $failed"
+                        statsText.text = "Yritetty: $attempted / $total\nOnnistuneet: $successful\nEi muutoksia: $noChanges\nEpäonnistuneet: $failed"
                     }
                     
                     delay(500)
                 }
 
                 withContext(NonCancellable + Dispatchers.Main) {
-                    finishUpdate(successful, failed, updateJob?.isCancelled == true)
+                    finishUpdate(successful, failed, updateJob?.isCancelled == true, noChanges)
                 }
             } catch (e: Exception) {
                 val isCancelled = e is CancellationException || updateJob?.isCancelled == true
                 withContext(NonCancellable + Dispatchers.Main) {
                     if (isCancelled) {
-                        finishUpdate(successful, failed, true)
+                        finishUpdate(successful, failed, true, noChanges)
                     } else {
                         statusText.text = "Virhe: ${e.message}"
                         startButton.isEnabled = true
@@ -196,13 +241,13 @@ class WeatherUpdateActivity : AppCompatActivity() {
         // Itse asiassa meidän silmukassa on !isActive check, joten se menee finishUpdateen.
     }
 
-    private fun finishUpdate(successful: Int, failed: Int, cancelled: Boolean) {
+    private fun finishUpdate(successful: Int, failed: Int, cancelled: Boolean, noChanges: Int = 0) {
         progressLayout.visibility = View.GONE
         resultLayout.visibility = View.VISIBLE
         okButton.visibility = View.VISIBLE
         
         summaryText.text = if (cancelled) "Päivitys keskeytetty." else "Päivitys valmis."
-        successCountText.text = "Onnistuneesti päivitetty: $successful"
+        successCountText.text = "Onnistuneesti päivitetty: $successful\nEi muutoksia: $noChanges"
         failureCountText.text = "Virheellisiä: $failed"
         
         if (failed > 0) {
