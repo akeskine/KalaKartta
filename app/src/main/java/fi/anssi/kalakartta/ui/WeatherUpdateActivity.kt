@@ -168,31 +168,42 @@ class WeatherUpdateActivity : AppCompatActivity() {
                             fishCatch.caughtAt,
                             existingData.ifEmpty { null }
                         )
-                        if (result.third == "EI_MUUTOKSIA") {
-                            noChanges++
-                            // Päivitetään silti weatherStation jos se oli tyhjä, jotta se ei tule uudelleen listalle
-                            if (fishCatch.weatherStation.isEmpty()) {
-                                val updatedCatch = fishCatch.copy(
-                                    weatherStation = "Ei uutta dataa saatavilla (300km säteellä)"
-                                )
-                                db.fishCatchDao().update(updatedCatch)
-                            }
-                        } else if (result.first != null && result.first!!.isNotEmpty()) {
+                        
+                        // Diagnostiikka: Logitetaan jos ei muutoksia
+                        if (result.third.contains("Ei uutta dataa", ignoreCase = true)) {
+                            android.util.Log.d("WeatherUpdate", "Catch ID ${fishCatch.id}: Ei muutoksia 300km säteellä.")
+                        }
+
+                        if (result.first != null && result.first!!.isNotEmpty()) {
                             val data = result.first!!
                             val rainHour = data["r_1h"] ?: data["ri_10min"]
-                            val updatedCatch = fishCatch.copy(
-                                airTemp = data["t2m"],
-                                cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
-                                rainHourMm = rainHour,
-                                windSpeed = data["ws_10min"],
-                                windDirection = data["wd_10min"]?.toLong(),
-                                pressure = data["p_sea"] ?: data["p_msl"],
-                                weatherSource = "FMI",
-                                weatherTime = result.second ?: fishCatch.weatherTime,
-                                weatherStation = result.third
-                            )
-                            db.fishCatchDao().update(updatedCatch)
-                            successful++
+                            
+                            // Tarkistetaan onko tullut oikeasti jotain uutta
+                            val isActuallyChanged = fishCatch.airTemp != data["t2m"] ||
+                                    fishCatch.cloudiness != (data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong()) ||
+                                    fishCatch.rainHourMm != rainHour ||
+                                    fishCatch.windSpeed != data["ws_10min"] ||
+                                    fishCatch.windDirection != data["wd_10min"]?.toLong() ||
+                                    fishCatch.pressure != (data["p_sea"] ?: data["p_msl"]) ||
+                                    fishCatch.weatherStation != result.third
+                            
+                            if (isActuallyChanged) {
+                                val updatedCatch = fishCatch.copy(
+                                    airTemp = data["t2m"],
+                                    cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
+                                    rainHourMm = rainHour,
+                                    windSpeed = data["ws_10min"],
+                                    windDirection = data["wd_10min"]?.toLong(),
+                                    pressure = data["p_sea"] ?: data["p_msl"],
+                                    weatherSource = "FMI",
+                                    weatherTime = result.second ?: fishCatch.weatherTime,
+                                    weatherStation = result.third
+                                )
+                                db.fishCatchDao().update(updatedCatch)
+                                successful++
+                            } else {
+                                noChanges++
+                            }
                         } else {
                             failed++
                             db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = "Ei säädataa saatavilla.", catchId = fishCatch.id))

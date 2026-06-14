@@ -125,12 +125,14 @@ class WeatherService(private val context: Context) {
                     "FMI (asema tuntematon)"
                 } else if (anyNewData) {
                     "FMI"
+                } else if (stations.isNotEmpty()) {
+                    "${stations[0].fmisid}:${stations[0].name}"
                 } else {
-                    "Ei uutta dataa saatavilla (300km säteellä)"
+                    "FMI"
                 }
 
                 if (!anyNewData) {
-                    callback(finalData, bestTime, null, "EI_MUUTOKSIA")
+                    callback(finalData, bestTime, null, stationInfo)
                 } else {
                     callback(finalData, bestTime, null, stationInfo)
                 }
@@ -263,12 +265,14 @@ class WeatherService(private val context: Context) {
                 "FMI (asema tuntematon)"
             } else if (anyNewData) {
                 "FMI"
+            } else if (stations.isNotEmpty()) {
+                "${stations[0].fmisid}:${stations[0].name}"
             } else {
-                "Ei uutta dataa saatavilla (300km säteellä)"
+                "FMI"
             }
 
             if (!anyNewData) {
-                Triple(finalData, bestTime, "EI_MUUTOKSIA")
+                Triple(finalData, bestTime, stationInfo)
             } else {
                 Triple(finalData, bestTime, stationInfo)
             }
@@ -325,6 +329,7 @@ class WeatherService(private val context: Context) {
                                 val valueStr = parser.nextText()
                                 val value = valueStr.toDoubleOrNull()
                                 if (value != null && !value.isNaN() && currentParam.isNotEmpty() && currentTime != null) {
+                                    android.util.Log.d("WeatherService", "Parsed: time=$currentTime, param=$currentParam, value=$value")
                                     val observation = allObservations.getOrPut(currentTime!!) { mutableMapOf() }
                                     observation[currentParam] = value
                                 }

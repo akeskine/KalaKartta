@@ -35,6 +35,7 @@ class JsonService {
             if (it.airTemp != null) obj.put("airTemp", it.airTemp)
             if (it.cloudiness != null) obj.put("cloudiness", it.cloudiness)
             if (it.rain != null) obj.put("rain", it.rain)
+            if (it.rainHourMm != null) obj.put("rainHourMm", it.rainHourMm)
             if (it.windSpeed != null) obj.put("windSpeed", it.windSpeed)
             if (it.windDirection != null) obj.put("windDirection", it.windDirection)
             if (it.pressure != null) obj.put("pressure", it.pressure)
@@ -106,6 +107,7 @@ class JsonService {
                         airTemp = if (obj.isNull("airTemp")) null else obj.optDouble("airTemp"),
                         cloudiness = if (obj.isNull("cloudiness")) null else obj.optLong("cloudiness"),
                         rain = if (obj.isNull("rain")) null else obj.optLong("rain"),
+                        rainHourMm = if (obj.isNull("rainHourMm")) null else obj.optDouble("rainHourMm"),
                         windSpeed = if (obj.isNull("windSpeed")) null else obj.optDouble("windSpeed"),
                         windDirection = if (obj.isNull("windDirection")) null else obj.optLong("windDirection"),
                         pressure = if (obj.isNull("pressure")) null else obj.optDouble("pressure"),
