@@ -152,6 +152,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
                     if (!isActive) break
                     
                     attempted++
+                    android.util.Log.d("KalaKartta", "Tutkitaan pistettä ID: ${fishCatch.id}, originalRef: ${fishCatch.originalRef}")
                     
                     try {
                         val existingData = mutableMapOf<String, Double>()
@@ -166,12 +167,13 @@ class WeatherUpdateActivity : AppCompatActivity() {
                             fishCatch.latitude, 
                             fishCatch.longitude, 
                             fishCatch.caughtAt,
-                            existingData.ifEmpty { null }
+                            existingData.ifEmpty { null },
+                            "ID: ${fishCatch.id}, Ref: ${fishCatch.originalRef}"
                         )
                         
                         // Diagnostiikka: Logitetaan jos ei muutoksia
                         if (result.third.contains("Ei uutta dataa", ignoreCase = true)) {
-                            android.util.Log.d("WeatherUpdate", "Catch ID ${fishCatch.id}: Ei muutoksia 300km säteellä.")
+                            android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Ei muutoksia 300km säteellä.")
                         }
 
                         if (result.first != null && result.first!!.isNotEmpty()) {
@@ -188,6 +190,17 @@ class WeatherUpdateActivity : AppCompatActivity() {
                                     fishCatch.weatherStation != result.third
                             
                             if (isActuallyChanged) {
+                                val changedFields = mutableListOf<String>()
+                                if (fishCatch.airTemp != data["t2m"]) changedFields.add("lämpötila")
+                                if (fishCatch.cloudiness != (data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong())) changedFields.add("pilvisyys")
+                                if (fishCatch.rainHourMm != rainHour) changedFields.add("sademäärä")
+                                if (fishCatch.windSpeed != data["ws_10min"]) changedFields.add("tuulen nopeus")
+                                if (fishCatch.windDirection != data["wd_10min"]?.toLong()) changedFields.add("tuulen suunta")
+                                if (fishCatch.pressure != (data["p_sea"] ?: data["p_msl"])) changedFields.add("ilmanpaine")
+                                if (fishCatch.weatherStation != result.third) changedFields.add("sääasema")
+
+                                android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Päivitetty (muuttuneet: ${changedFields.joinToString(", ")})")
+
                                 val updatedCatch = fishCatch.copy(
                                     airTemp = data["t2m"],
                                     cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
@@ -202,6 +215,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
                                 db.fishCatchDao().update(updatedCatch)
                                 successful++
                             } else {
+                                android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Ei muutoksia (haettu data vastasi olemassa olevaa).")
                                 noChanges++
                             }
                         } else {

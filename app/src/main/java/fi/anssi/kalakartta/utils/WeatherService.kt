@@ -1,4 +1,4 @@
-package fi.anssi.kalakartta.utils
+﻿package fi.anssi.kalakartta.utils
 
 import android.content.Context
 import android.location.Location
@@ -36,8 +36,11 @@ class WeatherService(private val context: Context) {
         }.start()
     }
 
-    fun fetchWeatherFromMultipleStations(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null, callback: (Map<String, Double>?, Long?, String?, String) -> Unit) {
+    fun fetchWeatherFromMultipleStations(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null, catchInfo: String = "", callback: (Map<String, Double>?, Long?, String?, String) -> Unit) {
         Thread {
+            if (catchInfo.isNotEmpty()) {
+                android.util.Log.d("KalaKartta", "Päivitetään säätietoja kohteelle: $catchInfo")
+            }
             fetchNearestStations(lat, lon, targetTime, 5) { stations, error ->
                 if (stations.isNullOrEmpty()) {
                     callback(null, null, error ?: "Ei sopivia sääasemia.", "")
@@ -52,7 +55,7 @@ class WeatherService(private val context: Context) {
                 var bestTime: Long? = null
 
                 val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
-            android.util.Log.d("KalaKartta", "Etsit��n tietoja: $keysToFill")
+            android.util.Log.d("KalaKartta", "Etsitään tietoja: $keysToFill")
 
                 // Poistetaan jo olemassa olevat avaimet
                 for (key in finalData.keys) {
@@ -72,8 +75,8 @@ class WeatherService(private val context: Context) {
                 var anyNewData = false
                 for ((index, station) in stations.withIndex()) {
                     val distance = calculateDistance(lat, lon, station.latitude, station.longitude)
-                    val result = fetchWeatherDataSync(station.fmisid, targetTime)
                     android.util.Log.d("KalaKartta", "Kokeillaan asemaa #${index + 1}: ${station.fmisid}:${station.name}, etäisyys: ${String.format("%.1f", distance)} km")
+                    val result = fetchWeatherDataSync(station.fmisid, targetTime)
                     val data = result.first
                     if (data != null && data.isNotEmpty()) {
                         android.util.Log.d("KalaKartta", "Asema palautti: $data")
@@ -182,8 +185,11 @@ class WeatherService(private val context: Context) {
         }
     }
 
-    suspend fun fetchWeatherFromMultipleStationsSuspend(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null): Triple<Map<String, Double>?, Long?, String> {
+    suspend fun fetchWeatherFromMultipleStationsSuspend(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null, catchInfo: String = ""): Triple<Map<String, Double>?, Long?, String> {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            if (catchInfo.isNotEmpty()) {
+                android.util.Log.d("KalaKartta", "Päivitetään säätietoja kohteelle: $catchInfo")
+            }
             val stations = fetchNearestStationsSuspend(lat, lon, targetTime, 5)
             if (stations.isNullOrEmpty()) {
                 return@withContext Triple(null, null, "")
@@ -197,7 +203,7 @@ class WeatherService(private val context: Context) {
             var bestTime: Long? = null
 
             val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
-            android.util.Log.d("KalaKartta", "Etsit��n tietoja: $keysToFill")
+            android.util.Log.d("KalaKartta", "Etsitään tietoja: $keysToFill")
             
             // Poistetaan jo olemassa olevat avaimet
             for (key in finalData.keys) {
@@ -210,25 +216,30 @@ class WeatherService(private val context: Context) {
             }
             
             if (keysToFill.isEmpty()) {
+                if (catchInfo.isNotEmpty()) {
+                    android.util.Log.d("KalaKartta", "Piste ID: $catchInfo: Kaikki tiedot jo olemassa, ei haettavaa.")
+                }
                 return@withContext Triple(finalData, null, "EI_MUUTOKSIA")
             }
 
             var anyNewData = false
             for ((index, station) in stations.withIndex()) {
                 val distance = calculateDistance(lat, lon, station.latitude, station.longitude)
-                val result = fetchWeatherDataSync(station.fmisid, targetTime)
                 android.util.Log.d("KalaKartta", "Kokeillaan asemaa #${index + 1}: ${station.fmisid}:${station.name}, etäisyys: ${String.format("%.1f", distance)} km")
+                val result = fetchWeatherDataSync(station.fmisid, targetTime)
                 val data = result.first
                 if (data != null && data.isNotEmpty()) {
                     android.util.Log.d("KalaKartta", "Asema palautti: $data")
                     var addedAnyFromThisStation = false
+                    val foundThisStation = mutableListOf<String>()
                     for (key in keysToFill.toList()) {
                         if (data.containsKey(key)) {
+                            foundThisStation.add(key)
                             finalData[key] = data[key]!!
                             keysToFill.remove(key)
                             anyNewData = true
                             addedAnyFromThisStation = true
-
+                            
                             // Jos saatiin jompikumpi pilvisyys, poistetaan molemmat listalta
                             if (key == "nn_ll01") keysToFill.remove("n_man")
                             if (key == "n_man") keysToFill.remove("nn_ll01")
@@ -238,12 +249,15 @@ class WeatherService(private val context: Context) {
                                 finalData["r_1h"] = data["ri_10min"]!!
                                 keysToFill.remove("r_1h")
                             } else if (key == "r_1h") {
-                                // Varmistetaan ettei ylikirjoiteta ri_10min:stä tullutta tarkempaa tietoa
-                                // (vaikka keysToFill.remove("r_1h") pitäisi hoitaa tämä)
                                 finalData["r_1h"] = data["r_1h"]!!
                                 keysToFill.remove("ri_10min")
                             }
                         }
+                    }
+                    if (foundThisStation.isNotEmpty()) {
+                        android.util.Log.d("KalaKartta", "Asemalta #${index + 1} löytyi uusia tietoja: $foundThisStation")
+                    } else {
+                        android.util.Log.d("KalaKartta", "Asemalta #${index + 1} ei löytynyt mitään tarvittavista tiedoista ($keysToFill)")
                     }
                     
                     // Erikoiskäsittely paineelle, jos p_sea puuttuu mutta p_msl löytyy (tai päinvastoin)
@@ -282,10 +296,13 @@ class WeatherService(private val context: Context) {
             }
 
             if (!anyNewData) {
+                if (catchInfo.isNotEmpty()) {
+                    android.util.Log.d("KalaKartta", "Haku valmis kohteelle $catchInfo. Ei uutta dataa sääasemilta 300km säteellä.")
+                }
                 android.util.Log.d("KalaKartta", "Haku valmis. Saatiin: $finalData, Asema: $stationInfo")
                 Triple(finalData, bestTime, stationInfo)
             } else {
-                android.util.Log.d("KalaKartta", "Haku valmis. Saatiin: $finalData, Asema: $stationInfo")
+                android.util.Log.d("KalaKartta", "Haku valmis. Saatiin uutta dataa! Lopullinen: $finalData, Asema: $stationInfo")
                 Triple(finalData, bestTime, stationInfo)
             }
         }
@@ -341,7 +358,7 @@ class WeatherService(private val context: Context) {
                                 val valueStr = parser.nextText()
                                 val value = valueStr.toDoubleOrNull()
                                 if (value != null && !value.isNaN() && currentParam.isNotEmpty() && currentTime != null) {
-                                    android.util.Log.d("KalaKartta", "FMI Parsed: time=$currentTime, param=$currentParam, value=$value")
+                                    // android.util.Log.d("KalaKartta", "FMI Parsed: time=$currentTime, param=$currentParam, value=$value")
                                     val observation = allObservations.getOrPut(currentTime!!) { mutableMapOf() }
                                     observation[currentParam] = value
                                 }

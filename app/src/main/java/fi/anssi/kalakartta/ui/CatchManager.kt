@@ -164,7 +164,8 @@ class CatchManager(
             val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
             val weatherEnabled = prefs.getBoolean("weather_enabled", true)
             if (weatherEnabled) {
-                weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt, null) { data, obsTime, _, stations ->
+                val catchInfo = "ID: $id (uusi)"
+                weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt, null, catchInfo) { data, obsTime, _, stations ->
                     if (data != null) {
                         val rainHour = data["r_1h"] ?: data["ri_10min"]
                         val updatedFish = fishWithId.copy(
