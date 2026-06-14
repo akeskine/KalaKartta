@@ -75,7 +75,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
             val targets = allCatches.filter {
-                it.caughtAt > 0L && (
+                it.caughtAt > 0L && it.weatherDataCompleteTime == null && (
                     it.airTemp == null || 
                     it.cloudiness == null || 
                     it.rainHourMm == null || 
@@ -112,7 +112,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
             try {
                 val allCatches = db.fishCatchDao().getAll()
                 val targetsAll = allCatches.filter {
-                    it.caughtAt > 0L && (
+                    it.caughtAt > 0L && it.weatherDataCompleteTime == null && (
                         it.airTemp == null || 
                         it.cloudiness == null || 
                         it.rainHourMm == null || 
@@ -201,21 +201,40 @@ class WeatherUpdateActivity : AppCompatActivity() {
 
                                 android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Päivitetty (muuttuneet: ${changedFields.joinToString(", ")})")
 
+                                val airTemp = data["t2m"]
+                                val cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong()
+                                val windSpeed = data["ws_10min"]
+                                val windDirection = data["wd_10min"]?.toLong()
+                                val pressure = data["p_sea"] ?: data["p_msl"]
+
+                                val isNowComplete = airTemp != null &&
+                                        cloudiness != null &&
+                                        rainHour != null &&
+                                        windSpeed != null &&
+                                        windDirection != null &&
+                                        pressure != null
+
                                 val updatedCatch = fishCatch.copy(
-                                    airTemp = data["t2m"],
-                                    cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
+                                    airTemp = airTemp,
+                                    cloudiness = cloudiness,
                                     rainHourMm = rainHour,
-                                    windSpeed = data["ws_10min"],
-                                    windDirection = data["wd_10min"]?.toLong(),
-                                    pressure = data["p_sea"] ?: data["p_msl"],
+                                    windSpeed = windSpeed,
+                                    windDirection = windDirection,
+                                    pressure = pressure,
                                     weatherSource = "FMI",
                                     weatherTime = result.second ?: fishCatch.weatherTime,
-                                    weatherStation = result.third
+                                    weatherStation = result.third,
+                                    weatherDataCompleteTime = if (isNowComplete) null else System.currentTimeMillis()
                                 )
                                 db.fishCatchDao().update(updatedCatch)
                                 successful++
                             } else {
                                 android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Ei muutoksia (haettu data vastasi olemassa olevaa).")
+                                // Jos ei tullut uutta dataa, mutta jotain puuttui yhä, merkitään tarkistetuksi
+                                val updatedCatch = fishCatch.copy(
+                                    weatherDataCompleteTime = System.currentTimeMillis()
+                                )
+                                db.fishCatchDao().update(updatedCatch)
                                 noChanges++
                             }
                         } else {

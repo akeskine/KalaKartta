@@ -47,6 +47,7 @@ class JsonService {
             obj.put("additionalInfo", it.additionalInfo)
             obj.put("originalRef", it.originalRef)
             obj.put("tripNotes", it.tripNotes)
+            if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
             jsonArray.put(obj)
         }
 
@@ -116,7 +117,8 @@ class JsonService {
                         weatherStation = obj.optString("weatherStation", ""),
                         additionalInfo = obj.optString("additionalInfo", ""),
                         originalRef = obj.optString("originalRef", ""),
-                        tripNotes = obj.optString("tripNotes", "")
+                        tripNotes = obj.optString("tripNotes", ""),
+                        weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")
                     )
                 android.util.Log.d("JsonService", "Imported catch: species=${catch.species}, lat=${catch.latitude}, lon=${catch.longitude}")
                 result.add(catch)
