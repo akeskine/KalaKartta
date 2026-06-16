@@ -92,12 +92,16 @@ class FilterManager(private val context: Context) {
             calendar.timeInMillis = fish.caughtAt
             
             // Date Range
-            if (f.startDate != null && fish.caughtAt < f.startDate) return@filter false
-            if (f.endDate != null && fish.caughtAt > f.endDate) return@filter false
+            if (f.startDate != null || f.endDate != null) {
+                if (fish.caughtAt == 0L) return@filter false
+                if (f.startDate != null && fish.caughtAt < f.startDate) return@filter false
+                if (f.endDate != null && fish.caughtAt > f.endDate) return@filter false
+            }
 
             // Annual Date Range
             if (f.annualStartDay != null && f.annualStartMonth != null && 
                 f.annualEndDay != null && f.annualEndMonth != null) {
+                if (fish.caughtAt == 0L) return@filter false
                 val month = calendar.get(Calendar.MONTH)
                 val day = calendar.get(Calendar.DAY_OF_MONTH)
                 
@@ -115,6 +119,7 @@ class FilterManager(private val context: Context) {
 
             // Time Range
             if (f.startTimeMinutes != null && f.endTimeMinutes != null) {
+                if (fish.caughtAt == 0L) return@filter false
                 val hour = calendar.get(Calendar.HOUR_OF_DAY)
                 val minute = calendar.get(Calendar.MINUTE)
                 val currentMinutes = hour * 60 + minute
