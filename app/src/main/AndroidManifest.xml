@@ -34,6 +34,7 @@
             android:windowSoftInputMode="adjustPan" />
         <activity android:name=".ui.WeatherUpdateActivity" />
         <activity android:name=".ui.WeatherErrorLogActivity" />
+        <activity android:name=".ui.SummaryActivity" />
     </application>
 
 </manifest>

@@ -29,12 +29,13 @@ class SettingsManager(
             withContext(Dispatchers.Main) {
                 val dialog = AlertDialog.Builder(activity)
                     .setTitle("Asetukset")
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
-                            3 -> { /* Sulje valikko */ }
+                            3 -> openSummary()
+                            4 -> { /* Sulje valikko */ }
                         }
                     }
                     .show()
@@ -95,6 +96,11 @@ class SettingsManager(
     }
 
     // Poistettu updateMissingWeatherData metodit ja siirretty WeatherUpdateActivityyn
+
+    private fun openSummary() {
+        val intent = android.content.Intent(activity, SummaryActivity::class.java)
+        activity.startActivity(intent)
+    }
 
     private fun openFilterSettings() {
         val intent = android.content.Intent(activity, FilterActivity::class.java)
