@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Room database entities and DAOs
+-keep class fi.anssi.kalakartta.data.** { *; }
+
+# Osmdroid rules
+-keep class org.osmdroid.** { *; }
+-dontwarn org.osmdroid.**
