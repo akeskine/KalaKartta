@@ -13,10 +13,11 @@ class JsonService {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    fun export(contentResolver: ContentResolver, uri: Uri, list: List<FishCatch>) {
-        val jsonArray = JSONArray()
+    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
+        val root = JSONObject()
+        val catchesArray = JSONArray()
 
-        list.forEach {
+        catches.forEach {
             val obj = JSONObject()
             obj.put("id", it.id)
             obj.put("species", it.species)
@@ -48,33 +49,72 @@ class JsonService {
             obj.put("originalRef", it.originalRef)
             obj.put("tripNotes", it.tripNotes)
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
-            jsonArray.put(obj)
+            catchesArray.put(obj)
         }
 
+        val placesArray = JSONArray()
+        places.forEach {
+            val obj = JSONObject()
+            obj.put("id", it.id)
+            obj.put("typeId", it.typeId)
+            obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
+            obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
+            obj.put("name", it.name)
+            obj.put("additionalInfo", it.additionalInfo)
+            obj.put("originalRef", it.originalRef)
+            placesArray.put(obj)
+        }
+
+        root.put("catches", catchesArray)
+        root.put("places", placesArray)
+
         contentResolver.openOutputStream(uri)?.use { out ->
-            out.write(jsonArray.toString(4).toByteArray()) // 4 indentations for human readability
+            out.write(root.toString(4).toByteArray()) // 4 indentations for human readability
         }
     }
 
-    fun import(contentResolver: ContentResolver, uri: Uri): List<FishCatch> {
+    fun import(contentResolver: ContentResolver, uri: Uri): Pair<List<FishCatch>, List<PlaceOfInterest>> {
         val text = contentResolver.openInputStream(uri)
             ?.bufferedReader()
             ?.use { it.readText() }
-            ?: return emptyList()
+            ?: return Pair(emptyList(), emptyList())
 
-        val jsonArray = JSONArray(text)
+        val catches = mutableListOf<FishCatch>()
+        val places = mutableListOf<PlaceOfInterest>()
+
+        try {
+            if (text.trim().startsWith("{")) {
+                val root = JSONObject(text)
+                val catchesArray = root.optJSONArray("catches")
+                if (catchesArray != null) {
+                    catches.addAll(parseCatches(catchesArray))
+                }
+                val placesArray = root.optJSONArray("places")
+                if (placesArray != null) {
+                    places.addAll(parsePlaces(placesArray))
+                }
+            } else if (text.trim().startsWith("[")) {
+                val jsonArray = JSONArray(text)
+                catches.addAll(parseCatches(jsonArray))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JsonService", "Error parsing JSON", e)
+        }
+
+        return Pair(catches, places)
+    }
+
+    private fun parseCatches(jsonArray: JSONArray): List<FishCatch> {
         val result = mutableListOf<FishCatch>()
-
         for (i in 0 until jsonArray.length()) {
             try {
                 val obj = jsonArray.getJSONObject(i)
-
+                
                 val caughtAtStr = obj.optString("caughtAt", "")
                 val caughtAtLong = if (caughtAtStr.isNotEmpty()) {
                     try {
                         isoFormat.parse(caughtAtStr)?.time ?: 0L
                     } catch (_: Exception) {
-                        // If parsing as ISO string fails, try to read as Long (legacy or missing)
                         if (obj.has("caughtAt") && !obj.isNull("caughtAt")) obj.optLong("caughtAt", 0L) else 0L
                     }
                 } else {
@@ -86,7 +126,6 @@ class JsonService {
                     try {
                         isoFormat.parse(weatherTimeStr)?.time
                     } catch (_: Exception) {
-                        // If parsing as ISO string fails, try to read as Long (legacy or missing)
                         if (obj.has("weatherTime") && !obj.isNull("weatherTime")) obj.optLong("weatherTime") else null
                     }
                 } else {
@@ -94,40 +133,59 @@ class JsonService {
                 }
 
                 val catch = FishCatch(
-                        id = 0,
-                        species = obj.optString("species", "UNKNOWN"),
-                        latitude = String.format(Locale.US, "%.5f", if (obj.isNull("latitude") || !obj.has("latitude")) 60.0 else obj.optDouble("latitude", 60.0)).toDouble(),
-                        longitude = String.format(Locale.US, "%.5f", if (obj.isNull("longitude") || !obj.has("longitude")) 24.0 else obj.optDouble("longitude", 24.0)).toDouble(),
-                        caughtAt = caughtAtLong,
-                        weight = if (obj.isNull("weight")) null else obj.optLong("weight"),
-                        length = if (obj.isNull("length")) null else obj.optLong("length"),
-                        method = obj.optString("method", ""),
-                        strikeDepth = if (obj.isNull("strikeDepth")) null else obj.optDouble("strikeDepth"),
-                        waterDepth = if (obj.isNull("waterDepth")) null else obj.optDouble("waterDepth"),
-                        waterTemp = if (obj.isNull("waterTemp")) null else obj.optDouble("waterTemp"),
-                        airTemp = if (obj.isNull("airTemp")) null else obj.optDouble("airTemp"),
-                        cloudiness = if (obj.isNull("cloudiness")) null else obj.optLong("cloudiness"),
-                        rain = if (obj.isNull("rain")) null else obj.optLong("rain"),
-                        rainHourMm = if (obj.isNull("rainHourMm")) null else obj.optDouble("rainHourMm"),
-                        windSpeed = if (obj.isNull("windSpeed")) null else obj.optDouble("windSpeed"),
-                        windDirection = if (obj.isNull("windDirection")) null else obj.optLong("windDirection"),
-                        pressure = if (obj.isNull("pressure")) null else obj.optDouble("pressure"),
-                        weatherSource = obj.optString("weatherSource", ""),
-                        weatherTime = weatherTimeLong,
-                        weatherStation = obj.optString("weatherStation", ""),
-                        additionalInfo = obj.optString("additionalInfo", ""),
-                        originalRef = obj.optString("originalRef", ""),
-                        tripNotes = obj.optString("tripNotes", ""),
-                        weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")
-                    )
-                android.util.Log.d("JsonService", "Imported catch: species=${catch.species}, lat=${catch.latitude}, lon=${catch.longitude}")
+                    id = 0,
+                    species = obj.optString("species", "UNKNOWN"),
+                    latitude = String.format(Locale.US, "%.5f", if (obj.isNull("latitude") || !obj.has("latitude")) 60.0 else obj.optDouble("latitude", 60.0)).toDouble(),
+                    longitude = String.format(Locale.US, "%.5f", if (obj.isNull("longitude") || !obj.has("longitude")) 24.0 else obj.optDouble("longitude", 24.0)).toDouble(),
+                    caughtAt = caughtAtLong,
+                    weight = if (obj.isNull("weight")) null else obj.optLong("weight"),
+                    length = if (obj.isNull("length")) null else obj.optLong("length"),
+                    method = obj.optString("method", ""),
+                    strikeDepth = if (obj.isNull("strikeDepth")) null else obj.optDouble("strikeDepth"),
+                    waterDepth = if (obj.isNull("waterDepth")) null else obj.optDouble("waterDepth"),
+                    waterTemp = if (obj.isNull("waterTemp")) null else obj.optDouble("waterTemp"),
+                    airTemp = if (obj.isNull("airTemp")) null else obj.optDouble("airTemp"),
+                    cloudiness = if (obj.isNull("cloudiness")) null else obj.optLong("cloudiness"),
+                    rain = if (obj.isNull("rain")) null else obj.optLong("rain"),
+                    rainHourMm = if (obj.isNull("rainHourMm")) null else obj.optDouble("rainHourMm"),
+                    windSpeed = if (obj.isNull("windSpeed")) null else obj.optDouble("windSpeed"),
+                    windDirection = if (obj.isNull("windDirection")) null else obj.optLong("windDirection"),
+                    pressure = if (obj.isNull("pressure")) null else obj.optDouble("pressure"),
+                    weatherSource = obj.optString("weatherSource", ""),
+                    weatherTime = weatherTimeLong,
+                    weatherStation = obj.optString("weatherStation", ""),
+                    additionalInfo = obj.optString("additionalInfo", ""),
+                    originalRef = obj.optString("originalRef", ""),
+                    tripNotes = obj.optString("tripNotes", ""),
+                    weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")
+                )
                 result.add(catch)
             } catch (e: Exception) {
-                // Skip invalid objects
-                android.util.Log.e("JsonService", "Error parsing JSON object at index $i", e)
+                android.util.Log.e("JsonService", "Error parsing FishCatch object at index $i", e)
             }
         }
+        return result
+    }
 
+    private fun parsePlaces(jsonArray: JSONArray): List<PlaceOfInterest> {
+        val result = mutableListOf<PlaceOfInterest>()
+        for (i in 0 until jsonArray.length()) {
+            try {
+                val obj = jsonArray.getJSONObject(i)
+                val place = PlaceOfInterest(
+                    id = 0,
+                    typeId = obj.optString("typeId", "UNKNOWN"),
+                    latitude = String.format(Locale.US, "%.5f", if (obj.isNull("latitude") || !obj.has("latitude")) 60.0 else obj.optDouble("latitude", 60.0)).toDouble(),
+                    longitude = String.format(Locale.US, "%.5f", if (obj.isNull("longitude") || !obj.has("longitude")) 24.0 else obj.optDouble("longitude", 24.0)).toDouble(),
+                    name = obj.optString("name", ""),
+                    additionalInfo = obj.optString("additionalInfo", ""),
+                    originalRef = obj.optString("originalRef", "")
+                )
+                result.add(place)
+            } catch (e: Exception) {
+                android.util.Log.e("JsonService", "Error parsing PlaceOfInterest object at index $i", e)
+            }
+        }
         return result
     }
 

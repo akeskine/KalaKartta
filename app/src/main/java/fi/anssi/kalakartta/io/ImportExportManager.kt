@@ -37,29 +37,34 @@ class ImportExportManager(
 
     private fun exportToJson(uri: Uri) {
         Thread {
-            val list = db.fishCatchDao().getAll()
-            jsonService.export(activity.contentResolver, uri, list)
-            showConfirmationDialog("Tietojen vienti valmis.")
+            val catches = db.fishCatchDao().getAll()
+            val places = db.placeOfInterestDao().getAll()
+            jsonService.export(activity.contentResolver, uri, catches, places)
+            showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
         }.start()
     }
 
     private fun importFromJson(uri: Uri) {
         Thread {
             try {
-                val list = jsonService.import(activity.contentResolver, uri)
-                if (list.isEmpty()) {
+                val (catches, places) = jsonService.import(activity.contentResolver, uri)
+                if (catches.isEmpty() && places.isEmpty()) {
                     activity.runOnUiThread {
                         showConfirmationDialog("Tiedostosta ei löytynyt tuotavia tietoja tai se on virheellinen.")
                     }
                     return@Thread
                 }
                 
-                val dao = db.fishCatchDao()
-                dao.insertAll(list)
+                if (catches.isNotEmpty()) {
+                    db.fishCatchDao().insertAll(catches)
+                }
+                if (places.isNotEmpty()) {
+                    db.placeOfInterestDao().insertAll(places)
+                }
 
                 activity.runOnUiThread {
                     onImportDone()
-                    showConfirmationDialog("Tietojen tuonti valmis (${list.size} kpl).")
+                    showConfirmationDialog("Tietojen tuonti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Import failed", e)

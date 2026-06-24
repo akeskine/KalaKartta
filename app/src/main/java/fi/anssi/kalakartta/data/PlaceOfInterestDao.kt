@@ -21,4 +21,7 @@ interface PlaceOfInterestDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun update(placeOfInterest: PlaceOfInterest)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAll(places: List<PlaceOfInterest>)
 }
