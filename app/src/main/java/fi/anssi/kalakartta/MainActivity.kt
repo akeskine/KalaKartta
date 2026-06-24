@@ -289,9 +289,14 @@ class MainActivity : AppCompatActivity() {
 
             weatherService = WeatherService(this)
 
-            catchManager = CatchManager(this, map, db, weatherService) { fish ->
-                markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
-            }
+            catchManager = CatchManager(this, map, db, weatherService, 
+                onCatchAdded = { fish ->
+                    markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
+                },
+                onPlaceAdded = { place ->
+                    markerManager.addOrUpdatePlaceIncremental(place, map.zoomLevelDouble)
+                }
+            )
 
             android.util.Log.d("KalaKartta", "before loadCatches")
             loadCatches()
@@ -313,6 +318,9 @@ class MainActivity : AppCompatActivity() {
         val catches = db.fishCatchDao().getAll()
         val filteredCatches = filterManager.applyFilter(catches)
         markerManager.setAllCatches(filteredCatches)
+        
+        val places = db.placeOfInterestDao().getAll()
+        markerManager.setAllPlaces(places)
     }
 
     private fun updateFilterStatusUI() {

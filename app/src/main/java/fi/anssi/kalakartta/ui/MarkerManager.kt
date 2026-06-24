@@ -22,6 +22,8 @@ import androidx.core.graphics.createBitmap
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.PlaceOfInterest
+import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.enlargeButtons
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
@@ -47,7 +49,9 @@ class MarkerManager(
     private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
     private val clusterIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
+    private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
     private val allCatches = mutableListOf<FishCatch>()
+    private val allPlaces = mutableListOf<PlaceOfInterest>()
     private var lastZoom = -1.0
     private var lastBBox: BoundingBox? = null
 
@@ -73,6 +77,35 @@ class MarkerManager(
             android.util.Log.d("MarkerManager", "setAllCatches: list size = ${allCatches.size}")
         }
         rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
+    }
+
+    fun setAllPlaces(places: List<PlaceOfInterest>) {
+        synchronized(allPlaces) {
+            allPlaces.clear()
+            allPlaces.addAll(places)
+        }
+        rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
+    }
+
+    fun addOrUpdatePlaceIncremental(place: PlaceOfInterest, zoom: Double) {
+        synchronized(allPlaces) {
+            val existingIndex = allPlaces.indexOfFirst { it.id == place.id }
+            if (existingIndex >= 0) {
+                allPlaces[existingIndex] = place
+            } else {
+                allPlaces.add(place)
+            }
+        }
+        
+        if (placeTypeCache.isEmpty()) {
+            scope.launch {
+                val types = withContext(Dispatchers.IO) { db.placeOfInterestTypeDao().getAll() }
+                types.forEach { placeTypeCache[it.id] = it }
+                rebuildMarkers(zoom)
+            }
+            return
+        }
+        rebuildMarkers(zoom)
     }
 
     /**
@@ -239,9 +272,10 @@ class MarkerManager(
             delay(if (catchesCount < 100) 20 else 60)
             
             val catchesCopy = synchronized(allCatches) { allCatches.toList() }
+            val placesCopy = synchronized(allPlaces) { allPlaces.toList() }
             android.util.Log.d("MarkerManager", "rebuildMarkers: allCatches size = ${catchesCopy.size}")
             
-            if (catchesCopy.isEmpty()) {
+            if (catchesCopy.isEmpty() && placesCopy.isEmpty()) {
                 withContext(Dispatchers.Main) {
                     markersFolder.items.clear()
                     map.invalidate()
@@ -256,6 +290,18 @@ class MarkerManager(
                     withContext(Dispatchers.Main) {
                         species.forEach {
                             speciesCache[it.id] = it
+                        }
+                    }
+                }
+            }
+            
+            // Ladataan paikkatyypit välimuistiin jos puuttuu
+            if (placeTypeCache.isEmpty()) {
+                withContext(Dispatchers.IO) {
+                    val types = db.placeOfInterestTypeDao().getAll()
+                    withContext(Dispatchers.Main) {
+                        types.forEach {
+                            placeTypeCache[it.id] = it
                         }
                     }
                 }
@@ -281,6 +327,13 @@ class MarkerManager(
                             }
                         }
                         
+                        // Muut paikat (ei klusteroida toistaiseksi tai klusteroidaan nekin?)
+                        // Ohjeistuksessa ei puhuttu muiden paikkojen klusteroinnista, joten pidetään ne yksittäisinä
+                        // tai jos niitä on paljon, ne pitäisi klusteroida. Käyttäjän pyynnössä sanotaan vain "kartalla näiden pisteiden nimi näytetään hyvin lähelle zoomaamalla".
+                        placesCopy.forEach { place ->
+                             createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
+                        }
+                        
                         if (isActive) {
                             markersFolder.items.clear()
                             markersFolder.items.addAll(newMarkers)
@@ -291,8 +344,8 @@ class MarkerManager(
             } else {
         // Jos pisteitä on vähän, ei tarvita clippingiä ollenkaan.
         // Tämä estää pisteiden katoamisen ja välkkymisen heikolla sijainnilla.
-        val visibleCatches = if (catchesCopy.size < 15000) {
-                catchesCopy
+        val (visibleCatches, visiblePlaces) = if (catchesCopy.size + placesCopy.size < 15000) {
+                Pair(catchesCopy, placesCopy)
             } else {
             // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
             // jos pisteitä on todella paljon (> 15000) suorituskyvyn takia.
@@ -308,18 +361,24 @@ class MarkerManager(
                     val latMargin = bbox.latitudeSpan * 2.0
                     val lonMargin = bbox.longitudeSpan * 2.0
                     
-                    val filtered = catchesCopy.filter { fish ->
+                    val filteredCatches = catchesCopy.filter { fish ->
                         fish.latitude >= bbox.latSouth - latMargin && 
                         fish.latitude <= bbox.latNorth + latMargin &&
                         fish.longitude >= bbox.lonWest - lonMargin &&
                         fish.longitude <= bbox.lonEast + lonMargin
                     }
-                    filtered
+                    val filteredPlaces = placesCopy.filter { place ->
+                        place.latitude >= bbox.latSouth - latMargin && 
+                        place.latitude <= bbox.latNorth + latMargin &&
+                        place.longitude >= bbox.lonWest - lonMargin &&
+                        place.longitude <= bbox.lonEast + lonMargin
+                    }
+                    Pair(filteredCatches, filteredPlaces)
                 }
             } else {
                 // Jos bboxia ei ole vielä, ja pisteitä on paljon, näytetään kaikki fallbackina tyhjän sijasta.
                 // Tämä estää pisteiden häviämisen käynnistyksessä tai animaatioiden aikana.
-                catchesCopy
+                Pair(catchesCopy, placesCopy)
             }
         }
 
@@ -329,6 +388,9 @@ class MarkerManager(
                 val newMarkers = mutableListOf<Marker>()
                 visibleCatches.forEach { fish ->
                     createIndividualMarker(fish)?.let { newMarkers.add(it) }
+                }
+                visiblePlaces.forEach { place ->
+                    createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
                 }
                 
                 if (isActive) {
@@ -375,6 +437,85 @@ class MarkerManager(
             true
         }
         return marker
+    }
+
+    private fun createPlaceMarker(place: PlaceOfInterest, zoom: Double): Marker? {
+        val point = GeoPoint(place.latitude, place.longitude)
+        val marker = Marker(map)
+        marker.position = point
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        
+        val type = placeTypeCache[place.typeId]
+        val iconName = type?.icon ?: ""
+        var drawableId = getDrawableId(iconName)
+        
+        val isDefault = drawableId == R.drawable.default_point
+        if (isDefault) {
+            drawableId = R.drawable.default_place_point
+        }
+
+        val visibleSize = 8
+        val touchSize = 48
+        
+        marker.icon = if (drawableId == R.drawable.default_place_point) {
+            val key = Triple(drawableId, visibleSize, touchSize)
+            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, visibleSize, touchSize) }
+        } else {
+            val iconSize = 40
+            val key = Pair(drawableId, iconSize)
+            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
+        }
+
+        if (zoom >= 16.5) {
+            marker.title = place.name
+            marker.showInfoWindow()
+        } else {
+            marker.title = place.name
+        }
+
+        marker.relatedObject = place
+        marker.setOnMarkerClickListener { clickedMarker, _ ->
+            map.controller.animateTo(clickedMarker.position)
+            showPlaceDetailsDialog(clickedMarker)
+            true
+        }
+        return marker
+    }
+
+    private fun showPlaceDetailsDialog(marker: Marker) {
+        val place = marker.relatedObject as? PlaceOfInterest ?: return
+        val type = placeTypeCache[place.typeId]
+        
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(place.name)
+            .setMessage("${type?.name ?: place.typeId}\n\n${place.additionalInfo}")
+            .setPositiveButton(R.string.ok, null)
+            .setNegativeButton(R.string.delete) { _, _ ->
+                confirmDeletePlace(marker)
+            }
+            .show()
+        dialog.enlargeButtons()
+    }
+
+    private fun confirmDeletePlace(marker: Marker) {
+        val place = marker.relatedObject as? PlaceOfInterest ?: return
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(R.string.delete)
+            .setMessage("Haluatko varmasti poistaa paikan ${place.name}?")
+            .setPositiveButton(R.string.delete) { _, _ ->
+                Thread {
+                    db.placeOfInterestDao().deleteById(place.id)
+                    (context as? android.app.Activity)?.runOnUiThread {
+                        removeMarker(marker)
+                        synchronized(allPlaces) {
+                            allPlaces.removeAll { it.id == place.id }
+                        }
+                    }
+                }.start()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.enlargeButtons()
     }
 
     private fun createClusterMarker(speciesId: String, clusterList: List<FishCatch>): Marker? {

@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">KalaKartta</string>
     <string name="add_catch">Lisää merkintä</string>
-    <string name="add_detailed">Lisää tarkemmin…</string>
+    <string name="add_detailed">Tarkemmin</string>
     <string name="my_location">Oma sijainti</string>
     <string name="settings">Asetukset</string>
     <string name="ok">OK</string>
@@ -58,4 +58,6 @@
     <string name="max_degrees">Max (°)</string>
     <string name="min_pressure">Min (hPa)</string>
     <string name="max_pressure">Max (hPa)</string>
+    <string name="add_other">Muu paikka</string>
+    <string name="place_name">Paikan nimi</string>
 </resources>
