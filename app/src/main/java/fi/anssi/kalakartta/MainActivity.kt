@@ -238,6 +238,28 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+                // Muut paikat (PlaceOfInterestType) esitäyttö
+                val placeTypeDao = db.placeOfInterestTypeDao()
+                val placeDefaults = listOf(
+                    PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
+                    PlaceOfInterestType("CAMP", "Leiripaikka"),
+                    PlaceOfInterestType("ACCESS", "Pääsy rantaan"),
+                    PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
+                    PlaceOfInterestType("RAMP", "Veneramppi"),
+                    PlaceOfInterestType("HARBOUR", "Satama"),
+                    PlaceOfInterestType("ROCK", "Kivi"),
+                    PlaceOfInterestType("VEGETATION", "Kasvusto")
+                )
+
+                placeDefaults.forEach { type ->
+                    val existing = placeTypeDao.getById(type.id)
+                    if (existing == null) {
+                        placeTypeDao.insert(type)
+                    } else if (existing.icon.isEmpty() && type.icon.isNotEmpty()) {
+                        placeTypeDao.insert(existing.copy(icon = type.icon))
+                    }
+                }
             }.start()
 
             importExportManager = ImportExportManager(this, db) {

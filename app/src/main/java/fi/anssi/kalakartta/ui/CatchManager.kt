@@ -132,10 +132,10 @@ class CatchManager(
         var typeList = db.placeOfInterestTypeDao().getAll()
         if (typeList.isEmpty()) {
             val fallbacks = listOf(
-                PlaceOfInterestType("ACCOMMODATION", "Majoitus"),
+                PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
                 PlaceOfInterestType("CAMP", "Leiripaikka"),
                 PlaceOfInterestType("ACCESS", "Pääsy rantaan"),
-                PlaceOfInterestType("PARKING", "Pysäköinti"),
+                PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                 PlaceOfInterestType("RAMP", "Veneramppi"),
                 PlaceOfInterestType("HARBOUR", "Satama"),
                 PlaceOfInterestType("ROCK", "Kivi"),
@@ -159,6 +159,16 @@ class CatchManager(
                 val iconId = getPlaceTypeDrawableId(type.icon)
                 iconView.setImageResource(iconId)
                 iconView.visibility = if (type.icon.isNotEmpty()) View.VISIBLE else View.GONE
+
+                // Skaalataan majoitus-ikoni isommaksi
+                if (type.icon == "majoitus") {
+                    val scale = 2.0f
+                    iconView.layoutParams.width = (40 * context.resources.displayMetrics.density * scale).toInt()
+                    iconView.layoutParams.height = (40 * context.resources.displayMetrics.density * scale).toInt()
+                } else {
+                    iconView.layoutParams.width = (40 * context.resources.displayMetrics.density).toInt()
+                    iconView.layoutParams.height = (40 * context.resources.displayMetrics.density).toInt()
+                }
                 
                 return view
             }
