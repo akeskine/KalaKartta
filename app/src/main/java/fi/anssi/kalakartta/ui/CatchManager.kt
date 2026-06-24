@@ -133,7 +133,7 @@ class CatchManager(
         if (typeList.isEmpty()) {
             val fallbacks = listOf(
                 PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
-                PlaceOfInterestType("CAMP", "Leiripaikka"),
+                PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka"),
                 PlaceOfInterestType("ACCESS", "Pääsy rantaan"),
                 PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                 PlaceOfInterestType("RAMP", "Veneramppi"),

@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity() {
                 val placeTypeDao = db.placeOfInterestTypeDao()
                 val placeDefaults = listOf(
                     PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
-                    PlaceOfInterestType("CAMP", "Leiripaikka"),
+                    PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka"),
                     PlaceOfInterestType("ACCESS", "Pääsy rantaan"),
                     PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                     PlaceOfInterestType("RAMP", "Veneramppi"),
