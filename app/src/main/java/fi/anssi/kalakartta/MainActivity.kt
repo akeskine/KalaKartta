@@ -244,7 +244,7 @@ class MainActivity : AppCompatActivity() {
                 val placeDefaults = listOf(
                     PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
                     PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka"),
-                    PlaceOfInterestType("ACCESS", "Pääsy rantaan"),
+                    PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access"),
                     PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                     PlaceOfInterestType("RAMP", "Veneramppi"),
                     PlaceOfInterestType("HARBOUR", "Satama"),
