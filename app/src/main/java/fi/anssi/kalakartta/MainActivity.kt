@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity() {
                     PlaceOfInterestType("RAMP", "Veneramppi"),
                     PlaceOfInterestType("HARBOUR", "Satama"),
                     PlaceOfInterestType("ROCK", "Kivi"),
-                    PlaceOfInterestType("VEGETATION", "Kasvusto")
+                    PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
                 )
 
                 placeDefaults.forEach { type ->
