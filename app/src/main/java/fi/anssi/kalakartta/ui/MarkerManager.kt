@@ -29,7 +29,8 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-
+import org.osmdroid.views.overlay.infowindow.InfoWindow
+import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import org.osmdroid.views.overlay.FolderOverlay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,6 +55,22 @@ class MarkerManager(
     private val allPlaces = mutableListOf<PlaceOfInterest>()
     private var lastZoom = -1.0
     private var lastBBox: BoundingBox? = null
+    
+    private val placeInfoWindow by lazy {
+        object : MarkerInfoWindow(R.layout.place_info_window, map) {
+            override fun onOpen(item: Any?) {
+                val marker = item as? Marker
+                val title = mView.findViewById<TextView>(R.id.bubble_title)
+                title.text = marker?.title
+                
+                // Sulje infowindow klikattaessa tekstiä, jotta se ei estä merkin klikkausta
+                mView.setOnClickListener {
+                    close()
+                    marker?.let { showPlaceDetailsDialog(it) }
+                }
+            }
+        }
+    }
 
     init {
         map.overlays.add(markersFolder)
@@ -444,6 +461,7 @@ class MarkerManager(
         val marker = Marker(map)
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        marker.setInfoWindowAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_TOP)
         
         val type = placeTypeCache[place.typeId]
         val iconName = type?.icon ?: ""
@@ -466,11 +484,13 @@ class MarkerManager(
             iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
         }
 
+        marker.infoWindow = placeInfoWindow
+        marker.title = place.name
+        
         if (zoom >= 16.5) {
-            marker.title = place.name
             marker.showInfoWindow()
         } else {
-            marker.title = place.name
+            marker.closeInfoWindow()
         }
 
         marker.relatedObject = place
@@ -486,13 +506,80 @@ class MarkerManager(
         val place = marker.relatedObject as? PlaceOfInterest ?: return
         val type = placeTypeCache[place.typeId]
         
+        val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
+        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = place.name
+
         val dialog = AlertDialog.Builder(context)
-            .setTitle(place.name)
+            .setCustomTitle(titleView)
             .setMessage("${type?.name ?: place.typeId}\n\n${place.additionalInfo}")
             .setPositiveButton(R.string.ok, null)
-            .setNegativeButton(R.string.delete) { _, _ ->
-                confirmDeletePlace(marker)
+            .create()
+
+        val editMenuButton = titleView.findViewById<android.view.View>(R.id.editMenuButton)
+        editMenuButton.setOnClickListener {
+            val popup = PopupMenu(context, editMenuButton)
+            popup.menu.add(0, 0, 0, context.getString(R.string.edit))
+            popup.menu.add(0, 1, 1, context.getString(R.string.delete))
+
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    0 -> {
+                        showEditPlaceDialog(marker, place)
+                        dialog.dismiss()
+                        true
+                    }
+                    1 -> {
+                        dialog.dismiss()
+                        confirmDeletePlace(marker)
+                        true
+                    }
+                    else -> false
+                }
             }
+            popup.show()
+        }
+
+        dialog.show()
+        dialog.enlargeButtons()
+    }
+
+    private fun showEditPlaceDialog(marker: Marker, place: PlaceOfInterest) {
+        val input = android.widget.EditText(context)
+        input.setText(place.additionalInfo)
+        input.setHint("Lisätiedot")
+        
+        val container = android.widget.FrameLayout(context)
+        val params = android.widget.FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        val margin = (24 * context.resources.displayMetrics.density).toInt()
+        params.setMargins(margin, 0, margin, 0)
+        input.layoutParams = params
+        container.addView(input)
+
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("Muokkaa paikkaa: ${place.name}")
+            .setView(container)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val newInfo = input.text.toString()
+                Thread {
+                    val updatedPlace = place.copy(additionalInfo = newInfo)
+                    db.placeOfInterestDao().update(updatedPlace)
+                    (context as? android.app.Activity)?.runOnUiThread {
+                        marker.relatedObject = updatedPlace
+                        synchronized(allPlaces) {
+                            val index = allPlaces.indexOfFirst { it.id == place.id }
+                            if (index != -1) {
+                                allPlaces[index] = updatedPlace
+                            }
+                        }
+                        // Päivitetään dialogi näyttämään uudet tiedot
+                        showPlaceDetailsDialog(marker)
+                    }
+                }.start()
+            }
+            .setNegativeButton(R.string.cancel, null)
             .show()
         dialog.enlargeButtons()
     }
@@ -587,11 +674,10 @@ class MarkerManager(
                 if (forceRebuild || shouldRebuild(zoom)) {
                     // Jos kyseessä on vain skrollaus (forceRebuild), tarkistetaan onko näkymäalue muuttunut tarpeeksi
                     if (forceRebuild && lastZoom >= 13.0 && zoom >= 13.0) {
-                        // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta)
-                        // OSMDroid hoitaa pienen määrän markereita tehokkaasti.
-                        // Poistetaan pakotettu päivitys kokonaan jos määrä on pieni.
+                        // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta) JA zoom-kynnys ei ylittynyt.
                         val catchesCount = synchronized(allCatches) { allCatches.size }
-                        if (catchesCount < 15000) {
+                        val placesCount = synchronized(allPlaces) { allPlaces.size }
+                        if (catchesCount + placesCount < 15000 && !shouldRebuild(zoom)) {
                             // Varmistetaan että markerit on ladattu joskus, mutta ei ladata niitä joka skrollauksella
                             if (markersFolder.items.isNotEmpty()) {
                                 return
@@ -624,6 +710,13 @@ class MarkerManager(
         if (zoom < 13.0 || lastZoom < 13.0) {
             return Math.abs(lastZoom - zoom) >= 0.8
         }
+        
+        // Tarkistetaan nimen näyttämisen kynnys muiden paikkojen osalta (zoom 16.5)
+        val threshold = 16.5
+        if ((lastZoom < threshold && zoom >= threshold) || (lastZoom >= threshold && zoom < threshold)) {
+            return true
+        }
+        
         return false
     }
 
