@@ -487,7 +487,7 @@ class MarkerManager(
         marker.infoWindow = placeInfoWindow
         marker.title = place.name
         
-        if (zoom >= 16.5) {
+        if (zoom >= 16.5 && place.name.isNotEmpty()) {
             marker.showInfoWindow()
         } else {
             marker.closeInfoWindow()
@@ -507,11 +507,14 @@ class MarkerManager(
         val type = placeTypeCache[place.typeId]
         
         val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
-        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = place.name
+        val titleText = if (place.name.isEmpty()) type?.name ?: place.typeId else place.name
+        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = titleText
+
+        val message = if (place.name.isEmpty()) place.additionalInfo else "${type?.name ?: place.typeId}\n\n${place.additionalInfo}"
 
         val dialog = AlertDialog.Builder(context)
             .setCustomTitle(titleView)
-            .setMessage("${type?.name ?: place.typeId}\n\n${place.additionalInfo}")
+            .setMessage(message.trim())
             .setPositiveButton(R.string.ok, null)
             .create()
 

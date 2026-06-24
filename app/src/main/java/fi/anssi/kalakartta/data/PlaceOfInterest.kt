@@ -9,7 +9,7 @@ data class PlaceOfInterest(
     val typeId: String, // viittaus PlaceOfInterestType.id
     val latitude: Double,
     val longitude: Double,
-    val name: String,
+    val name: String = "",
     val additionalInfo: String = "",
     val originalRef: String = ""
 )

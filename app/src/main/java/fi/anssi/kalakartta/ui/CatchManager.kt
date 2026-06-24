@@ -194,9 +194,7 @@ class CatchManager(
 
         builder.setPositiveButton(R.string.ok) { _, _ ->
             val name = input.text.toString()
-            if (name.isNotEmpty()) {
-                addPlaceAtSelectedLocation(type.id, name)
-            }
+            addPlaceAtSelectedLocation(type.id, name)
         }
         builder.setNegativeButton(R.string.cancel, null)
         builder.show()
