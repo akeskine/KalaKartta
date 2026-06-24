@@ -138,7 +138,7 @@ class CatchManager(
                 PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                 PlaceOfInterestType("RAMP", "Veneramppi"),
                 PlaceOfInterestType("HARBOUR", "Satama"),
-                PlaceOfInterestType("ROCK", "Kivi"),
+                PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
                 PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
             )
             // Tallennetaan fallbackit kerralla kantaan
@@ -159,9 +159,6 @@ class CatchManager(
                 val iconId = getPlaceTypeDrawableId(type.icon)
                 iconView.setImageResource(iconId)
                 iconView.visibility = if (type.icon.isNotEmpty()) View.VISIBLE else View.GONE
-
-                iconView.layoutParams.width = (40 * context.resources.displayMetrics.density).toInt()
-                iconView.layoutParams.height = (40 * context.resources.displayMetrics.density).toInt()
                 
                 return view
             }

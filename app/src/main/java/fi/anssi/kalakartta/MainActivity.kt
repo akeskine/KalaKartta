@@ -248,7 +248,7 @@ class MainActivity : AppCompatActivity() {
                     PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                     PlaceOfInterestType("RAMP", "Veneramppi"),
                     PlaceOfInterestType("HARBOUR", "Satama"),
-                    PlaceOfInterestType("ROCK", "Kivi"),
+                    PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
                     PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
                 )
 
