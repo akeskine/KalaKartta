@@ -149,6 +149,7 @@ class CatchManager(
                 PlaceOfInterestType("HARBOUR", "Satama", icon = "satama"),
                 PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu"),
                 PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka"),
+                PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka"),
                 PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
                 PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
             )

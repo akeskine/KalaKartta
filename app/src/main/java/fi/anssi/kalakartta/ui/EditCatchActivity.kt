@@ -55,6 +55,9 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
     
+    private lateinit var placeNameEditText: EditText
+    private lateinit var placeNameContainer: View
+    
     private lateinit var autoWeatherCheckBox: CheckBox
     private lateinit var nearestStationText: TextView
     private lateinit var weatherService: WeatherService
@@ -132,6 +135,8 @@ class EditCatchActivity : AppCompatActivity() {
         additionalInfoEditText = findViewById(R.id.additionalInfoEditText)
         tripNotesEditText = findViewById(R.id.tripNotesEditText)
         pressureEditText = findViewById(R.id.pressureEditText)
+        placeNameEditText = findViewById(R.id.placeNameEditText)
+        placeNameContainer = findViewById(R.id.placeNameContainer)
         latEditText = findViewById(R.id.latEditText)
         lonEditText = findViewById(R.id.lonEditText)
         
@@ -155,6 +160,7 @@ class EditCatchActivity : AppCompatActivity() {
             
             fishSpecificFields.visibility = View.GONE
             fishWeatherLayout.visibility = View.GONE
+            placeNameContainer.visibility = View.VISIBLE
             speciesLabel.text = "Tyyppi"
             
             if (placeId == -1L) {
@@ -217,7 +223,7 @@ class EditCatchActivity : AppCompatActivity() {
                 val typeIndex = placeTypeList.indexOfFirst { it.id == poi.typeId }
                 speciesSpinner.setSelection(if (typeIndex != -1) typeIndex else 0)
                 
-                methodEditText.setText(poi.name)
+                placeNameEditText.setText(poi.name)
                 additionalInfoEditText.setText(poi.additionalInfo)
                 latEditText.setText(String.format(java.util.Locale.US, "%.5f", poi.latitude))
                 lonEditText.setText(String.format(java.util.Locale.US, "%.5f", poi.longitude))
@@ -469,7 +475,7 @@ class EditCatchActivity : AppCompatActivity() {
             val poi = placeOfInterest ?: return
             val updatedPoi = poi.copy(
                 typeId = placeTypeList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: poi.typeId,
-                name = methodEditText.text.toString(),
+                name = placeNameEditText.text.toString(),
                 additionalInfo = additionalInfoEditText.text.toString(),
                 latitude = latEditText.text.toString().toDoubleSafe(poi.latitude),
                 longitude = lonEditText.text.toString().toDoubleSafe(poi.longitude)
@@ -519,7 +525,7 @@ class EditCatchActivity : AppCompatActivity() {
         if (isPlace) {
             val poi = placeOfInterest ?: return false
             if (placeTypeList.getOrNull(speciesSpinner.selectedItemPosition)?.id != poi.typeId) return true
-            if (methodEditText.text.toString() != poi.name) return true
+            if (placeNameEditText.text.toString() != poi.name) return true
             if (additionalInfoEditText.text.toString() != poi.additionalInfo) return true
             return Math.abs(latEditText.text.toString().toDoubleSafe() - poi.latitude) > 0.0001 ||
                    Math.abs(lonEditText.text.toString().toDoubleSafe() - poi.longitude) > 0.0001

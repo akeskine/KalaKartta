@@ -54,6 +54,25 @@
                 android:visibility="gone" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/placeNameContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/place_name" />
+            <EditText
+                android:id="@+id/placeNameEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences"
+                android:minHeight="48dp"
+                android:importantForAutofill="no" />
+        </LinearLayout>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
