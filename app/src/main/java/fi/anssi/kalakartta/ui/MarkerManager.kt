@@ -334,6 +334,13 @@ class MarkerManager(
                 if (isActive) {
                     withContext(Dispatchers.Main) {
                         val newMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                        // Muut paikat (ei klusteroida toistaiseksi tai klusteroidaan nekin?)
+                        // Ohjeistuksessa ei puhuttu muiden paikkojen klusteroinnista, joten pidetään ne yksittäisinä
+                        // tai jos niitä on paljon, ne pitäisi klusteroida. Käyttäjän pyynnössä sanotaan vain "kartalla näiden pisteiden nimi näytetään hyvin lähelle zoomaamalla".
+                        placesCopy.forEach { place ->
+                             createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
+                        }
+
                         clusters.forEach { (speciesId, speciesClusters) ->
                             speciesClusters.forEach { clusterList ->
                                 if (clusterList.size == 1) {
@@ -342,13 +349,6 @@ class MarkerManager(
                                     createClusterMarker(speciesId, clusterList)?.let { newMarkers.add(it) }
                                 }
                             }
-                        }
-                        
-                        // Muut paikat (ei klusteroida toistaiseksi tai klusteroidaan nekin?)
-                        // Ohjeistuksessa ei puhuttu muiden paikkojen klusteroinnista, joten pidetään ne yksittäisinä
-                        // tai jos niitä on paljon, ne pitäisi klusteroida. Käyttäjän pyynnössä sanotaan vain "kartalla näiden pisteiden nimi näytetään hyvin lähelle zoomaamalla".
-                        placesCopy.forEach { place ->
-                             createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
                         }
                         
                         if (isActive) {
@@ -403,11 +403,11 @@ class MarkerManager(
             withContext(Dispatchers.Main) {
                 // Luodaan markerit ensin väliaikaiseen listaan, jotta vältetään vilkkuminen
                 val newMarkers = mutableListOf<Marker>()
-                visibleCatches.forEach { fish ->
-                    createIndividualMarker(fish)?.let { newMarkers.add(it) }
-                }
                 visiblePlaces.forEach { place ->
                     createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
+                }
+                visibleCatches.forEach { fish ->
+                    createIndividualMarker(fish)?.let { newMarkers.add(it) }
                 }
                 
                 if (isActive) {
