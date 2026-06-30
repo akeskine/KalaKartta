@@ -147,6 +147,7 @@ class CatchManager(
                 PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
                 PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi"),
                 PlaceOfInterestType("HARBOUR", "Satama", icon = "satama"),
+                PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu"),
                 PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
                 PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
             )
