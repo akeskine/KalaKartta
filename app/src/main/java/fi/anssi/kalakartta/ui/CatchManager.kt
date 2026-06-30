@@ -148,6 +148,7 @@ class CatchManager(
                 PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi"),
                 PlaceOfInterestType("HARBOUR", "Satama", icon = "satama"),
                 PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu"),
+                PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka"),
                 PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
                 PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
             )
@@ -200,13 +201,16 @@ class CatchManager(
 
         contentView.findViewById<View>(R.id.addDetailedButton).setOnClickListener {
             dialog.dismiss()
-            openEditCatchForNewEntry()
+            val point = map.mapCenter as GeoPoint
+            val intent = Intent(activity, EditCatchActivity::class.java)
+            intent.putExtra("EXTRA_IS_PLACE", true)
+            intent.putExtra("EXTRA_LATITUDE", point.latitude)
+            intent.putExtra("EXTRA_LONGITUDE", point.longitude)
+            intent.putExtra("EXTRA_PLACE_NAME", nameInput.text.toString())
+            activity.startActivityForResult(intent, 1001)
         }
 
-        contentView.findViewById<View>(R.id.addOtherButton).setOnClickListener {
-            dialog.dismiss()
-            showSpeciesDialog()
-        }
+        contentView.findViewById<View>(R.id.addOtherButton).visibility = View.GONE
         
         listView.setOnItemClickListener { _, _, which, _ ->
             val name = nameInput.text.toString()

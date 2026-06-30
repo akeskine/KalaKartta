@@ -547,44 +547,10 @@ class MarkerManager(
     }
 
     private fun showEditPlaceDialog(marker: Marker, place: PlaceOfInterest) {
-        val input = android.widget.EditText(context)
-        input.setText(place.additionalInfo)
-        input.setHint("Lisätiedot")
-        
-        val container = android.widget.FrameLayout(context)
-        val params = android.widget.FrameLayout.LayoutParams(
-            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        val margin = (24 * context.resources.displayMetrics.density).toInt()
-        params.setMargins(margin, 0, margin, 0)
-        input.layoutParams = params
-        container.addView(input)
-
-        val dialog = AlertDialog.Builder(context)
-            .setTitle("Muokkaa paikkaa: ${place.name}")
-            .setView(container)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val newInfo = input.text.toString()
-                Thread {
-                    val updatedPlace = place.copy(additionalInfo = newInfo)
-                    db.placeOfInterestDao().update(updatedPlace)
-                    (context as? android.app.Activity)?.runOnUiThread {
-                        marker.relatedObject = updatedPlace
-                        synchronized(allPlaces) {
-                            val index = allPlaces.indexOfFirst { it.id == place.id }
-                            if (index != -1) {
-                                allPlaces[index] = updatedPlace
-                            }
-                        }
-                        // Päivitetään dialogi näyttämään uudet tiedot
-                        showPlaceDetailsDialog(marker)
-                    }
-                }.start()
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-        dialog.enlargeButtons()
+        val intent = Intent(context, EditCatchActivity::class.java)
+        intent.putExtra("EXTRA_IS_PLACE", true)
+        intent.putExtra("EXTRA_PLACE_ID", place.id)
+        (context as androidx.appcompat.app.AppCompatActivity).startActivityForResult(intent, 1002)
     }
 
     private fun confirmDeletePlace(marker: Marker) {
