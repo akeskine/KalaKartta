@@ -16,7 +16,22 @@
         android:text="@string/add_catch"
         android:textAppearance="@style/TextAppearance.AppCompat.Title" />
 
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/placeNameInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/place_name"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/placeNameInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textCapSentences" />
+    </com.google.android.material.textfield.TextInputLayout>
+
     <LinearLayout
+        android:id="@+id/fishInputsLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"

@@ -88,8 +88,17 @@ class CatchManager(
         val inflater = LayoutInflater.from(activity)
         val contentView = inflater.inflate(R.layout.dialog_species_title, null)
         
+        val titleView = contentView.findViewById<TextView>(R.id.dialogTitle)
+        titleView.text = activity.getString(R.string.add_catch)
+
         val stationInfo = contentView.findViewById<TextView>(R.id.weatherStationInfo)
         stationInfo.visibility = View.GONE
+
+        val fishInputsLayout = contentView.findViewById<View>(R.id.fishInputsLayout)
+        fishInputsLayout.visibility = View.VISIBLE
+        
+        val placeNameInputLayout = contentView.findViewById<View>(R.id.placeNameInputLayout)
+        placeNameInputLayout.visibility = View.GONE
 
         val weightInput = contentView.findViewById<EditText>(R.id.weightInput)
         val lengthInput = contentView.findViewById<EditText>(R.id.lengthInput)
@@ -165,40 +174,48 @@ class CatchManager(
         }
 
         val builder = AlertDialog.Builder(activity)
-        builder.setTitle(R.string.add_other)
+        val inflater = LayoutInflater.from(activity)
+        val contentView = inflater.inflate(R.layout.dialog_species_title, null)
         
-        val listView = android.widget.ListView(activity)
+        val titleView = contentView.findViewById<TextView>(R.id.dialogTitle)
+        titleView.text = activity.getString(R.string.add_other)
+
+        val stationInfo = contentView.findViewById<TextView>(R.id.weatherStationInfo)
+        stationInfo.visibility = View.GONE
+
+        val fishInputsLayout = contentView.findViewById<View>(R.id.fishInputsLayout)
+        fishInputsLayout.visibility = View.GONE
+        
+        val placeNameInputLayout = contentView.findViewById<View>(R.id.placeNameInputLayout)
+        placeNameInputLayout.visibility = View.VISIBLE
+
+        val nameInput = contentView.findViewById<EditText>(R.id.placeNameInput)
+
+        val listView = contentView.findViewById<android.widget.ListView>(R.id.speciesListView)
         listView.adapter = adapter
-        builder.setView(listView)
-        
+
+        builder.setView(contentView)
         val dialog = builder.create()
-        listView.setOnItemClickListener { _, _, which, _ ->
+
+        contentView.findViewById<View>(R.id.addDetailedButton).setOnClickListener {
             dialog.dismiss()
-            showPlaceNameDialog(typeList[which])
+            openEditCatchForNewEntry()
         }
+
+        contentView.findViewById<View>(R.id.addOtherButton).setOnClickListener {
+            dialog.dismiss()
+            showSpeciesDialog()
+        }
+        
+        listView.setOnItemClickListener { _, _, which, _ ->
+            val name = nameInput.text.toString()
+            addPlaceAtSelectedLocation(typeList[which].id, name)
+            dialog.dismiss()
+        }
+
         dialog.show()
     }
 
-    private fun showPlaceNameDialog(type: PlaceOfInterestType) {
-        val builder = AlertDialog.Builder(activity)
-        builder.setTitle(type.name)
-        
-        val input = EditText(activity)
-        input.setHint(R.string.place_name)
-        val container = LinearLayout(activity)
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.setMargins(48, 20, 48, 20)
-        input.layoutParams = params
-        container.addView(input)
-        builder.setView(container)
-
-        builder.setPositiveButton(R.string.ok) { _, _ ->
-            val name = input.text.toString()
-            addPlaceAtSelectedLocation(type.id, name)
-        }
-        builder.setNegativeButton(R.string.cancel, null)
-        builder.show()
-    }
 
     private fun addPlaceAtSelectedLocation(typeId: String, name: String) {
         val point = map.mapCenter as GeoPoint
