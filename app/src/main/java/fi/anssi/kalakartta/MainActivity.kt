@@ -203,7 +203,8 @@ class MainActivity : AppCompatActivity() {
                     FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
                     FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
                     FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
-                    FishSpecies("WHITEFISH", "Siika", icon_default = "siika")
+                    FishSpecies("WHITEFISH", "Siika", icon_default = "siika"),
+                    FishSpecies("RAINBOW", "Kirjolohi", icon_default = "kirjolohi")
                 )
 
                 defaults.forEach { species ->
@@ -242,25 +243,37 @@ class MainActivity : AppCompatActivity() {
                 // Muut paikat (PlaceOfInterestType) esitäyttö
                 val placeTypeDao = db.placeOfInterestTypeDao()
                 val placeDefaults = listOf(
-                    PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
-                    PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka"),
-                    PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access"),
-                    PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
-                    PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi"),
-                    PlaceOfInterestType("HARBOUR", "Satama", icon = "satama"),
-                    PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu"),
-                    PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka"),
-                    PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka"),
-                    PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
-                    PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
+                    PlaceOfInterestType("ROCK", "Kivi", icon = "kivi", sortOrder = 1),
+                    PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi", sortOrder = 2),
+                    PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi", sortOrder = 3),
+                    PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access", sortOrder = 4),
+                    PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka", sortOrder = 5),
+                    PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi", sortOrder = 6),
+                    PlaceOfInterestType("HARBOUR", "Satama", icon = "satama", sortOrder = 7),
+                    PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus", sortOrder = 8),
+                    PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka", sortOrder = 9),
+                    PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka", sortOrder = 10),
+                    PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu", sortOrder = 11)
                 )
 
                 placeDefaults.forEach { type ->
                     val existing = placeTypeDao.getById(type.id)
                     if (existing == null) {
                         placeTypeDao.insert(type)
-                    } else if (existing.icon.isEmpty() && type.icon.isNotEmpty()) {
-                        placeTypeDao.insert(existing.copy(icon = type.icon))
+                    } else {
+                        var updated = false
+                        var toUpdate = existing
+                        if (existing.icon.isEmpty() && type.icon.isNotEmpty()) {
+                            toUpdate = toUpdate.copy(icon = type.icon)
+                            updated = true
+                        }
+                        if (existing.sortOrder != type.sortOrder) {
+                            toUpdate = toUpdate.copy(sortOrder = type.sortOrder)
+                            updated = true
+                        }
+                        if (updated) {
+                            placeTypeDao.insert(toUpdate)
+                        }
                     }
                 }
             }.start()

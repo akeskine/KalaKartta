@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class PlaceOfInterestType(
     @PrimaryKey val id: String, // 'ACCOMMODATION', 'CAMP', etc.
     val name: String,
-    val icon: String = ""
+    val icon: String = "",
+    val sortOrder: Int = 0
 )

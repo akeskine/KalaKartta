@@ -6,6 +6,9 @@ import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -62,6 +65,11 @@ class FilterActivity : AppCompatActivity() {
         setupListeners()
     }
 
+    private fun getDrawableId(iconName: String): Int {
+        if (iconName.isEmpty()) return 0
+        return resources.getIdentifier(iconName, "drawable", packageName)
+    }
+
     private fun initViews() {
         startDateButton = findViewById(R.id.startDateButton)
         endDateButton = findViewById(R.id.endDateButton)
@@ -75,8 +83,23 @@ class FilterActivity : AppCompatActivity() {
         val emptySpecies = FishSpecies("", getString(R.string.empty_selection), icon_default = "")
         speciesList = listOf(emptySpecies) + allSpecies
         
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, speciesList.map { it.name })
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val adapter = object : ArrayAdapter<FishSpecies>(this, R.layout.item_species_dialog, speciesList) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                val nameView = view.findViewById<TextView>(R.id.speciesName)
+                val item = getItem(position)
+                nameView.text = item?.name
+                val iconId = getDrawableId(item?.icon_default ?: "")
+                iconView.setImageResource(iconId)
+                iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                return view
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return getView(position, convertView, parent)
+            }
+        }
         speciesSpinner.adapter = adapter
 
         windMinEdit = findViewById(R.id.windMinEdit)

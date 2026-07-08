@@ -4,7 +4,9 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
@@ -30,6 +32,11 @@ class EditCatchActivity : AppCompatActivity() {
     private var isPlace = false
     private var speciesList: List<FishSpecies> = emptyList()
     private var placeTypeList: List<PlaceOfInterestType> = emptyList()
+
+    private fun getDrawableId(iconName: String): Int {
+        if (iconName.isEmpty()) return 0
+        return resources.getIdentifier(iconName, "drawable", packageName)
+    }
     
     private lateinit var speciesSpinner: Spinner
     private lateinit var speciesLabel: TextView
@@ -215,8 +222,23 @@ class EditCatchActivity : AppCompatActivity() {
 
         isUpdatingFromCode = true
         if (isPlace) {
-            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, placeTypeList.map { it.name })
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            val adapter = object : ArrayAdapter<PlaceOfInterestType>(this, R.layout.item_species_dialog, placeTypeList) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                    val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                    val nameView = view.findViewById<TextView>(R.id.speciesName)
+                    val item = getItem(position)
+                    nameView.text = item?.name
+                    val iconId = getDrawableId(item?.icon ?: "")
+                    iconView.setImageResource(iconId)
+                    iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                    return view
+                }
+
+                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    return getView(position, convertView, parent)
+                }
+            }
             speciesSpinner.adapter = adapter
             
             placeOfInterest?.let { poi ->
@@ -232,8 +254,23 @@ class EditCatchActivity : AppCompatActivity() {
                 updateDateTimeButtonText()
             }
         } else {
-            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, speciesList.map { it.name })
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            val adapter = object : ArrayAdapter<FishSpecies>(this, R.layout.item_species_dialog, speciesList) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                    val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                    val nameView = view.findViewById<TextView>(R.id.speciesName)
+                    val item = getItem(position)
+                    nameView.text = item?.name
+                    val iconId = getDrawableId(item?.icon_default ?: "")
+                    iconView.setImageResource(iconId)
+                    iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                    return view
+                }
+
+                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    return getView(position, convertView, parent)
+                }
+            }
             speciesSpinner.adapter = adapter
             
             val rainAdapter = ArrayAdapter.createFromResource(this, R.array.rain_levels, android.R.layout.simple_spinner_item)

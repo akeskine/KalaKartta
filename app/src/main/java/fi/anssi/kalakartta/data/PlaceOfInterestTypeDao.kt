@@ -10,7 +10,7 @@ interface PlaceOfInterestTypeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(type: PlaceOfInterestType)
 
-    @Query("SELECT * FROM PlaceOfInterestType")
+    @Query("SELECT * FROM PlaceOfInterestType ORDER BY sortOrder")
     fun getAll(): List<PlaceOfInterestType>
 
     @Query("SELECT * FROM PlaceOfInterestType WHERE id = :id")
