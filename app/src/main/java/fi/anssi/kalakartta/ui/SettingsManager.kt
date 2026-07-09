@@ -89,19 +89,70 @@ class SettingsManager(
         }
         layout.addView(apiKeyInput)
 
-        radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val visible = if (checkedId > 0) android.view.View.VISIBLE else android.view.View.GONE
-            apiKeyLabel.visibility = visible
-            apiKeyInput.visibility = visible
+        val testButton = Button(activity).apply {
+            text = "Testaa API-avain"
+            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
+            setOnClickListener {
+                val apiKey = apiKeyInput.text.toString()
+                if (apiKey.isEmpty()) {
+                    Toast.makeText(activity, "Syötä API-avain ensin", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
+                val selectedId = radioGroup.checkedRadioButtonId
+                val layer = if (selectedId == 2) "ortokuva" else "maastokartta"
+                
+                activity.lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        // Testataan hakemalla yksi tiili (zoom 0, x 0, y 0)
+                        val urlString = "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/$layer/default/WGS84_Pseudo-Mercator/0/0/0.png?api-key=$apiKey"
+                        val url = java.net.URL(urlString)
+                        val connection = url.openConnection() as java.net.HttpURLConnection
+                        connection.requestMethod = "GET"
+                        connection.connectTimeout = 5000
+                        connection.readTimeout = 5000
+                        
+                        val responseCode = connection.responseCode
+                        withContext(Dispatchers.Main) {
+                            val message = if (responseCode == 200) {
+                                "API-avain OK"
+                            } else {
+                                "API-avain ei kelpaa (HTTP $responseCode)."
+                            }
+                            AlertDialog.Builder(activity)
+                                .setMessage(message)
+                                .setPositiveButton("OK", null)
+                                .show()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            AlertDialog.Builder(activity)
+                                .setMessage("Virhe testatessa: ${e.message}")
+                                .setPositiveButton("OK", null)
+                                .show()
+                        }
+                    }
+                }
+            }
         }
+        layout.addView(testButton)
 
         val attributionText = TextView(activity).apply {
             text = "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
             textSize = 12f
             setPadding(0, 40, 0, 0)
             alpha = 0.7f
+            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
         }
         layout.addView(attributionText)
+
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val visible = if (checkedId > 0) android.view.View.VISIBLE else android.view.View.GONE
+            apiKeyLabel.visibility = visible
+            apiKeyInput.visibility = visible
+            testButton.visibility = visible
+            attributionText.visibility = visible
+        }
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Taustakartta")
