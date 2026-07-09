@@ -364,13 +364,37 @@ class MainActivity : AppCompatActivity() {
         when (mapSource) {
             "MML_MAASTO" -> {
                 map.setTileSource(MMLTileSource("MML Maastokartta", "maastokartta", apiKey))
+                updateUIColors(true)
             }
             "MML_ILMA" -> {
                 map.setTileSource(MMLTileSource("MML Ilmakuva", "ortokuva", apiKey))
+                updateUIColors(true)
             }
             else -> {
                 map.setTileSource(TileSourceFactory.MAPNIK)
+                updateUIColors(false)
             }
+        }
+    }
+
+    private fun updateUIColors(useBlack: Boolean) {
+        val color = if (useBlack) {
+            ContextCompat.getColor(this, android.R.color.black)
+        } else {
+            ContextCompat.getColor(this, android.R.color.white)
+        }
+
+        findViewById<TextView>(R.id.mapCrosshair).setTextColor(color)
+
+        val buttons = listOf(
+            findViewById<MaterialButton>(R.id.myLocationButton),
+            findViewById<MaterialButton>(R.id.addCatchButton),
+            findViewById<MaterialButton>(R.id.settingsButton)
+        )
+
+        buttons.forEach { button ->
+            button.iconTint = android.content.res.ColorStateList.valueOf(color)
+            button.strokeColor = android.content.res.ColorStateList.valueOf(color)
         }
     }
 
