@@ -32,6 +32,7 @@ import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
+import fi.anssi.kalakartta.utils.MMLTileSource
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import fi.anssi.kalakartta.utils.enlargeButtons
@@ -99,7 +100,7 @@ class MainActivity : AppCompatActivity() {
 
             android.util.Log.d("KalaKartta", "before map init")
             map = findViewById(R.id.map)
-            map.setTileSource(TileSourceFactory.MAPNIK)
+            updateMapTileSource()
             map.setMultiTouchControls(true)
             map.controller.setZoom(15.0)
 
@@ -289,6 +290,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     updateWeatherUI()
                 }
+            }, onMapSettingsChanged = {
+                updateMapTileSource()
             }) {
                 reloadMarkersFromDb()
             }
@@ -350,6 +353,24 @@ class MainActivity : AppCompatActivity() {
         } catch (t: Throwable) {
             crashFile.writeText(t.stackTraceToString())
             throw t
+        }
+    }
+
+    private fun updateMapTileSource() {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val mapSource = prefs.getString("map_source", "OSM")
+        val apiKey = prefs.getString("mml_api_key", "") ?: ""
+
+        when (mapSource) {
+            "MML_MAASTO" -> {
+                map.setTileSource(MMLTileSource("MML Maastokartta", "maastokartta", apiKey))
+            }
+            "MML_ILMA" -> {
+                map.setTileSource(MMLTileSource("MML Ilmakuva", "ortokuva", apiKey))
+            }
+            else -> {
+                map.setTileSource(TileSourceFactory.MAPNIK)
+            }
         }
     }
 

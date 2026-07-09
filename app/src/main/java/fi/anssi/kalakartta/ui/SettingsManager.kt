@@ -20,6 +20,7 @@ class SettingsManager(
     private val db: AppDatabase,
     private val importExportManager: ImportExportManager,
     private val onWeatherSettingsChanged: (Boolean) -> Unit = {},
+    private val onMapSettingsChanged: () -> Unit = {},
     private val onDataChanged: () -> Unit
 ) {
 
@@ -29,19 +30,98 @@ class SettingsManager(
             withContext(Dispatchers.Main) {
                 val dialog = AlertDialog.Builder(activity)
                     .setTitle("Asetukset")
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
-                            4 -> { /* Sulje valikko */ }
+                            4 -> openMapSettings()
+                            5 -> { /* Sulje valikko */ }
                         }
                     }
                     .show()
                 dialog.enlargeButtons()
             }
         }
+    }
+
+    private fun openMapSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+        val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
+        val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val radioGroup = RadioGroup(activity).apply {
+            val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva")
+            val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA")
+            
+            for (i in sources.indices) {
+                val radioButton = RadioButton(activity).apply {
+                    text = sources[i]
+                    id = i
+                    textSize = 18f
+                }
+                addView(radioButton)
+                if (currentSource == internalIds[i]) {
+                    check(i)
+                }
+            }
+        }
+        layout.addView(radioGroup)
+
+        val apiKeyLabel = TextView(activity).apply {
+            text = "MML API-avain:"
+            textSize = 16f
+            setPadding(0, 30, 0, 0)
+            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
+        }
+        layout.addView(apiKeyLabel)
+
+        val apiKeyInput = EditText(activity).apply {
+            setText(currentApiKey)
+            hint = "Syötä API-avain"
+            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
+        }
+        layout.addView(apiKeyInput)
+
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val visible = if (checkedId > 0) android.view.View.VISIBLE else android.view.View.GONE
+            apiKeyLabel.visibility = visible
+            apiKeyInput.visibility = visible
+        }
+
+        val attributionText = TextView(activity).apply {
+            text = "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
+            textSize = 12f
+            setPadding(0, 40, 0, 0)
+            alpha = 0.7f
+        }
+        layout.addView(attributionText)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Taustakartta")
+            .setView(layout)
+            .setPositiveButton("OK") { _, _ ->
+                val selectedId = radioGroup.checkedRadioButtonId
+                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA")
+                val newSource = internalIds[selectedId]
+                val newApiKey = apiKeyInput.text.toString()
+
+                prefs.edit().apply {
+                    putString("map_source", newSource)
+                    putString("mml_api_key", newApiKey)
+                    apply()
+                }
+                onMapSettingsChanged()
+            }
+            .setNegativeButton("Takaisin") { _, _ -> openSettings() }
+            .show()
+        dialog.enlargeButtons()
     }
 
     private fun openWeatherSettings() {
