@@ -21,7 +21,8 @@ class JsonService {
             val obj = JSONObject()
             obj.put("id", it.id)
             obj.put("species", it.species)
-            if (it.eventType != null) obj.put("eventType", it.eventType)
+            val eventTypeToExport = it.eventType ?: if (it.species != "UNKNOWN" && it.species.isNotEmpty()) FishCatch.CAUGHT_FISH else null
+            if (eventTypeToExport != null) obj.put("eventType", eventTypeToExport)
             obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
             obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
             android.util.Log.d("JsonService", "Exporting catch: species=${it.species}, lat=${it.latitude}, lon=${it.longitude}")

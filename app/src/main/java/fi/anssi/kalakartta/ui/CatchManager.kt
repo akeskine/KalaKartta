@@ -85,6 +85,14 @@ class CatchManager(
                 iconView.setImageResource(iconId)
                 iconView.visibility = View.VISIBLE
                 
+                if (species.icon_default == "seurio") {
+                    iconView.scaleX = 1.3f
+                    iconView.scaleY = 1.3f
+                } else {
+                    iconView.scaleX = 1.0f
+                    iconView.scaleY = 1.0f
+                }
+
                 return view
             }
         }
@@ -145,6 +153,13 @@ class CatchManager(
                 if (iconName.isNotEmpty()) {
                     iconView.setImageResource(getDrawableId(iconName))
                     iconView.visibility = View.VISIBLE
+                    if (iconName == "seurio") {
+                        iconView.scaleX = 1.3f
+                        iconView.scaleY = 1.3f
+                    } else {
+                        iconView.scaleX = 1.0f
+                        iconView.scaleY = 1.0f
+                    }
                 } else {
                     iconView.visibility = View.INVISIBLE
                 }

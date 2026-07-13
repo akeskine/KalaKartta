@@ -281,6 +281,14 @@ class EditCatchActivity : AppCompatActivity() {
                     val iconId = getDrawableId(item?.icon_default ?: "")
                     iconView.setImageResource(iconId)
                     iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                    
+                    if (item?.icon_default == "seurio") {
+                        iconView.scaleX = 1.3f
+                        iconView.scaleY = 1.3f
+                    } else {
+                        iconView.scaleX = 1.0f
+                        iconView.scaleY = 1.0f
+                    }
                     return view
                 }
 
@@ -335,6 +343,13 @@ class EditCatchActivity : AppCompatActivity() {
                         if (iconName.isNotEmpty()) {
                             iconView.setImageResource(getDrawableId(iconName))
                             iconView.visibility = View.VISIBLE
+                            if (iconName == "seurio") {
+                                iconView.scaleX = 1.3f
+                                iconView.scaleY = 1.3f
+                            } else {
+                                iconView.scaleX = 1.0f
+                                iconView.scaleY = 1.0f
+                            }
                         } else {
                             iconView.visibility = View.INVISIBLE
                         }

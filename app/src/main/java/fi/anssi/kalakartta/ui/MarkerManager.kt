@@ -226,6 +226,9 @@ class MarkerManager(
 
         if (eventIcon != null) {
             iconName = eventIcon
+            if (fish.eventType == FishCatch.FISH_FOLLOW) {
+                scaleFactor *= 1.3
+            }
         } else if (species != null) {
             val weight = fish.weight ?: 0L
             val length = fish.length ?: 0L
