@@ -214,8 +214,19 @@ class MarkerManager(
         val species = speciesCache[fish.species]
         var iconName = species?.icon_default ?: ""
         var scaleFactor = 1.0
-        
-        if (species != null) {
+
+        // Jos tapahtuma ei ole "Saatu kala" (tai tyhjä), käytetään tapahtumakohtaista kuvaketta
+        val eventIcon = when (fish.eventType) {
+            FishCatch.LOST_FISH -> "karkuutus"
+            FishCatch.STRIKE_CERTAIN -> "tarppi_varma"
+            FishCatch.STRIKE_UNCERTAIN -> "tarppi_epavarma"
+            FishCatch.FISH_FOLLOW -> "seurio"
+            else -> null
+        }
+
+        if (eventIcon != null) {
+            iconName = eventIcon
+        } else if (species != null) {
             val weight = fish.weight ?: 0L
             val length = fish.length ?: 0L
             
@@ -723,7 +734,8 @@ class MarkerManager(
             if (it.caughtAt > 0) {
                 val dateFormat = SimpleDateFormat("dd.MM.yyyy 'klo' HH:mm", Locale.getDefault())
                 val dateStr = dateFormat.format(Date(it.caughtAt))
-                details.append("Saantiaika: $dateStr\n")
+                val timeLabel = if (it.eventType != null && it.eventType != FishCatch.CAUGHT_FISH) "Aika" else "Saantiaika"
+                details.append("$timeLabel: $dateStr\n")
             }
 
             if (it.weight != null && it.weight!! > 0) details.append("Paino: ${it.weight} g\n")
@@ -765,7 +777,14 @@ class MarkerManager(
         }
 
         val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
-        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = if (hasSpecies) "Saaliin tiedot" else "Pisteen tiedot"
+        val dialogTitle = if (fish?.eventType != null && fish.eventType != FishCatch.CAUGHT_FISH) {
+            FishCatch.getEventTypeName(fish.eventType)
+        } else if (hasSpecies) {
+            "Saaliin tiedot"
+        } else {
+            "Pisteen tiedot"
+        }
+        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = dialogTitle
 
         val messageText = details.toString().trim()
         val spannableMessage = SpannableString(messageText)

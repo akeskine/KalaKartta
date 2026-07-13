@@ -39,6 +39,8 @@ class EditCatchActivity : AppCompatActivity() {
     }
     
     private lateinit var speciesSpinner: Spinner
+    private lateinit var eventTypeSpinner: Spinner
+    private lateinit var eventTypeLabel: TextView
     private lateinit var speciesLabel: TextView
     private lateinit var fishSpecificFields: View
     private lateinit var fishWeatherLayout: View
@@ -122,6 +124,8 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun initViews() {
         speciesSpinner = findViewById(R.id.speciesSpinner)
+        eventTypeSpinner = findViewById(R.id.eventTypeSpinner)
+        eventTypeLabel = findViewById(R.id.eventTypeLabel)
         speciesLabel = findViewById(R.id.speciesLabel)
         fishSpecificFields = findViewById(R.id.fishSpecificFields)
         fishWeatherLayout = findViewById(R.id.fishWeatherLayout)
@@ -164,9 +168,11 @@ class EditCatchActivity : AppCompatActivity() {
         
         if (isPlace) {
             placeTypeList = db.placeOfInterestTypeDao().getAll()
-            
+                
             fishSpecificFields.visibility = View.GONE
             fishWeatherLayout.visibility = View.GONE
+            eventTypeSpinner.visibility = View.GONE
+            eventTypeLabel.visibility = View.GONE
             placeNameContainer.visibility = View.VISIBLE
             speciesLabel.text = "Tyyppi"
             
@@ -193,30 +199,41 @@ class EditCatchActivity : AppCompatActivity() {
             }
         } else {
             val allSpecies = db.fishSpeciesDao().getAll()
-            val emptySpecies = FishSpecies(id = "", name = getString(R.string.empty_selection))
-            speciesList = listOf(emptySpecies) + allSpecies
-
-            if (catchId == -1L) {
+            
+            val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
+            fishCatch = if (catchId == -1L) {
                 val lat = intent.getDoubleExtra("EXTRA_LATITUDE", 0.0)
                 val lon = intent.getDoubleExtra("EXTRA_LONGITUDE", 0.0)
                 
-                fishCatch = FishCatch(
+                FishCatch(
                     species = "",
                     latitude = String.format(java.util.Locale.US, "%.5f", lat).toDouble(),
                     longitude = String.format(java.util.Locale.US, "%.5f", lon).toDouble(),
                     caughtAt = System.currentTimeMillis()
                 )
-                setTitle(R.string.add_detailed)
-                setupWeatherForNewCatch(lat, lon)
             } else {
-                fishCatch = db.fishCatchDao().getById(catchId)
-                setTitle(R.string.edit_catch_title)
+                db.fishCatchDao().getById(catchId)
             }
 
             if (fishCatch == null) {
                 Toast.makeText(this, getString(R.string.edit_error), Toast.LENGTH_SHORT).show()
                 finish()
                 return
+            }
+
+            // Lisätään tyhjä vaihtoehto vain jos muokataan vanhaa pistettä ja sen laji on tyhjä
+            speciesList = if (catchId != -1L && fishCatch?.species == "") {
+                val emptySpecies = FishSpecies(id = "", name = getString(R.string.empty_selection))
+                listOf(emptySpecies) + allSpecies
+            } else {
+                allSpecies
+            }
+
+            if (catchId == -1L) {
+                setTitle(R.string.add_detailed)
+                setupWeatherForNewCatch(fishCatch!!.latitude, fishCatch!!.longitude)
+            } else {
+                setTitle(R.string.edit_catch_title)
             }
         }
 
@@ -272,6 +289,61 @@ class EditCatchActivity : AppCompatActivity() {
                 }
             }
             speciesSpinner.adapter = adapter
+
+            val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
+            val eventTypes = mutableListOf(
+                FishCatch.CAUGHT_FISH,
+                FishCatch.LOST_FISH,
+                FishCatch.STRIKE_CERTAIN,
+                FishCatch.STRIKE_UNCERTAIN,
+                FishCatch.FISH_FOLLOW
+            )
+            // Lisätään null/tyhjä vaihtoehto vain vanhoille pisteille
+            if (catchId != -1L && fishCatch?.eventType == null) {
+                eventTypes.add(0, "EMPTY")
+            }
+
+            val eventTypeAdapter = object : ArrayAdapter<String>(this, R.layout.item_species_dialog, eventTypes) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    return createView(position, convertView, parent)
+                }
+
+                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    return createView(position, convertView, parent)
+                }
+
+                private fun createView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                    val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                    val nameView = view.findViewById<TextView>(R.id.speciesName)
+
+                    val type = eventTypes[position]
+                    if (type == "EMPTY") {
+                        nameView.text = getString(R.string.empty_selection)
+                        iconView.visibility = View.INVISIBLE
+                    } else {
+                        nameView.text = FishCatch.getEventTypeName(type)
+                        
+                        val iconName = when (type) {
+                            FishCatch.LOST_FISH -> "karkuutus"
+                            FishCatch.STRIKE_CERTAIN -> "tarppi_varma"
+                            FishCatch.STRIKE_UNCERTAIN -> "tarppi_epavarma"
+                            FishCatch.FISH_FOLLOW -> "seurio"
+                            else -> ""
+                        }
+                        
+                        if (iconName.isNotEmpty()) {
+                            iconView.setImageResource(getDrawableId(iconName))
+                            iconView.visibility = View.VISIBLE
+                        } else {
+                            iconView.visibility = View.INVISIBLE
+                        }
+                    }
+                    
+                    return view
+                }
+            }
+            eventTypeSpinner.adapter = eventTypeAdapter
             
             val rainAdapter = ArrayAdapter.createFromResource(this, R.array.rain_levels, android.R.layout.simple_spinner_item)
             rainAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -280,6 +352,13 @@ class EditCatchActivity : AppCompatActivity() {
             fishCatch?.let { fc ->
                 val speciesIndex = speciesList.indexOfFirst { it.id == fc.species }
                 speciesSpinner.setSelection(if (speciesIndex != -1) speciesIndex else 0)
+
+                val eventTypeIndex = if (fc.eventType == null && eventTypes.contains("EMPTY")) {
+                    eventTypes.indexOf("EMPTY")
+                } else {
+                    eventTypes.indexOf(fc.eventType ?: FishCatch.CAUGHT_FISH)
+                }
+                eventTypeSpinner.setSelection(if (eventTypeIndex != -1) eventTypeIndex else 0)
 
                 selectedCalendar.timeInMillis = fc.caughtAt
                 updateDateTimeButtonText()
@@ -522,9 +601,23 @@ class EditCatchActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this, R.string.save_success, Toast.LENGTH_SHORT).show(); setResult(RESULT_OK); finish() }
             }.start()
         } else {
+            val eventTypes = mutableListOf(
+                FishCatch.CAUGHT_FISH,
+                FishCatch.LOST_FISH,
+                FishCatch.STRIKE_CERTAIN,
+                FishCatch.STRIKE_UNCERTAIN,
+                FishCatch.FISH_FOLLOW
+            )
+            val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
+            if (catchId != -1L && fishCatch?.eventType == null) {
+                eventTypes.add(0, "EMPTY")
+            }
+            
             val fc = fishCatch ?: return
+            val selectedType = eventTypes.getOrNull(eventTypeSpinner.selectedItemPosition)
             val updated = fc.copy(
                 species = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: "",
+                eventType = if (selectedType == "EMPTY") null else (selectedType ?: FishCatch.CAUGHT_FISH),
                 caughtAt = selectedCalendar.timeInMillis,
                 weight = weightEditText.text.toString().toLongOrNull(),
                 length = lengthEditText.text.toString().toLongOrNull(),

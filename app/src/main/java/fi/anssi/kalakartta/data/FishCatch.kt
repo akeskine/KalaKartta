@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class FishCatch(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val species: String, // viittaus FishSpecies.id
+    val eventType: String? = null,
     val latitude: Double,
     val longitude: Double,
     val caughtAt: Long,
@@ -35,4 +36,22 @@ data class FishCatch(
      * Jos tämä on asetettu, sovellus ei yritä hakea säätietoja uudelleen automaattisesti.
      */
     val weatherDataCompleteTime: Long? = null
-)
+) {
+    companion object {
+        const val CAUGHT_FISH = "CAUGHT_FISH"
+        const val LOST_FISH = "LOST_FISH"
+        const val STRIKE_CERTAIN = "STRIKE_CERTAIN"
+        const val STRIKE_UNCERTAIN = "STRIKE_UNCERTAIN"
+        const val FISH_FOLLOW = "FISH_FOLLOW"
+
+        fun getEventTypeName(type: String?): String {
+            return when (type) {
+                LOST_FISH -> "Karkuutus"
+                STRIKE_CERTAIN -> "Varma tärppi"
+                STRIKE_UNCERTAIN -> "Epävarma tärppi"
+                FISH_FOLLOW -> "Seurio"
+                else -> "Saatu kala"
+            }
+        }
+    }
+}

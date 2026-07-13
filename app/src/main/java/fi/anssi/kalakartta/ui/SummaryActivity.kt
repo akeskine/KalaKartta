@@ -163,7 +163,11 @@ class SummaryActivity : AppCompatActivity() {
     private fun fetchAndDisplaySummary(start: Long, end: Long, title: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
-            val filteredCatches = allCatches.filter { it.caughtAt in start..end && it.species != "UNKNOWN" }
+            val filteredCatches = allCatches.filter { 
+                it.caughtAt in start..end && 
+                it.species != "UNKNOWN" && 
+                (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH)
+            }
             val speciesList = db.fishSpeciesDao().getAll()
             val speciesMap = speciesList.associateBy { it.id }
 

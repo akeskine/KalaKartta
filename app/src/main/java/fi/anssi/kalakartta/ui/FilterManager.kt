@@ -24,7 +24,8 @@ class FilterManager(private val context: Context) {
         val windMax: Float? = null,
         val pressureMin: Float? = null,
         val pressureMax: Float? = null,
-        val speciesId: String? = null
+        val speciesId: String? = null,
+        val onlyCaughtFish: Boolean = false
     )
 
     fun getFilters(): Filters {
@@ -41,6 +42,7 @@ class FilterManager(private val context: Context) {
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
         val speciesId = prefs.getString("speciesId", null)
+        val onlyCaughtFish = prefs.getBoolean("onlyCaughtFish", false)
 
         return Filters(
             startDate, endDate,
@@ -49,7 +51,7 @@ class FilterManager(private val context: Context) {
             startTimeMinutes, endTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
-            speciesId
+            speciesId, onlyCaughtFish
         )
     }
 
@@ -68,6 +70,7 @@ class FilterManager(private val context: Context) {
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
+            putBoolean("onlyCaughtFish", filters.onlyCaughtFish)
             apply()
         }
     }
@@ -80,7 +83,7 @@ class FilterManager(private val context: Context) {
                 f.startTimeMinutes != null || f.endTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
-                f.speciesId != null
+                f.speciesId != null || f.onlyCaughtFish
     }
 
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
@@ -153,6 +156,9 @@ class FilterManager(private val context: Context) {
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
 
+            // Only Caught Fish
+            if (f.onlyCaughtFish && fish.eventType != FishCatch.CAUGHT_FISH) return@filter false
+
             true
         }
     }
@@ -201,6 +207,10 @@ class FilterManager(private val context: Context) {
             val min = f.pressureMin?.toInt()?.toString() ?: "..."
             val max = f.pressureMax?.toInt()?.toString() ?: "..."
             parts.add("paine $min-$max hPa")
+        }
+
+        if (f.onlyCaughtFish) {
+            parts.add("vain saadut")
         }
 
         return parts.joinToString(" ")

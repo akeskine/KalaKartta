@@ -245,6 +245,13 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
+            <CheckBox
+                android:id="@+id/onlyCaughtFishCheckBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Näytä vain saadut kalat"
+                android:layout_marginTop="16dp" />
+
             <Button
                 android:id="@+id/okButton"
                 style="@style/Widget.Material3.Button.TextButton"

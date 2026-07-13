@@ -38,6 +38,7 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var windDirectionPreview: WindDirectionView
     private lateinit var pressureMinEdit: EditText
     private lateinit var pressureMaxEdit: EditText
+    private lateinit var onlyCaughtFishCheckBox: CheckBox
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     private val annualFormat = SimpleDateFormat("dd.MM.", Locale.getDefault())
@@ -107,6 +108,7 @@ class FilterActivity : AppCompatActivity() {
         windDirectionPreview = findViewById(R.id.windDirectionPreview)
         pressureMinEdit = findViewById(R.id.pressureMinEdit)
         pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
+        onlyCaughtFishCheckBox = findViewById(R.id.onlyCaughtFishCheckBox)
     }
 
     private fun loadFilters() {
@@ -124,6 +126,7 @@ class FilterActivity : AppCompatActivity() {
 
         pressureMinEdit.setText(currentFilters.pressureMin?.toString() ?: "")
         pressureMaxEdit.setText(currentFilters.pressureMax?.toString() ?: "")
+        onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
     }
 
     private fun updateWindPreview() {
@@ -197,7 +200,8 @@ class FilterActivity : AppCompatActivity() {
                 windMin = windMin,
                 windMax = windMax,
                 pressureMin = pressureMin,
-                pressureMax = pressureMax
+                pressureMax = pressureMax,
+                onlyCaughtFish = onlyCaughtFishCheckBox.isChecked
             )
             filterManager.saveFilters(currentFilters)
             setResult(RESULT_OK)

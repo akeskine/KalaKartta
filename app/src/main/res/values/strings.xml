@@ -35,7 +35,7 @@
     <string name="edit_error">Tietojen muokkaus epäonnistui</string>
     <string name="unsaved_changes_warning">Sinulla on tallentamattomia muutoksia. Haluatko varmasti poistua?</string>
     <string name="discard">Hylkää muutokset</string>
-    <string name="empty_selection"></string>
+    <string name="empty_selection">Tuntematon</string>
     <string name="data_filtering">Tiedon suodatus</string>
     <string name="clear_filters">Poista suodattimet</string>
     <string name="date_range">Aikaväli (pvm)</string>

@@ -31,6 +31,27 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <LinearLayout
+        android:id="@+id/eventTypeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tapahtuma:"
+            android:layout_marginEnd="8dp" />
+
+        <Spinner
+            android:id="@+id/eventTypeSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/fishInputsLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -21,6 +21,7 @@ class JsonService {
             val obj = JSONObject()
             obj.put("id", it.id)
             obj.put("species", it.species)
+            if (it.eventType != null) obj.put("eventType", it.eventType)
             obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
             obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
             android.util.Log.d("JsonService", "Exporting catch: species=${it.species}, lat=${it.latitude}, lon=${it.longitude}")
@@ -135,6 +136,16 @@ class JsonService {
                 val catch = FishCatch(
                     id = 0,
                     species = obj.optString("species", "UNKNOWN"),
+                    eventType = if (obj.isNull("eventType")) {
+                        val species = obj.optString("species", "UNKNOWN")
+                        if (species != "UNKNOWN" && species != "") {
+                            FishCatch.CAUGHT_FISH
+                        } else {
+                            null
+                        }
+                    } else {
+                        obj.optString("eventType")
+                    },
                     latitude = String.format(Locale.US, "%.5f", if (obj.isNull("latitude") || !obj.has("latitude")) 60.0 else obj.optDouble("latitude", 60.0)).toDouble(),
                     longitude = String.format(Locale.US, "%.5f", if (obj.isNull("longitude") || !obj.has("longitude")) 24.0 else obj.optDouble("longitude", 24.0)).toDouble(),
                     caughtAt = caughtAtLong,

@@ -9,6 +9,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.content.Context
@@ -67,13 +69,17 @@ class CatchManager(
     }
 
     private fun showSpeciesDialogWithData(speciesList: List<FishSpecies>) {
-        val adapter = object : ArrayAdapter<FishSpecies>(activity, R.layout.item_species_dialog, speciesList) {
+        val fullSpeciesList = mutableListOf<FishSpecies>()
+        fullSpeciesList.add(FishSpecies("UNKNOWN_STRIKE", "Tuntematon tärppi", icon_default = "tarppi_varma"))
+        fullSpeciesList.addAll(speciesList)
+
+        val adapter = object : ArrayAdapter<FishSpecies>(activity, R.layout.item_species_dialog, fullSpeciesList) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
                 val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
                 val nameView = view.findViewById<TextView>(R.id.speciesName)
 
-                val species = speciesList[position]
+                val species = fullSpeciesList[position]
                 nameView.text = species.name
                 val iconId = getDrawableId(species.icon_default)
                 iconView.setImageResource(iconId)
@@ -103,6 +109,76 @@ class CatchManager(
         val weightInput = contentView.findViewById<EditText>(R.id.weightInput)
         val lengthInput = contentView.findViewById<EditText>(R.id.lengthInput)
 
+        val eventTypeSpinner = contentView.findViewById<Spinner>(R.id.eventTypeSpinner)
+        val eventTypes = listOf(
+            FishCatch.CAUGHT_FISH,
+            FishCatch.LOST_FISH,
+            FishCatch.STRIKE_CERTAIN,
+            FishCatch.STRIKE_UNCERTAIN,
+            FishCatch.FISH_FOLLOW
+        )
+        val eventTypeAdapter = object : ArrayAdapter<String>(activity, R.layout.item_species_dialog, eventTypes) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return createView(position, convertView, parent)
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return createView(position, convertView, parent)
+            }
+
+            private fun createView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                val nameView = view.findViewById<TextView>(R.id.speciesName)
+
+                val type = eventTypes[position]
+                nameView.text = FishCatch.getEventTypeName(type)
+                
+                val iconName = when (type) {
+                    FishCatch.LOST_FISH -> "karkuutus"
+                    FishCatch.STRIKE_CERTAIN -> "tarppi_varma"
+                    FishCatch.STRIKE_UNCERTAIN -> "tarppi_epavarma"
+                    FishCatch.FISH_FOLLOW -> "seurio"
+                    else -> "" // "Saatu kala" ei tarvitse erillistä ikonia tässä listassa, tai se voi olla tyhjä
+                }
+                
+                if (iconName.isNotEmpty()) {
+                    iconView.setImageResource(getDrawableId(iconName))
+                    iconView.visibility = View.VISIBLE
+                } else {
+                    iconView.visibility = View.INVISIBLE
+                }
+                
+                return view
+            }
+        }
+        eventTypeSpinner.adapter = eventTypeAdapter
+
+        eventTypeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedType = eventTypes[position]
+                val unknownItem = fullSpeciesList[0]
+                
+                when (selectedType) {
+                    FishCatch.LOST_FISH -> {
+                        fullSpeciesList[0] = fullSpeciesList[0].copy(name = "Tuntematon karkuutus", icon_default = "karkuutus")
+                    }
+                    FishCatch.STRIKE_UNCERTAIN -> {
+                        fullSpeciesList[0] = fullSpeciesList[0].copy(name = "Tuntematon epävarma tärppi", icon_default = "tarppi_epavarma")
+                    }
+                    FishCatch.FISH_FOLLOW -> {
+                        fullSpeciesList[0] = fullSpeciesList[0].copy(name = "Tuntematon seurio", icon_default = "seurio")
+                    }
+                    else -> {
+                        fullSpeciesList[0] = fullSpeciesList[0].copy(name = "Tuntematon tärppi", icon_default = "tarppi_varma")
+                    }
+                }
+                adapter.notifyDataSetChanged()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         val listView = contentView.findViewById<android.widget.ListView>(R.id.speciesListView)
         listView.adapter = adapter
 
@@ -122,7 +198,19 @@ class CatchManager(
         listView.setOnItemClickListener { _, _, which, _ ->
             val weight = weightInput.text.toString().toLongOrNull()
             val length = lengthInput.text.toString().toLongOrNull()
-            addCatchAtSelectedLocation(speciesList[which].id, weight, length)
+            
+            val species = fullSpeciesList[which]
+            val selectedEventType = eventTypes[eventTypeSpinner.selectedItemPosition]
+            
+            if (species.id == "UNKNOWN_STRIKE") {
+                val finalEventType = when (selectedEventType) {
+                    FishCatch.CAUGHT_FISH, FishCatch.STRIKE_CERTAIN -> FishCatch.STRIKE_CERTAIN
+                    else -> selectedEventType
+                }
+                addCatchAtSelectedLocation("UNKNOWN", weight, length, finalEventType)
+            } else {
+                addCatchAtSelectedLocation(species.id, weight, length, selectedEventType)
+            }
             dialog.dismiss()
         }
 
@@ -254,12 +342,13 @@ class CatchManager(
         return if (id != 0) id else R.drawable.default_point
     }
 
-    private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null) {
+    private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null, eventType: String? = FishCatch.CAUGHT_FISH) {
         val point = map.mapCenter as GeoPoint
         val caughtAt = System.currentTimeMillis()
 
         val fish = FishCatch(
             species = speciesId,
+            eventType = eventType,
             latitude = String.format(java.util.Locale.US, "%.5f", point.latitude).toDouble(),
             longitude = String.format(java.util.Locale.US, "%.5f", point.longitude).toDouble(),
             caughtAt = caughtAt,
