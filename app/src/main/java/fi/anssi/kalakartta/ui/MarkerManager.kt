@@ -36,6 +36,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.*
 
+data class Quadruple<out A, out B, out C, out D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)
+
 class MarkerManager(
     private val context: Context,
     private val map: MapView,
@@ -48,7 +55,7 @@ class MarkerManager(
     private val markersFolder = FolderOverlay()
     private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
     private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
-    private val clusterIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
+    private val clusterIconCache = mutableMapOf<Any, BitmapDrawable>()
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
     private val allCatches = mutableListOf<FishCatch>()
@@ -355,12 +362,12 @@ class MarkerManager(
                              createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
                         }
 
-                        clusters.forEach { (speciesId, speciesClusters) ->
-                            speciesClusters.forEach { clusterList ->
+                        clusters.forEach { (groupKey, groupClusters) ->
+                            groupClusters.forEach { clusterList ->
                                 if (clusterList.size == 1) {
                                     createIndividualMarker(clusterList[0])?.let { newMarkers.add(it) }
                                 } else {
-                                    createClusterMarker(speciesId, clusterList)?.let { newMarkers.add(it) }
+                                    createClusterMarker(groupKey, clusterList)?.let { newMarkers.add(it) }
                                 }
                             }
                         }
@@ -588,7 +595,7 @@ class MarkerManager(
         dialog.enlargeButtons()
     }
 
-    private fun createClusterMarker(speciesId: String, clusterList: List<FishCatch>): Marker? {
+    private fun createClusterMarker(groupKey: Any, clusterList: List<FishCatch>): Marker? {
         val avgLat = clusterList.map { it.latitude }.average()
         val avgLon = clusterList.map { it.longitude }.average()
         val point = GeoPoint(avgLat, avgLon)
@@ -597,29 +604,46 @@ class MarkerManager(
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         
+        val speciesId = if (groupKey is String) groupKey else (groupKey as Pair<*, *>).first as String
+        val eventType = if (groupKey is Pair<*, *>) groupKey.second as String else null
+
         val species = speciesCache[speciesId]
-        val iconName = species?.icon_default ?: ""
-        val drawableId = getDrawableId(iconName)
+        
+        // Käytetään calculateIconParams -metodia ikoniparametrien hakemiseen (skaalaus mukaan lukien)
+        // Käytetään klusterin ensimmäistä kalaa edustamaan koko ryhmää ikonivalinnassa
+        val iconParams = calculateIconParams(clusterList[0])
+        val drawableId = iconParams.first
+        var iconSize = iconParams.second
+        
         val count = clusterList.size
 
-        if (speciesId == "UNKNOWN") {
-            val key = Triple(drawableId, (8 * 0.8).toInt(), 48)
-            marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, (8 * 0.8).toInt(), 48) }
+        if (speciesId == "UNKNOWN" && (eventType == null || eventType == FishCatch.CAUGHT_FISH)) {
+            val key = Triple(drawableId, iconSize, 48)
+            marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, iconSize, 48) }
             marker.title = "Tuntematon laji"
         } else {
-            var iconSize = 40
-            if (species != null && species.small_weight == 0L && species.small_length == 0L) {
-                if (speciesId == "SALMON") {
-                    iconSize = (iconSize * 1.3).toInt()
-                } else if (speciesId == "PERCH") {
-                    iconSize = (iconSize * 0.8).toInt()
-                }
+            // Ryhmämerkissä käytetään base kokoa 40dp jos se on skaalattu oletuksesta
+            if (drawableId != R.drawable.default_point && iconSize == 24) {
+                iconSize = 40
             }
-            val key = Triple(drawableId, iconSize, count)
+
+            val key = if (groupKey is String) {
+                Triple(drawableId, iconSize, count)
+            } else {
+                // Lisätään eventType avaimeen jotta eri tapahtumatyypit eivät käytä samaa välimuistipaikkaa vahingossa
+                Quadruple(drawableId, iconSize, count, eventType)
+            }
+
             marker.icon = clusterIconCache.getOrPut(key) { 
                 getClusteredMarkerIcon(drawableId, iconSize, count) 
             }
-            marker.title = (species?.name ?: speciesId) + " ($count kpl)"
+            
+            val speciesName = species?.name ?: speciesId
+            marker.title = if (eventType != null && eventType != FishCatch.CAUGHT_FISH) {
+                "${FishCatch.getEventTypeName(eventType)}: $speciesName ($count kpl)"
+            } else {
+                "$speciesName ($count kpl)"
+            }
         }
         
         marker.relatedObject = clusterList
@@ -914,19 +938,25 @@ class MarkerManager(
         return if (id != 0) id else R.drawable.default_point
     }
 
-    private fun calculateClusters(catches: List<FishCatch>, zoom: Double): Map<String, List<List<FishCatch>>> {
-        val result = mutableMapOf<String, MutableList<MutableList<FishCatch>>>()
+    private fun calculateClusters(catches: List<FishCatch>, zoom: Double): Map<Any, List<List<FishCatch>>> {
+        val result = mutableMapOf<Any, MutableList<MutableList<FishCatch>>>()
         
-        // Ryhmitellään lajeittain
-        val bySpecies = catches.groupBy { it.species }
+        // Ryhmitellään avaimen mukaan: laji (+ tapahtumatyyppi, jos ei saatu kala)
+        val grouped = catches.groupBy { fish ->
+            if (fish.eventType == null || fish.eventType == FishCatch.CAUGHT_FISH) {
+                fish.species
+            } else {
+                fish.species to fish.eventType
+            }
+        }
         
         // Etäisyyskynnys pikseleinä (muunnetaan asteiksi)
         val threshold = if (zoom < 10) 0.5 else if (zoom < 12) 0.1 else 0.02
         
-        bySpecies.forEach { (species, speciesCatches) ->
+        grouped.forEach { (groupKey, groupCatches) ->
             val clusters = mutableListOf<MutableList<FishCatch>>()
             
-            speciesCatches.forEach { fish ->
+            groupCatches.forEach { fish ->
                 var found = false
                 for (cluster in clusters) {
                     val first = cluster[0]
@@ -942,7 +972,7 @@ class MarkerManager(
                     clusters.add(mutableListOf(fish))
                 }
             }
-            result[species] = clusters
+            result[groupKey] = clusters
         }
         
         return result
