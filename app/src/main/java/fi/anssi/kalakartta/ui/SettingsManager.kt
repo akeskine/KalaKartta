@@ -255,8 +255,8 @@ class SettingsManager(
 
     private fun confirmDeleteAllCatches() {
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Poista kaikki pisteet?")
-            .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalamerkit? Tätä toimintoa ei voi kumota.")
+            .setTitle("Poista kaikki tiedot?")
+            .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalamerkit ja paikkamerkit? Tätä toimintoa ei voi kumota.")
             .setPositiveButton("Poista kaikki") { _, _ ->
                 deleteAllCatches()
             }
@@ -268,10 +268,11 @@ class SettingsManager(
 
     private fun deleteAllCatches() {
         db.fishCatchDao().deleteAll()
+        db.placeOfInterestDao().deleteAll()
         onDataChanged()
 
         val dialog = AlertDialog.Builder(activity)
-            .setMessage("Kaikki pisteet poistettu.")
+            .setMessage("Kaikki tiedot poistettu.")
             .setPositiveButton("OK", null)
             .show()
         dialog.enlargeButtons()

@@ -24,4 +24,7 @@ interface PlaceOfInterestDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAll(places: List<PlaceOfInterest>)
+
+    @Query("DELETE FROM PlaceOfInterest")
+    fun deleteAll()
 }
