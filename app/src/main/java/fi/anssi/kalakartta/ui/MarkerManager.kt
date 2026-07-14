@@ -52,6 +52,9 @@ class MarkerManager(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var rebuildJob: Job? = null
     
+    private val defaultPointsFolder = FolderOverlay()
+    private val catchesFolder = FolderOverlay()
+    private val placesFolder = FolderOverlay()
     private val markersFolder = FolderOverlay()
     private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
     private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
@@ -80,6 +83,9 @@ class MarkerManager(
     }
 
     init {
+        map.overlays.add(defaultPointsFolder)
+        map.overlays.add(placesFolder)
+        map.overlays.add(catchesFolder)
         map.overlays.add(markersFolder)
     }
 
@@ -162,9 +168,10 @@ class MarkerManager(
             val filtered = filterManager.applyFilter(listOf(fish))
             if (filtered.isEmpty()) {
                 // Jos kala ei läpäise suodatinta, poistetaan se kartalta (jos oli siellä) ja poistutaan
-                val existingMarker = markersFolder.items.find { (it as? Marker)?.relatedObject is FishCatch && ((it as? Marker)?.relatedObject as FishCatch).id == fish.id } as? Marker
+                val folder = if (fish.species == "UNKNOWN") defaultPointsFolder else catchesFolder
+                val existingMarker = folder.items.find { (it as? Marker)?.relatedObject is FishCatch && ((it as? Marker)?.relatedObject as FishCatch).id == fish.id } as? Marker
                 if (existingMarker != null) {
-                    markersFolder.remove(existingMarker)
+                    folder.remove(existingMarker)
                     map.invalidate()
                 }
                 
@@ -185,7 +192,8 @@ class MarkerManager(
 
         // Jos ollaan yksittäisten pisteiden alueella, voidaan päivittää vain yksi
         // Etsitään vanha marker jos kyseessä on päivitys
-        val existingMarker = markersFolder.items.find { (it as? Marker)?.relatedObject is FishCatch && ((it as? Marker)?.relatedObject as FishCatch).id == fish.id } as? Marker
+        val folder = if (fish.species == "UNKNOWN") defaultPointsFolder else catchesFolder
+        val existingMarker = folder.items.find { (it as? Marker)?.relatedObject is FishCatch && ((it as? Marker)?.relatedObject as FishCatch).id == fish.id } as? Marker
         
         if (existingMarker != null) {
             updateMarkerData(existingMarker, fish)
@@ -275,9 +283,9 @@ class MarkerManager(
         var baseIconSize = if (drawableId == R.drawable.default_point) 24 else 40
         var visibleSize = if (drawableId == R.drawable.default_point) 8 else baseIconSize
 
-        // Punaiset oletuspisteet (default_point) 20% pienemmiksi
+        // Punaiset oletuspisteet (default_point) pidetään aina vakioina ja pieninä
         if (drawableId == R.drawable.default_point) {
-            scaleFactor *= 0.8
+            scaleFactor = 0.8
         }
         
         if (species != null && species.small_weight == 0L && species.small_length == 0L) {
@@ -315,6 +323,9 @@ class MarkerManager(
             
             if (catchesCopy.isEmpty() && placesCopy.isEmpty()) {
                 withContext(Dispatchers.Main) {
+                    defaultPointsFolder.items.clear()
+                    catchesFolder.items.clear()
+                    placesFolder.items.clear()
                     markersFolder.items.clear()
                     map.invalidate()
                 }
@@ -354,27 +365,41 @@ class MarkerManager(
                 // Markerien luonti on tehtävä Main-säikeessä
                 if (isActive) {
                     withContext(Dispatchers.Main) {
-                        val newMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
-                        // Muut paikat (ei klusteroida toistaiseksi tai klusteroidaan nekin?)
-                        // Ohjeistuksessa ei puhuttu muiden paikkojen klusteroinnista, joten pidetään ne yksittäisinä
-                        // tai jos niitä on paljon, ne pitäisi klusteroida. Käyttäjän pyynnössä sanotaan vain "kartalla näiden pisteiden nimi näytetään hyvin lähelle zoomaamalla".
+                        val newDefaultMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                        val newCatchMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                        val newPlaceMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                        
+                        // Muut paikat
                         placesCopy.forEach { place ->
-                             createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
+                             createPlaceMarker(place, zoom)?.let { newPlaceMarkers.add(it) }
                         }
 
                         clusters.forEach { (groupKey, groupClusters) ->
                             groupClusters.forEach { clusterList ->
                                 if (clusterList.size == 1) {
-                                    createIndividualMarker(clusterList[0])?.let { newMarkers.add(it) }
+                                    val fish = clusterList[0]
+                                    createIndividualMarker(fish)?.let { marker ->
+                                        if (fish.species == "UNKNOWN") {
+                                            newDefaultMarkers.add(marker)
+                                        } else {
+                                            newCatchMarkers.add(marker)
+                                        }
+                                    }
                                 } else {
-                                    createClusterMarker(groupKey, clusterList)?.let { newMarkers.add(it) }
+                                    createClusterMarker(groupKey, clusterList)?.let { newCatchMarkers.add(it) }
                                 }
                             }
                         }
                         
                         if (isActive) {
+                            defaultPointsFolder.items.clear()
+                            catchesFolder.items.clear()
+                            placesFolder.items.clear()
                             markersFolder.items.clear()
-                            markersFolder.items.addAll(newMarkers)
+                            
+                            defaultPointsFolder.items.addAll(newDefaultMarkers)
+                            catchesFolder.items.addAll(newCatchMarkers)
+                            placesFolder.items.addAll(newPlaceMarkers)
                             map.invalidate()
                         }
                     }
@@ -422,18 +447,32 @@ class MarkerManager(
 
         if (isActive) {
             withContext(Dispatchers.Main) {
-                // Luodaan markerit ensin väliaikaiseen listaan, jotta vältetään vilkkuminen
-                val newMarkers = mutableListOf<Marker>()
+                val newDefaultMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                val newCatchMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+                val newPlaceMarkers = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+
                 visiblePlaces.forEach { place ->
-                    createPlaceMarker(place, zoom)?.let { newMarkers.add(it) }
+                    createPlaceMarker(place, zoom)?.let { newPlaceMarkers.add(it) }
                 }
                 visibleCatches.forEach { fish ->
-                    createIndividualMarker(fish)?.let { newMarkers.add(it) }
+                    createIndividualMarker(fish)?.let { marker ->
+                        if (fish.species == "UNKNOWN") {
+                            newDefaultMarkers.add(marker)
+                        } else {
+                            newCatchMarkers.add(marker)
+                        }
+                    }
                 }
                 
                 if (isActive) {
+                    defaultPointsFolder.items.clear()
+                    catchesFolder.items.clear()
+                    placesFolder.items.clear()
                     markersFolder.items.clear()
-                    markersFolder.items.addAll(newMarkers)
+                    
+                    defaultPointsFolder.items.addAll(newDefaultMarkers)
+                    catchesFolder.items.addAll(newCatchMarkers)
+                    placesFolder.items.addAll(newPlaceMarkers)
                     map.invalidate()
                 }
             }
@@ -443,7 +482,13 @@ class MarkerManager(
     }
 
     private fun addIndividualMarker(fish: FishCatch) {
-        createIndividualMarker(fish)?.let { markersFolder.add(it) }
+        createIndividualMarker(fish)?.let { marker ->
+            if (fish.species == "UNKNOWN") {
+                defaultPointsFolder.add(marker)
+            } else {
+                catchesFolder.add(marker)
+            }
+        }
     }
 
     private fun createIndividualMarker(fish: FishCatch): Marker? {
@@ -674,6 +719,9 @@ class MarkerManager(
 
     fun setMarkersVisible(visible: Boolean, zoom: Double, forceRebuild: Boolean = false) {
         if (markersFolder.isEnabled != visible || Math.abs(lastZoom - zoom) > 0.1 || forceRebuild) {
+            defaultPointsFolder.isEnabled = visible
+            catchesFolder.isEnabled = visible
+            placesFolder.isEnabled = visible
             markersFolder.isEnabled = visible
             if (visible) {
                 // Tarkistetaan pitääkö klusterointi päivittää
@@ -731,6 +779,12 @@ class MarkerManager(
         synchronized(allCatches) {
             allCatches.clear()
         }
+        synchronized(allPlaces) {
+            allPlaces.clear()
+        }
+        defaultPointsFolder.items.clear()
+        catchesFolder.items.clear()
+        placesFolder.items.clear()
         markersFolder.items.clear()
         lastZoom = -1.0
     }
@@ -741,8 +795,22 @@ class MarkerManager(
             synchronized(allCatches) {
                 allCatches.removeAll { it.id == fish.id }
             }
+            if (fish.species == "UNKNOWN") {
+                defaultPointsFolder.remove(marker)
+            } else {
+                catchesFolder.remove(marker)
+            }
         }
-        markersFolder.remove(marker)
+        
+        val place = marker.relatedObject as? PlaceOfInterest
+        if (place != null) {
+            synchronized(allPlaces) {
+                allPlaces.removeAll { it.id == place.id }
+            }
+            placesFolder.remove(marker)
+        }
+        
+        markersFolder.remove(marker) // Varmuuden vuoksi myös markersFolderista
         map.invalidate()
     }
 
@@ -945,7 +1013,10 @@ class MarkerManager(
         
         // Ryhmitellään avaimen mukaan: laji (+ tapahtumatyyppi, jos ei saatu kala)
         val grouped = catches.groupBy { fish ->
-            if (fish.eventType == null || fish.eventType == FishCatch.CAUGHT_FISH) {
+            if (fish.species == "UNKNOWN" && (fish.eventType == null || fish.eventType == FishCatch.CAUGHT_FISH)) {
+                // Palautetaan uniikki avain jokaiselle oletuspisteelle, jotta niitä ei klusteroida
+                "UNKNOWN_INDIVIDUAL_${fish.id}"
+            } else if (fish.eventType == null || fish.eventType == FishCatch.CAUGHT_FISH) {
                 fish.species
             } else {
                 fish.species to fish.eventType
