@@ -10,7 +10,7 @@ data class FishCatch(
     val eventType: String? = null,
     val latitude: Double,
     val longitude: Double,
-    val caughtAt: Long,
+    val caughtAt: Long?,
     val weight: Long? = null,
     val length: Long? = null,
     val method: String = "",

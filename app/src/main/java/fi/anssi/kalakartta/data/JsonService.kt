@@ -26,8 +26,8 @@ class JsonService {
             obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
             obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
             android.util.Log.d("JsonService", "Exporting catch: species=${it.species}, lat=${it.latitude}, lon=${it.longitude}")
-            if (it.caughtAt > 0) {
-                obj.put("caughtAt", isoFormat.format(Date(it.caughtAt)))
+            if (it.caughtAt != null && it.caughtAt!! > 0) {
+                obj.put("caughtAt", isoFormat.format(Date(it.caughtAt!!)))
             }
             if (it.weight != null) obj.put("weight", it.weight)
             if (it.length != null) obj.put("length", it.length)
@@ -115,12 +115,18 @@ class JsonService {
                 val caughtAtStr = obj.optString("caughtAt", "")
                 val caughtAtLong = if (caughtAtStr.isNotEmpty()) {
                     try {
-                        isoFormat.parse(caughtAtStr)?.time ?: 0L
+                        isoFormat.parse(caughtAtStr)?.time
                     } catch (_: Exception) {
-                        if (obj.has("caughtAt") && !obj.isNull("caughtAt")) obj.optLong("caughtAt", 0L) else 0L
+                        if (obj.has("caughtAt") && !obj.isNull("caughtAt")) {
+                            val ca = obj.optLong("caughtAt")
+                            if (ca <= 0) null else ca
+                        } else null
                     }
                 } else {
-                    if (obj.has("caughtAt") && !obj.isNull("caughtAt")) obj.optLong("caughtAt", 0L) else 0L
+                    if (obj.has("caughtAt") && !obj.isNull("caughtAt")) {
+                        val ca = obj.optLong("caughtAt")
+                        if (ca <= 0) null else ca
+                    } else null
                 }
 
                 val weatherTimeStr = obj.optString("weatherTime", "")
@@ -128,10 +134,16 @@ class JsonService {
                     try {
                         isoFormat.parse(weatherTimeStr)?.time
                     } catch (_: Exception) {
-                        if (obj.has("weatherTime") && !obj.isNull("weatherTime")) obj.optLong("weatherTime") else null
+                        if (obj.has("weatherTime") && !obj.isNull("weatherTime")) {
+                            val wt = obj.optLong("weatherTime")
+                            if (wt <= 0) null else wt
+                        } else null
                     }
                 } else {
-                    if (obj.has("weatherTime") && !obj.isNull("weatherTime")) obj.optLong("weatherTime") else null
+                    if (obj.has("weatherTime") && !obj.isNull("weatherTime")) {
+                        val wt = obj.optLong("weatherTime")
+                        if (wt <= 0) null else wt
+                    } else null
                 }
 
                 val catch = FishCatch(

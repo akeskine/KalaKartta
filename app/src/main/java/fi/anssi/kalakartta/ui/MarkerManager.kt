@@ -758,11 +758,13 @@ class MarkerManager(
                 hasSpecies = true
             }
 
-            if (it.caughtAt > 0) {
-                val dateFormat = SimpleDateFormat("dd.MM.yyyy 'klo' HH:mm", Locale.getDefault())
-                val dateStr = dateFormat.format(Date(it.caughtAt))
-                val timeLabel = if (it.eventType != null && it.eventType != FishCatch.CAUGHT_FISH) "Aika" else "Saantiaika"
-                details.append("$timeLabel: $dateStr\n")
+            it.caughtAt?.let { caughtAt ->
+                if (caughtAt > 0) {
+                    val dateFormat = SimpleDateFormat("dd.MM.yyyy 'klo' HH:mm", Locale.getDefault())
+                    val dateStr = dateFormat.format(Date(caughtAt))
+                    val timeLabel = if (it.eventType != null && it.eventType != FishCatch.CAUGHT_FISH) "Aika" else "Saantiaika"
+                    details.append("$timeLabel: $dateStr\n")
+                }
             }
 
             if (it.weight != null && it.weight!! > 0) details.append("Paino: ${it.weight} g\n")

@@ -75,7 +75,8 @@ class WeatherUpdateActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
             val targets = allCatches.filter {
-                it.caughtAt > 0L && it.weatherDataCompleteTime == null && (
+                val caughtAt = it.caughtAt ?: 0L
+                caughtAt > 0L && it.weatherDataCompleteTime == null && (
                     it.airTemp == null || 
                     it.cloudiness == null || 
                     it.rainHourMm == null || 
@@ -112,7 +113,8 @@ class WeatherUpdateActivity : AppCompatActivity() {
             try {
                 val allCatches = db.fishCatchDao().getAll()
                 val targetsAll = allCatches.filter {
-                    it.caughtAt > 0L && it.weatherDataCompleteTime == null && (
+                    val caughtAt = it.caughtAt ?: 0L
+                    caughtAt > 0L && it.weatherDataCompleteTime == null && (
                         it.airTemp == null || 
                         it.cloudiness == null || 
                         it.rainHourMm == null || 
@@ -166,7 +168,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
                         val result = weatherService.fetchWeatherFromMultipleStationsSuspend(
                             fishCatch.latitude, 
                             fishCatch.longitude, 
-                            fishCatch.caughtAt,
+                            fishCatch.caughtAt ?: 0L,
                             existingData.ifEmpty { null },
                             "ID: ${fishCatch.id}, Ref: ${fishCatch.originalRef}"
                         )

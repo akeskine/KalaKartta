@@ -90,6 +90,7 @@ class EditCatchActivity : AppCompatActivity() {
     
     private var selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
     private var isUpdatingFromCode = false
+    private var isTimeSetManually = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -197,6 +198,9 @@ class EditCatchActivity : AppCompatActivity() {
                 finish()
                 return
             }
+            
+            // Alustetaan kalenteri nykyhetkeen, vaikka sitä ei näytettäisi painikkeessa
+            selectedCalendar.timeInMillis = System.currentTimeMillis()
         } else {
             val allSpecies = db.fishSpeciesDao().getAll()
             
@@ -205,11 +209,18 @@ class EditCatchActivity : AppCompatActivity() {
                 val lat = intent.getDoubleExtra("EXTRA_LATITUDE", 0.0)
                 val lon = intent.getDoubleExtra("EXTRA_LONGITUDE", 0.0)
                 
+                val currentCaughtAt = if (intent.hasExtra("EXTRA_CAUGHT_AT")) {
+                    val ca = intent.getLongExtra("EXTRA_CAUGHT_AT", -1L)
+                    if (ca <= 0L) null else ca
+                } else {
+                    System.currentTimeMillis()
+                }
+
                 FishCatch(
-                    species = "",
+                    species = "UNKNOWN",
                     latitude = String.format(java.util.Locale.US, "%.5f", lat).toDouble(),
                     longitude = String.format(java.util.Locale.US, "%.5f", lon).toDouble(),
-                    caughtAt = System.currentTimeMillis()
+                    caughtAt = currentCaughtAt
                 )
             } else {
                 db.fishCatchDao().getById(catchId)
@@ -220,10 +231,13 @@ class EditCatchActivity : AppCompatActivity() {
                 finish()
                 return
             }
+            
+            // Alustetaan kalenteri nykyhetkeen, vaikka sitä ei näytettäisi painikkeessa
+            selectedCalendar.timeInMillis = System.currentTimeMillis()
 
-            // Lisätään tyhjä vaihtoehto vain jos muokataan vanhaa pistettä ja sen laji on tyhjä
-            speciesList = if (catchId != -1L && fishCatch?.species == "") {
-                val emptySpecies = FishSpecies(id = "", name = getString(R.string.empty_selection))
+            // Lisätään tyhjä vaihtoehto vain jos muokataan vanhaa pistettä ja sen laji on tyhjä tai UNKNOWN
+            speciesList = if (catchId != -1L && (fishCatch?.species == "" || fishCatch?.species == "UNKNOWN")) {
+                val emptySpecies = FishSpecies(id = "UNKNOWN", name = getString(R.string.empty_selection))
                 listOf(emptySpecies) + allSpecies
             } else {
                 allSpecies
@@ -267,7 +281,6 @@ class EditCatchActivity : AppCompatActivity() {
                 latEditText.setText(String.format(java.util.Locale.US, "%.5f", poi.latitude))
                 lonEditText.setText(String.format(java.util.Locale.US, "%.5f", poi.longitude))
                 
-                selectedCalendar.timeInMillis = System.currentTimeMillis()
                 updateDateTimeButtonText()
             }
         } else {
@@ -365,7 +378,7 @@ class EditCatchActivity : AppCompatActivity() {
             rainSpinner.adapter = rainAdapter
 
             fishCatch?.let { fc ->
-                val speciesIndex = speciesList.indexOfFirst { it.id == fc.species }
+                val speciesIndex = speciesList.indexOfFirst { it.id == fc.species || (it.id == "UNKNOWN" && fc.species == "") }
                 speciesSpinner.setSelection(if (speciesIndex != -1) speciesIndex else 0)
 
                 val eventTypeIndex = if (fc.eventType == null && eventTypes.contains("EMPTY")) {
@@ -375,7 +388,7 @@ class EditCatchActivity : AppCompatActivity() {
                 }
                 eventTypeSpinner.setSelection(if (eventTypeIndex != -1) eventTypeIndex else 0)
 
-                selectedCalendar.timeInMillis = fc.caughtAt
+                fc.caughtAt?.let { selectedCalendar.timeInMillis = it }
                 updateDateTimeButtonText()
 
                 val airTemp = if (fc.airTemp != null && !fc.airTemp!!.isNaN()) fc.airTemp.toString() else ""
@@ -413,7 +426,7 @@ class EditCatchActivity : AppCompatActivity() {
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                 val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
                 
-                if (isWeatherEnabled) {
+                if (isWeatherEnabled && fc.caughtAt != null && fc.caughtAt!! > 0L) {
                     autoWeatherCheckBox.visibility = View.VISIBLE
                     autoWeatherCheckBox.isChecked = false
                     
@@ -426,7 +439,7 @@ class EditCatchActivity : AppCompatActivity() {
                             nearestStationText.visibility = View.VISIBLE
                         }
                     } else {
-                        weatherService.fetchNearestStation(fc.latitude, fc.longitude, fc.caughtAt) { station, _ ->
+                        weatherService.fetchNearestStation(fc.latitude, fc.longitude, fc.caughtAt!!) { station, _ ->
                             runOnUiThread {
                                 if (station != null) {
                                     isUpdatingFromCode = true
@@ -436,6 +449,8 @@ class EditCatchActivity : AppCompatActivity() {
                             }
                         }
                     }
+                } else if (isWeatherEnabled && (fc.caughtAt == null || fc.caughtAt!! <= 0L)) {
+                    autoWeatherCheckBox.visibility = View.GONE
                 }
 
                 cloudinessEditText.setText(cloudiness)
@@ -468,6 +483,12 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun updateDateTimeButtonText() {
+        // Jos aikaa ei ole asetettu eikä käyttäjä ole sitä juuri nyt valinnut
+        if ((fishCatch?.caughtAt == null || fishCatch?.caughtAt!! <= 0L) && !isTimeSetManually) {
+            dateTimeButton.text = getString(R.string.set_time)
+            return
+        }
+
         val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
         sdf.timeZone = TimeZone.getTimeZone("Europe/Helsinki")
         dateTimeButton.text = sdf.format(selectedCalendar.time)
@@ -580,6 +601,7 @@ class EditCatchActivity : AppCompatActivity() {
             TimePickerDialog(this, { _, h, min ->
                 selectedCalendar.set(Calendar.HOUR_OF_DAY, h)
                 selectedCalendar.set(Calendar.MINUTE, min)
+                isTimeSetManually = true
                 updateDateTimeButtonText()
                 if (autoWeatherCheckBox.isChecked) fetchWeatherForDisplay()
             }, selectedCalendar.get(Calendar.HOUR_OF_DAY), selectedCalendar.get(Calendar.MINUTE), true).show()
@@ -633,7 +655,7 @@ class EditCatchActivity : AppCompatActivity() {
             val updated = fc.copy(
                 species = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: "",
                 eventType = if (selectedType == "EMPTY") null else (selectedType ?: FishCatch.CAUGHT_FISH),
-                caughtAt = selectedCalendar.timeInMillis,
+                caughtAt = if (isTimeSetManually || fc.caughtAt != null) selectedCalendar.timeInMillis else null,
                 weight = weightEditText.text.toString().toLongOrNull(),
                 length = lengthEditText.text.toString().toLongOrNull(),
                 method = methodEditText.text.toString(),
@@ -677,7 +699,10 @@ class EditCatchActivity : AppCompatActivity() {
         }
         val fc = fishCatch ?: return false
         if (speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id != fc.species) return true
-        if (selectedCalendar.timeInMillis / 60000 != fc.caughtAt / 60000) return true
+        
+        val currentTime = if (isTimeSetManually || fc.caughtAt != null) selectedCalendar.timeInMillis else null
+        if (currentTime?.div(60000) != fc.caughtAt?.div(60000)) return true
+        
         if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0) > 0) fc.weight else null)) return true
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true

@@ -164,7 +164,8 @@ class SummaryActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
             val filteredCatches = allCatches.filter { 
-                it.caughtAt in start..end && 
+                val caughtAt = it.caughtAt ?: 0L
+                caughtAt in start..end && 
                 it.species != "UNKNOWN" && 
                 (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH)
             }
