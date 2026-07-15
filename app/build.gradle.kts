@@ -1,3 +1,7 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 plugins {
     id("com.android.application")
     id("com.google.devtools.ksp")
@@ -12,9 +16,16 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val buildTime = SimpleDateFormat("d.M.yyyy HH:mm", Locale("fi", "FI")).format(Date())
+        buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

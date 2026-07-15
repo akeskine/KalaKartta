@@ -1,6 +1,11 @@
 package fi.anssi.kalakartta.ui
 
+import android.graphics.Color
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.widget.*
+import fi.anssi.kalakartta.BuildConfig
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -28,8 +33,20 @@ class SettingsManager(
         activity.lifecycleScope.launch(Dispatchers.IO) {
             val count = db.fishCatchDao().getCount()
             withContext(Dispatchers.Main) {
+                val inflater = activity.layoutInflater
+                val titleView = inflater.inflate(fi.anssi.kalakartta.R.layout.dialog_settings_title, null)
+                val infoButton = titleView.findViewById<ImageButton>(fi.anssi.kalakartta.R.id.infoButton)
+                
+                infoButton.setOnClickListener {
+                    AlertDialog.Builder(activity)
+                        .setTitle("Versiotiedot")
+                        .setMessage("Versio: ${BuildConfig.VERSION_NAME}\nKoontiaika: ${BuildConfig.BUILD_TIME}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+
                 val dialog = AlertDialog.Builder(activity)
-                    .setTitle("Asetukset")
+                    .setCustomTitle(titleView)
                     .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count)
