@@ -424,6 +424,19 @@
                 android:minLines="2"
                 android:gravity="top"
                 android:importantForAutofill="no" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/fisherman"
+                android:layout_marginTop="16dp" />
+            <EditText
+                android:id="@+id/fishermanEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPersonName"
+                android:minHeight="48dp"
+                android:importantForAutofill="no" />
         </LinearLayout>
 
         <TextView

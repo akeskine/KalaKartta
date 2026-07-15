@@ -37,6 +37,7 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var speciesSpinner: Spinner
     private lateinit var placeTypeSpinner: Spinner
     private lateinit var freeTextEdit: EditText
+    private lateinit var fishermanEdit: EditText
     private lateinit var windMinEdit: EditText
     private lateinit var windMaxEdit: EditText
     private lateinit var windDirectionPreview: WindDirectionView
@@ -85,6 +86,7 @@ class FilterActivity : AppCompatActivity() {
         speciesSpinner = findViewById(R.id.speciesSpinner)
         placeTypeSpinner = findViewById(R.id.placeTypeSpinner)
         freeTextEdit = findViewById(R.id.freeTextEdit)
+        fishermanEdit = findViewById(R.id.fishermanEdit)
 
         val allSpecies = db.fishSpeciesDao().getAll()
         val emptySpecies = FishSpecies("", getString(R.string.empty_selection), icon_default = "")
@@ -155,6 +157,7 @@ class FilterActivity : AppCompatActivity() {
         }
 
         freeTextEdit.setText(currentFilters.freeText ?: "")
+        fishermanEdit.setText(currentFilters.fisherman ?: "")
 
         windMinEdit.setText(currentFilters.windMin?.toString() ?: "")
         windMaxEdit.setText(currentFilters.windMax?.toString() ?: "")
@@ -218,6 +221,7 @@ class FilterActivity : AppCompatActivity() {
             speciesSpinner.setSelection(0)
             placeTypeSpinner.setSelection(0)
             freeTextEdit.setText("")
+            fishermanEdit.setText("")
             windMinEdit.setText("")
             windMaxEdit.setText("")
             updateWindPreview()
@@ -230,6 +234,7 @@ class FilterActivity : AppCompatActivity() {
             val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
             val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
             val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
+            val fisherman = fishermanEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
             val windMin = windMinEdit.text.toString().toFloatOrNull()
             val windMax = windMaxEdit.text.toString().toFloatOrNull()
             val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
@@ -239,6 +244,7 @@ class FilterActivity : AppCompatActivity() {
                 speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
                 placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
                 freeText = freeText,
+                fisherman = fisherman,
                 windMin = windMin,
                 windMax = windMax,
                 pressureMin = pressureMin,

@@ -363,6 +363,9 @@ class CatchManager(
     private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null, eventType: String? = FishCatch.CAUGHT_FISH) {
         val point = map.mapCenter as GeoPoint
         val caughtAt = System.currentTimeMillis()
+        
+        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val defaultFisherman = prefs.getString("default_fisherman", "") ?: ""
 
         val fish = FishCatch(
             species = speciesId,
@@ -371,7 +374,8 @@ class CatchManager(
             longitude = String.format(java.util.Locale.US, "%.5f", point.longitude).toDouble(),
             caughtAt = caughtAt,
             weight = weight,
-            length = length
+            length = length,
+            fisherman = defaultFisherman
         )
 
         // Tallennetaan taustalla ja päivitetään UI

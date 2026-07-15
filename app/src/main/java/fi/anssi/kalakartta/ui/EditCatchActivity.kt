@@ -60,6 +60,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var windDirectionArrow: ImageView
     private lateinit var additionalInfoEditText: EditText
     private lateinit var tripNotesEditText: EditText
+    private lateinit var fishermanEditText: EditText
     private lateinit var pressureEditText: EditText
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
@@ -146,6 +147,7 @@ class EditCatchActivity : AppCompatActivity() {
         windDirectionArrow = findViewById(R.id.windDirectionArrow)
         additionalInfoEditText = findViewById(R.id.additionalInfoEditText)
         tripNotesEditText = findViewById(R.id.tripNotesEditText)
+        fishermanEditText = findViewById(R.id.fishermanEditText)
         pressureEditText = findViewById(R.id.pressureEditText)
         placeNameEditText = findViewById(R.id.placeNameEditText)
         placeNameContainer = findViewById(R.id.placeNameContainer)
@@ -465,6 +467,7 @@ class EditCatchActivity : AppCompatActivity() {
                 }
                 additionalInfoEditText.setText(fc.additionalInfo ?: "")
                 tripNotesEditText.setText(fc.tripNotes ?: "")
+                fishermanEditText.setText(fc.fisherman ?: "")
                 latEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.latitude))
                 lonEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.longitude))
             }
@@ -674,6 +677,7 @@ class EditCatchActivity : AppCompatActivity() {
                 weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
                 additionalInfo = additionalInfoEditText.text.toString(),
                 tripNotes = tripNotesEditText.text.toString(),
+                fisherman = fishermanEditText.text.toString(),
                 latitude = latEditText.text.toString().toDoubleSafe(fc.latitude),
                 longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude)
             )
@@ -706,6 +710,8 @@ class EditCatchActivity : AppCompatActivity() {
         if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0) > 0) fc.weight else null)) return true
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true
+        if (tripNotesEditText.text.toString() != (fc.tripNotes ?: "")) return true
+        if (fishermanEditText.text.toString() != (fc.fisherman ?: "")) return true
         return Math.abs(latEditText.text.toString().toDoubleSafe() - fc.latitude) > 0.0001 ||
                Math.abs(lonEditText.text.toString().toDoubleSafe() - fc.longitude) > 0.0001
     }

@@ -28,6 +28,7 @@
     <string name="latitude">Leveysaste (Lat)</string>
     <string name="longitude">Pituusaste (Lon)</string>
     <string name="trip_notes">Kalapäiväkirjan merkinnät</string>
+    <string name="fisherman">Kalastaja</string>
     <string name="save">Tallenna</string>
     <string name="cancel">Peruuta</string>
     <string name="edit_success">Tietojen muokkaus onnistui</string>

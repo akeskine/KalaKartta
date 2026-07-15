@@ -28,6 +28,7 @@ class FilterManager(private val context: Context) {
         val speciesId: String? = null,
         val placeTypeId: String? = null,
         val freeText: String? = null,
+        val fisherman: String? = null,
         val onlyCaughtFish: Boolean = false
     )
 
@@ -47,6 +48,7 @@ class FilterManager(private val context: Context) {
         val speciesId = prefs.getString("speciesId", null)
         val placeTypeId = prefs.getString("placeTypeId", null)
         val freeText = prefs.getString("freeText", null)
+        val fisherman = prefs.getString("fisherman", null)
         val onlyCaughtFish = prefs.getBoolean("onlyCaughtFish", false)
 
         return Filters(
@@ -56,7 +58,7 @@ class FilterManager(private val context: Context) {
             startTimeMinutes, endTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
-            speciesId, placeTypeId, freeText, onlyCaughtFish
+            speciesId, placeTypeId, freeText, fisherman, onlyCaughtFish
         )
     }
 
@@ -77,6 +79,7 @@ class FilterManager(private val context: Context) {
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
             if (filters.placeTypeId != null) putString("placeTypeId", filters.placeTypeId) else remove("placeTypeId")
             if (filters.freeText != null) putString("freeText", filters.freeText) else remove("freeText")
+            if (filters.fisherman != null) putString("fisherman", filters.fisherman) else remove("fisherman")
             putBoolean("onlyCaughtFish", filters.onlyCaughtFish)
             apply()
         }
@@ -90,7 +93,7 @@ class FilterManager(private val context: Context) {
                 f.startTimeMinutes != null || f.endTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
-                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.onlyCaughtFish
+                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || f.onlyCaughtFish
     }
 
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
@@ -164,6 +167,12 @@ class FilterManager(private val context: Context) {
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
 
+            // Kalastaja
+            if (f.fisherman != null) {
+                val searchFisherman = f.fisherman.lowercase()
+                if (!fish.fisherman.lowercase().contains(searchFisherman)) return@filter false
+            }
+
             // Free Text
             if (f.freeText != null) {
                 val searchText = f.freeText.lowercase()
@@ -221,6 +230,10 @@ class FilterManager(private val context: Context) {
 
         if (f.freeText != null) {
             parts.add("\"${f.freeText}\"")
+        }
+
+        if (f.fisherman != null) {
+            parts.add("kalastaja: ${f.fisherman}")
         }
 
         if (f.startDate != null || f.endDate != null) {

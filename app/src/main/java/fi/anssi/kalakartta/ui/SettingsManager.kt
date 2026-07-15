@@ -47,14 +47,15 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Oletuskalastaja", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
                             4 -> openMapSettings()
-                            5 -> { /* Sulje valikko */ }
+                            5 -> openDefaultFishermanSettings()
+                            6 -> { /* Sulje valikko */ }
                         }
                     }
                     .show()
@@ -291,6 +292,43 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setMessage("Kaikki tiedot poistettu.")
             .setPositiveButton("OK", null)
+            .show()
+        dialog.enlargeButtons()
+    }
+
+    private fun openDefaultFishermanSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+        val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val label = TextView(activity).apply {
+            text = "Oletuskalastajan nimi:"
+            textSize = 16f
+        }
+        layout.addView(label)
+
+        val input = EditText(activity).apply {
+            setText(currentFisherman)
+            hint = "Esim. Matti"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+            }
+        }
+        layout.addView(input)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Aseta oletuskalastaja")
+            .setView(layout)
+            .setPositiveButton("Tallenna") { _, _ ->
+                val newFisherman = input.text.toString().trim()
+                prefs.edit().putString("default_fisherman", newFisherman).apply()
+            }
+            .setNegativeButton("Takaisin") { _, _ -> openSettings() }
             .show()
         dialog.enlargeButtons()
     }

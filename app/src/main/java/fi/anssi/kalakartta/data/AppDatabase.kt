@@ -9,7 +9,7 @@ import android.content.Context
 
 @Database(
     entities = [FishCatch::class, FishSpecies::class, WeatherError::class, PlaceOfInterest::class, PlaceOfInterestType::class],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,7 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kalakartta-db"
                 )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .allowMainThreadQueries()
                 .build()
                 INSTANCE = instance
@@ -148,6 +148,12 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("INSERT INTO FishCatch_new ($columns) SELECT $columns FROM FishCatch")
                 db.execSQL("DROP TABLE FishCatch")
                 db.execSQL("ALTER TABLE FishCatch_new RENAME TO FishCatch")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE FishCatch ADD COLUMN fisherman TEXT NOT NULL DEFAULT ''")
             }
         }
     }
