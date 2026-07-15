@@ -231,29 +231,7 @@ class FilterActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.okButton).setOnClickListener {
-            val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
-            val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
-            val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
-            val fisherman = fishermanEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
-            val windMin = windMinEdit.text.toString().toFloatOrNull()
-            val windMax = windMaxEdit.text.toString().toFloatOrNull()
-            val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
-            val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
-            
-            currentFilters = currentFilters.copy(
-                speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
-                placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
-                freeText = freeText,
-                fisherman = fisherman,
-                windMin = windMin,
-                windMax = windMax,
-                pressureMin = pressureMin,
-                pressureMax = pressureMax,
-                onlyCaughtFish = onlyCaughtFishCheckBox.isChecked
-            )
-            filterManager.saveFilters(currentFilters)
-            setResult(RESULT_OK)
-            finish()
+            saveAndFinish()
         }
 
         val windWatcher = object : android.text.TextWatcher {
@@ -310,5 +288,38 @@ class FilterActivity : AppCompatActivity() {
             else currentFilters.copy(endTimeMinutes = totalMinutes)
             updateButtons()
         }, h, m, true).show()
+    }
+
+    private fun saveAndFinish() {
+        val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
+        val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
+        val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
+        val fisherman = fishermanEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
+        val windMin = windMinEdit.text.toString().toFloatOrNull()
+        val windMax = windMaxEdit.text.toString().toFloatOrNull()
+        val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
+        val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
+        
+        currentFilters = currentFilters.copy(
+            speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
+            placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
+            freeText = freeText,
+            fisherman = fisherman,
+            windMin = windMin,
+            windMax = windMax,
+            pressureMin = pressureMin,
+            pressureMax = pressureMax,
+            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked
+        )
+        filterManager.saveFilters(currentFilters)
+        setResult(RESULT_OK)
+        finish()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        saveAndFinish()
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
     }
 }
