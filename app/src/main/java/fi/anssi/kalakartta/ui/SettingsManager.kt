@@ -47,15 +47,14 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Kaada KalaKartta", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
                             4 -> openMapSettings()
-                            5 -> throw RuntimeException("Test Crash") // Crashlytics testi
-                            6 -> { /* Sulje valikko */ }
+                            5 -> { /* Sulje valikko */ }
                         }
                     }
                     .show()
