@@ -176,7 +176,24 @@ class MainActivity : AppCompatActivity() {
             }
 
             android.util.Log.d("KalaKartta", "before db init")
-            db = AppDatabase.getInstance(this)
+            try {
+                db = AppDatabase.getInstance(this)
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Database initialization failed", e)
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
+                
+                AlertDialog.Builder(this)
+                    .setTitle("Tietokantavirhe")
+                    .setMessage("Tietokannan avaaminen epäonnistui. Tämä johtuu yleensä sovelluspäivityksen yhteydessä tapahtuneesta migraatiovirheestä.\n\nVirhe: ${e.localizedMessage}\n\nJos virhe toistuu, voit yrittää poistaa sovelluksen ja asentaa sen uudelleen (huom: tiedot katoavat).")
+                    .setPositiveButton("OK", null)
+                    .show()
+                
+                // Luodaan tyhjä in-memory tietokanta, jotta sovellus ei kaadu heti kaikkialla
+                db = androidx.room.Room.inMemoryDatabaseBuilder(
+                    applicationContext,
+                    AppDatabase::class.java
+                ).allowMainThreadQueries().build()
+            }
             android.util.Log.d("KalaKartta", "after db init")
 
             // Esitäyttö taustasäikeessä

@@ -31,7 +31,6 @@ abstract class AppDatabase : RoomDatabase() {
                     "kalakartta-db"
                 )
                 .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
-                .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .build()
                 INSTANCE = instance
@@ -78,11 +77,45 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // Lisätään mahdollisesti puuttuvat sarakkeet, jotka on voitu lisätä koodiin ilman migraatiota
+                // aiemmissa kehitysversioissa.
+                val missingColumns = listOf(
+                    "strikeDepth REAL",
+                    "waterDepth REAL",
+                    "waterTemp REAL",
+                    "airTemp REAL",
+                    "cloudiness INTEGER",
+                    "rain INTEGER",
+                    "rainHourMm REAL",
+                    "windSpeed REAL",
+                    "windDirection INTEGER",
+                    "pressure REAL",
+                    "weatherSource TEXT NOT NULL DEFAULT ''",
+                    "weatherTime INTEGER",
+                    "weatherStation TEXT NOT NULL DEFAULT ''",
+                    "additionalInfo TEXT NOT NULL DEFAULT ''",
+                    "originalRef TEXT NOT NULL DEFAULT ''"
+                )
+
+                for (columnDef in missingColumns) {
+                    val columnName = columnDef.split(" ")[0]
+                    val cursor = db.query("PRAGMA table_info(FishCatch)")
+                    var exists = false
+                    while (cursor.moveToNext()) {
+                        val nameIndex = cursor.getColumnIndex("name")
+                        if (nameIndex != -1 && cursor.getString(nameIndex) == columnName) {
+                            exists = true
+                            break
+                        }
+                    }
+                    cursor.close()
+                    
+                    if (!exists) {
+                        db.execSQL("ALTER TABLE FishCatch ADD COLUMN $columnDef")
+                    }
+                }
+
                 // caughtAt muutetaan pakollisesta valinnaiseksi
-                // SQLite ei tue suoraan NOT NULL poistamista, joten Room hoitaa tämän yleensä taulun uudelleenluonnilla migraatiossa jos mahdollista,
-                // mutta tässä tapauksessa yksinkertaisin tapa (koska SQLite) on antaa sen olla sellaisenaan ja vain sallia null-arvot koodissa jos mahdollista,
-                // TAI tehdä perinteinen SQLite migraatio: luo uusi taulu, kopioi tiedot, poista vanha, nimeä uusi.
-                
                 db.execSQL("CREATE TABLE FishCatch_new (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "species TEXT NOT NULL, " +
