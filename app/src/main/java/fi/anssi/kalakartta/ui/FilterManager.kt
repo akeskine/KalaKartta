@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.room.Room
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.PlaceOfInterest
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -25,6 +26,8 @@ class FilterManager(private val context: Context) {
         val pressureMin: Float? = null,
         val pressureMax: Float? = null,
         val speciesId: String? = null,
+        val placeTypeId: String? = null,
+        val freeText: String? = null,
         val onlyCaughtFish: Boolean = false
     )
 
@@ -42,6 +45,8 @@ class FilterManager(private val context: Context) {
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
         val speciesId = prefs.getString("speciesId", null)
+        val placeTypeId = prefs.getString("placeTypeId", null)
+        val freeText = prefs.getString("freeText", null)
         val onlyCaughtFish = prefs.getBoolean("onlyCaughtFish", false)
 
         return Filters(
@@ -51,7 +56,7 @@ class FilterManager(private val context: Context) {
             startTimeMinutes, endTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
-            speciesId, onlyCaughtFish
+            speciesId, placeTypeId, freeText, onlyCaughtFish
         )
     }
 
@@ -70,6 +75,8 @@ class FilterManager(private val context: Context) {
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
+            if (filters.placeTypeId != null) putString("placeTypeId", filters.placeTypeId) else remove("placeTypeId")
+            if (filters.freeText != null) putString("freeText", filters.freeText) else remove("freeText")
             putBoolean("onlyCaughtFish", filters.onlyCaughtFish)
             apply()
         }
@@ -83,7 +90,7 @@ class FilterManager(private val context: Context) {
                 f.startTimeMinutes != null || f.endTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
-                f.speciesId != null || f.onlyCaughtFish
+                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.onlyCaughtFish
     }
 
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
@@ -157,8 +164,36 @@ class FilterManager(private val context: Context) {
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
 
+            // Free Text
+            if (f.freeText != null) {
+                val searchText = f.freeText.lowercase()
+                val match = fish.additionalInfo.lowercase().contains(searchText) || 
+                          fish.originalRef.lowercase().contains(searchText)
+                if (!match) return@filter false
+            }
+
             // Only Caught Fish
             if (f.onlyCaughtFish && fish.eventType != FishCatch.CAUGHT_FISH) return@filter false
+
+            true
+        }
+    }
+
+    fun applyPlaceFilter(places: List<PlaceOfInterest>): List<PlaceOfInterest> {
+        if (!hasActiveFilters()) return places
+        val f = getFilters()
+
+        return places.filter { place ->
+            // Place Type
+            if (f.placeTypeId != null && place.typeId != f.placeTypeId) return@filter false
+
+            // Free Text
+            if (f.freeText != null) {
+                val searchText = f.freeText.lowercase()
+                val match = place.additionalInfo.lowercase().contains(searchText) || 
+                          place.originalRef.lowercase().contains(searchText)
+                if (!match) return@filter false
+            }
 
             true
         }
@@ -174,6 +209,18 @@ class FilterManager(private val context: Context) {
             if (species != null) {
                 parts.add(species.name)
             }
+        }
+
+        if (f.placeTypeId != null) {
+            val db = AppDatabase.getInstance(context)
+            val placeType = db.placeOfInterestTypeDao().getById(f.placeTypeId)
+            if (placeType != null) {
+                parts.add(placeType.name)
+            }
+        }
+
+        if (f.freeText != null) {
+            parts.add("\"${f.freeText}\"")
         }
 
         if (f.startDate != null || f.endDate != null) {

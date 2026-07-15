@@ -131,7 +131,7 @@
                     android:text="@string/end_time" />
             </LinearLayout>
 
-            <!-- Kalalaji -->
+            <!-- Laji -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -141,6 +141,23 @@
 
             <Spinner
                 android:id="@+id/speciesSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:background="@android:drawable/btn_dropdown"
+                android:backgroundTint="@color/white" />
+
+            <!-- Muu paikka -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/place_type"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"/>
+
+            <Spinner
+                android:id="@+id/placeTypeSpinner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -245,12 +262,25 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="@string/free_text">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/freeTextEdit"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:imeOptions="actionDone" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <CheckBox
                 android:id="@+id/onlyCaughtFishCheckBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Näytä vain saadut kalat"
-                android:layout_marginTop="16dp" />
+                android:layout_marginTop="8dp" />
 
             <Button
                 android:id="@+id/okButton"

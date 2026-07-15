@@ -241,20 +241,23 @@ class CatchManager(
     }
 
     private fun showOtherTypesDialog() {
-        var typeList = db.placeOfInterestTypeDao().getAll()
+        var typeList = db.placeOfInterestTypeDao().getAll().sortedBy { it.sortOrder }
         if (typeList.isEmpty()) {
             val fallbacks = listOf(
-                PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus"),
-                PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka"),
-                PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access"),
-                PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi"),
-                PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi"),
-                PlaceOfInterestType("HARBOUR", "Satama", icon = "satama"),
-                PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu"),
-                PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka"),
-                PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka"),
-                PlaceOfInterestType("ROCK", "Kivi", icon = "kivi"),
-                PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi")
+                PlaceOfInterestType("ROCK", "Kivi", icon = "kivi", sortOrder = 1),
+                PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi", sortOrder = 2),
+                PlaceOfInterestType("SHALLOW", "Matalikko", icon = "matalikko", sortOrder = 3),
+                PlaceOfInterestType("DEEP", "Syvänne", icon = "syvanne", sortOrder = 4),
+                PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi", sortOrder = 5),
+                PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access", sortOrder = 6),
+                PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka", sortOrder = 7),
+                PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi", sortOrder = 8),
+                PlaceOfInterestType("HARBOUR", "Satama", icon = "satama", sortOrder = 9),
+                PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus", sortOrder = 10),
+                PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka", sortOrder = 11),
+                PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka", sortOrder = 12),
+                PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu", sortOrder = 13),
+                PlaceOfInterestType("OTHER", "Muu kiinnostava paikka", icon = "tahti", sortOrder = 14)
             )
             // Tallennetaan fallbackit kerralla kantaan
             Thread {

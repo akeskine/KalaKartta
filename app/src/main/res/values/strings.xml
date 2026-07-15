@@ -35,7 +35,9 @@
     <string name="edit_error">Tietojen muokkaus epäonnistui</string>
     <string name="unsaved_changes_warning">Sinulla on tallentamattomia muutoksia. Haluatko varmasti poistua?</string>
     <string name="discard">Hylkää muutokset</string>
-    <string name="empty_selection">Tuntematon</string>
+    <string name="empty_selection"></string>
+    <string name="free_text">Vapaa teksti</string>
+    <string name="place_type">Muu paikka</string>
     <string name="set_time">Aseta aika</string>
     <string name="data_filtering">Tiedon suodatus</string>
     <string name="clear_filters">Poista suodattimet</string>

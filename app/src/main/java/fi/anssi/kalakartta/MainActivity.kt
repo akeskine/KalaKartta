@@ -246,16 +246,18 @@ class MainActivity : AppCompatActivity() {
                 val placeDefaults = listOf(
                     PlaceOfInterestType("ROCK", "Kivi", icon = "kivi", sortOrder = 1),
                     PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi", sortOrder = 2),
-                    PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi", sortOrder = 3),
-                    PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access", sortOrder = 4),
-                    PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka", sortOrder = 5),
-                    PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi", sortOrder = 6),
-                    PlaceOfInterestType("HARBOUR", "Satama", icon = "satama", sortOrder = 7),
-                    PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus", sortOrder = 8),
-                    PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka", sortOrder = 9),
-                    PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka", sortOrder = 10),
-                    PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu", sortOrder = 11),
-                    PlaceOfInterestType("OTHER", "Muu kiinnostava paikka", icon = "tahti", sortOrder = 12)
+                    PlaceOfInterestType("SHALLOW", "Matalikko", icon = "matalikko", sortOrder = 3),
+                    PlaceOfInterestType("DEEP", "Syvänne", icon = "syvanne", sortOrder = 4),
+                    PlaceOfInterestType("PARKING", "Pysäköinti", icon = "pysakointi", sortOrder = 5),
+                    PlaceOfInterestType("ACCESS", "Pääsy rantaan", icon = "access", sortOrder = 6),
+                    PlaceOfInterestType("LANDINGSPOT", "Rantautumispaikka", icon = "rantautumispaikka", sortOrder = 7),
+                    PlaceOfInterestType("RAMP", "Veneramppi", icon = "ramppi", sortOrder = 8),
+                    PlaceOfInterestType("HARBOUR", "Satama", icon = "satama", sortOrder = 9),
+                    PlaceOfInterestType("ACCOMMODATION", "Majoitus", icon = "majoitus", sortOrder = 10),
+                    PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka", sortOrder = 11),
+                    PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka", sortOrder = 12),
+                    PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu", sortOrder = 13),
+                    PlaceOfInterestType("OTHER", "Muu kiinnostava paikka", icon = "tahti", sortOrder = 14)
                 )
 
                 placeDefaults.forEach { type ->
@@ -404,7 +406,8 @@ class MainActivity : AppCompatActivity() {
         markerManager.setAllCatches(filteredCatches)
         
         val places = db.placeOfInterestDao().getAll()
-        markerManager.setAllPlaces(places)
+        val filteredPlaces = filterManager.applyPlaceFilter(places)
+        markerManager.setAllPlaces(filteredPlaces)
     }
 
     private fun updateFilterStatusUI() {

@@ -16,6 +16,7 @@ import androidx.room.Room
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
+import fi.anssi.kalakartta.data.PlaceOfInterestType
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -25,6 +26,7 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
     private var currentFilters: FilterManager.Filters = FilterManager.Filters()
     private var speciesList: List<FishSpecies> = emptyList()
+    private var placeTypeList: List<PlaceOfInterestType> = emptyList()
 
     private lateinit var startDateButton: Button
     private lateinit var endDateButton: Button
@@ -33,6 +35,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var startTimeButton: Button
     private lateinit var endTimeButton: Button
     private lateinit var speciesSpinner: Spinner
+    private lateinit var placeTypeSpinner: Spinner
+    private lateinit var freeTextEdit: EditText
     private lateinit var windMinEdit: EditText
     private lateinit var windMaxEdit: EditText
     private lateinit var windDirectionPreview: WindDirectionView
@@ -79,6 +83,8 @@ class FilterActivity : AppCompatActivity() {
         startTimeButton = findViewById(R.id.startTimeButton)
         endTimeButton = findViewById(R.id.endTimeButton)
         speciesSpinner = findViewById(R.id.speciesSpinner)
+        placeTypeSpinner = findViewById(R.id.placeTypeSpinner)
+        freeTextEdit = findViewById(R.id.freeTextEdit)
 
         val allSpecies = db.fishSpeciesDao().getAll()
         val emptySpecies = FishSpecies("", getString(R.string.empty_selection), icon_default = "")
@@ -103,6 +109,29 @@ class FilterActivity : AppCompatActivity() {
         }
         speciesSpinner.adapter = adapter
 
+        val allPlaceTypes = db.placeOfInterestTypeDao().getAll().sortedBy { it.sortOrder }
+        val emptyPlaceType = PlaceOfInterestType("", getString(R.string.empty_selection), icon = "")
+        placeTypeList = listOf(emptyPlaceType) + allPlaceTypes
+
+        val placeAdapter = object : ArrayAdapter<PlaceOfInterestType>(this, R.layout.item_species_dialog, placeTypeList) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                val nameView = view.findViewById<TextView>(R.id.speciesName)
+                val item = getItem(position)
+                nameView.text = item?.name
+                val iconId = getDrawableId(item?.icon ?: "")
+                iconView.setImageResource(iconId)
+                iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                return view
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return getView(position, convertView, parent)
+            }
+        }
+        placeTypeSpinner.adapter = placeAdapter
+
         windMinEdit = findViewById(R.id.windMinEdit)
         windMaxEdit = findViewById(R.id.windMaxEdit)
         windDirectionPreview = findViewById(R.id.windDirectionPreview)
@@ -119,6 +148,13 @@ class FilterActivity : AppCompatActivity() {
         if (selectedIndex >= 0) {
             speciesSpinner.setSelection(selectedIndex)
         }
+
+        val placeIndex = placeTypeList.indexOfFirst { it.id == currentFilters.placeTypeId }
+        if (placeIndex >= 0) {
+            placeTypeSpinner.setSelection(placeIndex)
+        }
+
+        freeTextEdit.setText(currentFilters.freeText ?: "")
 
         windMinEdit.setText(currentFilters.windMin?.toString() ?: "")
         windMaxEdit.setText(currentFilters.windMax?.toString() ?: "")
@@ -180,6 +216,8 @@ class FilterActivity : AppCompatActivity() {
             currentFilters = FilterManager.Filters()
             updateButtons()
             speciesSpinner.setSelection(0)
+            placeTypeSpinner.setSelection(0)
+            freeTextEdit.setText("")
             windMinEdit.setText("")
             windMaxEdit.setText("")
             updateWindPreview()
@@ -190,6 +228,8 @@ class FilterActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.okButton).setOnClickListener {
             val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
+            val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
+            val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
             val windMin = windMinEdit.text.toString().toFloatOrNull()
             val windMax = windMaxEdit.text.toString().toFloatOrNull()
             val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
@@ -197,6 +237,8 @@ class FilterActivity : AppCompatActivity() {
             
             currentFilters = currentFilters.copy(
                 speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
+                placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
+                freeText = freeText,
                 windMin = windMin,
                 windMax = windMax,
                 pressureMin = pressureMin,

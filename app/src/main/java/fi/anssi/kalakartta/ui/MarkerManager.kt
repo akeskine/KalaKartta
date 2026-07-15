@@ -117,13 +117,32 @@ class MarkerManager(
         rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
     }
 
-    fun addOrUpdatePlaceIncremental(place: PlaceOfInterest, zoom: Double) {
+    fun addOrUpdatePlaceIncremental(place: PlaceOfInterest, zoom: Double, filterManager: FilterManager? = null) {
         synchronized(allPlaces) {
             val existingIndex = allPlaces.indexOfFirst { it.id == place.id }
             if (existingIndex >= 0) {
                 allPlaces[existingIndex] = place
             } else {
                 allPlaces.add(place)
+            }
+        }
+
+        // Tarkistetaan suodatus jos filterManager on annettu
+        if (filterManager != null) {
+            val filtered = filterManager.applyPlaceFilter(listOf(place))
+            if (filtered.isEmpty()) {
+                // Jos paikka ei läpäise suodatinta, poistetaan se kartalta (jos oli siellä)
+                val existingMarker = placesFolder.items.find { (it as? Marker)?.relatedObject is PlaceOfInterest && ((it as? Marker)?.relatedObject as PlaceOfInterest).id == place.id } as? Marker
+                if (existingMarker != null) {
+                    placesFolder.remove(existingMarker)
+                    map.invalidate()
+                }
+
+                // Poistetaan myös allPlaces-listasta jotta rebuildMarkers ei tuo sitä takaisin
+                synchronized(allPlaces) {
+                    allPlaces.removeAll { it.id == place.id }
+                }
+                return
             }
         }
         
