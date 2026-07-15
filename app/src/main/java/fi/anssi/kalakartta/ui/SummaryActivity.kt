@@ -3,7 +3,6 @@ package fi.anssi.kalakartta.ui
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
-import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -24,10 +23,10 @@ class SummaryActivity : AppCompatActivity() {
     private var startTimeSet = false
     private var endTimeSet = false
 
-    private lateinit var startDateButton: Button
-    private lateinit var startTimeButton: Button
-    private lateinit var endDateButton: Button
-    private lateinit var endTimeButton: Button
+    private lateinit var startDateButton: TextView
+    private lateinit var startTimeButton: TextView
+    private lateinit var endDateButton: TextView
+    private lateinit var endTimeButton: TextView
     private lateinit var summaryResultText: TextView
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
@@ -45,7 +44,7 @@ class SummaryActivity : AppCompatActivity() {
         endTimeButton = findViewById(R.id.endTimeButton)
         summaryResultText = findViewById(R.id.summaryResultText)
 
-        findViewById<Button>(R.id.todaySummaryButton).setOnClickListener {
+        findViewById<TextView>(R.id.todaySummaryButton).setOnClickListener {
             generateTodaySummary()
         }
 
@@ -65,11 +64,11 @@ class SummaryActivity : AppCompatActivity() {
             showTimePicker(false)
         }
 
-        findViewById<Button>(R.id.generateRangeSummaryButton).setOnClickListener {
+        findViewById<TextView>(R.id.generateRangeSummaryButton).setOnClickListener {
             generateRangeSummary()
         }
 
-        findViewById<Button>(R.id.backButton).setOnClickListener {
+        findViewById<TextView>(R.id.backButton).setOnClickListener {
             finish()
         }
     }

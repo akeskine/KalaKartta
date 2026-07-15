@@ -13,11 +13,18 @@
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
 
-    <Button
+    <TextView
         android:id="@+id/todaySummaryButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Tee tämän päivän yhteenveto"
+        android:textSize="18sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:layout_marginBottom="16dp" />
 
     <TextView
@@ -79,11 +86,18 @@
             android:background="@android:drawable/btn_default" />
     </LinearLayout>
 
-    <Button
+    <TextView
         android:id="@+id/generateRangeSummaryButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Tee yhteenveto ajalta"
+        android:textSize="18sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:layout_marginBottom="16dp" />
 
     <ScrollView
@@ -95,15 +109,21 @@
             android:id="@+id/summaryResultText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:textColor="@android:color/black" />
+            android:textSize="16sp" />
     </ScrollView>
 
-    <Button
+    <TextView
         android:id="@+id/backButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Takaisin"
+        android:textSize="18sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="48dp" />
 
