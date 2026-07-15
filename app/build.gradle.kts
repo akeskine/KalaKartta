@@ -5,6 +5,8 @@ import java.util.Locale
 plugins {
     id("com.android.application")
     id("com.google.devtools.ksp")
+    alias(libs.plugins.google.gms.google.services)
+    alias(libs.plugins.google.firebase.crashlytics)
 }
 
 android {
@@ -44,6 +46,9 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
     implementation(libs.osmdroidAndroid)
     implementation(libs.material)
 

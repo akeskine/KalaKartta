@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "934044355386",
+    "project_id": "fi-anssi-kalakartta",
+    "storage_bucket": "fi-anssi-kalakartta.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:934044355386:android:f9ef070312ed57c15e9e03",
+        "android_client_info": {
+          "package_name": "fi.anssi.kalakartta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcu4zV9q6HwO8lyL6-sfBmHx9QniYcw_o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
