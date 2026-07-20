@@ -47,14 +47,14 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Oletuskalastaja", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Yleiset", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
                             4 -> openMapSettings()
-                            5 -> openDefaultFishermanSettings()
+                            5 -> openGeneralSettings()
                             6 -> { /* Sulje valikko */ }
                         }
                     }
@@ -62,6 +62,77 @@ class SettingsManager(
                 dialog.enlargeButtons()
             }
         }
+    }
+
+    private fun openGeneralSettings() {
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        // Oletuskalastaja -linkki
+        val fishermanLink = TextView(activity).apply {
+            text = "Oletuskalastaja"
+            textSize = 20f
+            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            setOnClickListener {
+                openDefaultFishermanSettings()
+            }
+        }
+        layout.addView(fishermanLink)
+
+        // Mittakaava -linkki
+        val scaleLink = TextView(activity).apply {
+            text = activity.getString(R.string.scale_bar)
+            textSize = 20f
+            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            setOnClickListener {
+                openScaleSettings()
+            }
+        }
+        layout.addView(scaleLink)
+
+        AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.general_settings))
+            .setView(layout)
+            .setPositiveButton("Sulje", null)
+            .show()
+            .enlargeButtons()
+    }
+
+    private fun openScaleSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+        
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val showScaleCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.show_scale_bar)
+            isChecked = prefs.getBoolean("show_scale_bar", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("show_scale_bar", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(showScaleCheckbox)
+
+        AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.scale_bar))
+            .setView(layout)
+            .setPositiveButton("Sulje", null)
+            .show()
+            .enlargeButtons()
     }
 
     private fun openMapSettings() {

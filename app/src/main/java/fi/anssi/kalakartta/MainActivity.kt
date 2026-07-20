@@ -18,6 +18,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import org.osmdroid.views.overlay.ScaleBarOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -33,6 +34,7 @@ import fi.anssi.kalakartta.ui.FilterManager
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.MMLTileSource
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import fi.anssi.kalakartta.utils.enlargeButtons
@@ -50,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private var lastFoundStation: fi.anssi.kalakartta.utils.WeatherStation? = null
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
+    private var scaleBarOverlay: ScaleBarOverlay? = null
 
     private val locationProviderReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -395,6 +398,60 @@ class MainActivity : AppCompatActivity() {
                 updateUIColors(false)
             }
         }
+        updateScaleBar()
+    }
+
+    private fun updateScaleBar() {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val showScale = prefs.getBoolean("show_scale_bar", false)
+        
+        // Poistetaan vanha jos on
+        scaleBarOverlay?.let { map.overlays.remove(it) }
+        
+        if (showScale) {
+            val scaleBar = ScaleBarOverlay(map).apply {
+                setAlignBottom(true)
+                // Asetetaan mittakaava heti myLocationButtonin alapuolelle
+                // myLocationButtonin marginaali on button_margin_bottom
+                // myLocationButtonin korkeus on 80dp
+                // Haluamme välin olevan 3 pikseliä
+                val density = resources.displayMetrics.density
+                val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
+                
+                // Halutaan mittakaava heti napin alapuolelle.
+                // Nappi alkaa buttonMargin korkeudelta pohjasta.
+                // Mittakaavan teksti/palkki on n. 20dp korkea.
+                // Jätetään 3 pikselin rako napin ja mittakaavan väliin.
+                // yOffset mitataan pohjasta ylöspäin (koska setAlignBottom(true)).
+                val yOffset = buttonMargin - (22 * density).toInt() 
+                
+                // xOffset asetetaan 60:een, jotta vaakasuunnassa näytön pyöristykset eivät peitä mittakaavaa
+                setScaleBarOffset(60, yOffset)
+                setTextSize(density * 12)
+            }
+            map.overlays.add(scaleBar)
+            scaleBarOverlay = scaleBar
+        } else {
+            scaleBarOverlay = null
+        }
+        
+        // Nappien paikka ei enää muutu mittakaavan mukaan
+        val myLocationButton = findViewById<MaterialButton>(R.id.myLocationButton)
+        val addCatchButton = findViewById<MaterialButton>(R.id.addCatchButton)
+        
+        val baseMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
+        
+        val myLocParams = myLocationButton.layoutParams as FrameLayout.LayoutParams
+        myLocParams.bottomMargin = baseMargin
+        myLocationButton.layoutParams = myLocParams
+
+        val addCatchParams = addCatchButton.layoutParams as FrameLayout.LayoutParams
+        addCatchParams.bottomMargin = baseMargin
+        addCatchButton.layoutParams = addCatchParams
+        
+        myLocationButton.requestLayout()
+        addCatchButton.requestLayout()
+        map.invalidate()
     }
 
     private fun updateUIColors(useBlack: Boolean) {

@@ -64,4 +64,7 @@
     <string name="max_pressure">Max (hPa)</string>
     <string name="add_other">Muu paikka</string>
     <string name="place_name">Paikan nimi</string>
+    <string name="general_settings">Yleiset</string>
+    <string name="scale_bar">Mittakaava</string>
+    <string name="show_scale_bar">Näytä mittakaava kartalla</string>
 </resources>
