@@ -335,6 +335,8 @@ class MainActivity : AppCompatActivity() {
                 markerManager.removeMarker(marker)
                 
                 lifecycleScope.launch {
+                    val deletedId = fish?.id ?: place?.id
+                    android.util.Log.d("MainActivity", "Deleting from DB: ID=$deletedId")
                     withContext(Dispatchers.IO) {
                         if (fish != null) {
                             db.fishCatchDao().deleteById(fish.id)
@@ -343,6 +345,10 @@ class MainActivity : AppCompatActivity() {
                             db.placeOfInterestDao().deleteById(place.id)
                         }
                     }
+                    // Lisätään väliaikainen ilmoitus käyttäjän pyynnöstä
+                    android.util.Log.d("MainActivity", "Deleted from DB")
+                    android.widget.Toast.makeText(this@MainActivity, "Piste poistettu", android.widget.Toast.LENGTH_SHORT).show()
+                    
                     // Kun poisto on valmistunut tietokannassa, ladataan listat uudelleen.
                     // MarkerManager pitää huolen että poistettu ID ei näy väliaikanakaan.
                     reloadMarkersFromDb()

@@ -135,6 +135,10 @@ class MarkerManager(
 
     fun addOrUpdatePlaceIncremental(place: PlaceOfInterest, zoom: Double, filterManager: FilterManager? = null) {
         synchronized(allPlaces) {
+            if (deletedPlaceIds.contains(place.id)) {
+                android.util.Log.d("MarkerManager", "addOrUpdatePlaceIncremental: ignoring deleted place ${place.id}")
+                return
+            }
             val existingIndex = allPlaces.indexOfFirst { it.id == place.id }
             if (existingIndex >= 0) {
                 allPlaces[existingIndex] = place
@@ -178,6 +182,12 @@ class MarkerManager(
      * Käytetään kun lisätään yksi uusi kala.
      */
     fun addOrUpdateMarkerIncremental(fish: FishCatch, zoom: Double, filterManager: FilterManager? = null) {
+        synchronized(allCatches) {
+            if (deletedFishIds.contains(fish.id)) {
+                android.util.Log.d("MarkerManager", "addOrUpdateMarkerIncremental: ignoring deleted fish ${fish.id}")
+                return
+            }
+        }
         // Päivitetään sisäinen lista
         addMarker(fish)
 
@@ -359,14 +369,14 @@ class MarkerManager(
                 allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList() 
             }
             
-            android.util.Log.d("MarkerManager", "rebuildMarkers: visible catches = ${catchesCopy.size}, deletedFishIds = ${deletedFishIds.size}")
-            
-            // Tyhjennetään poistolistat VASTA kun ollaan saatu kopiot uusista listoista
+            // Tyhjennetään poistolistat vasta kun ollaan saatu kopiot uusista listoista
             // Tämä varmistaa että poisto pysyy voimassa jos reloadMarkersFromDb 
             // tapahtui juuri ennen tätä.
             // HUOM: Älä tyhjennä jos rebuild peruttiin välissä (mutta delay hoitaa sen)
             synchronized(allCatches) { deletedFishIds.clear() }
             synchronized(allPlaces) { deletedPlaceIds.clear() }
+
+            android.util.Log.d("MarkerManager", "rebuildMarkers: visible catches = ${catchesCopy.size}")
             
             if (catchesCopy.isEmpty() && placesCopy.isEmpty()) {
                 withContext(Dispatchers.Main) {
@@ -776,7 +786,7 @@ class MarkerManager(
                     }
                     1 -> {
                         dialog.dismiss()
-                        confirmDeletePlace(marker)
+                        confirmDeletePlace(marker, place)
                         true
                     }
                     else -> false
@@ -796,21 +806,18 @@ class MarkerManager(
         (context as androidx.appcompat.app.AppCompatActivity).startActivityForResult(intent, 1002)
     }
 
-    private fun confirmDeletePlace(marker: Marker) {
-        val place = marker.relatedObject as? PlaceOfInterest ?: return
+    private fun confirmDeletePlace(marker: Marker, place: PlaceOfInterest) {
         val dialog = AlertDialog.Builder(context)
-            .setTitle(R.string.delete)
+            .setTitle(context.getString(R.string.delete))
             .setMessage("Haluatko varmasti poistaa paikan ${place.name}?")
             .setPositiveButton(R.string.delete) { _, _ ->
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        db.placeOfInterestDao().deleteById(place.id)
-                    }
-                    removeMarker(marker)
-                    // Jos ollaan klusterointialueella, päivitetään klusterit
-                    if (map.zoomLevelDouble < 13.0) {
-                        rebuildMarkers(map.zoomLevelDouble)
-                    }
+                val currentRelated = marker.relatedObject
+                if (currentRelated == place) {
+                    onDeleteConfirmed(marker)
+                } else {
+                    val dummyMarker = Marker(map)
+                    dummyMarker.relatedObject = place
+                    onDeleteConfirmed(dummyMarker)
                 }
             }
             .setNegativeButton(R.string.cancel, null)
@@ -991,8 +998,14 @@ class MarkerManager(
         // vanhan allCatches/allPlaces-listan perusteella.
         rebuildJob?.cancel()
 
-        val fish = marker.relatedObject as? FishCatch
-        val place = marker.relatedObject as? PlaceOfInterest
+        val related = marker.relatedObject
+        val fish = related as? FishCatch
+        val place = related as? PlaceOfInterest
+
+        if (fish == null && place == null) {
+            android.util.Log.w("MarkerManager", "removeMarker: marker has no related object, nothing to remove")
+            return
+        }
 
         android.util.Log.d("MarkerManager", "removeMarker: fish=${fish?.id}, place=${place?.id}")
 
@@ -1012,6 +1025,11 @@ class MarkerManager(
             activePlaceMarkers.remove(place.id)
         }
 
+        // Tyhjennetään markerin tila VÄLITTÖMÄSTI ennen kuin se laitetaan pooliin
+        marker.relatedObject = null
+        marker.title = null
+        marker.snippet = null
+
         // Poistetaan marker kaikista mahdollisista kansioista
         defaultPointsFolder.remove(marker)
         catchesFolder.remove(marker)
@@ -1023,11 +1041,6 @@ class MarkerManager(
             marker.closeInfoWindow()
         }
         
-        // Tyhjennetään markerin tila ennen pooliin laittoa
-        marker.relatedObject = null
-        marker.title = null
-        marker.snippet = null
-        
         if (markerPool.size < 5000) {
             markerPool.add(marker)
         }
@@ -1035,7 +1048,8 @@ class MarkerManager(
         map.invalidate()
 
         // Käynnistetään rebuildMarkers jotta näkymä päivittyy (esim. klusterit)
-        rebuildMarkers(lastZoom)
+        val zoomToUse = if (lastZoom < 1.0) map.zoomLevelDouble else lastZoom
+        rebuildMarkers(zoomToUse)
     }
 
     private fun showCatchDetailsDialog(marker: Marker) {
@@ -1183,8 +1197,9 @@ class MarkerManager(
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     0 -> {
+                        val currentFish = fish ?: marker.relatedObject as? FishCatch
                         val intent = Intent(context, EditCatchActivity::class.java)
-                        intent.putExtra("EXTRA_CATCH_ID", fish?.id)
+                        intent.putExtra("EXTRA_CATCH_ID", currentFish?.id)
                         if (context is android.app.Activity) {
                             context.startActivityForResult(intent, 1001)
                         } else {
@@ -1196,7 +1211,7 @@ class MarkerManager(
                     }
                     1 -> {
                         dialog.dismiss()
-                        confirmDeleteMarker(marker)
+                        confirmDeleteMarker(marker, fish)
                         true
                     }
                     else -> false
@@ -1215,12 +1230,29 @@ class MarkerManager(
         dialog.enlargeButtons()
     }
 
-    private fun confirmDeleteMarker(marker: Marker) {
+    private fun confirmDeleteMarker(marker: Marker, fishFromDialog: FishCatch?) {
+        val related = marker.relatedObject
+        val fish = fishFromDialog ?: related as? FishCatch
+        val place = if (fish == null) related as? PlaceOfInterest else null
+        
+        if (fish == null && place == null) {
+            android.util.Log.w("MarkerManager", "confirmDeleteMarker: marker has no related object, nothing to delete")
+            return
+        }
+
         val dialog = AlertDialog.Builder(context)
             .setTitle("Poista merkki?")
-            .setMessage("Haluatko varmasti poistaa tämän kalamerkin?")
+            .setMessage("Haluatko varmasti poistaa tämän merkin?")
             .setPositiveButton("Poista") { _, _ ->
-                onDeleteConfirmed(marker)
+                // Varmistetaan että markerilla on yhä oikea tieto
+                if (marker.relatedObject == (fish ?: place)) {
+                    onDeleteConfirmed(marker)
+                } else {
+                    // Jos marker on jo kierrätetty, luodaan väliaikainen dummy-marker jotta onDeleteConfirmed toimii.
+                    val dummyMarker = Marker(map)
+                    dummyMarker.relatedObject = fish ?: place
+                    onDeleteConfirmed(dummyMarker)
+                }
             }
             .setNegativeButton("Peruuta", null)
             .show()

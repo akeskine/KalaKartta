@@ -342,6 +342,7 @@ class CatchManager(
             val id = db.placeOfInterestDao().insert(place)
             val placeWithId = place.copy(id = id)
             activity.runOnUiThread {
+                android.util.Log.d("CatchManager", "Place added: ID=${placeWithId.id}")
                 onPlaceAdded(placeWithId)
             }
         }.start()
@@ -384,6 +385,7 @@ class CatchManager(
             val fishWithId = fish.copy(id = id)
 
             activity.runOnUiThread {
+                android.util.Log.d("CatchManager", "Initial catch added: ID=${fishWithId.id}")
                 onCatchAdded(fishWithId)
             }
 
@@ -406,10 +408,19 @@ class CatchManager(
                             weatherTime = obsTime ?: caughtAt,
                             weatherStation = stations
                         )
-                        db.fishCatchDao().update(updatedFish)
-                        activity.runOnUiThread {
-                            onCatchAdded(updatedFish)
-                        }
+                        // Varmistetaan ennen päivitystä, ettei kohdetta ole juuri poistettu
+                        val isStillValid = Thread {
+                            val current = db.fishCatchDao().getById(updatedFish.id)
+                            if (current != null) {
+                                db.fishCatchDao().update(updatedFish)
+                                activity.runOnUiThread {
+                                    android.util.Log.d("CatchManager", "Updating catch with weather: ID=${updatedFish.id}")
+                                    onCatchAdded(updatedFish)
+                                }
+                            } else {
+                                android.util.Log.d("CatchManager", "Catch ID=${updatedFish.id} was deleted during weather fetch, skipping update.")
+                            }
+                        }.start()
                     }
                 }
             }
