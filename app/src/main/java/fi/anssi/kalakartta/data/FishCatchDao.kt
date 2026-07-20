@@ -30,4 +30,7 @@ interface FishCatchDao {
 
     @Query("SELECT COUNT(*) FROM FishCatch")
     fun getCount(): Int
+
+    @Query("SELECT DISTINCT fisherman FROM FishCatch WHERE fisherman IS NOT NULL AND fisherman != '' ORDER BY fisherman ASC")
+    fun getUniqueFishermen(): List<String>
 }
