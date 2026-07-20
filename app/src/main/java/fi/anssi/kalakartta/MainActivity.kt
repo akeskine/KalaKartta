@@ -102,6 +102,7 @@ class MainActivity : AppCompatActivity() {
             map = findViewById(R.id.map)
             updateMapTileSource()
             map.setMultiTouchControls(true)
+            map.setBuiltInZoomControls(false)
             map.controller.setZoom(15.0)
 
             // Asetetaan alkusijainti Helsingin keskustaan, jos omaa sijaintia ei vielä ole
