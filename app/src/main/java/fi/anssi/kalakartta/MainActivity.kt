@@ -233,7 +233,9 @@ class MainActivity : AppCompatActivity() {
                     FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
                     FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
                     FishSpecies("WHITEFISH", "Siika", icon_default = "siika"),
-                    FishSpecies("RAINBOW", "Kirjolohi", icon_default = "kirjolohi")
+                    FishSpecies("RAINBOW", "Kirjolohi", icon_default = "kirjolohi"),
+                    FishSpecies("BREAM", "Lahna", icon_default = "lahna"),
+                    FishSpecies("IDE", "Säyne", icon_default = "sayne")
                 )
 
                 defaults.forEach { species ->
