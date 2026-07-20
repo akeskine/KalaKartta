@@ -442,30 +442,56 @@ class MainActivity : AppCompatActivity() {
     private fun updateScaleBar() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val showScale = prefs.getBoolean("show_scale_bar", false)
+        val mapSource = prefs.getString("map_source", "OSM")
+        val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
         
         // Poistetaan vanha jos on
         scaleBarOverlay?.let { map.overlays.remove(it) }
         
         if (showScale) {
-            val scaleBar = ScaleBarOverlay(map).apply {
+            val density = resources.displayMetrics.density
+            val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
+            val targetWidth = (48 * density).toInt()
+
+            val color = if (useBlack) {
+                ContextCompat.getColor(this, android.R.color.black)
+            } else {
+                ContextCompat.getColor(this, android.R.color.white)
+            }
+
+            // Käytetään omaa ScaleBarOverlay-aliluokkaa, jolla pakotetaan pituus ja väri
+            val scaleBar = object : ScaleBarOverlay(map) {
+                override fun draw(canvas: android.graphics.Canvas, mapView: MapView, shadow: Boolean) {
+                    if (shadow) return
+
+                    // Pakotetaan pituus heijastuksella juuri ennen piirtoa, 
+                    // jos osmdroid yrittää laskea sen uudelleen
+                    try {
+                        val fields = listOf("mLineWidth", "lineWidth", "mMinWidth", "minWidth", "mMaxWidth", "maxWidth")
+                        for (name in fields) {
+                            try {
+                                val field = ScaleBarOverlay::class.java.getDeclaredField(name)
+                                field.isAccessible = true
+                                field.set(this, targetWidth)
+                            } catch (e: NoSuchFieldException) {}
+                        }
+                    } catch (e: Exception) {}
+
+                    super.draw(canvas, mapView, shadow)
+                }
+            }.apply {
                 setAlignBottom(true)
-                // Asetetaan mittakaava heti myLocationButtonin alapuolelle
-                // myLocationButtonin marginaali on button_margin_bottom
-                // myLocationButtonin korkeus on 80dp
-                // Haluamme välin olevan 3 pikseliä
-                val density = resources.displayMetrics.density
-                val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
                 
-                // Halutaan mittakaava heti napin alapuolelle.
-                // Nappi alkaa buttonMargin korkeudelta pohjasta.
-                // Mittakaavan teksti/palkki on n. 20dp korkea.
-                // Jätetään 3 pikselin rako napin ja mittakaavan väliin.
                 // yOffset mitataan pohjasta ylöspäin (koska setAlignBottom(true)).
                 val yOffset = buttonMargin - (22 * density).toInt() 
+                val xOffset = 60
+                setScaleBarOffset(xOffset, yOffset)
                 
-                // xOffset asetetaan 60:een, jotta vaakasuunnassa näytön pyöristykset eivät peitä mittakaavaa
-                setScaleBarOffset(60, yOffset)
                 setTextSize(density * 12)
+                
+                // Asetetaan värit
+                barPaint.color = color
+                textPaint.color = color
             }
             map.overlays.add(scaleBar)
             scaleBarOverlay = scaleBar
