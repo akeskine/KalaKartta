@@ -136,8 +136,34 @@ class SummaryActivity : AppCompatActivity() {
     }
 
     private fun generateRangeSummary() {
-        val start = startDateTime?.timeInMillis ?: 0L
-        val end = endDateTime?.timeInMillis ?: Long.MAX_VALUE
+        val start: Long
+        val end: Long
+
+        if (startDateTime != null) {
+            val cal = startDateTime!!.clone() as Calendar
+            if (!startTimeSet) {
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+            }
+            start = cal.timeInMillis
+        } else {
+            start = 0L
+        }
+
+        if (endDateTime != null) {
+            val cal = endDateTime!!.clone() as Calendar
+            if (!endTimeSet) {
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+                cal.set(Calendar.MILLISECOND, 999)
+            }
+            end = cal.timeInMillis
+        } else {
+            end = Long.MAX_VALUE
+        }
 
         val sb = StringBuilder("Kalansaaliit aikavälillä ")
         if (startDateTime != null) {
@@ -155,6 +181,7 @@ class SummaryActivity : AppCompatActivity() {
         } else {
             sb.append("kaikki")
         }
+        sb.append(":")
 
         fetchAndDisplaySummary(start, end, sb.toString())
     }
@@ -192,30 +219,33 @@ class SummaryActivity : AppCompatActivity() {
         // Järjestä lajit: eniten kaloja ensin
         val sortedSpecies = grouped.entries.sortedByDescending { it.value.size }
 
-        for (entry in sortedSpecies) {
+        for ((index, entry) in sortedSpecies.withIndex()) {
             val speciesId = entry.key
             val speciesCatches = entry.value
             val speciesName = speciesMap[speciesId]?.name ?: speciesId
             
             sb.append(speciesName).append(" ").append(speciesCatches.size).append(" kpl")
             
-            // Suodata kalat joilla on paino tai pituus
-            val withData = speciesCatches.filter { it.weight != null || it.length != null }
+            // Suodata kalat joilla on paino tai pituus (> 0)
+            val withData = speciesCatches.filter { (it.weight != null && it.weight!! > 0) || (it.length != null && it.length!! > 0) }
             
             if (withData.isNotEmpty()) {
                 // Järjestä: paino desc, sitten pituus desc
-                val sortedCatches = withData.sortedWith(compareByDescending<FishCatch> { it.weight }.thenByDescending { it.length })
+                val sortedCatches = withData.sortedWith(compareByDescending<FishCatch> { it.weight ?: 0L }.thenByDescending { it.length ?: 0L })
                 
                 sb.append(" (")
                 sb.append(sortedCatches.joinToString(", ") { c ->
-                    val weightStr = c.weight?.let { "${it}g" }
-                    val lengthStr = c.length?.let { "${it}cm" }
+                    val weightStr = if (c.weight != null && c.weight!! > 0) "${c.weight}g" else null
+                    val lengthStr = if (c.length != null && c.length!! > 0) "${c.length}cm" else null
                     if (weightStr != null && lengthStr != null) "$weightStr/$lengthStr"
                     else weightStr ?: lengthStr ?: ""
                 })
                 sb.append(")")
             }
             sb.append("\n")
+            if (index < sortedSpecies.size - 1) {
+                sb.append("\n")
+            }
         }
 
         return sb.toString()
