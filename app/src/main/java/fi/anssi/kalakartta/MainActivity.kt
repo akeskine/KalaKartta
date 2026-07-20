@@ -37,7 +37,11 @@ import fi.anssi.kalakartta.utils.MMLTileSource
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.utils.enlargeButtons
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -321,13 +325,24 @@ class MainActivity : AppCompatActivity() {
 
             markerManager = MarkerManager(this, map, db) { marker ->
                 val fish = marker.relatedObject as? FishCatch
-                if (fish != null) {
-                    db.fishCatchDao().deleteById(fish.id)
-                }
+                val place = marker.relatedObject as? PlaceOfInterest
+                
+                // Poistetaan välittömästi MarkerManagerin listoista ja kartalta,
+                // jotta onScroll/rebuildMarkers ei tuo sitä takaisin tietokantapoiston aikana.
                 markerManager.removeMarker(marker)
-                // Päivitetään klusterit jos tarpeen
-                if (map.zoomLevelDouble < 13.0) {
-                    markerManager.rebuildMarkers(map.zoomLevelDouble)
+                
+                lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        if (fish != null) {
+                            db.fishCatchDao().deleteById(fish.id)
+                        }
+                        if (place != null) {
+                            db.placeOfInterestDao().deleteById(place.id)
+                        }
+                    }
+                    // Kun poisto on valmistunut tietokannassa, ladataan listat uudelleen.
+                    // MarkerManager pitää huolen että poistettu ID ei näy väliaikanakaan.
+                    reloadMarkersFromDb()
                 }
             }
 
@@ -508,7 +523,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun reloadMarkersFromDb() {
         loadCatches()
-        markerManager.rebuildMarkers(map.zoomLevelDouble)
     }
 
     private fun checkWeather(force: Boolean = false) {

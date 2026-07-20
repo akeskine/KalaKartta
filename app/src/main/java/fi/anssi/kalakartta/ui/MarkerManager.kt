@@ -69,6 +69,11 @@ class MarkerManager(
     
     private val allCatches = mutableListOf<FishCatch>()
     private val allPlaces = mutableListOf<PlaceOfInterest>()
+    
+    // Poistetut ID:t, joita ei näytetä vaikka ne olisivat allCatches/allPlaces-listoilla
+    private val deletedFishIds = mutableSetOf<Long>()
+    private val deletedPlaceIds = mutableSetOf<Long>()
+    
     private var lastZoom = -1.0
     private var lastBBox: BoundingBox? = null
     
@@ -110,6 +115,10 @@ class MarkerManager(
         synchronized(allCatches) {
             allCatches.clear()
             allCatches.addAll(catches)
+            // Älä tyhjennä deletedFishIds tässä, jotta asynkroninen rebuildMarkers 
+            // tietää yhä mitkä on poistettu, jos reload tuli poiston jälkeen.
+            // deletedFishIds tyhjennetään rebuildMarkersin alussa kun tiedetään
+            // että uusi lista on saatu.
             android.util.Log.d("MarkerManager", "setAllCatches: list size = ${allCatches.size}")
         }
         rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
@@ -119,6 +128,7 @@ class MarkerManager(
         synchronized(allPlaces) {
             allPlaces.clear()
             allPlaces.addAll(places)
+            // Älä tyhjennä deletedPlaceIds tässä.
         }
         rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
     }
@@ -340,11 +350,21 @@ class MarkerManager(
             // Pieni viive jotta ei turhaan lasketa jos zoom/scroll on kesken
             // Mutta jos lista on pieni, voidaan päivittää nopeammin
             val catchesCount = synchronized(allCatches) { allCatches.size }
-            delay(if (catchesCount < 100) 20 else 60)
+            delay(if (catchesCount < 100) 10 else 40)
             
-            val catchesCopy = synchronized(allCatches) { allCatches.toList() }
-            val placesCopy = synchronized(allPlaces) { allPlaces.toList() }
-            android.util.Log.d("MarkerManager", "rebuildMarkers: allCatches size = ${catchesCopy.size}")
+            val catchesCopy = synchronized(allCatches) { 
+                allCatches.filter { !deletedFishIds.contains(it.id) }.toList() 
+            }
+            val placesCopy = synchronized(allPlaces) { 
+                allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList() 
+            }
+            
+            // Tyhjennetään poistolistat VASTA kun ollaan saatu kopiot uusista listoista
+            // Tämä varmistaa että poisto pysyy voimassa jos reloadMarkersFromDb 
+            // tapahtui juuri ennen tätä.
+            synchronized(allCatches) { deletedFishIds.clear() }
+            synchronized(allPlaces) { deletedPlaceIds.clear() }
+            android.util.Log.d("MarkerManager", "rebuildMarkers: visible catches = ${catchesCopy.size}")
             
             if (catchesCopy.isEmpty() && placesCopy.isEmpty()) {
                 withContext(Dispatchers.Main) {
@@ -382,9 +402,25 @@ class MarkerManager(
             }
 
             val totalCount = catchesCopy.size + placesCopy.size
-            val clusterLimit = if (totalCount < 15000) 13.0 else 15.0
+            val clusterLimit = if (totalCount < 5000) 13.0 else 15.0
 
             if (zoom < clusterLimit) {
+                // Kierrätetään vanhat markerit ennen uutta laskentaa
+                withContext(Dispatchers.Main) {
+                    val allActive = (defaultPointsFolder.items + catchesFolder.items + placesFolder.items + markersFolder.items)
+                        .filterIsInstance<Marker>()
+                    if (markerPool.size < 5000) {
+                        markerPool.addAll(allActive)
+                    }
+                    activeIndividualMarkers.clear()
+                    activePlaceMarkers.clear()
+                    
+                    defaultPointsFolder.items.clear()
+                    catchesFolder.items.clear()
+                    placesFolder.items.clear()
+                    markersFolder.items.clear()
+                }
+
                 // Klusterointi voidaan laskea taustalla
                 val clusters =withContext(Dispatchers.Default) {
                     calculateClusters(catchesCopy, zoom)
@@ -404,7 +440,7 @@ class MarkerManager(
 
                         // Oletuspisteiden harvennus klusteroidussa näkymässä jos pisteitä on paljon
                         val bbox = map.boundingBox
-                        val useThinning = totalCount > 15000 && bbox != null && bbox.latNorth != 0.0
+                        val useThinning = totalCount > 5000 && bbox != null && bbox.latNorth != 0.0
                         val thinnedDefaultGrid = mutableSetOf<Pair<Int, Int>>()
                         
                         // Ruudukon koko riippuu zoomista: pienellä zoomilla (kaukana) harvempi ruudukko
@@ -484,25 +520,25 @@ class MarkerManager(
                     markersFolder.items.clear()
                 }
 
-                // Jos pisteitä on vähän, ei tarvita clippingiä ollenkaan.
-                // Tämä estää pisteiden katoamisen ja välkkymisen heikolla sijainnilla.
-                val (visibleCatches, visiblePlaces) = if (catchesCopy.size + placesCopy.size < 15000) {
-                    Pair(catchesCopy, placesCopy)
-                } else {
-                    // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
-                    // jos pisteitä on todella paljon (> 15000) suorituskyvyn takia.
-                    var bbox = map.boundingBox
-                    
-                    // Jos bbox ei ole vielä valmis, käytetään fallbackina kaikkien näyttämistä.
-                    // Älä käytä lastBBoxia tässä, koska se voi olla kaukana nykyisestä sijainnista
-                    // ja aiheuttaa kaikkien pisteiden katoamisen (clipping väärälle alueelle).
-                    if (bbox != null && bbox.latNorth != 0.0 && bbox.latSouth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.longitudeSpan > 0.0)) {
-                        lastBBox = bbox
-                        withContext(Dispatchers.Default) {
-                            val totalCount = catchesCopy.size + placesCopy.size
-                            // Marginaali 200% molempiin suuntiin pienellä määrällä.
-                            // Suurella määrällä (> 15000) marginaalia pienennetään entisestään (20%) suorituskyvyn takia.
-                            val marginMultiplier = if (totalCount < 15000) 2.0 else 0.2
+            // Jos pisteitä on vähän, ei tarvita clippingiä ollenkaan.
+            // Tämä estää pisteiden katoamisen ja välkkymisen heikolla sijainnilla.
+            val (visibleCatches, visiblePlaces) = if (catchesCopy.size + placesCopy.size < 5000) {
+                Pair(catchesCopy, placesCopy)
+            } else {
+                // Yksittäiset pisteet - käytetään näkyvyysrajoitusta (clipping)
+                // jos pisteitä on todella paljon (> 5000) suorituskyvyn takia.
+                var bbox = map.boundingBox
+                
+                // Jos bbox ei ole vielä valmis, käytetään fallbackina kaikkien näyttämistä.
+                // Älä käytä lastBBoxia tässä, koska se voi olla kaukana nykyisestä sijainnista
+                // ja aiheuttaa kaikkien pisteiden katoamisen (clipping väärälle alueelle).
+                if (bbox != null && bbox.latNorth != 0.0 && bbox.latSouth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.longitudeSpan > 0.0)) {
+                    lastBBox = bbox
+                    withContext(Dispatchers.Default) {
+                        val totalCount = catchesCopy.size + placesCopy.size
+                        // Marginaali 200% molempiin suuntiin pienellä määrällä.
+                        // Suurella määrällä (> 5000) marginaalia pienennetään entisestään (20%) suorituskyvyn takia.
+                        val marginMultiplier = if (totalCount < 5000) 2.0 else 0.2
                             val latMargin = bbox.latitudeSpan * marginMultiplier
                             val lonMargin = bbox.longitudeSpan * marginMultiplier
                             
@@ -761,15 +797,16 @@ class MarkerManager(
             .setTitle(R.string.delete)
             .setMessage("Haluatko varmasti poistaa paikan ${place.name}?")
             .setPositiveButton(R.string.delete) { _, _ ->
-                Thread {
-                    db.placeOfInterestDao().deleteById(place.id)
-                    (context as? android.app.Activity)?.runOnUiThread {
-                        removeMarker(marker)
-                        synchronized(allPlaces) {
-                            allPlaces.removeAll { it.id == place.id }
-                        }
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        db.placeOfInterestDao().deleteById(place.id)
                     }
-                }.start()
+                    removeMarker(marker)
+                    // Jos ollaan klusterointialueella, päivitetään klusterit
+                    if (map.zoomLevelDouble < 13.0) {
+                        rebuildMarkers(map.zoomLevelDouble)
+                    }
+                }
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
@@ -872,7 +909,7 @@ class MarkerManager(
                         // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta) JA zoom-kynnys ei ylittynyt.
                         val catchesCount = synchronized(allCatches) { allCatches.size }
                         val placesCount = synchronized(allPlaces) { allPlaces.size }
-                        if (catchesCount + placesCount < 15000 && !shouldRebuild(zoom)) {
+                        if (catchesCount + placesCount < 5000 && !shouldRebuild(zoom)) {
                             // Varmistetaan että markerit on ladattu joskus, mutta ei ladata niitä joka skrollauksella
                             if (markersFolder.items.isNotEmpty()) {
                                 return
@@ -885,7 +922,7 @@ class MarkerManager(
                             val lonDiff = Math.abs(bbox.centerLongitude - lastBBox!!.centerLongitude)
                             // Päivitetään vain jos näkymä on siirtynyt yli 80% leveydestä/korkeudesta
                             // koska clipping-marginaali on 100% (20% suurilla määrillä).
-                            val threshold = if (catchesCount + placesCount < 15000) 0.8 else 0.15
+                            val threshold = if (catchesCount + placesCount < 5000) 0.8 else 0.15
                             if (latDiff < bbox.latitudeSpan * threshold && lonDiff < bbox.longitudeSpan * threshold) {
                                 // Varmistetaan että markerit on ladattu, mutta ei ladata niitä joka skrollauksella
                                 if (defaultPointsFolder.items.isNotEmpty() || catchesFolder.items.isNotEmpty() || placesFolder.items.isNotEmpty()) {
@@ -945,30 +982,52 @@ class MarkerManager(
     }
 
     fun removeMarker(marker: Marker) {
+        // Perutaan välittömästi käynnissä oleva rebuildMarkers, jotta se ei tuo merkkiä takaisin
+        // vanhan allCatches/allPlaces-listan perusteella.
+        rebuildJob?.cancel()
+
         val fish = marker.relatedObject as? FishCatch
         if (fish != null) {
             synchronized(allCatches) {
                 allCatches.removeAll { it.id == fish.id }
+                deletedFishIds.add(fish.id)
             }
             activeIndividualMarkers.remove(fish.id)
-            if (fish.species == "UNKNOWN") {
-                defaultPointsFolder.remove(marker)
-            } else {
-                catchesFolder.remove(marker)
-            }
+            defaultPointsFolder.remove(marker)
+            catchesFolder.remove(marker)
         }
         
         val place = marker.relatedObject as? PlaceOfInterest
         if (place != null) {
             synchronized(allPlaces) {
                 allPlaces.removeAll { it.id == place.id }
+                deletedPlaceIds.add(place.id)
             }
             activePlaceMarkers.remove(place.id)
             placesFolder.remove(marker)
         }
         
+        // Varmuuden vuoksi poisto kaikista muistakin kansioista
+        markersFolder.remove(marker)
+        
+        // Suljetaan infowindow jos se on auki tälle markerille
+        if (marker.isInfoWindowShown) {
+            marker.closeInfoWindow()
+        }
+        
+        // Tyhjennetään markerin tila ennen pooliin laittoa
+        marker.relatedObject = null
+        marker.title = null
+        marker.snippet = null
+        
         markerPool.add(marker)
+        
         map.invalidate()
+
+        // Jos ollaan klusterointialueella, on pakko ajaa rebuild jotta klusterit päivittyy oikein
+        if (lastZoom < 13.0) {
+            rebuildMarkers(lastZoom)
+        }
     }
 
     private fun showCatchDetailsDialog(marker: Marker) {
