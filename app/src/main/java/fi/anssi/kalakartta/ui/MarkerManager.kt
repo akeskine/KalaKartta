@@ -891,14 +891,14 @@ class MarkerManager(
                 val maxLon = list.maxOf { it.longitude }
                 
                 if (minLat == maxLat && minLon == maxLon) {
-                    val targetZoom = (map.zoomLevelDouble + 2.0).coerceAtMost(16.0)
+                    val targetZoom = (map.zoomLevelDouble + 2.0).coerceAtMost(19.0)
                     map.controller.animateTo(clickedMarker.position, targetZoom, 500L)
                 } else {
                     val box = BoundingBox(maxLat, maxLon, minLat, minLon)
-                    map.zoomToBoundingBox(box.increaseByScale(1.5f), true, 0, 16.0, 500L)
+                    map.zoomToBoundingBox(box.increaseByScale(1.5f), true, 0, 19.0, 500L)
                 }
             } else {
-                val targetZoom = (map.zoomLevelDouble + 1.0).coerceAtMost(16.0)
+                val targetZoom = (map.zoomLevelDouble + 1.0).coerceAtMost(19.0)
                 map.controller.animateTo(clickedMarker.position, targetZoom, 500L)
             }
             true

@@ -9,7 +9,7 @@ class MMLTileSource(
     private val apiKey: String
 ) : XYTileSource(
     name,
-    0, 16, 256, ".png",
+    0, 19, 256, ".png",
     arrayOf("https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/")
 ) {
     override fun getTileURLString(pTileIndex: Long): String {
