@@ -100,6 +100,21 @@ class SettingsManager(
         }
         layout.addView(scaleLink)
 
+        // Automaattinen kohdistus -linkki
+        val autoCenterLink = TextView(activity).apply {
+            text = activity.getString(R.string.auto_center)
+            textSize = 20f
+            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            setOnClickListener {
+                openAutoCenterSettings()
+            }
+        }
+        layout.addView(autoCenterLink)
+
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
@@ -129,6 +144,32 @@ class SettingsManager(
 
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.scale_bar))
+            .setView(layout)
+            .setPositiveButton("Sulje", null)
+            .show()
+            .enlargeButtons()
+    }
+
+    private fun openAutoCenterSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val autoCenterCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.auto_center_on_start)
+            isChecked = prefs.getBoolean("auto_center_on_start", true)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("auto_center_on_start", isChecked).apply()
+            }
+        }
+        layout.addView(autoCenterCheckbox)
+
+        AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.auto_center))
             .setView(layout)
             .setPositiveButton("Sulje", null)
             .show()

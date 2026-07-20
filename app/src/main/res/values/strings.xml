@@ -67,4 +67,6 @@
     <string name="general_settings">Yleiset</string>
     <string name="scale_bar">Mittakaava</string>
     <string name="show_scale_bar">Näytä mittakaava kartalla</string>
+    <string name="auto_center">Automaattinen kohdistus</string>
+    <string name="auto_center_on_start">Kohdista kartta omaan sijaintiin kun sovellus avataan</string>
 </resources>

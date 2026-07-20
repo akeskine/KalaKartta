@@ -58,6 +58,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
 
+    private var isFirstResume = true
+    private var screenReceiver: BroadcastReceiver? = null
+
     private val locationProviderReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
@@ -385,6 +388,20 @@ class MainActivity : AppCompatActivity() {
             updateMarkersVisibility()
             updateFilterStatusUI()
 
+            // Automaattinen kohdistus sovelluksen avauksessa
+            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+            val autoCenter = prefs.getBoolean("auto_center_on_start", true)
+            if (autoCenter) {
+                locationOverlay.runOnFirstFix {
+                    runOnUiThread {
+                        val myLocation = locationOverlay.myLocation
+                        if (myLocation != null) {
+                            map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
+                        }
+                    }
+                }
+            }
+
             if (crashFile.exists()) {
                 crashFile.delete()
             }
@@ -605,15 +622,43 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(locationProviderReceiver, filter)
         }
 
+        // Rekisteröidään näytön avauksen seuranta
+        val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
+        screenReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_ON) {
+                    val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                    if (prefs.getBoolean("auto_center_on_start", true)) {
+                        val myLocation = locationOverlay.myLocation
+                        if (myLocation != null) {
+                            map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
+                        }
+                    }
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenReceiver, screenFilter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(screenReceiver, screenFilter)
+        }
+
         // Yritetään näyttää sääasema jos se on vielä näyttämättä
         if (!weatherCheckDone) {
             checkWeather()
         }
+
+        isFirstResume = false
     }
 
     override fun onPause() {
         try {
             unregisterReceiver(locationProviderReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
+        try {
+            screenReceiver?.let { unregisterReceiver(it) }
         } catch (_: IllegalArgumentException) {
         }
         locationOverlay.disableMyLocation()
