@@ -433,7 +433,7 @@ class SettingsManager(
     private fun openDefaultFishermanSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
         val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
-        val showOnMap = prefs.getBoolean("show_fisherman_on_map", true)
+        val showOnMap = prefs.getBoolean("show_fisherman_on_map", false)
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL

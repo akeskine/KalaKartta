@@ -404,10 +404,23 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)
             val autoCenter = prefs.getBoolean("auto_center_on_start", true)
 
-            val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
-            if (currentFisherman.isEmpty()) {
-                checkDefaultFisherman()
+            // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
+            val lastVersionName = prefs.getString("last_version_name", "") ?: ""
+            val currentVersionName = try {
+                val pInfo = packageManager.getPackageInfo(packageName, 0)
+                pInfo.versionName ?: ""
+            } catch (e: Exception) {
+                ""
             }
+
+            val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+            if (currentVersionName != lastVersionName) {
+                if (currentFisherman.isEmpty()) {
+                    checkDefaultFisherman()
+                }
+                prefs.edit().putString("last_version_name", currentVersionName).apply()
+            }
+
             if (autoCenter) {
                 locationOverlay.runOnFirstFix {
                     runOnUiThread {
@@ -615,18 +628,14 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putString("default_fisherman", newFisherman).apply()
                 updateDefaultFishermanUI()
             }
-            .setNegativeButton("Myöhemmin") { _, _ -> 
-                if (currentFisherman.isEmpty() && !prefs.contains("default_fisherman")) {
-                    prefs.edit().putString("default_fisherman", "").apply()
-                }
-            }
+            .setNegativeButton("Ohita", null)
             .show()
     }
 
     private fun updateDefaultFishermanUI() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val rawFisherman = prefs.getString("default_fisherman", "") ?: ""
-        val showOnMap = prefs.getBoolean("show_fisherman_on_map", true)
+        val showOnMap = prefs.getBoolean("show_fisherman_on_map", false)
         val textView = findViewById<TextView>(R.id.defaultFishermanText) ?: return
 
         if (showOnMap && rawFisherman.isNotEmpty()) {
