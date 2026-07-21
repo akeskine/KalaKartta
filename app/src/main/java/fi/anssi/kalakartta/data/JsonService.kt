@@ -51,6 +51,7 @@ class JsonService {
             obj.put("originalRef", it.originalRef)
             obj.put("tripNotes", it.tripNotes)
             if (it.fisherman.isNotBlank()) obj.put("fisherman", it.fisherman)
+            if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies)
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
             catchesArray.put(obj)
         }
@@ -183,6 +184,7 @@ class JsonService {
                     originalRef = obj.optString("originalRef", ""),
                     tripNotes = obj.optString("tripNotes", ""),
                     fisherman = obj.optString("fisherman", ""),
+                    otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", null),
                     weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")
                 )
                 result.add(catch)

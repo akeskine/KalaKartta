@@ -39,6 +39,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var placeTypeSpinner: Spinner
     private lateinit var fishermanSpinner: Spinner
     private lateinit var freeTextEdit: EditText
+    private lateinit var otherSpeciesEditText: EditText
+    private lateinit var otherSpeciesContainer: View
     private lateinit var windMinEdit: EditText
     private lateinit var windMaxEdit: EditText
     private lateinit var windDirectionPreview: WindDirectionView
@@ -88,6 +90,8 @@ class FilterActivity : AppCompatActivity() {
         placeTypeSpinner = findViewById(R.id.placeTypeSpinner)
         fishermanSpinner = findViewById(R.id.fishermanSpinner)
         freeTextEdit = findViewById(R.id.freeTextEdit)
+        otherSpeciesEditText = findViewById(R.id.otherSpeciesEditText)
+        otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
 
         val allSpecies = db.fishSpeciesDao().getAll()
         val emptySpecies = FishSpecies("", getString(R.string.empty_selection), icon_default = "")
@@ -157,6 +161,9 @@ class FilterActivity : AppCompatActivity() {
         if (selectedIndex >= 0) {
             speciesSpinner.setSelection(selectedIndex)
         }
+        
+        otherSpeciesEditText.setText(currentFilters.otherSpecies ?: "")
+        otherSpeciesContainer.visibility = if (currentFilters.speciesId == "OTHER") View.VISIBLE else View.GONE
 
         val placeIndex = placeTypeList.indexOfFirst { it.id == currentFilters.placeTypeId }
         if (placeIndex >= 0) {
@@ -217,6 +224,13 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        speciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedSpecies = speciesList[position]
+                otherSpeciesContainer.visibility = if (selectedSpecies.id == "OTHER") View.VISIBLE else View.GONE
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
         startDateButton.setOnClickListener { showFullDateTimePicker(true) }
         endDateButton.setOnClickListener { showFullDateTimePicker(false) }
         
@@ -307,6 +321,7 @@ class FilterActivity : AppCompatActivity() {
         val selectedFisherman = fishermanList[fishermanSpinner.selectedItemPosition]
         val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
         val fisherman = if (selectedFisherman == getString(R.string.empty_selection)) null else selectedFisherman
+        val otherSpecies = if (selectedSpecies.id == "OTHER") otherSpeciesEditText.text.toString().trim().let { if (it.isEmpty()) null else it } else null
         val windMin = windMinEdit.text.toString().toFloatOrNull()
         val windMax = windMaxEdit.text.toString().toFloatOrNull()
         val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
@@ -314,6 +329,7 @@ class FilterActivity : AppCompatActivity() {
         
         currentFilters = currentFilters.copy(
             speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
+            otherSpecies = otherSpecies,
             placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
             freeText = freeText,
             fisherman = fisherman,

@@ -4,13 +4,7 @@ import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.Spinner
-import android.widget.AdapterView
+import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.content.Context
@@ -229,6 +223,29 @@ class CatchManager(
                     else -> selectedEventType
                 }
                 addCatchAtSelectedLocation("UNKNOWN", weight, length, finalEventType)
+            } else if (species.id == "OTHER") {
+                val otherSpeciesInput = EditText(activity).apply {
+                    hint = "Syötä kalalaji"
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                }
+                val layout = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(60, 20, 60, 0)
+                    addView(otherSpeciesInput)
+                }
+                AlertDialog.Builder(activity)
+                    .setTitle("Syötä kalalaji")
+                    .setView(layout)
+                    .setPositiveButton("Tallenna") { _, _ ->
+                        val otherSpeciesValue = otherSpeciesInput.text.toString().trim()
+                        if (otherSpeciesValue.isEmpty()) {
+                            Toast.makeText(activity, "Kalalaji on annettava.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            addCatchAtSelectedLocation(species.id, weight, length, selectedEventType, otherSpeciesValue)
+                        }
+                    }
+                    .setNegativeButton("Peruuta", null)
+                    .show()
             } else {
                 addCatchAtSelectedLocation(species.id, weight, length, selectedEventType)
             }
@@ -367,7 +384,7 @@ class CatchManager(
         return if (id != 0) id else R.drawable.default_point
     }
 
-    private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null, eventType: String? = FishCatch.CAUGHT_FISH) {
+    private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null, eventType: String? = FishCatch.CAUGHT_FISH, otherSpecies: String? = null) {
         val point = map.mapCenter as GeoPoint
         val caughtAt = System.currentTimeMillis()
         
@@ -376,6 +393,7 @@ class CatchManager(
 
         val fish = FishCatch(
             species = speciesId,
+            otherSpecies = otherSpecies,
             eventType = eventType,
             latitude = String.format(java.util.Locale.US, "%.5f", point.latitude).toDouble(),
             longitude = String.format(java.util.Locale.US, "%.5f", point.longitude).toDouble(),

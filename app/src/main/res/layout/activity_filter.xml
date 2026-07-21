@@ -148,6 +148,26 @@
                 android:background="@android:drawable/btn_dropdown"
                 android:backgroundTint="@color/white" />
 
+            <LinearLayout
+                android:id="@+id/otherSpeciesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Muu kalalaji:"
+                    android:layout_marginTop="8dp" />
+                <EditText
+                    android:id="@+id/otherSpeciesEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:minHeight="48dp"
+                    android:importantForAutofill="no" />
+            </LinearLayout>
+
             <!-- Muu paikka -->
             <TextView
                 android:layout_width="match_parent"

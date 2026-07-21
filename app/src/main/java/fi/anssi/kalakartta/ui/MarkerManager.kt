@@ -253,7 +253,12 @@ class MarkerManager(
         marker.position = point
         
         val species = speciesCache[fish.species]
-        marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
+        val speciesName = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
+        marker.title = if (fish.species == "OTHER" && !fish.otherSpecies.isNullOrEmpty()) {
+            "$speciesName (${fish.otherSpecies})"
+        } else {
+            speciesName
+        }
         
         val iconParams = calculateIconParams(fish)
         val drawableId = iconParams.first
@@ -1062,7 +1067,12 @@ class MarkerManager(
         fish?.let {
             val species = db.fishSpeciesDao().getById(it.species)
             if (species != null) {
-                details.append("Laji: ${species.name}\n")
+                val speciesName = if (it.species == "OTHER" && !it.otherSpecies.isNullOrEmpty()) {
+                    "${species.name} (${it.otherSpecies})"
+                } else {
+                    species.name
+                }
+                details.append("Laji: $speciesName\n")
                 hasSpecies = true
             }
 

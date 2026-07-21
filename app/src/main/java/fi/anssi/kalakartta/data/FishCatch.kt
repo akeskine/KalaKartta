@@ -31,6 +31,7 @@ data class FishCatch(
     val originalRef: String = "",
     val tripNotes: String = "",
     val fisherman: String = "",
+    val otherSpecies: String? = null,
     /**
      * Aika, jolloin säätiedot on todettu "valmiiksi" siinä mielessä, että kaikki mahdolliset
      * asemat (max 5 kpl 300km säteellä) on kokeiltu, vaikka joitain tietoja jäisikin puuttumaan.

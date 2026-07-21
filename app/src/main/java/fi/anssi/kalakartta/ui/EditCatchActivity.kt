@@ -61,6 +61,8 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var additionalInfoEditText: EditText
     private lateinit var tripNotesEditText: EditText
     private lateinit var fishermanEditText: EditText
+    private lateinit var otherSpeciesEditText: EditText
+    private lateinit var otherSpeciesContainer: View
     private lateinit var pressureEditText: EditText
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
@@ -148,6 +150,8 @@ class EditCatchActivity : AppCompatActivity() {
         additionalInfoEditText = findViewById(R.id.additionalInfoEditText)
         tripNotesEditText = findViewById(R.id.tripNotesEditText)
         fishermanEditText = findViewById(R.id.fishermanEditText)
+        otherSpeciesEditText = findViewById(R.id.otherSpeciesEditText)
+        otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
         pressureEditText = findViewById(R.id.pressureEditText)
         placeNameEditText = findViewById(R.id.placeNameEditText)
         placeNameContainer = findViewById(R.id.placeNameContainer)
@@ -468,6 +472,8 @@ class EditCatchActivity : AppCompatActivity() {
                 additionalInfoEditText.setText(fc.additionalInfo ?: "")
                 tripNotesEditText.setText(fc.tripNotes ?: "")
                 fishermanEditText.setText(fc.fisherman ?: "")
+                otherSpeciesEditText.setText(fc.otherSpecies ?: "")
+                otherSpeciesContainer.visibility = if (fc.species == "OTHER") View.VISIBLE else View.GONE
                 latEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.latitude))
                 lonEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.longitude))
             }
@@ -499,6 +505,15 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         dateTimeButton.setOnClickListener { showDateTimePicker() }
+        speciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!isPlace) {
+                    val selectedSpecies = speciesList[position]
+                    otherSpeciesContainer.visibility = if (selectedSpecies.id == "OTHER") View.VISIBLE else View.GONE
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveChanges() }
         findViewById<Button>(R.id.cancelButton).setOnClickListener {
             if (hasUnsavedChanges()) showUnsavedChangesDialog() else finish()
@@ -654,9 +669,18 @@ class EditCatchActivity : AppCompatActivity() {
             }
             
             val fc = fishCatch ?: return
+            val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
+            val otherSpecies = otherSpeciesEditText.text.toString().trim()
+            
+            if (selectedSpeciesId == "OTHER" && otherSpecies.isEmpty()) {
+                Toast.makeText(this, "Kalalaji on annettava.", Toast.LENGTH_SHORT).show()
+                return
+            }
+
             val selectedType = eventTypes.getOrNull(eventTypeSpinner.selectedItemPosition)
             val updated = fc.copy(
-                species = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: "",
+                species = selectedSpeciesId,
+                otherSpecies = if (selectedSpeciesId == "OTHER") otherSpecies else null,
                 eventType = if (selectedType == "EMPTY") null else (selectedType ?: FishCatch.CAUGHT_FISH),
                 caughtAt = if (isTimeSetManually || fc.caughtAt != null) selectedCalendar.timeInMillis else null,
                 weight = weightEditText.text.toString().toLongOrNull(),
@@ -712,6 +736,7 @@ class EditCatchActivity : AppCompatActivity() {
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true
         if (tripNotesEditText.text.toString() != (fc.tripNotes ?: "")) return true
         if (fishermanEditText.text.toString() != (fc.fisherman ?: "")) return true
+        if (otherSpeciesEditText.text.toString() != (fc.otherSpecies ?: "")) return true
         return Math.abs(latEditText.text.toString().toDoubleSafe() - fc.latitude) > 0.0001 ||
                Math.abs(lonEditText.text.toString().toDoubleSafe() - fc.longitude) > 0.0001
     }

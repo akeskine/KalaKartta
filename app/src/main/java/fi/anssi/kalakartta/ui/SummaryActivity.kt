@@ -224,30 +224,51 @@ class SummaryActivity : AppCompatActivity() {
             val speciesCatches = entry.value
             val speciesName = speciesMap[speciesId]?.name ?: speciesId
             
-            sb.append(speciesName).append(" ").append(speciesCatches.size).append(" kpl")
-            
-            // Suodata kalat joilla on paino tai pituus (> 0)
-            val withData = speciesCatches.filter { (it.weight != null && it.weight!! > 0) || (it.length != null && it.length!! > 0) }
-            
-            if (withData.isNotEmpty()) {
-                // Järjestä: paino desc, sitten pituus desc
-                val sortedCatches = withData.sortedWith(compareByDescending<FishCatch> { it.weight ?: 0L }.thenByDescending { it.length ?: 0L })
+            if (speciesId == "OTHER") {
+                // Ryhmittele "Muu kalalaji" vielä tarkemman lajin mukaan
+                val subGrouped = speciesCatches.groupBy { it.otherSpecies ?: "Tuntematon" }
+                val sortedSubGroups = subGrouped.entries.sortedByDescending { it.value.size }
                 
-                sb.append(" (")
-                sb.append(sortedCatches.joinToString(", ") { c ->
-                    val weightStr = if (c.weight != null && c.weight!! > 0) "${c.weight}g" else null
-                    val lengthStr = if (c.length != null && c.length!! > 0) "${c.length}cm" else null
-                    if (weightStr != null && lengthStr != null) "$weightStr/$lengthStr"
-                    else weightStr ?: lengthStr ?: ""
-                })
-                sb.append(")")
-            }
-            sb.append("\n")
-            if (index < sortedSpecies.size - 1) {
-                sb.append("\n")
+                for ((subIndex, subEntry) in sortedSubGroups.withIndex()) {
+                    val otherSpeciesName = subEntry.key
+                    val subCatches = subEntry.value
+                    
+                    sb.append(speciesName).append(" (").append(otherSpeciesName).append(") ").append(subCatches.size).append(" kpl")
+                    appendCatchData(sb, subCatches)
+                    
+                    if (subIndex < sortedSubGroups.size - 1 || index < sortedSpecies.size - 1) {
+                        sb.append("\n\n")
+                    }
+                }
+            } else {
+                sb.append(speciesName).append(" ").append(speciesCatches.size).append(" kpl")
+                appendCatchData(sb, speciesCatches)
+                
+                if (index < sortedSpecies.size - 1) {
+                    sb.append("\n\n")
+                }
             }
         }
 
         return sb.toString()
+    }
+
+    private fun appendCatchData(sb: StringBuilder, catches: List<FishCatch>) {
+        // Suodata kalat joilla on paino tai pituus (> 0)
+        val withData = catches.filter { (it.weight != null && it.weight!! > 0) || (it.length != null && it.length!! > 0) }
+        
+        if (withData.isNotEmpty()) {
+            // Järjestä: paino desc, sitten pituus desc
+            val sortedCatches = withData.sortedWith(compareByDescending<FishCatch> { it.weight ?: 0L }.thenByDescending { it.length ?: 0L })
+            
+            sb.append(" (")
+            sb.append(sortedCatches.joinToString(", ") { c ->
+                val weightStr = if (c.weight != null && c.weight!! > 0) "${c.weight}g" else null
+                val lengthStr = if (c.length != null && c.length!! > 0) "${c.length}cm" else null
+                if (weightStr != null && lengthStr != null) "$weightStr/$lengthStr"
+                else weightStr ?: lengthStr ?: ""
+            })
+            sb.append(")")
+        }
     }
 }

@@ -26,6 +26,7 @@ class FilterManager(private val context: Context) {
         val pressureMin: Float? = null,
         val pressureMax: Float? = null,
         val speciesId: String? = null,
+        val otherSpecies: String? = null,
         val placeTypeId: String? = null,
         val freeText: String? = null,
         val fisherman: String? = null,
@@ -46,6 +47,7 @@ class FilterManager(private val context: Context) {
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
         val speciesId = prefs.getString("speciesId", null)
+        val otherSpecies = prefs.getString("otherSpecies", null)
         val placeTypeId = prefs.getString("placeTypeId", null)
         val freeText = prefs.getString("freeText", null)
         val fisherman = prefs.getString("fisherman", null)
@@ -58,7 +60,7 @@ class FilterManager(private val context: Context) {
             startTimeMinutes, endTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
-            speciesId, placeTypeId, freeText, fisherman, onlyCaughtFish
+            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish
         )
     }
 
@@ -77,6 +79,7 @@ class FilterManager(private val context: Context) {
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
+            if (filters.otherSpecies != null) putString("otherSpecies", filters.otherSpecies) else remove("otherSpecies")
             if (filters.placeTypeId != null) putString("placeTypeId", filters.placeTypeId) else remove("placeTypeId")
             if (filters.freeText != null) putString("freeText", filters.freeText) else remove("freeText")
             if (filters.fisherman != null) putString("fisherman", filters.fisherman) else remove("fisherman")
@@ -166,6 +169,9 @@ class FilterManager(private val context: Context) {
 
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
+            if (f.speciesId == "OTHER" && f.otherSpecies != null) {
+                if (fish.otherSpecies == null || !fish.otherSpecies.lowercase().contains(f.otherSpecies.lowercase())) return@filter false
+            }
 
             // Kalastaja
             if (f.fisherman != null) {

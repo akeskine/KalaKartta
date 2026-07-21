@@ -30,6 +30,25 @@
             android:layout_marginBottom="8dp"
             android:saveEnabled="false" />
 
+        <LinearLayout
+            android:id="@+id/otherSpeciesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Syötä kalalaji:" />
+            <EditText
+                android:id="@+id/otherSpeciesEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences"
+                android:minHeight="48dp"
+                android:importantForAutofill="no" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/eventTypeLabel"
             android:layout_width="match_parent"
