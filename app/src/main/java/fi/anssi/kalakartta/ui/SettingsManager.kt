@@ -433,6 +433,7 @@ class SettingsManager(
     private fun openDefaultFishermanSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
         val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+        val showOnMap = prefs.getBoolean("show_fisherman_on_map", true)
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -455,12 +456,24 @@ class SettingsManager(
         }
         layout.addView(input)
 
+        val checkBox = CheckBox(activity).apply {
+            text = "Näytä oletuskalastajan nimi kartalla"
+            isChecked = showOnMap
+            setPadding(0, 20, 0, 0)
+        }
+        layout.addView(checkBox)
+
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Aseta oletuskalastaja")
+            .setTitle("Oletuskalastaja")
             .setView(layout)
             .setPositiveButton("Tallenna") { _, _ ->
                 val newFisherman = input.text.toString().trim()
-                prefs.edit().putString("default_fisherman", newFisherman).apply()
+                prefs.edit().apply {
+                    putString("default_fisherman", newFisherman)
+                    putBoolean("show_fisherman_on_map", checkBox.isChecked)
+                    apply()
+                }
+                onMapSettingsChanged() // Käytetään tätä päivittämään UI
             }
             .setNegativeButton("Takaisin") { _, _ -> openSettings() }
             .show()

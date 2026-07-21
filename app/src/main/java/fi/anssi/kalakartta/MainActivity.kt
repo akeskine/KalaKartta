@@ -398,10 +398,16 @@ class MainActivity : AppCompatActivity() {
 
             updateMarkersVisibility()
             updateFilterStatusUI()
+            updateDefaultFishermanUI()
 
             // Automaattinen kohdistus sovelluksen avauksessa
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)
             val autoCenter = prefs.getBoolean("auto_center_on_start", true)
+
+            val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+            if (currentFisherman.isEmpty()) {
+                checkDefaultFisherman()
+            }
             if (autoCenter) {
                 locationOverlay.runOnFirstFix {
                     runOnUiThread {
@@ -442,6 +448,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         updateScaleBar()
+        updateDefaultFishermanUI()
     }
 
     private fun updateScaleBar() {
@@ -520,6 +527,7 @@ class MainActivity : AppCompatActivity() {
         
         myLocationButton.requestLayout()
         addCatchButton.requestLayout()
+        updateDefaultFishermanUI()
         map.invalidate()
     }
 
@@ -577,6 +585,75 @@ class MainActivity : AppCompatActivity() {
 
     private fun reloadMarkersFromDb() {
         loadCatches()
+    }
+
+    private fun checkDefaultFisherman() {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val input = android.widget.EditText(this).apply {
+            setText(currentFisherman)
+            hint = "Esim. Matti"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+            }
+        }
+        layout.addView(input)
+
+        AlertDialog.Builder(this)
+            .setTitle("Oletuskalastaja")
+            .setMessage("Syötä oletuskalastajan nimi (valinnainen):")
+            .setView(layout)
+            .setPositiveButton("Tallenna") { _, _ ->
+                val newFisherman = input.text.toString().trim()
+                prefs.edit().putString("default_fisherman", newFisherman).apply()
+                updateDefaultFishermanUI()
+            }
+            .setNegativeButton("Myöhemmin") { _, _ -> 
+                if (currentFisherman.isEmpty() && !prefs.contains("default_fisherman")) {
+                    prefs.edit().putString("default_fisherman", "").apply()
+                }
+            }
+            .show()
+    }
+
+    private fun updateDefaultFishermanUI() {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val rawFisherman = prefs.getString("default_fisherman", "") ?: ""
+        val showOnMap = prefs.getBoolean("show_fisherman_on_map", true)
+        val textView = findViewById<TextView>(R.id.defaultFishermanText) ?: return
+
+        if (showOnMap && rawFisherman.isNotEmpty()) {
+            val fisherman = rawFisherman.lowercase().replaceFirstChar { it.uppercase() }
+            textView.visibility = android.view.View.VISIBLE
+            textView.text = fisherman
+            
+            val mapSource = prefs.getString("map_source", "OSM")
+            val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
+            val color = if (useBlack) {
+                ContextCompat.getColor(this, android.R.color.black)
+            } else {
+                ContextCompat.getColor(this, android.R.color.white)
+            }
+            textView.setTextColor(color)
+
+            // Säädetään marginaali vastaamaan mittakaavajanaa
+            val density = resources.displayMetrics.density
+            val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
+            val yOffset = buttonMargin - (22 * density).toInt()
+            
+            val params = textView.layoutParams as FrameLayout.LayoutParams
+            params.bottomMargin = yOffset
+            textView.layoutParams = params
+        } else {
+            textView.visibility = android.view.View.GONE
+        }
     }
 
     private fun checkWeather(force: Boolean = false) {
