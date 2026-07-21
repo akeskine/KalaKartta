@@ -334,10 +334,12 @@ class MarkerManager(
         }
         
         if (species != null && species.small_weight == 0L && species.small_length == 0L) {
-             if (fish.species == "SALMON") {
+             if (fish.species == "SALMON" || fish.species == "TROUT" || fish.species == "RAINBOW") {
                 scaleFactor *= 1.3
-            } else if (fish.species == "PERCH") {
+            } else if (fish.species == "PERCH" || fish.species == "IDE") {
                 scaleFactor *= 0.8
+            } else if (fish.species == "BURBOT") {
+                scaleFactor *= 1.2
             }
         }
         
