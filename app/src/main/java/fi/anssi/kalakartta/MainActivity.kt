@@ -237,7 +237,8 @@ class MainActivity : AppCompatActivity() {
                     FishSpecies("BREAM", "Lahna", icon_default = "lahna"),
                     FishSpecies("IDE", "Säyne", icon_default = "sayne"),
                     FishSpecies("CHAR", "Rautu", icon_default = "rautu"),
-                    FishSpecies("BURBOT", "Made", icon_default = "made")
+                    FishSpecies("BURBOT", "Made", icon_default = "made"),
+                    FishSpecies("OTHER", "Muu kalalaji", icon_default = "muukala")
                 )
 
                 defaults.forEach { species ->
