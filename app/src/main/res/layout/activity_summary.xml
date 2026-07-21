@@ -34,6 +34,22 @@
         android:textStyle="bold"
         android:layout_marginBottom="8dp" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Kalastaja:"
+        android:textStyle="bold"
+        android:layout_marginTop="8dp" />
+
+    <Spinner
+        android:id="@+id/fishermanSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+        android:minHeight="48dp"
+        android:background="@android:drawable/btn_dropdown" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

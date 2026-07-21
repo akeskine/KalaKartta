@@ -702,7 +702,7 @@ class EditCatchActivity : AppCompatActivity() {
                 weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
                 additionalInfo = additionalInfoEditText.text.toString(),
                 tripNotes = tripNotesEditText.text.toString(),
-                fisherman = fishermanEditText.text.toString(),
+                fisherman = fishermanEditText.text.toString().trim().uppercase(),
                 latitude = latEditText.text.toString().toDoubleSafe(fc.latitude),
                 longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude)
             )

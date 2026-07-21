@@ -175,8 +175,7 @@ class FilterManager(private val context: Context) {
 
             // Kalastaja
             if (f.fisherman != null) {
-                val searchFisherman = f.fisherman.lowercase()
-                if (!fish.fisherman.lowercase().contains(searchFisherman)) return@filter false
+                if (fish.fisherman.uppercase() != f.fisherman.uppercase()) return@filter false
             }
 
             // Free Text
@@ -239,7 +238,8 @@ class FilterManager(private val context: Context) {
         }
 
         if (f.fisherman != null) {
-            parts.add("kalastaja: ${f.fisherman}")
+            val fishermanDisplay = f.fisherman.lowercase().replaceFirstChar { it.uppercase() }
+            parts.add("kalastaja: $fishermanDisplay")
         }
 
         if (f.startDate != null || f.endDate != null) {

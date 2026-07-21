@@ -1090,7 +1090,8 @@ class MarkerManager(
                     details.append("$timeLabel: $dateStr\n")
                     
                     if (it.fisherman.isNotEmpty()) {
-                        details.append("Kalastaja: ${it.fisherman}\n")
+                        val fishermanDisplay = it.fisherman.lowercase().replaceFirstChar { char -> char.uppercase() }
+                        details.append("Kalastaja: $fishermanDisplay\n")
                     }
                 }
             }

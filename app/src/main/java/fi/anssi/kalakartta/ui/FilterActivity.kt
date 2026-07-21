@@ -147,7 +147,9 @@ class FilterActivity : AppCompatActivity() {
         placeTypeSpinner.adapter = placeAdapter
 
         val allFishermen = db.fishCatchDao().getUniqueFishermen()
-        fishermanList = listOf(getString(R.string.empty_selection)) + allFishermen
+        fishermanList = listOf(getString(R.string.empty_selection)) + allFishermen.map { 
+            it.lowercase().replaceFirstChar { char -> char.uppercase() } 
+        }
         val fishermanAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, fishermanList)
         fishermanAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         fishermanSpinner.adapter = fishermanAdapter
@@ -183,7 +185,8 @@ class FilterActivity : AppCompatActivity() {
 
         freeTextEdit.setText(currentFilters.freeText ?: "")
         
-        val fishermanIndex = fishermanList.indexOf(currentFilters.fisherman ?: getString(R.string.empty_selection))
+        val fishermanDisplay = currentFilters.fisherman?.lowercase()?.replaceFirstChar { it.uppercase() } ?: getString(R.string.empty_selection)
+        val fishermanIndex = fishermanList.indexOf(fishermanDisplay)
         if (fishermanIndex >= 0) {
             fishermanSpinner.setSelection(fishermanIndex)
         }
@@ -331,7 +334,7 @@ class FilterActivity : AppCompatActivity() {
         val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
         val selectedFisherman = fishermanList[fishermanSpinner.selectedItemPosition]
         val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
-        val fisherman = if (selectedFisherman == getString(R.string.empty_selection)) null else selectedFisherman
+        val fisherman = if (selectedFisherman == getString(R.string.empty_selection)) null else selectedFisherman.uppercase()
         val selectedOther = otherSpeciesList[otherSpeciesSpinner.selectedItemPosition]
         val otherSpecies = if (selectedSpecies.id == "OTHER" && selectedOther != getString(R.string.empty_selection)) selectedOther.uppercase() else null
         val windMin = windMinEdit.text.toString().toFloatOrNull()

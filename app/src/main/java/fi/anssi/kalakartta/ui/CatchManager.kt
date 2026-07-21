@@ -400,7 +400,7 @@ class CatchManager(
             caughtAt = caughtAt,
             weight = weight,
             length = length,
-            fisherman = defaultFisherman
+            fisherman = defaultFisherman.uppercase()
         )
 
         // Tallennetaan taustalla ja päivitetään UI

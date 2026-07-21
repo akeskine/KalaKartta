@@ -3,6 +3,7 @@ package fi.anssi.kalakartta.ui
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -28,6 +29,8 @@ class SummaryActivity : AppCompatActivity() {
     private lateinit var endDateButton: TextView
     private lateinit var endTimeButton: TextView
     private lateinit var summaryResultText: TextView
+    private lateinit var fishermanSpinner: Spinner
+    private var fishermanList: List<String> = emptyList()
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -43,6 +46,19 @@ class SummaryActivity : AppCompatActivity() {
         endDateButton = findViewById(R.id.endDateButton)
         endTimeButton = findViewById(R.id.endTimeButton)
         summaryResultText = findViewById(R.id.summaryResultText)
+        fishermanSpinner = findViewById<Spinner>(R.id.fishermanSpinner)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val uniqueFishermen = db.fishCatchDao().getUniqueFishermen()
+            fishermanList = listOf(getString(R.string.empty_selection)) + uniqueFishermen.map { 
+                it.lowercase().replaceFirstChar { char -> char.uppercase() } 
+            }
+            withContext(Dispatchers.Main) {
+                val adapter = android.widget.ArrayAdapter(this@SummaryActivity, android.R.layout.simple_spinner_item, fishermanList)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                fishermanSpinner.adapter = adapter
+            }
+        }
 
         findViewById<TextView>(R.id.todaySummaryButton).setOnClickListener {
             generateTodaySummary()
@@ -187,18 +203,28 @@ class SummaryActivity : AppCompatActivity() {
     }
 
     private fun fetchAndDisplaySummary(start: Long, end: Long, title: String) {
+        val selectedFisherman = if (fishermanSpinner.selectedItemPosition > 0) {
+            fishermanList[fishermanSpinner.selectedItemPosition].uppercase()
+        } else null
+
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
             val filteredCatches = allCatches.filter { 
                 val caughtAt = it.caughtAt ?: 0L
+                val matchesFisherman = selectedFisherman == null || it.fisherman.uppercase() == selectedFisherman
+                
                 caughtAt in start..end && 
                 it.species != "UNKNOWN" && 
-                (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH)
+                (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH) &&
+                matchesFisherman
             }
             val speciesList = db.fishSpeciesDao().getAll()
             val speciesMap = speciesList.associateBy { it.id }
 
-            val result = formatSummary(title, filteredCatches, speciesMap)
+            val fishermanTitlePart = if (selectedFisherman != null) {
+                " (${selectedFisherman.lowercase().replaceFirstChar { it.uppercase() }})"
+            } else ""
+            val result = formatSummary(title + fishermanTitlePart, filteredCatches, speciesMap)
             
             withContext(Dispatchers.Main) {
                 summaryResultText.text = result
