@@ -230,7 +230,12 @@ class SummaryActivity : AppCompatActivity() {
                 val sortedSubGroups = subGrouped.entries.sortedByDescending { it.value.size }
                 
                 for ((subIndex, subEntry) in sortedSubGroups.withIndex()) {
-                    val otherSpeciesName = subEntry.key
+                    val otherSpeciesNameRaw = subEntry.key
+                    val otherSpeciesName = if (otherSpeciesNameRaw != "Tuntematon") {
+                        otherSpeciesNameRaw.lowercase().replaceFirstChar { it.uppercase() }
+                    } else {
+                        otherSpeciesNameRaw
+                    }
                     val subCatches = subEntry.value
                     
                     sb.append(speciesName).append(" (").append(otherSpeciesName).append(") ").append(subCatches.size).append(" kpl")

@@ -472,7 +472,8 @@ class EditCatchActivity : AppCompatActivity() {
                 additionalInfoEditText.setText(fc.additionalInfo ?: "")
                 tripNotesEditText.setText(fc.tripNotes ?: "")
                 fishermanEditText.setText(fc.fisherman ?: "")
-                otherSpeciesEditText.setText(fc.otherSpecies ?: "")
+                val otherSpeciesDisplay = fc.otherSpecies?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""
+                otherSpeciesEditText.setText(otherSpeciesDisplay)
                 otherSpeciesContainer.visibility = if (fc.species == "OTHER") View.VISIBLE else View.GONE
                 latEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.latitude))
                 lonEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.longitude))
@@ -670,7 +671,7 @@ class EditCatchActivity : AppCompatActivity() {
             
             val fc = fishCatch ?: return
             val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
-            val otherSpecies = otherSpeciesEditText.text.toString().trim()
+            val otherSpecies = otherSpeciesEditText.text.toString().trim().uppercase()
             
             if (selectedSpeciesId == "OTHER" && otherSpecies.isEmpty()) {
                 Toast.makeText(this, "Kalalaji on annettava.", Toast.LENGTH_SHORT).show()

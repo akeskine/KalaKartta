@@ -237,7 +237,7 @@ class CatchManager(
                     .setTitle("Syötä kalalaji")
                     .setView(layout)
                     .setPositiveButton("Tallenna") { _, _ ->
-                        val otherSpeciesValue = otherSpeciesInput.text.toString().trim()
+                        val otherSpeciesValue = otherSpeciesInput.text.toString().trim().uppercase()
                         if (otherSpeciesValue.isEmpty()) {
                             Toast.makeText(activity, "Kalalaji on annettava.", Toast.LENGTH_SHORT).show()
                         } else {

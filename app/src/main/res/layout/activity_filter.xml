@@ -159,13 +159,14 @@
                     android:layout_height="wrap_content"
                     android:text="Muu kalalaji:"
                     android:layout_marginTop="8dp" />
-                <EditText
-                    android:id="@+id/otherSpeciesEditText"
+                <Spinner
+                    android:id="@+id/otherSpeciesSpinner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="text"
+                    android:layout_marginTop="8dp"
                     android:minHeight="48dp"
-                    android:importantForAutofill="no" />
+                    android:background="@android:drawable/btn_dropdown"
+                    android:backgroundTint="@color/white" />
             </LinearLayout>
 
             <!-- Muu paikka -->

@@ -681,7 +681,13 @@ class MarkerManager(
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         
         val species = speciesCache[fish.species]
-        marker.title = species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
+        val otherName = if (fish.species == "OTHER" && !fish.otherSpecies.isNullOrEmpty()) {
+            val formatted = fish.otherSpecies.lowercase().replaceFirstChar { it.uppercase() }
+            "${species?.name ?: fish.species} ($formatted)"
+        } else {
+            species?.name ?: if (fish.species == "UNKNOWN") "Tuntematon laji" else fish.species
+        }
+        marker.title = otherName
         
         val iconParams = calculateIconParams(fish)
         val drawableId = iconParams.first

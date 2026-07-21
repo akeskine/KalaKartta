@@ -39,7 +39,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var placeTypeSpinner: Spinner
     private lateinit var fishermanSpinner: Spinner
     private lateinit var freeTextEdit: EditText
-    private lateinit var otherSpeciesEditText: EditText
+    private lateinit var otherSpeciesSpinner: Spinner
+    private var otherSpeciesList: List<String> = emptyList()
     private lateinit var otherSpeciesContainer: View
     private lateinit var windMinEdit: EditText
     private lateinit var windMaxEdit: EditText
@@ -90,7 +91,13 @@ class FilterActivity : AppCompatActivity() {
         placeTypeSpinner = findViewById(R.id.placeTypeSpinner)
         fishermanSpinner = findViewById(R.id.fishermanSpinner)
         freeTextEdit = findViewById(R.id.freeTextEdit)
-        otherSpeciesEditText = findViewById(R.id.otherSpeciesEditText)
+        otherSpeciesSpinner = findViewById(R.id.otherSpeciesSpinner)
+
+        val uniqueOther = db.fishCatchDao().getUniqueOtherSpecies()
+        otherSpeciesList = listOf(getString(R.string.empty_selection)) + uniqueOther.map { it.lowercase().replaceFirstChar { char -> char.uppercase() } }
+        val otherAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, otherSpeciesList)
+        otherAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        otherSpeciesSpinner.adapter = otherAdapter
         otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
 
         val allSpecies = db.fishSpeciesDao().getAll()
@@ -162,7 +169,11 @@ class FilterActivity : AppCompatActivity() {
             speciesSpinner.setSelection(selectedIndex)
         }
         
-        otherSpeciesEditText.setText(currentFilters.otherSpecies ?: "")
+        val otherSpeciesDisplay = currentFilters.otherSpecies?.lowercase()?.replaceFirstChar { it.uppercase() } ?: getString(R.string.empty_selection)
+        val otherIndex = otherSpeciesList.indexOf(otherSpeciesDisplay)
+        if (otherIndex >= 0) {
+            otherSpeciesSpinner.setSelection(otherIndex)
+        }
         otherSpeciesContainer.visibility = if (currentFilters.speciesId == "OTHER") View.VISIBLE else View.GONE
 
         val placeIndex = placeTypeList.indexOfFirst { it.id == currentFilters.placeTypeId }
@@ -321,7 +332,8 @@ class FilterActivity : AppCompatActivity() {
         val selectedFisherman = fishermanList[fishermanSpinner.selectedItemPosition]
         val freeText = freeTextEdit.text.toString().trim().let { if (it.isEmpty()) null else it }
         val fisherman = if (selectedFisherman == getString(R.string.empty_selection)) null else selectedFisherman
-        val otherSpecies = if (selectedSpecies.id == "OTHER") otherSpeciesEditText.text.toString().trim().let { if (it.isEmpty()) null else it } else null
+        val selectedOther = otherSpeciesList[otherSpeciesSpinner.selectedItemPosition]
+        val otherSpecies = if (selectedSpecies.id == "OTHER" && selectedOther != getString(R.string.empty_selection)) selectedOther.uppercase() else null
         val windMin = windMinEdit.text.toString().toFloatOrNull()
         val windMax = windMaxEdit.text.toString().toFloatOrNull()
         val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()

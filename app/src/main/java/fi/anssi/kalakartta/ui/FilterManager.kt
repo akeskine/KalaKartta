@@ -170,7 +170,7 @@ class FilterManager(private val context: Context) {
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
             if (f.speciesId == "OTHER" && f.otherSpecies != null) {
-                if (fish.otherSpecies == null || !fish.otherSpecies.lowercase().contains(f.otherSpecies.lowercase())) return@filter false
+                if (fish.otherSpecies == null || fish.otherSpecies.uppercase() != f.otherSpecies.uppercase()) return@filter false
             }
 
             // Kalastaja

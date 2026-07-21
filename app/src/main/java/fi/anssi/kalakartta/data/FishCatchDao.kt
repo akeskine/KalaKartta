@@ -33,4 +33,7 @@ interface FishCatchDao {
 
     @Query("SELECT DISTINCT fisherman FROM FishCatch WHERE fisherman IS NOT NULL AND fisherman != '' ORDER BY fisherman ASC")
     fun getUniqueFishermen(): List<String>
+
+    @Query("SELECT DISTINCT otherSpecies FROM FishCatch WHERE otherSpecies IS NOT NULL AND otherSpecies != '' ORDER BY otherSpecies ASC")
+    fun getUniqueOtherSpecies(): List<String>
 }
