@@ -32,6 +32,7 @@ class SettingsManager(
     fun openSettings() {
         activity.lifecycleScope.launch(Dispatchers.IO) {
             val count = db.fishCatchDao().getCount()
+            val placeCount = db.placeOfInterestDao().getCount()
             withContext(Dispatchers.Main) {
                 val inflater = activity.layoutInflater
                 val titleView = inflater.inflate(fi.anssi.kalakartta.R.layout.dialog_settings_title, null)
@@ -49,7 +50,7 @@ class SettingsManager(
                     .setCustomTitle(titleView)
                     .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Yleiset", "Takaisin")) { _, which ->
                         when (which) {
-                            0 -> openDataTransferSettings(count)
+                            0 -> openDataTransferSettings(count, placeCount)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
@@ -368,9 +369,30 @@ class SettingsManager(
         activity.startActivityForResult(intent, 2001)
     }
 
-    private fun openDataTransferSettings(count: Int) {
+    private fun openDataTransferSettings(count: Int, placeCount: Int) {
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 10)
+        }
+
+        val titleView = TextView(activity).apply {
+            text = "Tiedonsiirto"
+            textSize = 22f
+            setTextColor(activity.resources.getColor(android.R.color.primary_text_light))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        layout.addView(titleView)
+
+        val subtitleView = TextView(activity).apply {
+            text = "($count kalapistettä, $placeCount muuta pistettä)"
+            textSize = 14f
+            setTextColor(activity.resources.getColor(android.R.color.darker_gray))
+            setPadding(0, 4, 0, 0)
+        }
+        layout.addView(subtitleView)
+
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Tiedonsiirto ($count pistettä)")
+            .setCustomTitle(layout)
             .setItems(arrayOf("Vie tiedot", "Tuo tiedot", "Poista kaikki pisteet", "Takaisin")) { _, which ->
                 when (which) {
                     0 -> importExportManager.launchExport()

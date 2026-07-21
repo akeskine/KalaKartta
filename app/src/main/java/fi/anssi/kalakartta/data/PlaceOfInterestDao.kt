@@ -27,4 +27,7 @@ interface PlaceOfInterestDao {
 
     @Query("DELETE FROM PlaceOfInterest")
     fun deleteAll()
+
+    @Query("SELECT COUNT(*) FROM PlaceOfInterest")
+    fun getCount(): Int
 }
