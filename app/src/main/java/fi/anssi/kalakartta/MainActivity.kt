@@ -304,8 +304,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }, onMapSettingsChanged = {
                 updateMapTileSource()
-            }) {
-                reloadMarkersFromDb()
+            }) { forceRefreshSpecies ->
+                reloadMarkersFromDb(forceRefreshSpecies)
             }
 
             markerManager = MarkerManager(this, map, db) { marker ->
@@ -573,7 +573,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun reloadMarkersFromDb() {
+    private fun reloadMarkersFromDb(forceRefreshSpecies: Boolean = false) {
+        if (forceRefreshSpecies) {
+            markerManager.rebuildMarkers(map.zoomLevelDouble, forceRefreshSpecies = true)
+        }
         loadCatches()
     }
 

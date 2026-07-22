@@ -27,7 +27,7 @@ class SettingsManager(
     private val importExportManager: ImportExportManager,
     private val onWeatherSettingsChanged: (Boolean) -> Unit = {},
     private val onMapSettingsChanged: () -> Unit = {},
-    private val onDataChanged: () -> Unit
+    private val onDataChanged: (forceRefreshSpecies: Boolean) -> Unit
 ) {
 
     fun openSettings() {
@@ -423,7 +423,7 @@ class SettingsManager(
     private fun deleteAllCatches() {
         db.fishCatchDao().deleteAll()
         db.placeOfInterestDao().deleteAll()
-        onDataChanged()
+        onDataChanged(false)
 
         val dialog = AlertDialog.Builder(activity)
             .setMessage("Kaikki tiedot poistettu.")
@@ -474,7 +474,7 @@ class SettingsManager(
                                                 db.fishSpeciesDao().insert(it)
                                             }
                                             withContext(Dispatchers.Main) {
-                                                onDataChanged()
+                                                onDataChanged(true)
                                                 Toast.makeText(activity, "Oletukset palautettu", Toast.LENGTH_SHORT).show()
                                             }
                                         }
