@@ -44,6 +44,8 @@ class EditSpeciesActivity : AppCompatActivity() {
         setContentView(R.layout.activity_edit_species)
 
         db = AppDatabase.getInstance(this)
+        
+        setResult(RESULT_OK) // Asetetaan RESULT_OK oletuksena, jotta palatessa MainActivity päivittyy
 
         findViewById<TextView>(R.id.dialogTitle).text = getString(R.string.edit_species)
 

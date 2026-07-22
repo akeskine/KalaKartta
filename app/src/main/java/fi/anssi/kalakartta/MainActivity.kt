@@ -810,6 +810,9 @@ class MainActivity : AppCompatActivity() {
             } else if (requestCode == 2001) {
                 // Suodattimet päivitetty
                 reloadMarkersFromDb()
+            } else if (requestCode == 1002) {
+                // Kalalajit muokattu: pakotetaan MarkerManagerin päivitys
+                markerManager.rebuildMarkers(map.zoomLevelDouble, forceRefreshSpecies = true)
             } else {
                 // Muut tapaukset (import, asetukset tms.): täysi reload
                 reloadMarkersFromDb()

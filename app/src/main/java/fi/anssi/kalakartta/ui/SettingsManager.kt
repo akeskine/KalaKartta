@@ -461,7 +461,7 @@ class SettingsManager(
                         when (options[which]) {
                             activity.getString(R.string.edit_species) -> {
                                 val intent = Intent(activity, EditSpeciesActivity::class.java)
-                                activity.startActivity(intent)
+                                activity.startActivityForResult(intent, 1002)
                             }
                             activity.getString(R.string.reset_default_species) -> {
                                 AlertDialog.Builder(activity)

@@ -339,8 +339,11 @@ class MarkerManager(
 
         var drawableId = getDrawableId(iconName)
         if (drawableId == 0 && iconName.isNotEmpty()) {
-            // Jos ei ole resurssi, oletetaan että se on tiedostopolku
-            iconPath = iconName
+            // Tarkistetaan onko se polku
+            val file = File(iconName)
+            if (file.exists() || iconName.contains("/")) {
+                iconPath = iconName
+            }
         }
         
         if (drawableId == 0 && iconPath == null) {
@@ -376,7 +379,24 @@ class MarkerManager(
         return Quadruple(drawableId, iconPath, finalIconSize, finalVisibleSize)
     }
 
-    fun rebuildMarkers(zoom: Double) {
+    fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
+        if (forceRefreshSpecies) {
+            speciesCache.clear()
+            iconCache.clear()
+            pathIconCache.clear()
+            touchIconCache.clear()
+            clusterIconCache.clear()
+            
+            // Ladataan lajit uudelleen välimuistiin
+            scope.launch(Dispatchers.IO) {
+                val speciesList = db.fishSpeciesDao().getAll()
+                synchronized(speciesCache) {
+                    speciesCache.clear()
+                    speciesList.forEach { speciesCache[it.id] = it }
+                }
+            }
+        }
+        
         lastZoom = zoom
         
         rebuildJob?.cancel()
@@ -1393,7 +1413,8 @@ class MarkerManager(
     }
 
     private fun getClusteredMarkerIcon(path: String, sizeDp: Int, count: Int): BitmapDrawable {
-        val baseIcon = getScaledMarkerIcon(path, sizeDp).bitmap
+        val scaled = getScaledMarkerIcon(path, sizeDp)
+        val baseIcon = scaled.bitmap
         return drawClusterCountOnBitmap(baseIcon, count)
     }
 
