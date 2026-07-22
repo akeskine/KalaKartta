@@ -304,8 +304,24 @@ class EditCatchActivity : AppCompatActivity() {
                     val item = getItem(position)
                     nameView.text = item?.name
                     val iconId = getDrawableId(item?.icon_default ?: "")
-                    iconView.setImageResource(iconId)
-                    iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                    if (iconId != 0 && (iconId != R.drawable.default_point || item?.id != "UNKNOWN")) {
+                        iconView.setImageResource(iconId)
+                        iconView.visibility = View.VISIBLE
+                    } else if (item?.id == "UNKNOWN") {
+                        iconView.setImageResource(R.drawable.default_point)
+                        iconView.visibility = View.VISIBLE
+                    } else if (item?.icon_default != null && item.icon_default.isNotEmpty()) {
+                        val file = File(item.icon_default)
+                        if (file.exists()) {
+                            iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                            iconView.visibility = View.VISIBLE
+                        } else {
+                            iconView.setImageResource(R.drawable.muukala)
+                            iconView.visibility = View.VISIBLE
+                        }
+                    } else {
+                        iconView.visibility = View.GONE
+                    }
                     
                     if (item?.icon_default == "seurio") {
                         iconView.scaleX = 1.3f

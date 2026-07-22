@@ -354,14 +354,22 @@ class MarkerManager(
             }
             
             if (drawableId == 0) {
-                drawableId = R.drawable.muukala
+                if (fish.species == "UNKNOWN") {
+                    drawableId = R.drawable.default_point
+                } else {
+                    drawableId = R.drawable.muukala
+                }
             }
         }
         
         // Varmistetaan, että iconPath on oikeasti olemassa oleva tiedosto
         if (iconPath != null && !File(iconPath).exists()) {
             iconPath = null
-            drawableId = R.drawable.muukala
+            if (fish.species == "UNKNOWN") {
+                drawableId = R.drawable.default_point
+            } else {
+                drawableId = R.drawable.muukala
+            }
         }
         
         var baseIconSize = if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) 24 else 40
@@ -1234,7 +1242,7 @@ class MarkerManager(
             layoutParams.height = (finalIconSize * density).toInt()
             titleIconView.layoutParams = layoutParams
 
-            if (drawableId != 0 && drawableId != R.drawable.default_point) {
+            if (drawableId != 0 && (drawableId != R.drawable.default_point || fish.species != "UNKNOWN")) {
                 titleIconView.setImageResource(drawableId)
             } else if (iconPath != null) {
                 val file = File(iconPath)
@@ -1243,6 +1251,8 @@ class MarkerManager(
                 } else {
                     titleIconView.setImageResource(R.drawable.muukala)
                 }
+            } else if (drawableId == R.drawable.default_point && fish.species == "UNKNOWN") {
+                titleIconView.setImageResource(R.drawable.default_point)
             } else {
                 titleIconView.setImageResource(R.drawable.muukala)
             }

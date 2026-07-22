@@ -57,7 +57,7 @@ class CatchManager(
                 val species = fullSpeciesList[position]
                 nameView.text = species.name
                 val iconId = getDrawableId(species.icon_default)
-                if (iconId != 0) {
+                if (iconId != 0 && (iconId != R.drawable.default_point || species.id != "UNKNOWN")) {
                     iconView.setImageResource(iconId)
                 } else if (species.icon_default.isNotEmpty()) {
                     val file = File(species.icon_default)
@@ -66,6 +66,8 @@ class CatchManager(
                     } else {
                         iconView.setImageResource(R.drawable.muukala)
                     }
+                } else if (species.id == "UNKNOWN") {
+                    iconView.setImageResource(R.drawable.default_point)
                 } else {
                     iconView.setImageResource(R.drawable.muukala)
                 }
