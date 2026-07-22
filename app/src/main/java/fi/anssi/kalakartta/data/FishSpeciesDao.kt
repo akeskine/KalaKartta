@@ -11,6 +11,9 @@ interface FishSpeciesDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(species: FishSpecies)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAll(species: List<FishSpecies>)
+
     @Delete
     fun delete(species: FishSpecies)
 

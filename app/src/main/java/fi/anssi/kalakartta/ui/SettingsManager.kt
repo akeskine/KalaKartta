@@ -451,6 +451,10 @@ class SettingsManager(
                 val options = mutableListOf<String>()
                 options.add(activity.getString(R.string.edit_species))
                 if (isModified) {
+                    options.add(activity.getString(R.string.export_species_settings))
+                }
+                options.add(activity.getString(R.string.import_species_settings))
+                if (isModified) {
                     options.add(activity.getString(R.string.reset_default_species))
                 }
                 options.add("Takaisin")
@@ -462,6 +466,19 @@ class SettingsManager(
                             activity.getString(R.string.edit_species) -> {
                                 val intent = Intent(activity, EditSpeciesActivity::class.java)
                                 activity.startActivityForResult(intent, 1002)
+                            }
+                            activity.getString(R.string.export_species_settings) -> {
+                                importExportManager.launchExportSpecies()
+                            }
+                            activity.getString(R.string.import_species_settings) -> {
+                                AlertDialog.Builder(activity)
+                                    .setMessage(R.string.import_species_confirm)
+                                    .setPositiveButton(R.string.ok) { _, _ ->
+                                        importExportManager.launchImportSpecies()
+                                    }
+                                    .setNegativeButton(R.string.cancel, null)
+                                    .show()
+                                    .enlargeButtons()
                             }
                             activity.getString(R.string.reset_default_species) -> {
                                 AlertDialog.Builder(activity)

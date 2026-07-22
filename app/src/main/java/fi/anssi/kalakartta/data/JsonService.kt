@@ -2,8 +2,11 @@ package fi.anssi.kalakartta.data
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -15,8 +18,86 @@ class JsonService {
 
     fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
         val root = JSONObject()
-        val catchesArray = JSONArray()
+        root.put("catches", catchesToJson(catches))
+        root.put("places", placesToJson(places))
 
+        contentResolver.openOutputStream(uri)?.use { out ->
+            out.write(root.toString(4).toByteArray())
+        }
+    }
+
+    fun exportSpecies(contentResolver: ContentResolver, uri: Uri, speciesList: List<FishSpecies>, filesDir: File) {
+        val root = JSONObject()
+        val speciesArray = JSONArray()
+
+        speciesList.forEach { species ->
+            val obj = JSONObject()
+            obj.put("id", species.id)
+            obj.put("name", species.name)
+            obj.put("small_weight", species.small_weight)
+            obj.put("small_length", species.small_length)
+            obj.put("large_weight", species.large_weight)
+            obj.put("large_length", species.large_length)
+            obj.put("giant_weight", species.giant_weight)
+            obj.put("giant_length", species.giant_length)
+            obj.put("favourite_fish", species.favourite_fish)
+            obj.put("sortOrder", species.sortOrder)
+
+            // Encode icons to Base64 if they are custom files
+            obj.put("icon_default", species.icon_default)
+            if (isCustomIcon(species.icon_default)) {
+                obj.put("icon_default_data", encodeFileToBase64(File(filesDir, species.icon_default)))
+            }
+
+            obj.put("icon_small", species.icon_small)
+            if (isCustomIcon(species.icon_small)) {
+                obj.put("icon_small_data", encodeFileToBase64(File(filesDir, species.icon_small)))
+            }
+
+            obj.put("icon_large", species.icon_large)
+            if (isCustomIcon(species.icon_large)) {
+                obj.put("icon_large_data", encodeFileToBase64(File(filesDir, species.icon_large)))
+            }
+
+            obj.put("icon_giant", species.icon_giant)
+            if (isCustomIcon(species.icon_giant)) {
+                obj.put("icon_giant_data", encodeFileToBase64(File(filesDir, species.icon_giant)))
+            }
+
+            speciesArray.put(obj)
+        }
+        root.put("species", speciesArray)
+
+        contentResolver.openOutputStream(uri)?.use { out ->
+            out.write(root.toString(4).toByteArray())
+        }
+    }
+
+    private fun isCustomIcon(iconName: String): Boolean {
+        return iconName.isNotEmpty() && iconName.contains("/")
+    }
+
+    private fun encodeFileToBase64(file: File): String? {
+        if (!file.exists()) return null
+        return try {
+            val bytes = file.readBytes()
+            Base64.encodeToString(bytes, Base64.DEFAULT)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun decodeBase64ToFile(base64Data: String, file: File) {
+        try {
+            val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+            FileOutputStream(file).use { it.write(bytes) }
+        } catch (e: Exception) {
+            android.util.Log.e("JsonService", "Error decoding Base64 to file", e)
+        }
+    }
+
+    private fun catchesToJson(catches: List<FishCatch>): JSONArray {
+        val array = JSONArray()
         catches.forEach {
             val obj = JSONObject()
             obj.put("id", it.id)
@@ -25,7 +106,6 @@ class JsonService {
             if (eventTypeToExport != null) obj.put("eventType", eventTypeToExport)
             obj.put("latitude", String.format(Locale.US, "%.5f", it.latitude).toDouble())
             obj.put("longitude", String.format(Locale.US, "%.5f", it.longitude).toDouble())
-            android.util.Log.d("JsonService", "Exporting catch: species=${it.species}, lat=${it.latitude}, lon=${it.longitude}")
             if (it.caughtAt != null && it.caughtAt!! > 0) {
                 obj.put("caughtAt", isoFormat.format(Date(it.caughtAt!!)))
             }
@@ -53,10 +133,13 @@ class JsonService {
             if (it.fisherman.isNotBlank()) obj.put("fisherman", it.fisherman.uppercase())
             if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies.uppercase())
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
-            catchesArray.put(obj)
+            array.put(obj)
         }
+        return array
+    }
 
-        val placesArray = JSONArray()
+    private fun placesToJson(places: List<PlaceOfInterest>): JSONArray {
+        val array = JSONArray()
         places.forEach {
             val obj = JSONObject()
             obj.put("id", it.id)
@@ -66,15 +149,9 @@ class JsonService {
             obj.put("name", it.name)
             obj.put("additionalInfo", it.additionalInfo)
             obj.put("originalRef", it.originalRef)
-            placesArray.put(obj)
+            array.put(obj)
         }
-
-        root.put("catches", catchesArray)
-        root.put("places", placesArray)
-
-        contentResolver.openOutputStream(uri)?.use { out ->
-            out.write(root.toString(4).toByteArray()) // 4 indentations for human readability
-        }
+        return array
     }
 
     fun import(contentResolver: ContentResolver, uri: Uri): Pair<List<FishCatch>, List<PlaceOfInterest>> {
@@ -106,6 +183,71 @@ class JsonService {
         }
 
         return Pair(catches, places)
+    }
+
+    fun importSpecies(contentResolver: ContentResolver, uri: Uri, filesDir: File): List<FishSpecies> {
+        val text = contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?: return emptyList()
+
+        val speciesList = mutableListOf<FishSpecies>()
+
+        try {
+            val root = JSONObject(text)
+            val speciesArray = root.optJSONArray("species") ?: return emptyList()
+
+            for (i in 0 until speciesArray.length()) {
+                val obj = speciesArray.getJSONObject(i)
+                val id = obj.getString("id")
+                
+                // Handle icons and Base64 data
+                val iconDefault = obj.optString("icon_default", "")
+                val iconDefaultData = obj.optString("icon_default_data", "")
+                if (iconDefaultData.isNotEmpty() && isCustomIcon(iconDefault)) {
+                    decodeBase64ToFile(iconDefaultData, File(filesDir, iconDefault))
+                }
+
+                val iconSmall = obj.optString("icon_small", "")
+                val iconSmallData = obj.optString("icon_small_data", "")
+                if (iconSmallData.isNotEmpty() && isCustomIcon(iconSmall)) {
+                    decodeBase64ToFile(iconSmallData, File(filesDir, iconSmall))
+                }
+
+                val iconLarge = obj.optString("icon_large", "")
+                val iconLargeData = obj.optString("icon_large_data", "")
+                if (iconLargeData.isNotEmpty() && isCustomIcon(iconLarge)) {
+                    decodeBase64ToFile(iconLargeData, File(filesDir, iconLarge))
+                }
+
+                val iconGiant = obj.optString("icon_giant", "")
+                val iconGiantData = obj.optString("icon_giant_data", "")
+                if (iconGiantData.isNotEmpty() && isCustomIcon(iconGiant)) {
+                    decodeBase64ToFile(iconGiantData, File(filesDir, iconGiant))
+                }
+
+                val species = FishSpecies(
+                    id = id,
+                    name = obj.optString("name", ""),
+                    small_weight = obj.optLong("small_weight", 0),
+                    small_length = obj.optLong("small_length", 0),
+                    large_weight = obj.optLong("large_weight", 0),
+                    large_length = obj.optLong("large_length", 0),
+                    giant_weight = obj.optLong("giant_weight", 0),
+                    giant_length = obj.optLong("giant_length", 0),
+                    icon_small = iconSmall,
+                    icon_default = iconDefault,
+                    icon_large = iconLarge,
+                    icon_giant = iconGiant,
+                    favourite_fish = obj.optBoolean("favourite_fish", true),
+                    sortOrder = obj.optInt("sortOrder", 0)
+                )
+                speciesList.add(species)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JsonService", "Error parsing species JSON", e)
+        }
+        return speciesList
     }
 
     private fun parseCatches(jsonArray: JSONArray): List<FishCatch> {
@@ -184,7 +326,7 @@ class JsonService {
                     originalRef = obj.optString("originalRef", ""),
                     tripNotes = obj.optString("tripNotes", ""),
                     fisherman = obj.optString("fisherman", ""),
-                    otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", null),
+                    otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", ""),
                     weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")
                 )
                 result.add(catch)

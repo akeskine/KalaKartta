@@ -91,6 +91,9 @@
     <string name="fish_species_settings">Kalalajit</string>
     <string name="reset_default_species">Palauta oletuskalalajit</string>
     <string name="reset_species_confirm">Oletko varma, että haluat poistaa tekemäsi asetukset kalalajeihin?</string>
+    <string name="export_species_settings">Vie kalalajien asetukset</string>
+    <string name="import_species_settings">Tuo kalalajien asetukset</string>
+    <string name="import_species_confirm">Kalalajien asetuksien tuonti pyyhkii nykyiset asetukset pois, oletko varma?</string>
     <string name="delete_species_confirm">Oletko varma, että haluat poistaa kalalajin?</string>
     <string name="delete_icon_confirm">Oletko varma, että haluat poistaa kuvakkeen?</string>
     <string name="unsaved_species_changes">Kalalajin tietoja on muokattu. Hylätäänkö muutokset?</string>
