@@ -14,6 +14,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.R
@@ -77,6 +78,7 @@ class EditSpeciesActivity : AppCompatActivity() {
                 val favouriteCheckBox = view.findViewById<CheckBox>(R.id.favouriteCheckBox)
                 val moveUpButton = view.findViewById<ImageButton>(R.id.moveUpButton)
                 val moveDownButton = view.findViewById<ImageButton>(R.id.moveDownButton)
+                val deleteButton = view.findViewById<ImageButton>(R.id.deleteSpeciesButton)
 
                 nameView.text = species.name
                 
@@ -104,12 +106,26 @@ class EditSpeciesActivity : AppCompatActivity() {
                 moveUpButton.visibility = if (position > 0) View.VISIBLE else View.INVISIBLE
                 moveDownButton.visibility = if (position < count - 1) View.VISIBLE else View.INVISIBLE
 
+                val defaultIds = FishSpecies.getDefaultList().map { it.id }
+                deleteButton.visibility = if (species.id !in defaultIds) View.VISIBLE else View.GONE
+
                 moveUpButton.setOnClickListener {
                     moveSpecies(position, position - 1)
                 }
 
                 moveDownButton.setOnClickListener {
                     moveSpecies(position, position + 1)
+                }
+
+                deleteButton.setOnClickListener {
+                    AlertDialog.Builder(this@EditSpeciesActivity)
+                        .setMessage(R.string.delete_species_confirm)
+                        .setPositiveButton(R.string.delete) { _, _ ->
+                            db.fishSpeciesDao().delete(species)
+                            loadSpecies()
+                        }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
                 }
 
                 view.setOnClickListener {

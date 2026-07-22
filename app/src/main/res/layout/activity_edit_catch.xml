@@ -10,12 +10,26 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/edit_catch_title"
-            android:textAppearance="@style/TextAppearance.AppCompat.Headline"
-            android:layout_marginBottom="24dp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+            <TextView
+                android:id="@+id/editCatchTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/edit_catch_title"
+                android:textAppearance="@style/TextAppearance.AppCompat.Headline" />
+            <ImageView
+                android:id="@+id/titleSpeciesIcon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:scaleType="centerInside"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/speciesLabel"

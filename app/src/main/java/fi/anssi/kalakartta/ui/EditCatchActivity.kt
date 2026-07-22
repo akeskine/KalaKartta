@@ -21,6 +21,8 @@ import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.WeatherStation
 import fi.anssi.kalakartta.utils.enlargeButtons
+import android.graphics.BitmapFactory
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -66,6 +68,8 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var pressureEditText: EditText
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
+    private lateinit var titleSpeciesIcon: ImageView
+    private lateinit var titleTextView: TextView
     
     private lateinit var placeNameEditText: EditText
     private lateinit var placeNameContainer: View
@@ -157,6 +161,8 @@ class EditCatchActivity : AppCompatActivity() {
         placeNameContainer = findViewById(R.id.placeNameContainer)
         latEditText = findViewById(R.id.latEditText)
         lonEditText = findViewById(R.id.lonEditText)
+        titleSpeciesIcon = findViewById(R.id.titleSpeciesIcon)
+        titleTextView = findViewById(R.id.editCatchTitle)
         
         autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
         nearestStationText = findViewById(R.id.nearestStationText)
@@ -193,10 +199,10 @@ class EditCatchActivity : AppCompatActivity() {
                     longitude = String.format(java.util.Locale.US, "%.5f", lon).toDouble(),
                     name = intent.getStringExtra("EXTRA_PLACE_NAME") ?: ""
                 )
-                setTitle(R.string.add_detailed)
+                titleTextView.setText(R.string.add_detailed)
             } else {
                 placeOfInterest = db.placeOfInterestDao().getById(placeId)
-                setTitle("Muokkaa paikkaa")
+                titleTextView.text = "Muokkaa paikkaa"
             }
             
             if (placeOfInterest == null) {
@@ -250,10 +256,10 @@ class EditCatchActivity : AppCompatActivity() {
             }
 
             if (catchId == -1L) {
-                setTitle(R.string.add_detailed)
+                titleTextView.setText(R.string.add_detailed)
                 setupWeatherForNewCatch(fishCatch!!.latitude, fishCatch!!.longitude)
             } else {
-                setTitle(R.string.edit_catch_title)
+                titleTextView.setText(R.string.edit_catch_title)
             }
         }
 
@@ -509,8 +515,36 @@ class EditCatchActivity : AppCompatActivity() {
         speciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (!isPlace) {
-                    val selectedSpecies = speciesList[position]
+                    val selectedSpecies = speciesList.getOrNull(position) ?: return
                     otherSpeciesContainer.visibility = if (selectedSpecies.id == "OTHER") View.VISIBLE else View.GONE
+                    
+                    val iconPath = selectedSpecies.icon_default
+                    if (iconPath.isNotEmpty()) {
+                        val resId = getDrawableId(iconPath)
+                        if (resId != 0) {
+                            titleSpeciesIcon.setImageResource(resId)
+                        } else {
+                            val file = File(iconPath)
+                            if (file.exists()) {
+                                titleSpeciesIcon.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                            } else {
+                                titleSpeciesIcon.setImageDrawable(null)
+                            }
+                        }
+                        titleSpeciesIcon.visibility = View.VISIBLE
+                    } else {
+                        titleSpeciesIcon.visibility = View.GONE
+                    }
+                } else {
+                    val selectedType = placeTypeList.getOrNull(position) ?: return
+                    val iconName = selectedType.icon
+                    val resId = getDrawableId(iconName)
+                    if (resId != 0) {
+                        titleSpeciesIcon.setImageResource(resId)
+                        titleSpeciesIcon.visibility = View.VISIBLE
+                    } else {
+                        titleSpeciesIcon.visibility = View.GONE
+                    }
                 }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}

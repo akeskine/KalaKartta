@@ -14,6 +14,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -132,6 +133,22 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             intent.type = "image/png"
             pendingIconType = type
             selectIconLauncherWithType.launch(intent)
+        }
+        layout.findViewById<ImageButton>(R.id.deleteIconButton).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setMessage(R.string.delete_icon_confirm)
+                .setPositiveButton(R.string.delete) { _, _ ->
+                    when (type) {
+                        "DEFAULT" -> iconDefaultPath = ""
+                        "SMALL" -> iconSmallPath = ""
+                        "LARGE" -> iconLargePath = ""
+                        "GIANT" -> iconGiantPath = ""
+                    }
+                    updateIconUI(layoutId, "")
+                    saveData(silent = true)
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
         }
     }
 

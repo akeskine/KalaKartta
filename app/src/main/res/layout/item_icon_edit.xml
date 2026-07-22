@@ -59,4 +59,12 @@
         android:layout_height="wrap_content"
         android:text="Valitse" />
 
+    <ImageButton
+        android:id="@+id/deleteIconButton"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        app:tint="#FF0000" />
+
 </LinearLayout>

@@ -91,4 +91,6 @@
     <string name="fish_species_settings">Kalalajit</string>
     <string name="reset_default_species">Palauta oletuskalalajit</string>
     <string name="reset_species_confirm">Oletko varma, että haluat poistaa tekemäsi asetukset kalalajeihin?</string>
+    <string name="delete_species_confirm">Oletko varma, että haluat poistaa kalalajin?</string>
+    <string name="delete_icon_confirm">Oletko varma, että haluat poistaa kuvakkeen?</string>
 </resources>
