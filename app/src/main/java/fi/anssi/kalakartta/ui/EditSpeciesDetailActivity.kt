@@ -210,10 +210,10 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                 updateIconUI(R.id.iconLargeEdit, s.icon_large)
                 updateIconUI(R.id.iconGiantEdit, s.icon_giant)
                 
-                iconDefaultPath = s.icon_default
-                iconSmallPath = s.icon_small
-                iconLargePath = s.icon_large
-                iconGiantPath = s.icon_giant
+                iconDefaultPath = getIconFileName(s.icon_default)
+                iconSmallPath = getIconFileName(s.icon_small)
+                iconLargePath = getIconFileName(s.icon_large)
+                iconGiantPath = getIconFileName(s.icon_giant)
 
                 // Rajoitus: vain itse lisätyn kalalajin nimeä saa muuttaa.
                 // Järjestelmässä valmiina olevien lajien nimi ei ole muokattavissa.
@@ -227,6 +227,15 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             nameInput.isEnabled = true
         }
         isDataLoaded = true
+    }
+
+    private fun getIconFileName(path: String): String {
+        if (path.isEmpty() || (!path.contains("/") && !path.startsWith("custom_icon_"))) return path
+        return try {
+            File(path).name
+        } catch (e: Exception) {
+            path
+        }
     }
 
     private fun updateIconUI(layoutId: Int, iconPath: String) {
@@ -252,7 +261,7 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             if (drawableId != 0) {
                 preview.setImageResource(drawableId)
             } else {
-                val file = File(iconPath)
+                val file = if (iconPath.startsWith("/")) File(iconPath) else File(filesDir, iconPath)
                 if (file.exists()) {
                     preview.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
                 } else {
@@ -290,10 +299,10 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                     }
 
                     when (type) {
-                        "DEFAULT" -> { iconDefaultPath = file.absolutePath; updateIconUI(R.id.iconDefaultEdit, iconDefaultPath) }
-                        "SMALL" -> { iconSmallPath = file.absolutePath; updateIconUI(R.id.iconSmallEdit, iconSmallPath) }
-                        "LARGE" -> { iconLargePath = file.absolutePath; updateIconUI(R.id.iconLargeEdit, iconLargePath) }
-                        "GIANT" -> { iconGiantPath = file.absolutePath; updateIconUI(R.id.iconGiantEdit, iconGiantPath) }
+                        "DEFAULT" -> { iconDefaultPath = fileName; updateIconUI(R.id.iconDefaultEdit, file.absolutePath) }
+                        "SMALL" -> { iconSmallPath = fileName; updateIconUI(R.id.iconSmallEdit, file.absolutePath) }
+                        "LARGE" -> { iconLargePath = fileName; updateIconUI(R.id.iconLargeEdit, file.absolutePath) }
+                        "GIANT" -> { iconGiantPath = fileName; updateIconUI(R.id.iconGiantEdit, file.absolutePath) }
                     }
                     if (isDataLoaded) hasChanges = true
                 }

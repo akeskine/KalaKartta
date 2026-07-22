@@ -44,24 +44,29 @@ class JsonService {
             obj.put("sortOrder", species.sortOrder)
 
             // Encode icons to Base64 if they are custom files
-            obj.put("icon_default", species.icon_default)
+            // We store only the filename in the JSON to keep it portable
+            val defaultIconName = getIconFileName(species.icon_default)
+            obj.put("icon_default", defaultIconName)
             if (isCustomIcon(species.icon_default)) {
-                obj.put("icon_default_data", encodeFileToBase64(File(filesDir, species.icon_default)))
+                obj.put("icon_default_data", encodeFileToBase64(getIconFile(filesDir, species.icon_default)))
             }
 
-            obj.put("icon_small", species.icon_small)
+            val smallIconName = getIconFileName(species.icon_small)
+            obj.put("icon_small", smallIconName)
             if (isCustomIcon(species.icon_small)) {
-                obj.put("icon_small_data", encodeFileToBase64(File(filesDir, species.icon_small)))
+                obj.put("icon_small_data", encodeFileToBase64(getIconFile(filesDir, species.icon_small)))
             }
 
-            obj.put("icon_large", species.icon_large)
+            val largeIconName = getIconFileName(species.icon_large)
+            obj.put("icon_large", largeIconName)
             if (isCustomIcon(species.icon_large)) {
-                obj.put("icon_large_data", encodeFileToBase64(File(filesDir, species.icon_large)))
+                obj.put("icon_large_data", encodeFileToBase64(getIconFile(filesDir, species.icon_large)))
             }
 
-            obj.put("icon_giant", species.icon_giant)
+            val giantIconName = getIconFileName(species.icon_giant)
+            obj.put("icon_giant", giantIconName)
             if (isCustomIcon(species.icon_giant)) {
-                obj.put("icon_giant_data", encodeFileToBase64(File(filesDir, species.icon_giant)))
+                obj.put("icon_giant_data", encodeFileToBase64(getIconFile(filesDir, species.icon_giant)))
             }
 
             speciesArray.put(obj)
@@ -73,8 +78,25 @@ class JsonService {
         }
     }
 
+    private fun getIconFileName(path: String): String {
+        if (!isCustomIcon(path)) return path
+        return try {
+            File(path).name
+        } catch (e: Exception) {
+            path
+        }
+    }
+
+    private fun getIconFile(filesDir: File, path: String): File {
+        return if (path.startsWith("/")) {
+            File(path)
+        } else {
+            File(filesDir, path)
+        }
+    }
+
     private fun isCustomIcon(iconName: String): Boolean {
-        return iconName.isNotEmpty() && iconName.contains("/")
+        return iconName.isNotEmpty() && (iconName.contains("/") || iconName.startsWith("custom_icon_"))
     }
 
     private fun encodeFileToBase64(file: File): String? {
@@ -204,26 +226,38 @@ class JsonService {
                 // Handle icons and Base64 data
                 val iconDefault = obj.optString("icon_default", "")
                 val iconDefaultData = obj.optString("icon_default_data", "")
+                var finalIconDefault = iconDefault
                 if (iconDefaultData.isNotEmpty() && isCustomIcon(iconDefault)) {
-                    decodeBase64ToFile(iconDefaultData, File(filesDir, iconDefault))
+                    val file = File(filesDir, getIconFileName(iconDefault))
+                    decodeBase64ToFile(iconDefaultData, file)
+                    finalIconDefault = file.absolutePath
                 }
 
                 val iconSmall = obj.optString("icon_small", "")
                 val iconSmallData = obj.optString("icon_small_data", "")
+                var finalIconSmall = iconSmall
                 if (iconSmallData.isNotEmpty() && isCustomIcon(iconSmall)) {
-                    decodeBase64ToFile(iconSmallData, File(filesDir, iconSmall))
+                    val file = File(filesDir, getIconFileName(iconSmall))
+                    decodeBase64ToFile(iconSmallData, file)
+                    finalIconSmall = file.absolutePath
                 }
 
                 val iconLarge = obj.optString("icon_large", "")
                 val iconLargeData = obj.optString("icon_large_data", "")
+                var finalIconLarge = iconLarge
                 if (iconLargeData.isNotEmpty() && isCustomIcon(iconLarge)) {
-                    decodeBase64ToFile(iconLargeData, File(filesDir, iconLarge))
+                    val file = File(filesDir, getIconFileName(iconLarge))
+                    decodeBase64ToFile(iconLargeData, file)
+                    finalIconLarge = file.absolutePath
                 }
 
                 val iconGiant = obj.optString("icon_giant", "")
                 val iconGiantData = obj.optString("icon_giant_data", "")
+                var finalIconGiant = iconGiant
                 if (iconGiantData.isNotEmpty() && isCustomIcon(iconGiant)) {
-                    decodeBase64ToFile(iconGiantData, File(filesDir, iconGiant))
+                    val file = File(filesDir, getIconFileName(iconGiant))
+                    decodeBase64ToFile(iconGiantData, file)
+                    finalIconGiant = file.absolutePath
                 }
 
                 val species = FishSpecies(
@@ -235,10 +269,10 @@ class JsonService {
                     large_length = obj.optLong("large_length", 0),
                     giant_weight = obj.optLong("giant_weight", 0),
                     giant_length = obj.optLong("giant_length", 0),
-                    icon_small = iconSmall,
-                    icon_default = iconDefault,
-                    icon_large = iconLarge,
-                    icon_giant = iconGiant,
+                    icon_small = finalIconSmall,
+                    icon_default = finalIconDefault,
+                    icon_large = finalIconLarge,
+                    icon_giant = finalIconGiant,
                     favourite_fish = obj.optBoolean("favourite_fish", true),
                     sortOrder = obj.optInt("sortOrder", 0)
                 )
