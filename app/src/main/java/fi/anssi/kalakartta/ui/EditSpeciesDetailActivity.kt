@@ -164,14 +164,23 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setMessage(R.string.delete_icon_confirm)
                 .setPositiveButton(R.string.delete) { _, _ ->
+                    val defaultSpecies = fi.anssi.kalakartta.data.FishSpecies.getDefaultList().find { it.id == speciesId }
+                    val defaultPath = when (type) {
+                        "DEFAULT" -> defaultSpecies?.icon_default ?: ""
+                        "SMALL" -> defaultSpecies?.icon_small ?: ""
+                        "LARGE" -> defaultSpecies?.icon_large ?: ""
+                        "GIANT" -> defaultSpecies?.icon_giant ?: ""
+                        else -> ""
+                    }
+                    
                     when (type) {
-                        "DEFAULT" -> iconDefaultPath = ""
-                        "SMALL" -> iconSmallPath = ""
-                        "LARGE" -> iconLargePath = ""
-                        "GIANT" -> iconGiantPath = ""
+                        "DEFAULT" -> iconDefaultPath = defaultPath
+                        "SMALL" -> iconSmallPath = defaultPath
+                        "LARGE" -> iconLargePath = defaultPath
+                        "GIANT" -> iconGiantPath = defaultPath
                     }
                     if (isDataLoaded) hasChanges = true
-                    updateIconUI(layoutId, "")
+                    updateIconUI(layoutId, defaultPath)
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
@@ -227,7 +236,16 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         val deleteButton = layout.findViewById<ImageButton>(R.id.deleteIconButton)
 
         pathText.text = iconPath
-        deleteButton.visibility = if (iconPath.isNotEmpty()) View.VISIBLE else View.GONE
+        
+        // Näytä poistonappi vain, jos ikoni on asetettu EIKÄ se ole oletuslajin oletusikoni
+        val defaultSpecies = fi.anssi.kalakartta.data.FishSpecies.getDefaultList().find { it.id == speciesId }
+        val isDefaultIcon = defaultSpecies != null && (
+            iconPath == defaultSpecies.icon_default ||
+            iconPath == defaultSpecies.icon_small ||
+            iconPath == defaultSpecies.icon_large ||
+            iconPath == defaultSpecies.icon_giant
+        )
+        deleteButton.visibility = if (iconPath.isNotEmpty() && !isDefaultIcon) View.VISIBLE else View.GONE
         
         if (iconPath.isNotEmpty()) {
             val drawableId = getDrawableId(iconPath)

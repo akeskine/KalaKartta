@@ -347,7 +347,15 @@ class MarkerManager(
         }
         
         if (drawableId == 0 && iconPath == null) {
-            drawableId = R.drawable.muukala
+            // Jos kyseessä on oletuslaji, mutta icon_default on tyhjä, kokeillaan palauttaa oletusikoni koodista
+            val defaultSpecies = fi.anssi.kalakartta.data.FishSpecies.getDefaultList().find { it.id == fish.species }
+            if (defaultSpecies != null && defaultSpecies.icon_default.isNotEmpty()) {
+                drawableId = getDrawableId(defaultSpecies.icon_default)
+            }
+            
+            if (drawableId == 0) {
+                drawableId = R.drawable.muukala
+            }
         }
         
         // Varmistetaan, että iconPath on oikeasti olemassa oleva tiedosto
