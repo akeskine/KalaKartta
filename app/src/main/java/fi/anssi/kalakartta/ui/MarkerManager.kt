@@ -847,11 +847,21 @@ class MarkerManager(
         val titleText = if (place.name.isEmpty()) type?.name ?: place.typeId else place.name
         titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = titleText
 
-        val message = if (place.name.isEmpty()) place.additionalInfo else "${type?.name ?: place.typeId}\n\n${place.additionalInfo}"
+        val message = StringBuilder()
+        if (place.name.isEmpty()) {
+            message.append(place.additionalInfo)
+        } else {
+            message.append("${type?.name ?: place.typeId}\n\n${place.additionalInfo}")
+        }
+        
+        if (place.originalRef.isNotEmpty()) {
+            if (message.isNotEmpty()) message.append("\n")
+            message.append("Alkuperäinen viite: ${place.originalRef}")
+        }
 
         val dialog = AlertDialog.Builder(context)
             .setCustomTitle(titleView)
-            .setMessage(message.trim())
+            .setMessage(message.toString().trim())
             .setPositiveButton(R.string.ok, null)
             .create()
 
