@@ -415,9 +415,6 @@ class EditCatchActivity : AppCompatActivity() {
                     if (fc.otherSpecies.isNullOrBlank()) {
                         val newCatch = fc.copy(species = "OTHER", otherSpecies = fc.species)
                         fishCatch = newCatch
-                        
-                        // Päivitetään otherSpeciesEditText heti
-                        otherSpeciesEditText.setText(fc.species.lowercase().replaceFirstChar { it.uppercase() })
                     } else {
                         val newCatch = fc.copy(species = "OTHER")
                         fishCatch = newCatch
@@ -515,11 +512,12 @@ class EditCatchActivity : AppCompatActivity() {
                 additionalInfoEditText.setText(fc.additionalInfo ?: "")
                 tripNotesEditText.setText(fc.tripNotes ?: "")
                 fishermanEditText.setText(fc.fisherman ?: "")
-                val otherSpeciesDisplay = fc.otherSpecies?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""
+                val updatedFc = fishCatch ?: fc
+                val otherSpeciesDisplay = updatedFc.otherSpecies?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""
                 otherSpeciesEditText.setText(otherSpeciesDisplay)
-                otherSpeciesContainer.visibility = if (fc.species == "OTHER") View.VISIBLE else View.GONE
-                latEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.latitude))
-                lonEditText.setText(String.format(java.util.Locale.US, "%.5f", fc.longitude))
+                otherSpeciesContainer.visibility = if (updatedFc.species == "OTHER") View.VISIBLE else View.GONE
+                latEditText.setText(String.format(java.util.Locale.US, "%.5f", updatedFc.latitude))
+                lonEditText.setText(String.format(java.util.Locale.US, "%.5f", updatedFc.longitude))
             }
         }
         isUpdatingFromCode = false
