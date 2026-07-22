@@ -292,8 +292,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }.start()
 
-            importExportManager = ImportExportManager(this, db) {
-                reloadMarkersFromDb()
+            importExportManager = ImportExportManager(this, db) { forceRefreshSpecies ->
+                reloadMarkersFromDb(forceRefreshSpecies)
             }
 
             settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
