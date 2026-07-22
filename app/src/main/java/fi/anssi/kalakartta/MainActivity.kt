@@ -210,36 +210,7 @@ class MainActivity : AppCompatActivity() {
             // Esitäyttö taustasäikeessä
             Thread {
                 val speciesDao = db.fishSpeciesDao()
-                val defaults = listOf(
-                    FishSpecies(
-                        "PERCH", "Ahven", icon_default = "ahven",
-                        small_weight = 200, small_length = 25,
-                        large_weight = 500, large_length = 35,
-                        giant_weight = 800, giant_length = 40
-                    ),
-                    FishSpecies(
-                        "PIKE", "Hauki", icon_default = "hauki",
-                        small_weight = 1000, small_length = 55,
-                        large_weight = 3000, large_length = 80,
-                        giant_weight = 8000, giant_length = 100
-                    ),
-                    FishSpecies(
-                        "ZANDER", "Kuha", icon_default = "kuha",
-                        small_weight = 800, small_length = 42,
-                        large_weight = 2000, large_length = 60,
-                        giant_weight = 5000, giant_length = 80
-                    ),
-                    FishSpecies("TROUT", "Taimen", icon_default = "taimen"),
-                    FishSpecies("SALMON", "Lohi", icon_default = "lohi"),
-                    FishSpecies("GRAYLING", "Harjus", icon_default = "harjus"),
-                    FishSpecies("WHITEFISH", "Siika", icon_default = "siika"),
-                    FishSpecies("RAINBOW", "Kirjolohi", icon_default = "kirjolohi"),
-                    FishSpecies("BREAM", "Lahna", icon_default = "lahna"),
-                    FishSpecies("IDE", "Säyne", icon_default = "sayne"),
-                    FishSpecies("CHAR", "Rautu", icon_default = "rautu"),
-                    FishSpecies("BURBOT", "Made", icon_default = "made"),
-                    FishSpecies("OTHER", "Muu kalalaji", icon_default = "muukala")
-                )
+                val defaults = FishSpecies.getDefaultList()
 
                 defaults.forEach { species ->
                     val existing = speciesDao.getById(species.id)
