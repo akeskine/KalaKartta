@@ -531,20 +531,16 @@ class EditCatchActivity : AppCompatActivity() {
                                 titleSpeciesIcon.setImageDrawable(null)
                             }
                         }
-                        titleSpeciesIcon.visibility = View.VISIBLE
-                    } else {
-                        titleSpeciesIcon.visibility = View.GONE
                     }
+                    titleSpeciesIcon.visibility = View.GONE
                 } else {
                     val selectedType = placeTypeList.getOrNull(position) ?: return
                     val iconName = selectedType.icon
                     val resId = getDrawableId(iconName)
                     if (resId != 0) {
                         titleSpeciesIcon.setImageResource(resId)
-                        titleSpeciesIcon.visibility = View.VISIBLE
-                    } else {
-                        titleSpeciesIcon.visibility = View.GONE
                     }
+                    titleSpeciesIcon.visibility = View.GONE
                 }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}

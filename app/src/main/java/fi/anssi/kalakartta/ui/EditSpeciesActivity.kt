@@ -107,7 +107,7 @@ class EditSpeciesActivity : AppCompatActivity() {
                 moveDownButton.visibility = if (position < count - 1) View.VISIBLE else View.INVISIBLE
 
                 val defaultIds = FishSpecies.getDefaultList().map { it.id }
-                deleteButton.visibility = if (species.id !in defaultIds) View.VISIBLE else View.GONE
+                deleteButton.visibility = View.GONE
 
                 moveUpButton.setOnClickListener {
                     moveSpecies(position, position - 1)

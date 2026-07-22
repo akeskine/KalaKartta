@@ -347,14 +347,20 @@ class MarkerManager(
         }
         
         if (drawableId == 0 && iconPath == null) {
-            drawableId = R.drawable.default_point
+            drawableId = R.drawable.muukala
         }
         
-        var baseIconSize = if (drawableId == R.drawable.default_point) 24 else 40
-        var visibleSize = if (drawableId == R.drawable.default_point) 8 else baseIconSize
+        // Varmistetaan, että iconPath on oikeasti olemassa oleva tiedosto
+        if (iconPath != null && !File(iconPath).exists()) {
+            iconPath = null
+            drawableId = R.drawable.muukala
+        }
+        
+        var baseIconSize = if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) 24 else 40
+        var visibleSize = if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) 8 else baseIconSize
 
-        // Punaiset oletuspisteet (default_point) pidetään aina vakioina ja pieninä
-        if (drawableId == R.drawable.default_point) {
+        // Punaiset oletuspisteet (default_point) tai fallback-kuvakkeet pidetään vakioina ja pieninä
+        if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) {
             scaleFactor = 0.8
         }
         
@@ -376,7 +382,13 @@ class MarkerManager(
         val finalIconSize = (baseIconSize * scaleFactor).toInt()
         val finalVisibleSize = (visibleSize * scaleFactor).toInt()
         
-        return Quadruple(drawableId, iconPath, finalIconSize, finalVisibleSize)
+        // Varmistetaan että pienin koko on vähintään 16dp jos kyseessä ei ole default_point
+        var adjustedFinalIconSize = finalIconSize
+        if (drawableId != R.drawable.default_point && adjustedFinalIconSize < 16) {
+            adjustedFinalIconSize = 16
+        }
+
+        return Quadruple(drawableId, iconPath, adjustedFinalIconSize, finalVisibleSize)
     }
 
     fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
@@ -1198,6 +1210,36 @@ class MarkerManager(
         }
         titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = dialogTitle
 
+        val titleIconView = titleView.findViewById<android.widget.ImageView>(R.id.titleIcon)
+        fish?.let {
+            val params = calculateIconParams(it)
+            val drawableId = params.first
+            val iconPath = params.second
+            val finalIconSize = params.third
+
+            titleIconView.visibility = View.VISIBLE
+            
+            // Asetetaan koko vastaamaan kartalla näkyvää kokoa
+            val layoutParams = titleIconView.layoutParams
+            val density = context.resources.displayMetrics.density
+            layoutParams.width = (finalIconSize * density).toInt()
+            layoutParams.height = (finalIconSize * density).toInt()
+            titleIconView.layoutParams = layoutParams
+
+            if (drawableId != 0 && drawableId != R.drawable.default_point) {
+                titleIconView.setImageResource(drawableId)
+            } else if (iconPath != null) {
+                val file = File(iconPath)
+                if (file.exists()) {
+                    titleIconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                } else {
+                    titleIconView.setImageResource(R.drawable.muukala)
+                }
+            } else {
+                titleIconView.setImageResource(R.drawable.muukala)
+            }
+        }
+
         val messageText = details.toString().trim()
         val spannableMessage = SpannableString(messageText)
         
@@ -1335,10 +1377,10 @@ class MarkerManager(
 
     @Suppress("DiscouragedApi")
     private fun getDrawableId(iconName: String): Int {
-        if (iconName.isEmpty()) return R.drawable.default_point
+        if (iconName.isEmpty()) return 0
         
         val id = context.resources.getIdentifier(iconName, "drawable", context.packageName)
-        return if (id != 0) id else R.drawable.default_point
+        return id
     }
 
     private fun calculateClusters(catches: List<FishCatch>, zoom: Double): Map<Any, List<List<FishCatch>>> {

@@ -1,6 +1,7 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +18,7 @@ import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.WeatherService
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import java.io.File
 
 class CatchManager(
     private val activity: AppCompatActivity,
@@ -55,7 +57,18 @@ class CatchManager(
                 val species = fullSpeciesList[position]
                 nameView.text = species.name
                 val iconId = getDrawableId(species.icon_default)
-                iconView.setImageResource(iconId)
+                if (iconId != 0) {
+                    iconView.setImageResource(iconId)
+                } else if (species.icon_default.isNotEmpty()) {
+                    val file = File(species.icon_default)
+                    if (file.exists()) {
+                        iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                    } else {
+                        iconView.setImageResource(R.drawable.muukala)
+                    }
+                } else {
+                    iconView.setImageResource(R.drawable.muukala)
+                }
                 iconView.visibility = View.VISIBLE
                 
                 if (species.icon_default == "seurio") {
@@ -352,9 +365,9 @@ class CatchManager(
 
     @Suppress("DiscouragedApi")
     private fun getDrawableId(iconName: String): Int {
-        if (iconName.isEmpty()) return R.drawable.default_point
+        if (iconName.isEmpty()) return 0
         val id = activity.resources.getIdentifier(iconName, "drawable", activity.packageName)
-        return if (id != 0) id else R.drawable.default_point
+        return id
     }
 
     private fun addCatchAtSelectedLocation(speciesId: String, weight: Long? = null, length: Long? = null, eventType: String? = FishCatch.CAUGHT_FISH, otherSpecies: String? = null) {

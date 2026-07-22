@@ -78,29 +78,6 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
 
         initViews()
         loadData()
-        setupAutoSave()
-    }
-
-    private fun setupAutoSave() {
-        val watcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                saveData(silent = true)
-            }
-        }
-
-        nameInput.addTextChangedListener(watcher)
-        smallWeightInput.addTextChangedListener(watcher)
-        smallLengthInput.addTextChangedListener(watcher)
-        largeWeightInput.addTextChangedListener(watcher)
-        largeLengthInput.addTextChangedListener(watcher)
-        giantWeightInput.addTextChangedListener(watcher)
-        giantLengthInput.addTextChangedListener(watcher)
-        
-        favouriteCheckBox.setOnCheckedChangeListener { _, _ ->
-            saveData(silent = true)
-        }
     }
 
     private fun initViews() {
@@ -117,6 +94,30 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         setupIconEdit(R.id.iconSmallEdit, getString(R.string.icon_small), getString(R.string.icon_small_help), "SMALL")
         setupIconEdit(R.id.iconLargeEdit, getString(R.string.icon_large), getString(R.string.icon_large_help), "LARGE")
         setupIconEdit(R.id.iconGiantEdit, getString(R.string.icon_giant), getString(R.string.icon_giant_help), "GIANT")
+
+        findViewById<MaterialButton>(R.id.backButton).setOnClickListener {
+            finish()
+        }
+
+        findViewById<MaterialButton>(R.id.okButton).setOnClickListener {
+            saveData()
+        }
+
+        val deleteBtn = findViewById<MaterialButton>(R.id.deleteSpeciesButton)
+        val defaultIds = fi.anssi.kalakartta.data.FishSpecies.getDefaultList().map { it.id }
+        if (speciesId != null && speciesId !in defaultIds) {
+            deleteBtn.visibility = View.VISIBLE
+            deleteBtn.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setMessage(R.string.delete_species_confirm)
+                    .setPositiveButton(R.string.delete) { _, _ ->
+                        currentSpecies?.let { db.fishSpeciesDao().delete(it) }
+                        finish()
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+        }
     }
 
     private fun setupIconEdit(layoutId: Int, label: String, help: String, type: String) {
@@ -145,7 +146,6 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                         "GIANT" -> iconGiantPath = ""
                     }
                     updateIconUI(layoutId, "")
-                    saveData(silent = true)
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
@@ -189,8 +189,11 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         val layout = findViewById<View>(layoutId)
         val preview = layout.findViewById<ImageView>(R.id.iconPreview)
         val pathText = layout.findViewById<TextView>(R.id.iconPath)
+        val deleteButton = layout.findViewById<ImageButton>(R.id.deleteIconButton)
 
         pathText.text = iconPath
+        deleteButton.visibility = if (iconPath.isNotEmpty()) View.VISIBLE else View.GONE
+        
         if (iconPath.isNotEmpty()) {
             val drawableId = getDrawableId(iconPath)
             if (drawableId != 0) {
@@ -239,7 +242,6 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                         "LARGE" -> { iconLargePath = file.absolutePath; updateIconUI(R.id.iconLargeEdit, iconLargePath) }
                         "GIANT" -> { iconGiantPath = file.absolutePath; updateIconUI(R.id.iconGiantEdit, iconGiantPath) }
                     }
-                    saveData(silent = true)
                 }
             }
         } catch (e: Exception) {
