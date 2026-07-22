@@ -69,4 +69,26 @@
     <string name="show_scale_bar">Näytä mittakaava kartalla</string>
     <string name="auto_center">Automaattinen kohdistus</string>
     <string name="auto_center_on_start">Kohdista kartta omaan sijaintiin kun sovellus avataan</string>
+    <string name="edit_species">Muokkaa kalalajeja</string>
+    <string name="back">Takaisin</string>
+    <string name="favourite_fish">Suosikkikala</string>
+    <string name="small_weight">Pieni paino (g)</string>
+    <string name="small_length">Pieni pituus (cm)</string>
+    <string name="large_weight">Suuri paino (g)</string>
+    <string name="large_length">Suuri pituus (cm)</string>
+    <string name="giant_weight">Jätti paino (g)</string>
+    <string name="giant_length">Jätti pituus (cm)</string>
+    <string name="icon_default">Oletusikoni</string>
+    <string name="icon_small">Pienen kalan ikoni</string>
+    <string name="icon_large">Suuren kalan ikoni</string>
+    <string name="icon_giant">Jättikalan ikoni</string>
+    <string name="icon_help">Kalalle kartalla näkyvä kuvake. Käytetään tätä kuvaketta, jos eri kokoisille kaloille ei ole kuvakkeita määritelty. Kuvan tulee olla png-muotoinen, max 1536 x 1025 pikseliä ja tausta läpinäkyvä.</string>
+    <string name="icon_small_help">Pienen kalan kartalla näkyvä kuvake. Kuvan tulee olla png-muotoinen, max 1536 x 1025 pikseliä ja tausta läpinäkyvä.</string>
+    <string name="icon_large_help">Suuren kalan kartalla näkyvä kuvake. Kuvan tulee olla png-muotoinen, max 1536 x 1025 pikseliä ja tausta läpinäkyvä.</string>
+    <string name="icon_giant_help">Jättikalan kartalla näkyvä kuvake. Kuvan tulee olla png-muotoinen, max 1536 x 1025 pikseliä ja tausta läpinäkyvä.</string>
+    <string name="add_new_species">Lisää uusi kalalaji</string>
+    <string name="species_name">Lajin nimi</string>
+    <string name="fish_species_settings">Kalalajit</string>
+    <string name="reset_default_species">Palauta oletuskalalajit</string>
+    <string name="reset_species_confirm">Oletko varma, että haluat poistaa tekemäsi asetukset kalalajeihin?</string>
 </resources>

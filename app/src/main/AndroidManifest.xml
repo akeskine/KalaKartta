@@ -35,6 +35,8 @@
         <activity android:name=".ui.WeatherUpdateActivity" />
         <activity android:name=".ui.WeatherErrorLogActivity" />
         <activity android:name=".ui.SummaryActivity" />
+        <activity android:name=".ui.EditSpeciesActivity" />
+        <activity android:name=".ui.EditSpeciesDetailActivity" />
     </application>
 
 </manifest>

@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.ui
 
+import android.content.Intent
 import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableString
@@ -48,15 +49,16 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", "Yleiset", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", activity.getString(R.string.fish_species_settings), "Yleiset", "Takaisin")) { _, which ->
                         when (which) {
                             0 -> openDataTransferSettings(count, placeCount)
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
                             4 -> openMapSettings()
-                            5 -> openGeneralSettings()
-                            6 -> { /* Sulje valikko */ }
+                            5 -> openSpeciesSettings()
+                            6 -> openGeneralSettings()
+                            7 -> { /* Sulje valikko */ }
                         }
                     }
                     .show()
@@ -428,6 +430,65 @@ class SettingsManager(
             .setPositiveButton("OK", null)
             .show()
         dialog.enlargeButtons()
+    }
+
+    private fun openSpeciesSettings() {
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            val species = db.fishSpeciesDao().getAll()
+            val defaults = fi.anssi.kalakartta.data.FishSpecies.getDefaultList()
+            
+            // Tarkistetaan onko muutoksia tehty
+            val isModified = species.size != defaults.size || species.any { s ->
+                val d = defaults.find { it.id == s.id }
+                d == null || s.name != d.name || s.small_weight != d.small_weight || 
+                s.small_length != d.small_length || s.large_weight != d.large_weight || 
+                s.large_length != d.large_length || s.giant_weight != d.giant_weight || 
+                s.giant_length != d.giant_length || s.icon_default != d.icon_default || 
+                s.favourite_fish != d.favourite_fish || s.sortOrder != d.sortOrder
+            }
+
+            withContext(Dispatchers.Main) {
+                val options = mutableListOf<String>()
+                options.add(activity.getString(R.string.edit_species))
+                if (isModified) {
+                    options.add(activity.getString(R.string.reset_default_species))
+                }
+                options.add("Takaisin")
+
+                AlertDialog.Builder(activity)
+                    .setTitle(activity.getString(R.string.fish_species_settings))
+                    .setItems(options.toTypedArray()) { _, which ->
+                        when (options[which]) {
+                            activity.getString(R.string.edit_species) -> {
+                                val intent = Intent(activity, EditSpeciesActivity::class.java)
+                                activity.startActivity(intent)
+                            }
+                            activity.getString(R.string.reset_default_species) -> {
+                                AlertDialog.Builder(activity)
+                                    .setMessage(R.string.reset_species_confirm)
+                                    .setPositiveButton(R.string.delete) { _, _ ->
+                                        activity.lifecycleScope.launch(Dispatchers.IO) {
+                                            db.fishSpeciesDao().deleteAll()
+                                            // MainActivityn esitäyttö hoitaa loput, mutta voimme myös täyttää tässä heti
+                                            fi.anssi.kalakartta.data.FishSpecies.getDefaultList().forEach {
+                                                db.fishSpeciesDao().insert(it)
+                                            }
+                                            withContext(Dispatchers.Main) {
+                                                onDataChanged()
+                                                Toast.makeText(activity, "Oletukset palautettu", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                    .setNegativeButton(R.string.cancel, null)
+                                    .show()
+                                    .enlargeButtons()
+                            }
+                        }
+                    }
+                    .show()
+                    .enlargeButtons()
+            }
+        }
     }
 
     private fun openDefaultFishermanSettings() {

@@ -239,6 +239,12 @@ class MainActivity : AppCompatActivity() {
                             updated = true
                         }
 
+                        // Päivitetään järjestys jos se on 0 (eli uusi kenttä tai ei asetettu)
+                        if (existing.sortOrder == 0 && species.sortOrder != 0) {
+                            toUpdate = toUpdate.copy(sortOrder = species.sortOrder)
+                            updated = true
+                        }
+
                         if (updated) {
                             speciesDao.insert(toUpdate)
                         }

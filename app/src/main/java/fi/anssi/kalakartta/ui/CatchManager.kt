@@ -31,12 +31,14 @@ class CatchManager(
         
         if (speciesList.isEmpty()) {
             // Varatoimenpide jos tietokanta on tyhjä (esim. ensikäynnistys ja Thread ei ole ehtinyt loppuun)
-            val fallbacks = FishSpecies.getDefaultList()
+            val fallbacks = FishSpecies.getDefaultList().filter { it.favourite_fish }
             showSpeciesDialogWithData(fallbacks)
             return
         }
 
-        showSpeciesDialogWithData(speciesList)
+        // Näytetään vain suosikkikalat pika-lisäysdialogissa
+        val favourites = speciesList.filter { it.favourite_fish }
+        showSpeciesDialogWithData(favourites)
     }
 
     private fun showSpeciesDialogWithData(speciesList: List<FishSpecies>) {

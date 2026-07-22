@@ -242,8 +242,10 @@ class SummaryActivity : AppCompatActivity() {
         // Ryhmittele lajeittain
         val grouped = catches.groupBy { it.species }
         
-        // Järjestä lajit: eniten kaloja ensin
-        val sortedSpecies = grouped.entries.sortedByDescending { it.value.size }
+        // Järjestä lajit käyttäjän määrittelemän järjestyksen mukaan
+        val sortedSpecies = grouped.entries.sortedBy { entry ->
+            speciesMap[entry.key]?.sortOrder ?: Int.MAX_VALUE
+        }
 
         for ((index, entry) in sortedSpecies.withIndex()) {
             val speciesId = entry.key

@@ -1,6 +1,8 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -32,6 +34,7 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import org.osmdroid.views.overlay.FolderOverlay
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.*
@@ -57,6 +60,7 @@ class MarkerManager(
     private val placesFolder = FolderOverlay()
     private val markersFolder = FolderOverlay()
     private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
+    private val pathIconCache = mutableMapOf<Pair<String, Int>, BitmapDrawable>()
     private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
     private val clusterIconCache = mutableMapOf<Any, BitmapDrawable>()
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
@@ -262,12 +266,16 @@ class MarkerManager(
         
         val iconParams = calculateIconParams(fish)
         val drawableId = iconParams.first
-        val finalIconSize = iconParams.second
-        val finalVisibleSize = iconParams.third
+        val iconPath = iconParams.second
+        val finalIconSize = iconParams.third
+        val finalVisibleSize = iconParams.fourth
 
         marker.icon = if (drawableId == R.drawable.default_point) {
             val key = Triple(drawableId, finalVisibleSize, 48)
             touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, finalVisibleSize, 48) }
+        } else if (iconPath != null) {
+            val key = Pair(iconPath, finalIconSize)
+            pathIconCache.getOrPut(key) { getScaledMarkerIcon(iconPath, finalIconSize) }
         } else {
             val key = Pair(drawableId, finalIconSize)
             iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, finalIconSize) }
@@ -275,9 +283,10 @@ class MarkerManager(
         marker.relatedObject = fish
     }
 
-    private fun calculateIconParams(fish: FishCatch): Triple<Int, Int, Int> {
+    private fun calculateIconParams(fish: FishCatch): Quadruple<Int, String?, Int, Int> {
         val species = speciesCache[fish.species]
         var iconName = species?.icon_default ?: ""
+        var iconPath: String? = null
         var scaleFactor = 1.0
 
         // Jos tapahtuma ei ole "Saatu kala" (tai tyhjä), käytetään tapahtumakohtaista kuvaketta
@@ -328,7 +337,15 @@ class MarkerManager(
             }
         }
 
-        val drawableId = getDrawableId(iconName)
+        var drawableId = getDrawableId(iconName)
+        if (drawableId == 0 && iconName.isNotEmpty()) {
+            // Jos ei ole resurssi, oletetaan että se on tiedostopolku
+            iconPath = iconName
+        }
+        
+        if (drawableId == 0 && iconPath == null) {
+            drawableId = R.drawable.default_point
+        }
         
         var baseIconSize = if (drawableId == R.drawable.default_point) 24 else 40
         var visibleSize = if (drawableId == R.drawable.default_point) 8 else baseIconSize
@@ -356,7 +373,7 @@ class MarkerManager(
         val finalIconSize = (baseIconSize * scaleFactor).toInt()
         val finalVisibleSize = (visibleSize * scaleFactor).toInt()
         
-        return Triple(drawableId, finalIconSize, finalVisibleSize)
+        return Quadruple(drawableId, iconPath, finalIconSize, finalVisibleSize)
     }
 
     fun rebuildMarkers(zoom: Double) {
@@ -691,12 +708,16 @@ class MarkerManager(
         
         val iconParams = calculateIconParams(fish)
         val drawableId = iconParams.first
-        val finalIconSize = iconParams.second
-        val finalVisibleSize = iconParams.third
+        val iconPath = iconParams.second
+        val finalIconSize = iconParams.third
+        val finalVisibleSize = iconParams.fourth
 
         marker.icon = if (drawableId == R.drawable.default_point) {
             val key = Triple(drawableId, finalVisibleSize, 48)
             touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, finalVisibleSize, 48) }
+        } else if (iconPath != null) {
+            val key = Pair(iconPath, finalIconSize)
+            pathIconCache.getOrPut(key) { getScaledMarkerIcon(iconPath, finalIconSize) }
         } else {
             val key = Pair(drawableId, finalIconSize)
             iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, finalIconSize) }
@@ -857,10 +878,11 @@ class MarkerManager(
         val species = speciesCache[speciesId]
         
         // Käytetään calculateIconParams -metodia ikoniparametrien hakemiseen (skaalaus mukaan lukien)
-        // Käytetään klusterin ensimmäistä kalaa edustamaan koko ryhmää ikonivalinnassa
+        // Käytetään klusterion ensimmäistä kalaa edustamaan koko ryhmää ikonivalinnassa
         val iconParams = calculateIconParams(clusterList[0])
         val drawableId = iconParams.first
-        var iconSize = iconParams.second
+        val iconPath = iconParams.second
+        var iconSize = iconParams.third
         
         val count = clusterList.size
 
@@ -875,14 +897,26 @@ class MarkerManager(
             }
 
             val key = if (groupKey is String) {
-                Triple(drawableId, iconSize, count)
+                if (iconPath != null) {
+                    Triple(iconPath, iconSize, count)
+                } else {
+                    Triple(drawableId, iconSize, count)
+                }
             } else {
                 // Lisätään eventType avaimeen jotta eri tapahtumatyypit eivät käytä samaa välimuistipaikkaa vahingossa
-                Quadruple(drawableId, iconSize, count, eventType)
+                if (iconPath != null) {
+                    Quadruple(iconPath, iconSize, count, eventType)
+                } else {
+                    Quadruple(drawableId, iconSize, count, eventType)
+                }
             }
 
             marker.icon = clusterIconCache.getOrPut(key) { 
-                getClusteredMarkerIcon(drawableId, iconSize, count) 
+                if (iconPath != null) {
+                    getClusteredMarkerIcon(iconPath, iconSize, count)
+                } else {
+                    getClusteredMarkerIcon(drawableId, iconSize, count)
+                }
             }
             
             val speciesName = species?.name ?: speciesId
@@ -1355,6 +1389,15 @@ class MarkerManager(
 
     private fun getClusteredMarkerIcon(drawableId: Int, sizeDp: Int, count: Int): BitmapDrawable {
         val baseIcon = getScaledMarkerIcon(drawableId, sizeDp).bitmap
+        return drawClusterCountOnBitmap(baseIcon, count)
+    }
+
+    private fun getClusteredMarkerIcon(path: String, sizeDp: Int, count: Int): BitmapDrawable {
+        val baseIcon = getScaledMarkerIcon(path, sizeDp).bitmap
+        return drawClusterCountOnBitmap(baseIcon, count)
+    }
+
+    private fun drawClusterCountOnBitmap(baseIcon: Bitmap, count: Int): BitmapDrawable {
         val density = context.resources.displayMetrics.density
         
         // Luodaan kopio jota muokataan
@@ -1393,6 +1436,17 @@ class MarkerManager(
         val drawable = ContextCompat.getDrawable(context, drawableId) ?: ContextCompat.getDrawable(context, R.drawable.default_point)!!
         val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt()
         val bitmap = drawable.toBitmap(sizePx, sizePx)
+        return bitmap.toDrawable(context.resources)
+    }
+
+    private fun getScaledMarkerIcon(path: String, sizeDp: Int): BitmapDrawable {
+        val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt()
+        val bitmap = try {
+            val original = BitmapFactory.decodeFile(path)
+            Bitmap.createScaledBitmap(original, sizePx, sizePx, true)
+        } catch (e: Exception) {
+            ContextCompat.getDrawable(context, R.drawable.default_point)!!.toBitmap(sizePx, sizePx)
+        }
         return bitmap.toDrawable(context.resources)
     }
 
