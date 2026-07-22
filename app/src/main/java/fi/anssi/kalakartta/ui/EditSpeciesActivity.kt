@@ -95,7 +95,7 @@ class EditSpeciesActivity : AppCompatActivity() {
                 if (iconId != 0) {
                     iconView.setImageResource(iconId)
                 } else {
-                    val file = File(species.icon_default)
+                    val file = if (species.icon_default.startsWith("/")) File(species.icon_default) else File(context.filesDir, species.icon_default)
                     if (file.exists()) {
                         iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
                     } else {

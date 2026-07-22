@@ -17,6 +17,8 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
 import fi.anssi.kalakartta.data.PlaceOfInterestType
+import android.graphics.BitmapFactory
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -110,10 +112,26 @@ class FilterActivity : AppCompatActivity() {
                 val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
                 val nameView = view.findViewById<TextView>(R.id.speciesName)
                 val item = getItem(position)
-                nameView.text = item?.name
+                nameView.text = if (item?.id?.isNotEmpty() == true) {
+                    item.name.lowercase().replaceFirstChar { it.uppercase() }
+                } else {
+                    item?.name
+                }
                 val iconId = getDrawableId(item?.icon_default ?: "")
-                iconView.setImageResource(iconId)
-                iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                if (iconId != 0) {
+                    iconView.setImageResource(iconId)
+                    iconView.visibility = View.VISIBLE
+                } else if (item?.icon_default != null && item.icon_default.isNotEmpty()) {
+                    val file = if (item.icon_default.startsWith("/")) File(item.icon_default) else File(filesDir, item.icon_default)
+                    if (file.exists()) {
+                        iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                        iconView.visibility = View.VISIBLE
+                    } else {
+                        iconView.visibility = View.GONE
+                    }
+                } else {
+                    iconView.visibility = View.GONE
+                }
                 return view
             }
 

@@ -60,7 +60,7 @@ class CatchManager(
                 if (iconId != 0 && (iconId != R.drawable.default_point || species.id != "UNKNOWN")) {
                     iconView.setImageResource(iconId)
                 } else if (species.icon_default.isNotEmpty()) {
-                    val file = File(species.icon_default)
+                    val file = if (species.icon_default.startsWith("/")) File(species.icon_default) else File(activity.filesDir, species.icon_default)
                     if (file.exists()) {
                         iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
                     } else {

@@ -339,9 +339,8 @@ class MarkerManager(
 
         var drawableId = getDrawableId(iconName)
         if (drawableId == 0 && iconName.isNotEmpty()) {
-            // Tarkistetaan onko se polku
-            val file = File(iconName)
-            if (file.exists() || iconName.contains("/")) {
+            // Tarkistetaan onko se polku tai kustomoitu ikoni
+            if (iconName.startsWith("/") || iconName.startsWith("custom_icon_")) {
                 iconPath = iconName
             }
         }
@@ -363,12 +362,15 @@ class MarkerManager(
         }
         
         // Varmistetaan, että iconPath on oikeasti olemassa oleva tiedosto
-        if (iconPath != null && !File(iconPath).exists()) {
-            iconPath = null
-            if (fish.species == "UNKNOWN") {
-                drawableId = R.drawable.default_point
-            } else {
-                drawableId = R.drawable.muukala
+        if (iconPath != null) {
+            val file = if (iconPath.startsWith("/")) File(iconPath) else File(context.filesDir, iconPath)
+            if (!file.exists()) {
+                iconPath = null
+                if (fish.species == "UNKNOWN") {
+                    drawableId = R.drawable.default_point
+                } else {
+                    drawableId = R.drawable.muukala
+                }
             }
         }
         
@@ -1248,7 +1250,7 @@ class MarkerManager(
             if (drawableId != 0 && (drawableId != R.drawable.default_point || fish.species != "UNKNOWN")) {
                 titleIconView.setImageResource(drawableId)
             } else if (iconPath != null) {
-                val file = File(iconPath)
+                val file = if (iconPath.startsWith("/")) File(iconPath) else File(context.filesDir, iconPath)
                 if (file.exists()) {
                     titleIconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
                 } else {
@@ -1525,8 +1527,9 @@ class MarkerManager(
 
     private fun getScaledMarkerIcon(path: String, sizeDp: Int): BitmapDrawable {
         val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt()
+        val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
         val bitmap = try {
-            val original = BitmapFactory.decodeFile(path)
+            val original = BitmapFactory.decodeFile(file.absolutePath)
             Bitmap.createScaledBitmap(original, sizePx, sizePx, true)
         } catch (e: Exception) {
             ContextCompat.getDrawable(context, R.drawable.default_point)!!.toBitmap(sizePx, sizePx)

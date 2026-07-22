@@ -311,7 +311,7 @@ class EditCatchActivity : AppCompatActivity() {
                         iconView.setImageResource(R.drawable.default_point)
                         iconView.visibility = View.VISIBLE
                     } else if (item?.icon_default != null && item.icon_default.isNotEmpty()) {
-                        val file = File(item.icon_default)
+                        val file = if (item.icon_default.startsWith("/")) File(item.icon_default) else File(filesDir, item.icon_default)
                         if (file.exists()) {
                             iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
                             iconView.visibility = View.VISIBLE
