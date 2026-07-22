@@ -93,4 +93,5 @@
     <string name="reset_species_confirm">Oletko varma, että haluat poistaa tekemäsi asetukset kalalajeihin?</string>
     <string name="delete_species_confirm">Oletko varma, että haluat poistaa kalalajin?</string>
     <string name="delete_icon_confirm">Oletko varma, että haluat poistaa kuvakkeen?</string>
+    <string name="unsaved_species_changes">Kalalajin tietoja on muokattu. Hylätäänkö muutokset?</string>
 </resources>

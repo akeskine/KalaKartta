@@ -45,6 +45,9 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
     private lateinit var giantWeightInput: EditText
     private lateinit var giantLengthInput: EditText
 
+    private var hasChanges: Boolean = false
+    private var isDataLoaded: Boolean = false
+
     private var iconDefaultPath: String = ""
     private var iconSmallPath: String = ""
     private var iconLargePath: String = ""
@@ -90,13 +93,15 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         giantWeightInput = findViewById(R.id.giantWeightInput)
         giantLengthInput = findViewById(R.id.giantLengthInput)
 
+        setupChangeListeners()
+
         setupIconEdit(R.id.iconDefaultEdit, getString(R.string.icon_default), getString(R.string.icon_help), "DEFAULT")
         setupIconEdit(R.id.iconSmallEdit, getString(R.string.icon_small), getString(R.string.icon_small_help), "SMALL")
         setupIconEdit(R.id.iconLargeEdit, getString(R.string.icon_large), getString(R.string.icon_large_help), "LARGE")
         setupIconEdit(R.id.iconGiantEdit, getString(R.string.icon_giant), getString(R.string.icon_giant_help), "GIANT")
 
         findViewById<MaterialButton>(R.id.backButton).setOnClickListener {
-            finish()
+            onBackPressed()
         }
 
         findViewById<MaterialButton>(R.id.okButton).setOnClickListener {
@@ -117,6 +122,26 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                     .setNegativeButton(R.string.cancel, null)
                     .show()
             }
+        }
+    }
+
+    private fun setupChangeListeners() {
+        val watcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (isDataLoaded) hasChanges = true
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        }
+        nameInput.addTextChangedListener(watcher)
+        smallWeightInput.addTextChangedListener(watcher)
+        smallLengthInput.addTextChangedListener(watcher)
+        largeWeightInput.addTextChangedListener(watcher)
+        largeLengthInput.addTextChangedListener(watcher)
+        giantWeightInput.addTextChangedListener(watcher)
+        giantLengthInput.addTextChangedListener(watcher)
+        favouriteCheckBox.setOnCheckedChangeListener { _, _ ->
+            if (isDataLoaded) hasChanges = true
         }
     }
 
@@ -145,6 +170,7 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                         "LARGE" -> iconLargePath = ""
                         "GIANT" -> iconGiantPath = ""
                     }
+                    if (isDataLoaded) hasChanges = true
                     updateIconUI(layoutId, "")
                 }
                 .setNegativeButton(R.string.cancel, null)
@@ -155,6 +181,7 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
     private var pendingIconType: String? = null
 
     private fun loadData() {
+        isDataLoaded = false
         val id = speciesId
         if (id != null) {
             currentSpecies = db.fishSpeciesDao().getById(id)
@@ -178,11 +205,19 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                 iconSmallPath = s.icon_small
                 iconLargePath = s.icon_large
                 iconGiantPath = s.icon_giant
+
+                // Rajoitus: vain itse lisätyn kalalajin nimeä saa muuttaa.
+                // Järjestelmässä valmiina olevien lajien nimi ei ole muokattavissa.
+                // Myöskään itse lisätyillä lajeilla nimeä ei saa enää ensimmäisen tallennuksen jälkeen muuttaa.
+                // Koska speciesId != null, tämä on joko oletuslaji tai jo kerran tallennettu itse lisätty laji.
+                nameInput.isEnabled = false
             }
         } else {
             findViewById<TextView>(R.id.dialogTitle).text = getString(R.string.add_new_species)
             favouriteCheckBox.isChecked = true
+            nameInput.isEnabled = true
         }
+        isDataLoaded = true
     }
 
     private fun updateIconUI(layoutId: Int, iconPath: String) {
@@ -242,6 +277,7 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                         "LARGE" -> { iconLargePath = file.absolutePath; updateIconUI(R.id.iconLargeEdit, iconLargePath) }
                         "GIANT" -> { iconGiantPath = file.absolutePath; updateIconUI(R.id.iconGiantEdit, iconGiantPath) }
                     }
+                    if (isDataLoaded) hasChanges = true
                 }
             }
         } catch (e: Exception) {
@@ -258,6 +294,20 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
 
     // Need a different approach for the launcher to know the type
     private fun dummy() {}
+
+    override fun onBackPressed() {
+        if (hasChanges) {
+            AlertDialog.Builder(this)
+                .setMessage(R.string.unsaved_species_changes)
+                .setPositiveButton(R.string.back, null)
+                .setNegativeButton(R.string.discard) { _, _ ->
+                    super.onBackPressed()
+                }
+                .show()
+        } else {
+            super.onBackPressed()
+        }
+    }
 
     private fun saveData(silent: Boolean = false) {
         val name = nameInput.text.toString()
