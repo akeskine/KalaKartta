@@ -51,7 +51,7 @@ class JsonService {
             obj.put("originalRef", it.originalRef)
             obj.put("tripNotes", it.tripNotes)
             if (it.fisherman.isNotBlank()) obj.put("fisherman", it.fisherman.uppercase())
-            if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies)
+            if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies.uppercase())
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
             catchesArray.put(obj)
         }

@@ -250,7 +250,8 @@ class SummaryActivity : AppCompatActivity() {
         for ((index, entry) in sortedSpecies.withIndex()) {
             val speciesId = entry.key
             val speciesCatches = entry.value
-            val speciesName = speciesMap[speciesId]?.name ?: speciesId
+            val speciesNameRaw = speciesMap[speciesId]?.name ?: speciesId
+            val speciesName = speciesNameRaw.lowercase().replaceFirstChar { it.uppercase() }
             
             if (speciesId == "OTHER") {
                 // Ryhmittele "Muu kalalaji" vielä tarkemman lajin mukaan

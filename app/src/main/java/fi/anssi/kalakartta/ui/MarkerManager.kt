@@ -1156,9 +1156,12 @@ class MarkerManager(
             val species = db.fishSpeciesDao().getById(it.species)
             if (species != null) {
                 val speciesName = if (it.species == "OTHER" && !it.otherSpecies.isNullOrEmpty()) {
-                    "${species.name} (${it.otherSpecies})"
-                } else {
+                    val otherSpeciesDisplay = it.otherSpecies.lowercase().replaceFirstChar { it.uppercase() }
+                    "${species.name.lowercase().replaceFirstChar { it.uppercase() }} ($otherSpeciesDisplay)"
+                } else if (it.species == "UNKNOWN") {
                     species.name
+                } else {
+                    species.name.lowercase().replaceFirstChar { it.uppercase() }
                 }
                 details.append("Laji: $speciesName\n")
                 hasSpecies = true

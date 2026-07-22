@@ -302,7 +302,7 @@ class EditCatchActivity : AppCompatActivity() {
                     val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
                     val nameView = view.findViewById<TextView>(R.id.speciesName)
                     val item = getItem(position)
-                    nameView.text = item?.name
+                    nameView.text = if (item?.id == "UNKNOWN") item.name else item?.name?.lowercase()?.replaceFirstChar { it.uppercase() }
                     val iconId = getDrawableId(item?.icon_default ?: "")
                     if (iconId != 0 && (iconId != R.drawable.default_point || item?.id != "UNKNOWN")) {
                         iconView.setImageResource(iconId)

@@ -55,7 +55,7 @@ class CatchManager(
                 val nameView = view.findViewById<TextView>(R.id.speciesName)
 
                 val species = fullSpeciesList[position]
-                nameView.text = species.name
+                nameView.text = if (species.id == "UNKNOWN_STRIKE" || species.id == "UNKNOWN") species.name else species.name.lowercase().replaceFirstChar { it.uppercase() }
                 val iconId = getDrawableId(species.icon_default)
                 if (iconId != 0 && (iconId != R.drawable.default_point || species.id != "UNKNOWN")) {
                     iconView.setImageResource(iconId)

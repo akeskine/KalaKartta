@@ -80,7 +80,7 @@ class EditSpeciesActivity : AppCompatActivity() {
                 val moveDownButton = view.findViewById<ImageButton>(R.id.moveDownButton)
                 val deleteButton = view.findViewById<ImageButton>(R.id.deleteSpeciesButton)
 
-                nameView.text = species.name
+                nameView.text = species.name.lowercase().replaceFirstChar { it.uppercase() }
                 
                 favouriteCheckBox.setOnCheckedChangeListener(null)
                 favouriteCheckBox.isChecked = species.favourite_fish

@@ -195,8 +195,8 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         if (id != null) {
             currentSpecies = db.fishSpeciesDao().getById(id)
             currentSpecies?.let { s ->
-                findViewById<TextView>(R.id.dialogTitle).text = s.name
-                nameInput.setText(s.name)
+                findViewById<TextView>(R.id.dialogTitle).text = s.name.lowercase().replaceFirstChar { it.uppercase() }
+                nameInput.setText(s.name.lowercase().replaceFirstChar { it.uppercase() })
                 favouriteCheckBox.isChecked = s.favourite_fish
                 smallWeightInput.setText(s.small_weight.toString())
                 smallLengthInput.setText(s.small_length.toString())
@@ -328,7 +328,7 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
     }
 
     private fun saveData(silent: Boolean = false) {
-        val name = nameInput.text.toString()
+        var name = nameInput.text.toString().trim()
         if (name.isEmpty()) {
             if (!silent) {
                 Toast.makeText(this, "Lajin nimi on annettava", Toast.LENGTH_SHORT).show()
@@ -337,6 +337,10 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         }
 
         val id = speciesId ?: name.uppercase().replace(" ", "_")
+        
+        // Tallennetaan nimi suuraakkosina
+        name = name.uppercase()
+        
         // Jos luodaan uusi, varmistetaan että id ei muutu nimen mukana jatkossa jos tallennetaan heti
         if (speciesId == null) {
             speciesId = id
