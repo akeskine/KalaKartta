@@ -345,6 +345,25 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             return
         }
 
+        val sw = smallWeightInput.text.toString().toLongOrNull() ?: 0
+        val lw = largeWeightInput.text.toString().toLongOrNull() ?: 0
+        val gw = giantWeightInput.text.toString().toLongOrNull() ?: 0
+
+        val sl = smallLengthInput.text.toString().toLongOrNull() ?: 0
+        val ll = largeLengthInput.text.toString().toLongOrNull() ?: 0
+        val gl = giantLengthInput.text.toString().toLongOrNull() ?: 0
+
+        if (!silent) {
+            if (sw > lw || lw > gw) {
+                Toast.makeText(this, "Painojen on oltava järjestyksessä (pieni <= suuri <= jätti)", Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (sl > ll || ll > gl) {
+                Toast.makeText(this, "Pituuksien on oltava järjestyksessä (pieni <= suuri <= jätti)", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
         val id = speciesId ?: name.uppercase().replace(" ", "_")
         
         // Tallennetaan nimi suuraakkosina
@@ -360,12 +379,12 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         val updated = FishSpecies(
             id = id,
             name = name,
-            small_weight = smallWeightInput.text.toString().toLongOrNull() ?: 0,
-            small_length = smallLengthInput.text.toString().toLongOrNull() ?: 0,
-            large_weight = largeWeightInput.text.toString().toLongOrNull() ?: 0,
-            large_length = largeLengthInput.text.toString().toLongOrNull() ?: 0,
-            giant_weight = giantWeightInput.text.toString().toLongOrNull() ?: 0,
-            giant_length = giantLengthInput.text.toString().toLongOrNull() ?: 0,
+            small_weight = sw,
+            small_length = sl,
+            large_weight = lw,
+            large_length = ll,
+            giant_weight = gw,
+            giant_length = gl,
             icon_default = iconDefaultPath,
             icon_small = iconSmallPath,
             icon_large = iconLargePath,
