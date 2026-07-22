@@ -406,7 +406,24 @@ class EditCatchActivity : AppCompatActivity() {
             rainSpinner.adapter = rainAdapter
 
             fishCatch?.let { fc ->
-                val speciesIndex = speciesList.indexOfFirst { it.id == fc.species || (it.id == "UNKNOWN" && fc.species == "") }
+                var speciesIndex = speciesList.indexOfFirst { it.id == fc.species || (it.id == "UNKNOWN" && fc.species == "") }
+                
+                // Jos lajia ei löydy (esim. poistettu itse lisätty laji), vaihdetaan se "Muu kalalaji" -tyyppiin
+                if (speciesIndex == -1 && fc.species != "UNKNOWN" && fc.species.isNotEmpty()) {
+                    speciesIndex = speciesList.indexOfFirst { it.id == "OTHER" }
+                    // Jos otherSpecies on tyhjä, käytetään tuntematonta lajitunnistetta
+                    if (fc.otherSpecies.isNullOrBlank()) {
+                        val newCatch = fc.copy(species = "OTHER", otherSpecies = fc.species)
+                        fishCatch = newCatch
+                        
+                        // Päivitetään otherSpeciesEditText heti
+                        otherSpeciesEditText.setText(fc.species.lowercase().replaceFirstChar { it.uppercase() })
+                    } else {
+                        val newCatch = fc.copy(species = "OTHER")
+                        fishCatch = newCatch
+                    }
+                }
+                
                 speciesSpinner.setSelection(if (speciesIndex != -1) speciesIndex else 0)
 
                 val eventTypeIndex = if (fc.eventType == null && eventTypes.contains("EMPTY")) {
@@ -427,6 +444,10 @@ class EditCatchActivity : AppCompatActivity() {
                 val windDirection = fc.windDirection?.toString() ?: ""
                 updateWindArrow(windDirection)
                 val pressure = if (fc.pressure != null && !fc.pressure!!.isNaN()) fc.pressure.toString() else ""
+
+                if (!fc.otherSpecies.isNullOrBlank()) {
+                    otherSpeciesEditText.setText(fc.otherSpecies.lowercase().replaceFirstChar { it.uppercase() })
+                }
 
                 weightEditText.setText(if (fc.weight != null && fc.weight!! > 0) fc.weight.toString() else "")
                 lengthEditText.setText(if (fc.length != null && fc.length!! > 0) fc.length.toString() else "")
