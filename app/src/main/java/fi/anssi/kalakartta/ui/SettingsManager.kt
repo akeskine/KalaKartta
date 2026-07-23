@@ -2,6 +2,7 @@ package fi.anssi.kalakartta.ui
 
 import android.content.Intent
 import android.graphics.Color
+import android.view.View
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
@@ -40,9 +41,38 @@ class SettingsManager(
                 val infoButton = titleView.findViewById<ImageButton>(fi.anssi.kalakartta.R.id.infoButton)
                 
                 infoButton.setOnClickListener {
+                    val titleViewVersion = inflater.inflate(fi.anssi.kalakartta.R.layout.dialog_version_title, null)
+                    val titleText = titleViewVersion.findViewById<TextView>(fi.anssi.kalakartta.R.id.titleText)
+                    val subtitleText = titleViewVersion.findViewById<TextView>(fi.anssi.kalakartta.R.id.subtitleText)
+                    
+                    titleText.text = "KalaKartta ${BuildConfig.VERSION_NAME}"
+                    subtitleText.visibility = View.VISIBLE
+                    subtitleText.text = "(${BuildConfig.BUILD_TIME})"
+                    subtitleText.textSize = 14f
+                    subtitleText.setTextColor(activity.getColor(android.R.color.darker_gray))
+
+                    val contentLayout = LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(60, 20, 60, 20)
+                    }
+
+                    val helpLink = TextView(activity).apply {
+                        text = "Käyttöohje"
+                        textSize = 18f
+                        setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                        setPadding(0, 10, 0, 10)
+                        val outValue = android.util.TypedValue()
+                        activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                        setBackgroundResource(outValue.resourceId)
+                        setOnClickListener {
+                            showUserManual()
+                        }
+                    }
+                    contentLayout.addView(helpLink)
+
                     AlertDialog.Builder(activity)
-                        .setTitle("Versiotiedot")
-                        .setMessage("Versio: ${BuildConfig.VERSION_NAME}\nKoontiaika: ${BuildConfig.BUILD_TIME}")
+                        .setCustomTitle(titleViewVersion)
+                        .setView(contentLayout)
                         .setPositiveButton("OK", null)
                         .show()
                 }
@@ -64,6 +94,35 @@ class SettingsManager(
                     .show()
                 dialog.enlargeButtons()
             }
+        }
+    }
+
+    private fun showUserManual() {
+        try {
+            val inputStream = activity.assets.open("kayttoohje.md")
+            val size = inputStream.available()
+            val buffer = ByteArray(size)
+            inputStream.read(buffer)
+            inputStream.close()
+            val content = String(buffer, Charsets.UTF_8)
+
+            val textView = TextView(activity).apply {
+                text = content
+                setPadding(60, 40, 60, 40)
+                textSize = 16f
+            }
+
+            val scrollView = ScrollView(activity).apply {
+                addView(textView)
+            }
+
+            AlertDialog.Builder(activity)
+                .setTitle("Käyttöohje")
+                .setView(scrollView)
+                .setPositiveButton("Sulje", null)
+                .show()
+        } catch (e: Exception) {
+            Toast.makeText(activity, "Käyttöohjetta ei voitu ladata", Toast.LENGTH_SHORT).show()
         }
     }
 
