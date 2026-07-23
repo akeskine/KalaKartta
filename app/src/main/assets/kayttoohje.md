@@ -3,7 +3,7 @@
 KalaKartta on sovellus kalastajille, jotka haluavat pitää tarkkaa kirjaa saaliistaan ja kalapaikoistaan. Sovellus on suunniteltu erityisesti nopeaan ja helppoon käyttöön vesillä ollessa.
 
 KalaKartan keskeisiä periaatteita ovat:
-- **Helppous:** Kalapisteiden lisäys onnistuu yhdellä klikkauksella suoraan kartalta.
+- **Helppous:** Kalapisteiden lisäys onnistuu parilla klikkauksella suoraan kartalta. Puhelimen näytön ollessa pois päältä sovelluksen saa auki ilman lukituksen avaamista.
 - **Suodatus:** Voit analysoida saaliitasi monipuolisesti, esimerkiksi vuodenaikojen, kellonajan tai sääolosuhteiden (kuten tuulen suunnan) mukaan.
 - **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä takeltelematta.
 - **Yksityisyys:** Kaikki tiedot tallennetaan vain laitteeseesi. Niitä ei lähetetä palvelimille. Pisteiden jakaminen on aina käyttäjän omassa kontrollissa.
@@ -12,26 +12,26 @@ KalaKartan keskeisiä periaatteita ovat:
 
 ## 1. Kartan käyttö
 
-Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata nipistämällä tai sivuilla olevilla +/- painikkeilla.
+Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata nipistämällä.
 
-Oma sijaintisi näytetään sinisellä pallolla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi oikean yläkulman sijaintipainikkeesta.
+Oma sijaintisi näytetään kartalla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta.
 
 Kartan taustakartan voit vaihtaa asetuksista (Asetukset -> Taustakartta). MML:n karttojen käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
 
 ## 2. Kalapisteen lisääminen
 
-Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa vihreää **+**-painiketta. Tämä avaa pikalista-ikkunan:
-- **Laji:** Valitse kalalaji kuvakkeesta. Jos lajia ei ole listalla, voit valita "Muu kalalaji" tai lisätä uusia lajeja asetuksista.
+Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa **+**-painiketta. Tämä avaa Lisää merkintä-ikkunan:
+- **Laji:** Valitse kalalaji kuvakkeesta. Jos lajia ei ole listalla, voit valita "Muu kalalaji" tai lisätä uusia lajeja Asetukset -> Kalalajit -> Muokkaa kalalajeja -valikosta.
 - **Tapahtuma:** Valitse oliko kyseessä saatu kala, karkuutus, varma tärppi, epävarma tärppi vai seurio.
 - **Paino ja pituus:** Voit syöttää ne suoraan pikalistaan tai jättää tyhjäksi.
 - **Lisää tarkemmat tiedot:** Tästä painikkeesta pääset täyttämään laajemmat tiedot (esim. viehe, syvyys, sää).
 
-Piste tallentuu kartan keskipisteen (tähtäimen) kohdalle.
+Piste tallentuu aina kartan keskipisteen (tähtäimen) kohdalle.
 
 ## 3. Muun paikan lisääminen
 
 Voit tallentaa myös muita kiinnostavia kohteita kuten kiviä, matalikkoja, veneenlaskupaikkoja tai laavuja:
-1. Paina vihreää **+**-painiketta.
+1. Paina **+**-painiketta.
 2. Valitse alhaalta **"Muu paikka"**.
 3. Valitse haluamasi kohdetie (esim. Kivi tai Veneramppi).
 4. Voit antaa kohteelle nimen.
@@ -44,7 +44,6 @@ Klikkaa kartalla olevaa kuvaketta nähdäksesi sen tiedot.
 
 Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
 - Muuttaa kaikkia tallennettuja tietoja.
-- Päivittää sijaintia (koordinaatteja).
 - Poistaa pisteen.
 
 ## 5. Tiedon suodatus
@@ -57,38 +56,38 @@ Suodatusmahdollisuuksia ovat mm.:
 - **Kalalaji tai paikan tyyppi.**
 - **Sääolosuhteet:** Ilmanpaine, veden lämpötila ja tuulen suunta.
 - **Tuulen suunta:** Voit määrittää sektorin (min-max), jolta tuulleesssa saaliit on saatu.
-- **Vapaa teksti:** Etsii tekstiä lisätiedoista, vieheestä tai muistiinpanoista.
+- **Vapaa teksti:** Etsii tekstiä lisätiedoista tai muistiinpanoista.
 
 ## 6. Sääasetukset ja automaattinen haku
 
-Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen.
-- **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta parhaan tarkkuuden saavuttamiseksi.
+Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdolista kytkeä pois päältä Asetukset -> Sää -> Sääasetukset -valikosta.
+- **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta (max. 300 km säteeltä kalapisteestä) parhaan tarkkuuden saavuttamiseksi.
 - **Automaattinen päivitys:** Voit kytkeä automaattihaun pois päältä sääasetuksista.
-- **Puuttuvien tietojen haku:** Jos olet ollut katvealueella, voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla.
+- **Puuttuvien tietojen haku:** Voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla.
 
 ## 7. Kalalajien hallinta
 
 Voit muokata kalalajeja kohdasta Asetukset -> Kalalajit.
-- **Muokkaa lajeja:** Voit vaihtaa lajien järjestystä, suosikkeja (näkyvät pikalistassa) ja asettaa rajat "suurelle" ja "jättiläiselle" kalalle.
-- **Omat ikonit:** Voit lisätä lajille oman kuvan puhelimesi galleriasta.
-- **Lajin lisäys:** Voit lisätä kokonaan uusia kalalajeja.
+- **Muokkaa lajeja:** Voit vaihtaa lajien järjestystä sovelluksen valintalistoissa ja asettaa rajat "pienelle, ""suurelle" ja "jättiläiselle" kalalle.
+- **Omat ikonit:** Voit lisätä lajin eri kokoisille kaloille oman kuvan puhelimesi galleriasta. Kuvan maksimikoko on 1536 x 1024 pikseliä, sen pitää olla png-muotoinen. Kuvan taustan kannattaa olla läpinäkyvä (transparent).
+- **Lajin lisäys:** Voit myös lisätä kokonaan uusia kalalajeja ja määritellä niille omat ikonit.
+- **Omien kalalajien export** Voit tuoda ja viedä omien kalalajiesi tiedot JSON-muodossa. Tiedoissa viedään myös mahdolliset omat ikonit binäärimuodossa.
 
-## 8. Tiedonsiirto (Export/Import)
+## 8. Pisteiden tuonti ja vienti (Export/Import)
 
 Voit viedä ja tuoda pisteitä JSON-muodossa (Asetukset -> Tiedonsiirto).
 - **Vie pisteet:** Tallentaa kaikki pisteet tiedostoon, jonka voit jakaa tai varmuuskopioida.
 - **Tuo pisteet:** Lukee pisteet tiedostosta.
-    - **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki.
+- **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki.
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 
-- **Yhteenveto:** Asetukset -> Yhteenveto näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat).
-
-- **Reissumuistiinpanot:** Kalapisteeseen liitetyt reissumuistiinpanot ovat yhteisiä kaikille saman reissun (ajan) pisteille. Niiden avulla voit kirjata päivän yleisiä tunnelmia.
+- **Yhteenveto:** Asetukset -> Yhteenveto näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esa ja Vesan saaliit viikonlopun ajalta.
 
 ## 10. Yleiset asetukset
 
 Yleisistä asetuksista voit:
-- Määrittää **oletuskalastajan**, joka asetetaan automaattisesti uusiin saaliisiin.
-- Kytkeä päälle/pois **mittakaavajanan** kartalla.
-- Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi.
+- Määrittää **oletuskalastajan**, joka asetetaan automaattisesti uusiin saaliisiin. Kalastajatietoa voidaan käytää myöhemmin suodatus- ja yhteenveto-toimintojen rajaamiseen.
+- Kytkeä päälle/pois **mittakaavajanan** kartan vasemmassa alareunassa.
+- Kytkeä päälle/pois **oletuskalastaja** kartan oikeassa alareunassa.
+- Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi. Tämä on testatusti kätevää vesillä, jos halutaan lisätä kala puhelimen ollessa taskussa näyttö pois päältä.
