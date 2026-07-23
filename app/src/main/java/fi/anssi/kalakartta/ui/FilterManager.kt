@@ -25,6 +25,8 @@ class FilterManager(private val context: Context) {
         val windMax: Float? = null,
         val pressureMin: Float? = null,
         val pressureMax: Float? = null,
+        val waterTempMin: Float? = null,
+        val waterTempMax: Float? = null,
         val speciesId: String? = null,
         val otherSpecies: String? = null,
         val placeTypeId: String? = null,
@@ -46,6 +48,8 @@ class FilterManager(private val context: Context) {
         val windMax = if (prefs.contains("windMax")) prefs.getFloat("windMax", 0f) else null
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
+        val waterTempMin = if (prefs.contains("waterTempMin")) prefs.getFloat("waterTempMin", 0f) else null
+        val waterTempMax = if (prefs.contains("waterTempMax")) prefs.getFloat("waterTempMax", 0f) else null
         val speciesId = prefs.getString("speciesId", null)
         val otherSpecies = prefs.getString("otherSpecies", null)
         val placeTypeId = prefs.getString("placeTypeId", null)
@@ -60,6 +64,7 @@ class FilterManager(private val context: Context) {
             startTimeMinutes, endTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
+            waterTempMin, waterTempMax,
             speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish
         )
     }
@@ -78,6 +83,8 @@ class FilterManager(private val context: Context) {
             if (filters.windMax != null) putFloat("windMax", filters.windMax) else remove("windMax")
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
+            if (filters.waterTempMin != null) putFloat("waterTempMin", filters.waterTempMin) else remove("waterTempMin")
+            if (filters.waterTempMax != null) putFloat("waterTempMax", filters.waterTempMax) else remove("waterTempMax")
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
             if (filters.otherSpecies != null) putString("otherSpecies", filters.otherSpecies) else remove("otherSpecies")
             if (filters.placeTypeId != null) putString("placeTypeId", filters.placeTypeId) else remove("placeTypeId")
@@ -96,6 +103,7 @@ class FilterManager(private val context: Context) {
                 f.startTimeMinutes != null || f.endTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
+                f.waterTempMin != null || f.waterTempMax != null ||
                 f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || f.onlyCaughtFish
     }
 
@@ -166,6 +174,11 @@ class FilterManager(private val context: Context) {
             if (f.pressureMin != null && fish.pressure != null && fish.pressure < f.pressureMin) return@filter false
             if (f.pressureMax != null && fish.pressure != null && fish.pressure > f.pressureMax) return@filter false
             if ((f.pressureMin != null || f.pressureMax != null) && fish.pressure == null) return@filter false
+
+            // Water Temp Range
+            if (f.waterTempMin != null && fish.waterTemp != null && fish.waterTemp < f.waterTempMin) return@filter false
+            if (f.waterTempMax != null && fish.waterTemp != null && fish.waterTemp > f.waterTempMax) return@filter false
+            if ((f.waterTempMin != null || f.waterTempMax != null) && fish.waterTemp == null) return@filter false
 
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
@@ -274,6 +287,12 @@ class FilterManager(private val context: Context) {
             val min = f.pressureMin?.toInt()?.toString() ?: "..."
             val max = f.pressureMax?.toInt()?.toString() ?: "..."
             parts.add("paine $min-$max hPa")
+        }
+
+        if (f.waterTempMin != null || f.waterTempMax != null) {
+            val min = f.waterTempMin?.toInt()?.toString() ?: "..."
+            val max = f.waterTempMax?.toInt()?.toString() ?: "..."
+            parts.add("vesi $min-$max C")
         }
 
         if (f.onlyCaughtFish) {

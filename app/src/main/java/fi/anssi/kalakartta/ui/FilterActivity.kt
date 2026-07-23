@@ -49,6 +49,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var windDirectionPreview: WindDirectionView
     private lateinit var pressureMinEdit: EditText
     private lateinit var pressureMaxEdit: EditText
+    private lateinit var waterTempMinEdit: EditText
+    private lateinit var waterTempMaxEdit: EditText
     private lateinit var onlyCaughtFishCheckBox: CheckBox
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
@@ -177,6 +179,8 @@ class FilterActivity : AppCompatActivity() {
         windDirectionPreview = findViewById(R.id.windDirectionPreview)
         pressureMinEdit = findViewById(R.id.pressureMinEdit)
         pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
+        waterTempMinEdit = findViewById(R.id.waterTempMinEdit)
+        waterTempMaxEdit = findViewById(R.id.waterTempMaxEdit)
         onlyCaughtFishCheckBox = findViewById(R.id.onlyCaughtFishCheckBox)
     }
 
@@ -215,6 +219,8 @@ class FilterActivity : AppCompatActivity() {
 
         pressureMinEdit.setText(currentFilters.pressureMin?.toString() ?: "")
         pressureMaxEdit.setText(currentFilters.pressureMax?.toString() ?: "")
+        waterTempMinEdit.setText(currentFilters.waterTempMin?.toString() ?: "")
+        waterTempMaxEdit.setText(currentFilters.waterTempMax?.toString() ?: "")
         onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
     }
 
@@ -284,6 +290,8 @@ class FilterActivity : AppCompatActivity() {
             updateWindPreview()
             pressureMinEdit.setText("")
             pressureMaxEdit.setText("")
+            waterTempMinEdit.setText("")
+            waterTempMaxEdit.setText("")
             Toast.makeText(this, R.string.filters_cleared, Toast.LENGTH_SHORT).show()
         }
 
@@ -359,6 +367,8 @@ class FilterActivity : AppCompatActivity() {
         val windMax = windMaxEdit.text.toString().toFloatOrNull()
         val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
         val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
+        val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
+        val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
         
         currentFilters = currentFilters.copy(
             speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
@@ -370,6 +380,8 @@ class FilterActivity : AppCompatActivity() {
             windMax = windMax,
             pressureMin = pressureMin,
             pressureMax = pressureMax,
+            waterTempMin = waterTempMin,
+            waterTempMax = waterTempMax,
             onlyCaughtFish = onlyCaughtFishCheckBox.isChecked
         )
         filterManager.saveFilters(currentFilters)

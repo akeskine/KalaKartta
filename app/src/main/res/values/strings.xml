@@ -62,6 +62,9 @@
     <string name="max_degrees">Max (°)</string>
     <string name="min_pressure">Min (hPa)</string>
     <string name="max_pressure">Max (hPa)</string>
+    <string name="water_temp_c">Veden lämpötila (C)</string>
+    <string name="min_temp">Min (C)</string>
+    <string name="max_temp">Max (C)</string>
     <string name="add_other">Muu paikka</string>
     <string name="place_name">Paikan nimi</string>
     <string name="general_settings">Yleiset</string>
