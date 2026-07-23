@@ -1,9 +1,97 @@
-# KalaKartta Käyttöohje
+# KalaKartta käyttöohje
 
-Tämä on sovelluksen käyttöohje. Varsinainen sisältö päivitetään myöhemmin.
+KalaKartta on sovellus kalastajille, jotka haluavat pitää tarkkaa kirjaa saaliistaan ja kalapaikoistaan. Sovellus on suunniteltu erityisesti nopeaan ja helppoon käyttöön vesillä ollessa.
 
-## Toiminnot
-- Kalapaikkojen tallennus
-- Saaliiden kirjaaminen
-- Sääolojen seuranta
-- Kalalajien hallinta
+KalaKartan keskeisiä periaatteita ovat:
+- **Helppous:** Kalapisteiden lisäys onnistuu yhdellä klikkauksella suoraan kartalta.
+- **Suodatus:** Voit analysoida saaliitasi monipuolisesti, esimerkiksi vuodenaikojen, kellonajan tai sääolosuhteiden (kuten tuulen suunnan) mukaan.
+- **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä takeltelematta.
+- **Yksityisyys:** Kaikki tiedot tallennetaan vain laitteeseesi. Niitä ei lähetetä palvelimille. Pisteiden jakaminen on aina käyttäjän omassa kontrollissa.
+- **Automaatio:** Sovellus hakee säätiedot automaattisesti kalapisteisiin Ilmatieteen laitoksen (FMI) avoimesta datasta.
+- **Monipuoliset kartat:** Voit käyttää OpenStreetMapin lisäksi Maanmittauslaitoksen (MML) tarkkoja maasto- ja ilmakuvia.
+
+---
+
+## Sisällysluettelo
+- [1. Kartan käyttö](#1-kartan-kaytto)
+- [2. Kalapisteen lisääminen](#2-kalapisteen-lisaaminen)
+- [3. Muun paikan lisääminen](#3-muun-paikan-lisaaminen)
+- [4. Pisteiden tarkastelu ja muokkaus](#4-pisteiden-tarkastelu-ja-muokkaus)
+- [5. Tiedon suodatus](#5-tiedon-suodatus)
+- [6. Sääasetukset ja automaattinen haku](#6-saaasetukset-ja-automaattinen-haku)
+- [7. Kalalajien hallinta](#7-kalalajien-hallinta)
+- [8. Tiedonsiirto (Export/Import)](#8-tiedonsiirto-exportimport)
+- [9. Yhteenveto ja reissumuistiinpanot](#9-yhteenveto-ja-reissumuistiinpanot)
+- [10. Yleiset asetukset](#10-yleiset-asetukset)
+
+---
+
+## 1. Kartan käyttö
+Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata nipistämällä tai sivuilla olevilla +/- painikkeilla.
+Oma sijaintisi näytetään sinisellä pallolla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi oikean yläkulman sijaintipainikkeesta.
+
+Kartan taustakartan voit vaihtaa asetuksista (Asetukset -> Taustakartta). MML:n karttojen käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
+
+## 2. Kalapisteen lisääminen
+Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa vihreää **+**-painiketta. Tämä avaa pikalista-ikkunan:
+- **Laji:** Valitse kalalaji kuvakkeesta. Jos lajia ei ole listalla, voit valita "Muu kalalaji" tai lisätä uusia lajeja asetuksista.
+- **Tapahtuma:** Valitse oliko kyseessä saatu kala, karkuutus, varma tärppi, epävarma tärppi vai seurio.
+- **Paino ja pituus:** Voit syöttää ne suoraan pikalistaan tai jättää tyhjäksi.
+- **Lisää tarkemmat tiedot:** Tästä painikkeesta pääset täyttämään laajemmat tiedot (esim. viehe, syvyys, sää).
+
+Piste tallentuu kartan keskipisteen (tähtäimen) kohdalle.
+
+## 3. Muun paikan lisääminen
+Voit tallentaa myös muita kiinnostavia kohteita kuten kiviä, matalikkoja, veneenlaskupaikkoja tai laavuja:
+1. Paina vihreää **+**-painiketta.
+2. Valitse alhaalta **"Muu paikka"**.
+3. Valitse haluamasi kohdetie (esim. Kivi tai Veneramppi).
+4. Voit antaa kohteelle nimen.
+
+## 4. Pisteiden tarkastelu ja muokkaus
+Klikkaa kartalla olevaa kuvaketta nähdäksesi sen tiedot.
+- **Kalapiste:** Näyttää lajin, painon, pituuden, ajan ja tärkeimmät säätiedot.
+- **Muu paikka:** Näyttää tyypin ja nimen.
+
+Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
+- Muuttaa kaikkia tallennettuja tietoja.
+- Päivittää sijaintia (koordinaatteja).
+- Poistaa pisteen.
+
+## 5. Tiedon suodatus
+Voit suodattaa kartalla näkyviä pisteitä Asetukset -> Tiedon suodatus -valikosta.
+Suodatusmahdollisuuksia ovat mm.:
+- **Aika:** Kiinteä aikaväli tai vuosittain toistuva jakso (esim. "kaikki toukokuun saaliit eri vuosilta").
+- **Kellonaika:** Esim. vain iltasyönnin saaliit.
+- **Kalalaji tai paikan tyyppi.**
+- **Sääolosuhteet:** Ilmanpaine, veden lämpötila ja tuulen suunta.
+- **Tuulen suunta:** Voit määrittää sektorin (min-max), jolta tuulleesssa saaliit on saatu.
+- **Vapaa teksti:** Etsii tekstiä lisätiedoista, vieheestä tai muistiinpanoista.
+
+## 6. Sääasetukset ja automaattinen haku
+Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen.
+- **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta parhaan tarkkuuden saavuttamiseksi.
+- **Automaattinen päivitys:** Voit kytkeä automaattihaun pois päältä sääasetuksista.
+- **Puuttuvien tietojen haku:** Jos olet ollut katvealueella, voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla.
+
+## 7. Kalalajien hallinta
+Voit muokata kalalajeja kohdasta Asetukset -> Kalalajit.
+- **Muokkaa lajeja:** Voit vaihtaa lajien järjestystä, suosikkeja (näkyvät pikalistassa) ja asettaa rajat "suurelle" ja "jättiläiselle" kalalle.
+- **Omat ikonit:** Voit lisätä lajille oman kuvan puhelimesi galleriasta.
+- **Lajin lisäys:** Voit lisätä kokonaan uusia kalalajeja.
+
+## 8. Tiedonsiirto (Export/Import)
+Voit viedä ja tuoda pisteitä JSON-muodossa (Asetukset -> Tiedonsiirto).
+- **Vie pisteet:** Tallentaa kaikki pisteet tiedostoon, jonka voit jakaa tai varmuuskopioida.
+- **Tuo pisteet:** Lukee pisteet tiedostosta.
+    - **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki.
+
+## 9. Yhteenveto ja reissumuistiinpanot
+- **Yhteenveto:** Asetukset -> Yhteenveto näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat).
+- **Reissumuistiinpanot:** Kalapisteeseen liitetyt reissumuistiinpanot ovat yhteisiä kaikille saman reissun (ajan) pisteille. Niiden avulla voit kirjata päivän yleisiä tunnelmia.
+
+## 10. Yleiset asetukset
+Yleisistä asetuksista voit:
+- Määrittää **oletuskalastajan**, joka asetetaan automaattisesti uusiin saaliisiin.
+- Kytkeä päälle/pois **mittakaavajanan** kartalla.
+- Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi.
