@@ -102,25 +102,72 @@ class ImportExportManager(
                 val currentCatches = db.fishCatchDao().getAll()
                 val currentPlaces = db.placeOfInterestDao().getAll()
 
-                val duplicateCatches = findDuplicateCatches(importedCatches, currentCatches)
-                val duplicatePlaces = findDuplicatePlaces(importedPlaces, currentPlaces)
-
-                val totalImported = importedCatches.size + importedPlaces.size
-                val totalDuplicates = duplicateCatches.size + duplicatePlaces.size
-
-                if (totalDuplicates > 0) {
-                    activity.runOnUiThread {
-                        showImportConflictDialog(
-                            totalImported,
-                            totalDuplicates,
-                            importedCatches,
-                            importedPlaces,
-                            duplicateCatches,
-                            duplicatePlaces
-                        )
+                val totalToCompare = importedCatches.size + importedPlaces.size
+                
+                activity.runOnUiThread {
+                    val progressLayout = LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(50, 40, 50, 10)
                     }
-                } else {
-                    processImport(importedCatches, importedPlaces, emptyList(), emptyList(), 0)
+                    
+                    val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                        max = 100
+                        progress = 0
+                    }
+                    
+                    val progressText = TextView(activity).apply {
+                        text = "Tarkastetaan duplikaatteja: 0%"
+                        textSize = 18f
+                        setPadding(0, 0, 0, 20)
+                    }
+                    
+                    progressLayout.addView(progressText)
+                    progressLayout.addView(progressBar)
+                    
+                    val progressDialog = AlertDialog.Builder(activity)
+                        .setTitle("Tarkastetaan duplikaatteja...")
+                        .setView(progressLayout)
+                        .setCancelable(false)
+                        .create()
+                        
+                    progressDialog.show()
+                    
+                    Thread {
+                        val duplicateCatches = findDuplicateCatches(importedCatches, currentCatches) { progress ->
+                            activity.runOnUiThread {
+                                val progressValue = (progress * 100) / totalToCompare
+                                progressBar.progress = progressValue
+                                progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
+                            }
+                        }
+                        
+                        val duplicatePlaces = findDuplicatePlaces(importedPlaces, currentPlaces, importedCatches.size) { progress ->
+                            activity.runOnUiThread {
+                                val progressValue = (progress * 100) / totalToCompare
+                                progressBar.progress = progressValue
+                                progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
+                            }
+                        }
+
+                        val totalImported = importedCatches.size + importedPlaces.size
+                        val totalDuplicates = duplicateCatches.size + duplicatePlaces.size
+
+                        activity.runOnUiThread {
+                            progressDialog.dismiss()
+                            if (totalDuplicates > 0) {
+                                showImportConflictDialog(
+                                    totalImported,
+                                    totalDuplicates,
+                                    importedCatches,
+                                    importedPlaces,
+                                    duplicateCatches,
+                                    duplicatePlaces
+                                )
+                            } else {
+                                processImport(importedCatches, importedPlaces, emptyList(), emptyList(), 0)
+                            }
+                        }
+                    }.start()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Import failed", e)
@@ -131,10 +178,10 @@ class ImportExportManager(
         }.start()
     }
 
-    private fun findDuplicateCatches(imported: List<FishCatch>, current: List<FishCatch>): List<Pair<FishCatch, FishCatch?>> {
+    private fun findDuplicateCatches(imported: List<FishCatch>, current: List<FishCatch>, onProgress: (Int) -> Unit): List<Pair<FishCatch, FishCatch?>> {
         val results = mutableListOf<Pair<FishCatch, FishCatch?>>()
 
-        for (imp in imported) {
+        for ((index, imp) in imported.withIndex()) {
             // Tarkista nykyiset
             val matchInCurrent = current.find { curr ->
                 calculateDistance(imp.latitude, imp.longitude, curr.latitude, curr.longitude) <= 2.0
@@ -143,14 +190,15 @@ class ImportExportManager(
             if (matchInCurrent != null) {
                 results.add(imp to matchInCurrent)
             }
+            onProgress(index + 1)
         }
         return results
     }
 
-    private fun findDuplicatePlaces(imported: List<PlaceOfInterest>, current: List<PlaceOfInterest>): List<Pair<PlaceOfInterest, PlaceOfInterest?>> {
+    private fun findDuplicatePlaces(imported: List<PlaceOfInterest>, current: List<PlaceOfInterest>, offset: Int, onProgress: (Int) -> Unit): List<Pair<PlaceOfInterest, PlaceOfInterest?>> {
         val results = mutableListOf<Pair<PlaceOfInterest, PlaceOfInterest?>>()
 
-        for (imp in imported) {
+        for ((index, imp) in imported.withIndex()) {
             val matchInCurrent = current.find { curr ->
                 calculateDistance(imp.latitude, imp.longitude, curr.latitude, curr.longitude) <= 2.0
             }
@@ -158,6 +206,7 @@ class ImportExportManager(
             if (matchInCurrent != null) {
                 results.add(imp to matchInCurrent)
             }
+            onProgress(offset + index + 1)
         }
         return results
     }
