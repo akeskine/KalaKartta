@@ -395,7 +395,7 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setCustomTitle(layout)
-            .setItems(arrayOf("Vie tiedot", "Tuo tiedot", "Poista kaikki pisteet", "Takaisin")) { _, which ->
+            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Poista kaikki pisteet", "Takaisin")) { _, which ->
                 when (which) {
                     0 -> importExportManager.launchExport()
                     1 -> importExportManager.launchImport()
