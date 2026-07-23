@@ -111,7 +111,7 @@ class SettingsManager(
             val content = String(buffer, Charsets.UTF_8)
             
             val textView = TextView(activity).apply {
-                text = android.text.Html.fromHtml(markdownToHtml(content), android.text.Html.FROM_HTML_MODE_COMPACT)
+                text = android.text.Html.fromHtml(markdownToHtml(content), android.text.Html.FROM_HTML_MODE_LEGACY)
                 setPadding(60, 40, 60, 40)
                 textSize = 16f
                 movementMethod = object : LinkMovementMethod() {
@@ -229,6 +229,9 @@ class SettingsManager(
         
         // Lihavointi
         html = html.replace(Regex("\\*\\*([^*]+)\\*\\*"), "<b>$1</b>")
+        
+        // Rivinvaihdot: kaksi tai useampi rivinvaihtoa -> <br><br>
+        html = html.replace("\n\n", "<br><br>")
         
         return html
     }
