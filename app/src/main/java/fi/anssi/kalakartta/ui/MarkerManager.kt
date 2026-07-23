@@ -1177,6 +1177,16 @@ class MarkerManager(
                 }
                 details.append("Laji: $speciesName\n")
                 hasSpecies = true
+            } else {
+                // Tuntematon laji (ei löydy tietokannasta)
+                val otherSpeciesDisplay = if (!it.otherSpecies.isNullOrEmpty()) {
+                    it.otherSpecies.lowercase().replaceFirstChar { it.uppercase() }
+                } else {
+                    it.species.lowercase().replaceFirstChar { it.uppercase() }
+                }
+                val otherSpeciesBase = "Muu kalalaji"
+                details.append("Laji: $otherSpeciesBase ($otherSpeciesDisplay)\n")
+                hasSpecies = true
             }
 
             it.caughtAt?.let { caughtAt ->
@@ -1234,7 +1244,7 @@ class MarkerManager(
         val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
         val dialogTitle = if (fish?.eventType != null && fish.eventType != FishCatch.CAUGHT_FISH) {
             FishCatch.getEventTypeName(fish.eventType)
-        } else if (hasSpecies) {
+        } else if (hasSpecies || fish?.species != "UNKNOWN") {
             "Saaliin tiedot"
         } else {
             "Pisteen tiedot"
