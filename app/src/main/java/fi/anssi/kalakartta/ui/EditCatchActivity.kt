@@ -70,6 +70,9 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var lonEditText: EditText
     private lateinit var titleSpeciesIcon: ImageView
     private lateinit var titleTextView: TextView
+    private lateinit var clearTimeButton: ImageButton
+    private lateinit var timeLabel: TextView
+    private lateinit var dateTimeContainer: View
     
     private lateinit var placeNameEditText: EditText
     private lateinit var placeNameContainer: View
@@ -163,6 +166,9 @@ class EditCatchActivity : AppCompatActivity() {
         lonEditText = findViewById(R.id.lonEditText)
         titleSpeciesIcon = findViewById(R.id.titleSpeciesIcon)
         titleTextView = findViewById(R.id.editCatchTitle)
+        clearTimeButton = findViewById(R.id.clearTimeButton)
+        timeLabel = findViewById(R.id.timeLabel)
+        dateTimeContainer = findViewById(R.id.dateTimeContainer)
         
         autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
         nearestStationText = findViewById(R.id.nearestStationText)
@@ -294,6 +300,8 @@ class EditCatchActivity : AppCompatActivity() {
                 lonEditText.setText(String.format(java.util.Locale.US, "%.5f", poi.longitude))
                 
                 updateDateTimeButtonText()
+                timeLabel.visibility = View.GONE
+                dateTimeContainer.visibility = View.GONE
             }
         } else {
             val adapter = object : ArrayAdapter<FishSpecies>(this, R.layout.item_species_dialog, speciesList) {
@@ -432,6 +440,8 @@ class EditCatchActivity : AppCompatActivity() {
 
                 fc.caughtAt?.let { selectedCalendar.timeInMillis = it }
                 updateDateTimeButtonText()
+                
+                autoWeatherCheckBox.visibility = if (fc.caughtAt == null || fc.caughtAt!! <= 0L) View.GONE else View.VISIBLE
 
                 val airTemp = if (fc.airTemp != null && !fc.airTemp!!.isNaN()) fc.airTemp.toString() else ""
                 val cloudiness = fc.cloudiness?.toString() ?: ""
@@ -534,12 +544,15 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun updateDateTimeButtonText() {
-        // Jos aikaa ei ole asetettu eikä käyttäjä ole sitä juuri nyt valinnut
-        if ((fishCatch?.caughtAt == null || fishCatch?.caughtAt!! <= 0L) && !isTimeSetManually) {
+        val hasTime = (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L)
+        
+        if (!hasTime) {
             dateTimeButton.text = getString(R.string.set_time)
+            clearTimeButton.visibility = View.GONE
             return
         }
-
+        
+        clearTimeButton.visibility = View.VISIBLE
         val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
         sdf.timeZone = TimeZone.getTimeZone("Europe/Helsinki")
         dateTimeButton.text = sdf.format(selectedCalendar.time)
@@ -547,6 +560,12 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         dateTimeButton.setOnClickListener { showDateTimePicker() }
+        clearTimeButton.setOnClickListener {
+            isTimeSetManually = false
+            fishCatch = fishCatch?.copy(caughtAt = null)
+            updateDateTimeButtonText()
+            autoWeatherCheckBox.visibility = View.GONE
+        }
         speciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (!isPlace) {
@@ -687,6 +706,9 @@ class EditCatchActivity : AppCompatActivity() {
                 selectedCalendar.set(Calendar.MINUTE, min)
                 isTimeSetManually = true
                 updateDateTimeButtonText()
+                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
+                autoWeatherCheckBox.visibility = if (isWeatherEnabled) View.VISIBLE else View.GONE
                 if (autoWeatherCheckBox.isChecked) fetchWeatherForDisplay()
             }, selectedCalendar.get(Calendar.HOUR_OF_DAY), selectedCalendar.get(Calendar.MINUTE), true).show()
         }, selectedCalendar.get(Calendar.YEAR), selectedCalendar.get(Calendar.MONTH), selectedCalendar.get(Calendar.DAY_OF_MONTH)).show()
@@ -748,7 +770,7 @@ class EditCatchActivity : AppCompatActivity() {
                 species = selectedSpeciesId,
                 otherSpecies = if (selectedSpeciesId == "OTHER") otherSpecies else null,
                 eventType = if (selectedType == "EMPTY") null else (selectedType ?: FishCatch.CAUGHT_FISH),
-                caughtAt = if (isTimeSetManually || fc.caughtAt != null) selectedCalendar.timeInMillis else null,
+                caughtAt = if (isTimeSetManually || (fc.caughtAt ?: 0L) > 0L) selectedCalendar.timeInMillis else null,
                 weight = weightEditText.text.toString().toLongOrNull(),
                 length = lengthEditText.text.toString().toLongOrNull(),
                 method = methodEditText.text.toString(),
@@ -794,8 +816,12 @@ class EditCatchActivity : AppCompatActivity() {
         val fc = fishCatch ?: return false
         if (speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id != fc.species) return true
         
-        val currentTime = if (isTimeSetManually || fc.caughtAt != null) selectedCalendar.timeInMillis else null
-        if (currentTime?.div(60000) != fc.caughtAt?.div(60000)) return true
+        val currentTime = if (isTimeSetManually || (fc.caughtAt ?: 0L) > 0L) selectedCalendar.timeInMillis else null
+        if (currentTime != null && fc.caughtAt != null) {
+            if (currentTime / 60000 != fc.caughtAt / 60000) return true
+        } else if (currentTime != fc.caughtAt) {
+            return true
+        }
         
         if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0) > 0) fc.weight else null)) return true
         if (methodEditText.text.toString() != (fc.method ?: "")) return true

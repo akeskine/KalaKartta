@@ -40,6 +40,7 @@
     <string name="free_text">Vapaa teksti</string>
     <string name="place_type">Muu paikka</string>
     <string name="set_time">Aseta aika</string>
+    <string name="clear_time">Tyhjennä aika</string>
     <string name="data_filtering">Tiedon suodatus</string>
     <string name="clear_filters">Poista suodattimet</string>
     <string name="date_range">Aikaväli (pvm)</string>

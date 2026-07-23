@@ -120,17 +120,37 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/timeLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/time" />
-        <Button
-            android:id="@+id/dateTimeButton"
-            style="@style/Widget.Material3.Button.TextButton"
+
+        <LinearLayout
+            android:id="@+id/dateTimeContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:gravity="start|center_vertical"
-            android:textAlignment="viewStart" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/dateTimeButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="start|center_vertical"
+                android:textAlignment="viewStart" />
+
+            <ImageButton
+                android:id="@+id/clearTimeButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/clear_time"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:tint="@android:color/holo_red_dark" />
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/fishSpecificFields"

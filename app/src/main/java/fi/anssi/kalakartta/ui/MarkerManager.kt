@@ -1195,12 +1195,11 @@ class MarkerManager(
                     val dateStr = dateFormat.format(Date(caughtAt))
                     val timeLabel = if (it.eventType != null && it.eventType != FishCatch.CAUGHT_FISH) "Aika" else "Saantiaika"
                     details.append("$timeLabel: $dateStr\n")
-                    
-                    if (it.fisherman.isNotEmpty()) {
-                        val fishermanDisplay = it.fisherman.lowercase().replaceFirstChar { char -> char.uppercase() }
-                        details.append("Kalastaja: $fishermanDisplay\n")
-                    }
                 }
+            }
+            if (it.fisherman.isNotEmpty()) {
+                val fishermanDisplay = it.fisherman.lowercase().replaceFirstChar { char -> char.uppercase() }
+                details.append("Kalastaja: $fishermanDisplay\n")
             }
 
             if (it.weight != null && it.weight!! > 0) details.append("Paino: ${it.weight} g\n")
