@@ -814,7 +814,11 @@ class MarkerManager(
             val key = Triple(drawableId, visibleSize, touchSize)
             touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, visibleSize, touchSize) }
         } else {
-            val iconSize = 40
+            var iconSize = 40
+            when (place.typeId) {
+                "SHALLOW", "DEEP" -> iconSize = (iconSize * 0.5).toInt()
+                "ROCK", "VEGETATION" -> iconSize = (iconSize * 0.7).toInt()
+            }
             val key = Pair(drawableId, iconSize)
             iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
         }
