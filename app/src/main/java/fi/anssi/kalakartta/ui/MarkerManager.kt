@@ -62,6 +62,7 @@ class MarkerManager(
     private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
     private val pathIconCache = mutableMapOf<Pair<String, Int>, BitmapDrawable>()
     private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
+    private val labelIconCache = mutableMapOf<Triple<Int, Int, String>, BitmapDrawable>()
     private val clusterIconCache = mutableMapOf<Any, BitmapDrawable>()
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
@@ -415,6 +416,7 @@ class MarkerManager(
             iconCache.clear()
             pathIconCache.clear()
             touchIconCache.clear()
+            labelIconCache.clear()
             clusterIconCache.clear()
             
             // Ladataan lajit uudelleen välimuistiin
@@ -502,6 +504,7 @@ class MarkerManager(
                     }
                     activeIndividualMarkers.clear()
                     activePlaceMarkers.clear()
+                    labelIconCache.clear()
                     
                     defaultPointsFolder.items.clear()
                     catchesFolder.items.clear()
@@ -819,18 +822,21 @@ class MarkerManager(
                 "SHALLOW", "DEEP" -> iconSize = (iconSize * 0.5).toInt()
                 "ROCK", "VEGETATION" -> iconSize = (iconSize * 0.7).toInt()
             }
-            val key = Pair(drawableId, iconSize)
-            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
+            
+            if (zoom >= 16.5 && place.name.isNotEmpty()) {
+                val key = Triple(drawableId, iconSize, place.name)
+                labelIconCache.getOrPut(key) { getIconWithLabel(drawableId, iconSize, place.name) }
+            } else {
+                val key = Pair(drawableId, iconSize)
+                iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
+            }
         }
 
         marker.infoWindow = placeInfoWindow
         marker.title = place.name
         
-        if (zoom >= 16.5 && place.name.isNotEmpty()) {
-            marker.showInfoWindow()
-        } else {
-            marker.closeInfoWindow()
-        }
+        // Suljetaan InfoWindow koska nimeä näytetään nyt suoraan ikonissa
+        marker.closeInfoWindow()
 
         marker.relatedObject = place
         marker.setOnMarkerClickListener { clickedMarker, _ ->
@@ -1095,6 +1101,7 @@ class MarkerManager(
         markerPool.addAll(allActive)
         activeIndividualMarkers.clear()
         activePlaceMarkers.clear()
+        labelIconCache.clear()
 
         defaultPointsFolder.items.clear()
         catchesFolder.items.clear()
@@ -1504,6 +1511,46 @@ class MarkerManager(
         val scaled = getScaledMarkerIcon(path, sizeDp)
         val baseIcon = scaled.bitmap
         return drawClusterCountOnBitmap(baseIcon, count)
+    }
+
+    private fun getIconWithLabel(drawableId: Int, sizeDp: Int, label: String): BitmapDrawable {
+        val baseIcon = getScaledMarkerIcon(drawableId, sizeDp).bitmap
+        val density = context.resources.displayMetrics.density
+        
+        val textPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 12 * density
+            isFakeBoldText = true
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            // Lisätään varjo jotta teksti erottuu paremmin
+            setShadowLayer(2f, 1f, 1f, Color.WHITE)
+        }
+        
+        val bounds = Rect()
+        textPaint.getTextBounds(label, 0, label.length, bounds)
+        
+        val padding = (4 * density).toInt()
+        val textWidth = bounds.width()
+        val textHeight = bounds.height()
+        
+        // Lasketaan i-pisteen tarkka sijainti ja kääntö
+        val textMetrics = textPaint.fontMetrics
+        val textOffset = textMetrics.descent
+        
+        val bitmapWidth = baseIcon.width.coerceAtLeast(textWidth + padding * 2)
+        val bitmapHeight = baseIcon.height + textHeight + padding * 2
+        
+        val bitmap = createBitmap(bitmapWidth, bitmapHeight, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        
+        // Piirretään ikoni keskelle yläosaa
+        canvas.drawBitmap(baseIcon, (bitmapWidth - baseIcon.width) / 2f, 0f, null)
+        
+        // Piirretään teksti ikonin alapuolelle
+        canvas.drawText(label, bitmapWidth / 2f, (baseIcon.height + textHeight + padding).toFloat() - textOffset, textPaint)
+        
+        return bitmap.toDrawable(context.resources)
     }
 
     private fun drawClusterCountOnBitmap(baseIcon: Bitmap, count: Int): BitmapDrawable {
