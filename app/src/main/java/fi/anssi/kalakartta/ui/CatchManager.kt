@@ -102,6 +102,9 @@ class CatchManager(
         val placeNameInputLayout = contentView.findViewById<View>(R.id.placeNameInputLayout)
         placeNameInputLayout.visibility = View.GONE
 
+        val eventTypeContainer = contentView.findViewById<View>(R.id.eventTypeContainer)
+        eventTypeContainer.visibility = View.VISIBLE
+
         val weightInput = contentView.findViewById<EditText>(R.id.weightInput)
         val lengthInput = contentView.findViewById<EditText>(R.id.lengthInput)
 
@@ -305,6 +308,9 @@ class CatchManager(
 
         val fishInputsLayout = contentView.findViewById<View>(R.id.fishInputsLayout)
         fishInputsLayout.visibility = View.GONE
+
+        val eventTypeContainer = contentView.findViewById<View>(R.id.eventTypeContainer)
+        eventTypeContainer.visibility = View.GONE
         
         val placeNameInputLayout = contentView.findViewById<View>(R.id.placeNameInputLayout)
         placeNameInputLayout.visibility = View.VISIBLE
