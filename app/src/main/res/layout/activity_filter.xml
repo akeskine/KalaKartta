@@ -296,43 +296,38 @@
                 android:gravity="center_vertical"
                 android:layout_marginTop="8dp">
 
-                <LinearLayout
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <com.google.android.material.textfield.TextInputLayout
+                    android:hint="@string/min_degrees">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/windMinEdit"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="@string/min_degrees">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/windMinEdit"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="numberDecimal"
-                            android:imeOptions="actionNext" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                        android:inputType="numberDecimal"
+                        android:imeOptions="actionNext" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-                    <com.google.android.material.textfield.TextInputLayout
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:hint="@string/max_degrees">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/windMaxEdit"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:hint="@string/max_degrees">
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/windMaxEdit"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="numberDecimal"
-                            android:imeOptions="actionNext" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
+                        android:inputType="numberDecimal"
+                        android:imeOptions="actionNext" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <fi.anssi.kalakartta.ui.WindDirectionView
                     android:id="@+id/windDirectionPreview"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:layout_marginStart="16dp" />
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:layout_marginStart="8dp" />
 
             </LinearLayout>
 
