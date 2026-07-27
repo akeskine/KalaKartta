@@ -5,6 +5,8 @@ import android.app.TimePickerDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import fi.anssi.kalakartta.MainActivity
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -38,7 +40,9 @@ class SummaryActivity : AppCompatActivity() {
     private lateinit var endTimeButton: View
     private lateinit var summaryResultText: TextView
     private lateinit var copyToClipboardButton: ImageButton
+    private lateinit var showOnMapButton: ImageButton
     private lateinit var fishermanSpinner: Spinner
+    private lateinit var filterManager: FilterManager
     private var fishermanList: List<String> = emptyList()
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
@@ -66,7 +70,10 @@ class SummaryActivity : AppCompatActivity() {
         endTimeButton = findViewById(R.id.endTimeButton)
         summaryResultText = findViewById(R.id.summaryResultText)
         copyToClipboardButton = findViewById(R.id.copyToClipboardButton)
+        showOnMapButton = findViewById(R.id.showOnMapButton)
         fishermanSpinner = findViewById<Spinner>(R.id.fishermanSpinner)
+
+        filterManager = FilterManager(this)
 
         copyToClipboardButton.setOnClickListener {
             val summary = summaryResultText.text.toString()
@@ -76,6 +83,10 @@ class SummaryActivity : AppCompatActivity() {
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(this, "Yhteenveto kopioitu leikepöydälle", Toast.LENGTH_SHORT).show()
             }
+        }
+
+        showOnMapButton.setOnClickListener {
+            applyFiltersAndShowMap()
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -169,14 +180,19 @@ class SummaryActivity : AppCompatActivity() {
         cal.set(Calendar.MINUTE, 0)
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
+        startDateTime = cal.clone() as Calendar
+        startTimeSet = true
         val start = cal.timeInMillis
         
         cal.set(Calendar.HOUR_OF_DAY, 23)
         cal.set(Calendar.MINUTE, 59)
         cal.set(Calendar.SECOND, 59)
         cal.set(Calendar.MILLISECOND, 999)
+        endDateTime = cal.clone() as Calendar
+        endTimeSet = true
         val end = cal.timeInMillis
 
+        updateDateButtons()
         val title = "Kalansaaliit ${dateFormat.format(Date())}"
         fetchAndDisplaySummary(start, end, title)
     }
@@ -260,6 +276,7 @@ class SummaryActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     summaryResultText.text = result
                     copyToClipboardButton.visibility = View.VISIBLE
+                    showOnMapButton.visibility = View.VISIBLE
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -322,6 +339,56 @@ class SummaryActivity : AppCompatActivity() {
         }
 
         return sb.toString()
+    }
+
+    private fun applyFiltersAndShowMap() {
+        val start: Long? = if (startDateTime != null) {
+            val cal = startDateTime!!.clone() as Calendar
+            if (!startTimeSet) {
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+            }
+            cal.timeInMillis
+        } else null
+
+        val end: Long? = if (endDateTime != null) {
+            val cal = endDateTime!!.clone() as Calendar
+            if (!endTimeSet) {
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+                cal.set(Calendar.MILLISECOND, 999)
+            }
+            cal.timeInMillis
+        } else null
+
+        val startMinutes: Int? = if (startTimeSet && startDateTime != null) {
+            startDateTime!!.get(Calendar.HOUR_OF_DAY) * 60 + startDateTime!!.get(Calendar.MINUTE)
+        } else null
+
+        val endMinutes: Int? = if (endTimeSet && endDateTime != null) {
+            endDateTime!!.get(Calendar.HOUR_OF_DAY) * 60 + endDateTime!!.get(Calendar.MINUTE)
+        } else null
+
+        val selectedFisherman = if (fishermanSpinner.selectedItemPosition > 0) {
+            fishermanList[fishermanSpinner.selectedItemPosition]
+        } else null
+
+        val filters = filterManager.getFilters().copy(
+            startDate = start,
+            endDate = end,
+            startTimeMinutes = startMinutes,
+            endTimeMinutes = endMinutes,
+            fisherman = selectedFisherman
+        )
+        filterManager.saveFilters(filters)
+
+        val intent = Intent(this, MainActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        startActivity(intent)
+        finish()
     }
 
     private fun appendCatchData(sb: StringBuilder, catches: List<FishCatch>) {

@@ -752,6 +752,10 @@ class MainActivity : AppCompatActivity() {
             checkWeather()
         }
 
+        // Päivitetään kartta ja suodattimet
+        reloadMarkersFromDb()
+        updateFilterStatusUI()
+
         isFirstResume = false
     }
 

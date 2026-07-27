@@ -102,7 +102,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Tee yhteenveto ajalta"
+            android:text="Tee yhteenveto"
             android:textSize="18sp"
             android:textColor="@android:color/holo_blue_dark"
             android:background="?attr/selectableItemBackground"
@@ -110,6 +110,16 @@
             android:focusable="true"
             android:paddingTop="8dp"
             android:paddingBottom="8dp" />
+
+        <ImageButton
+            android:id="@+id/showOnMapButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_map"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Näytä kartalla"
+            android:visibility="gone"
+            android:layout_marginEnd="8dp" />
 
         <ImageButton
             android:id="@+id/copyToClipboardButton"
