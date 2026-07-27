@@ -324,13 +324,6 @@ class FilterManager(private val context: Context) {
             parts.add("vesi $min-$max C")
         }
 
-        if (f.onlyCaughtFish) {
-            parts.add("vain saadut")
-        }
-
-        if (f.onlyFishPoints) {
-            parts.add("vain kalapisteet")
-        }
 
         if (f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null) {
             val startH = f.annualStartTimeMinutes / 60
