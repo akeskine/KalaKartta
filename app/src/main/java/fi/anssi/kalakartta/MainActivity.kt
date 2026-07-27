@@ -381,6 +381,15 @@ class MainActivity : AppCompatActivity() {
 
             isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
             if (isSelectionMode) {
+                // Nollataan aluerajaus valintatilaan mentäessä, jotta nähdään kaikki pisteet
+                val currentFilters = filterManager.getFilters()
+                if (currentFilters.latNorth != null) {
+                    filterManager.saveFilters(currentFilters.copy(
+                        latNorth = null, latSouth = null, lonEast = null, lonWest = null
+                    ))
+                    loadCatches() // Päivitetään näkyvät pisteet
+                }
+
                 findViewById<android.view.View>(R.id.selectionModeLayout).visibility = android.view.View.VISIBLE
                 findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.GONE
                 findViewById<android.view.View>(R.id.settingsButton).visibility = android.view.View.GONE
