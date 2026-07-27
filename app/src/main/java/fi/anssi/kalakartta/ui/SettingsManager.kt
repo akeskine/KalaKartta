@@ -35,7 +35,11 @@ class SettingsManager(
     private val onDataChanged: (forceRefreshSpecies: Boolean) -> Unit
 ) {
 
-    fun openSettings() {
+    fun openSettings(
+        isFiltered: Boolean = false,
+        filteredCatches: List<fi.anssi.kalakartta.data.FishCatch>? = null,
+        filteredPlaces: List<fi.anssi.kalakartta.data.PlaceOfInterest>? = null
+    ) {
         activity.lifecycleScope.launch(Dispatchers.IO) {
             val count = db.fishCatchDao().getCount()
             val placeCount = db.placeOfInterestDao().getCount()
@@ -85,7 +89,15 @@ class SettingsManager(
                     .setCustomTitle(titleView)
                     .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", activity.getString(R.string.fish_species_settings), "Yleiset", "Takaisin")) { _, which ->
                         when (which) {
-                            0 -> openDataTransferSettings(count, placeCount)
+                            0 -> openDataTransferSettings(
+                                count, 
+                                placeCount, 
+                                isFiltered, 
+                                filteredCatches?.size ?: 0, 
+                                filteredPlaces?.size ?: 0,
+                                filteredCatches,
+                                filteredPlaces
+                            )
                             1 -> openFilterSettings()
                             2 -> openWeatherSettings()
                             3 -> openSummary()
@@ -540,7 +552,15 @@ class SettingsManager(
         activity.startActivityForResult(intent, 2001)
     }
 
-    private fun openDataTransferSettings(count: Int, placeCount: Int) {
+    private fun openDataTransferSettings(
+        count: Int, 
+        placeCount: Int, 
+        isFiltered: Boolean = false, 
+        filteredCount: Int = 0, 
+        filteredPlaceCount: Int = 0,
+        filteredCatches: List<fi.anssi.kalakartta.data.FishCatch>? = null,
+        filteredPlaces: List<fi.anssi.kalakartta.data.PlaceOfInterest>? = null
+    ) {
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 10)
@@ -566,7 +586,26 @@ class SettingsManager(
             .setCustomTitle(layout)
             .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Poista kaikki pisteet", "Takaisin")) { _, which ->
                 when (which) {
-                    0 -> importExportManager.launchExport()
+                    0 -> {
+                        if (isFiltered) {
+                            val exportDialog = AlertDialog.Builder(activity)
+                                .setTitle("Vie pisteet")
+                                .setMessage("Viedäänkö kaikki pisteet vai nykyisen suodatuksen rajaamat pisteet?\n\n" +
+                                        "Kaikki: $count kalapistettä, $placeCount muuta pistettä\n\n" +
+                                        "Suodatetut: $filteredCount kalapistettä, $filteredPlaceCount muuta pistettä")
+                                .setPositiveButton("Vie suodatetut") { _, _ ->
+                                    importExportManager.launchExport(filteredCatches, filteredPlaces)
+                                }
+                                .setNegativeButton("Vie kaikki") { _, _ ->
+                                    importExportManager.launchExport()
+                                }
+                                .setNeutralButton("Peruuta", null)
+                                .show()
+                            exportDialog.enlargeButtons()
+                        } else {
+                            importExportManager.launchExport()
+                        }
+                    }
                     1 -> importExportManager.launchImport()
                     2 -> confirmDeleteAllCatches()
                     3 -> openSettings()

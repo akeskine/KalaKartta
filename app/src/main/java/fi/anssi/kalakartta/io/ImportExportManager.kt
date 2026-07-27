@@ -24,10 +24,15 @@ class ImportExportManager(
 ) {
     private val jsonService = JsonService()
 
+    private var pendingExportCatches: List<FishCatch>? = null
+    private var pendingExportPlaces: List<PlaceOfInterest>? = null
+
     private val exportLauncher = activity.registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        uri?.let { exportToJson(it) }
+        uri?.let { exportToJson(it, pendingExportCatches, pendingExportPlaces) }
+        pendingExportCatches = null
+        pendingExportPlaces = null
     }
 
     private val exportSpeciesLauncher = activity.registerForActivityResult(
@@ -48,7 +53,9 @@ class ImportExportManager(
         uri?.let { importSpeciesFromJson(it) }
     }
 
-    fun launchExport() {
+    fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null) {
+        pendingExportCatches = catches
+        pendingExportPlaces = places
         exportLauncher.launch("kalakartta.json")
     }
 
@@ -64,10 +71,10 @@ class ImportExportManager(
         importSpeciesLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
     }
 
-    private fun exportToJson(uri: Uri) {
+    private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {
         Thread {
-            val catches = db.fishCatchDao().getAll()
-            val places = db.placeOfInterestDao().getAll()
+            val catches = manualCatches ?: db.fishCatchDao().getAll()
+            val places = manualPlaces ?: db.placeOfInterestDao().getAll()
             jsonService.export(activity.contentResolver, uri, catches, places)
             showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
         }.start()

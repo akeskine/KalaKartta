@@ -185,7 +185,19 @@ class MainActivity : AppCompatActivity() {
             }
 
             findViewById<MaterialButton?>(R.id.settingsButton)?.setOnClickListener {
-                settingsManager.openSettings()
+                if (filterManager.hasActiveFilters()) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val catches = db.fishCatchDao().getAll()
+                        val filteredCatches = filterManager.applyFilter(catches)
+                        val places = db.placeOfInterestDao().getAll()
+                        val filteredPlaces = filterManager.applyPlaceFilter(places)
+                        withContext(Dispatchers.Main) {
+                            settingsManager.openSettings(true, filteredCatches, filteredPlaces)
+                        }
+                    }
+                } else {
+                    settingsManager.openSettings()
+                }
             }
 
             android.util.Log.d("KalaKartta", "before db init")
