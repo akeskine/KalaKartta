@@ -18,6 +18,10 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.Polyline
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -718,6 +722,10 @@ class MainActivity : AppCompatActivity() {
         )
 
         buttons.forEach { button ->
+            if (button.id == R.id.measurementButton) {
+                val bitmap = createMeasurementPinBitmap(color)
+                button.icon = BitmapDrawable(resources, bitmap)
+            }
             button.iconTint = android.content.res.ColorStateList.valueOf(color)
             button.strokeColor = android.content.res.ColorStateList.valueOf(color)
         }
@@ -871,15 +879,53 @@ class MainActivity : AppCompatActivity() {
         markerManager.setMarkersVisible(map.zoomLevelDouble >= 1.0, map.zoomLevelDouble)
     }
 
+    private fun createMeasurementPinBitmap(color: Int): Bitmap {
+        val size = (32 * resources.displayMetrics.density).toInt()
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        
+        // Piirretään pallo (nuppineulan pää)
+        // Nuppi halkaisijaltaan puolet nykyisestä -> säde puoleen. 
+        // Aiemmin säde oli size/4f, nyt size/8f.
+        paint.color = color
+        canvas.drawCircle(size / 2f, size / 4f, size / 8f, paint)
+        
+        // Piirretään neula
+        // Pidennä nuppineulan vartta 30 %.
+        // Aiemmin pituus oli (size * 0.9f) - (size / 3f + size / 4f) = 0.9 - 0.583 = 0.317 size
+        // Uusi pituus: 0.317 * 1.3 = 0.412 size.
+        // Uusi loppupiste: 0.25 (alku) + 0.125 (nupin säde) + 0.412 = 0.787 size? 
+        // Itse asiassa helpompi:
+        val startY = size / 4f + size / 8f
+        val originalLength = size * 0.9f - (size / 3f + size / 4f)
+        val newLength = originalLength * 1.3f
+        val endY = startY + newLength
+        
+        paint.strokeWidth = size / 10f
+        canvas.drawLine(size / 2f, startY, size / 2f, endY, paint)
+        
+        return bitmap
+    }
+
     private fun handleMeasurementClick() {
         val center = map.mapCenter as GeoPoint
         measurementPoints.add(center)
 
         val marker = Marker(map).apply {
             position = center
-            icon = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_myplaces)
-            // Asetetaan "nuppineula" oikeaan kohtaan. Oletuksena ic_menu_myplaces on keskellä alhaalla.
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            // Luodaan punainen nuppineula koodilla
+            val bitmap = createMeasurementPinBitmap(Color.RED)
+            icon = BitmapDrawable(resources, bitmap)
+            
+            // Lasketaan ankkuri uudelleen pidentyneen varren mukaan
+            val size = (32 * resources.displayMetrics.density).toInt()
+            val startY = size / 4f + size / 8f
+            val originalLength = size * 0.9f - (size / 3f + size / 4f)
+            val newLength = originalLength * 1.3f
+            val endY = startY + newLength
+            setAnchor(Marker.ANCHOR_CENTER, endY / size.toFloat())
+            
             // Estetään infoikkunan aukeaminen
             setOnMarkerClickListener { _, _ -> true }
         }
