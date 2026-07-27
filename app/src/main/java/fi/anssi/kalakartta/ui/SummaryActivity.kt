@@ -2,9 +2,15 @@ package fi.anssi.kalakartta.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
+import android.view.View
+import android.widget.ImageButton
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
@@ -24,11 +30,12 @@ class SummaryActivity : AppCompatActivity() {
     private var startTimeSet = false
     private var endTimeSet = false
 
-    private lateinit var startDateButton: TextView
-    private lateinit var startTimeButton: TextView
-    private lateinit var endDateButton: TextView
-    private lateinit var endTimeButton: TextView
+    private lateinit var startDateButton: View
+    private lateinit var startTimeButton: View
+    private lateinit var endDateButton: View
+    private lateinit var endTimeButton: View
     private lateinit var summaryResultText: TextView
+    private lateinit var copyToClipboardButton: ImageButton
     private lateinit var fishermanSpinner: Spinner
     private var fishermanList: List<String> = emptyList()
 
@@ -46,7 +53,18 @@ class SummaryActivity : AppCompatActivity() {
         endDateButton = findViewById(R.id.endDateButton)
         endTimeButton = findViewById(R.id.endTimeButton)
         summaryResultText = findViewById(R.id.summaryResultText)
+        copyToClipboardButton = findViewById(R.id.copyToClipboardButton)
         fishermanSpinner = findViewById<Spinner>(R.id.fishermanSpinner)
+
+        copyToClipboardButton.setOnClickListener {
+            val summary = summaryResultText.text.toString()
+            if (summary.isNotEmpty()) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("Kalakartta yhteenveto", summary)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "Yhteenveto kopioitu leikepöydälle", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         lifecycleScope.launch(Dispatchers.IO) {
             val uniqueFishermen = db.fishCatchDao().getUniqueFishermen()
@@ -127,10 +145,10 @@ class SummaryActivity : AppCompatActivity() {
     }
 
     private fun updateDateButtons() {
-        startDateButton.text = startDateTime?.let { dateFormat.format(it.time) } ?: "Alkupvm"
-        startTimeButton.text = if (startTimeSet) startDateTime?.let { timeFormat.format(it.time) } ?: "Klo" else "Klo"
-        endDateButton.text = endDateTime?.let { dateFormat.format(it.time) } ?: "Loppupvm"
-        endTimeButton.text = if (endTimeSet) endDateTime?.let { timeFormat.format(it.time) } ?: "Klo" else "Klo"
+        (startDateButton as? TextView)?.text = startDateTime?.let { dateFormat.format(it.time) } ?: "Alkupvm"
+        (startTimeButton as? TextView)?.text = if (startTimeSet) startDateTime?.let { timeFormat.format(it.time) } ?: "Klo" else "Klo"
+        (endDateButton as? TextView)?.text = endDateTime?.let { dateFormat.format(it.time) } ?: "Loppupvm"
+        (endTimeButton as? TextView)?.text = if (endTimeSet) endDateTime?.let { timeFormat.format(it.time) } ?: "Klo" else "Klo"
     }
 
     private fun generateTodaySummary() {
@@ -208,26 +226,33 @@ class SummaryActivity : AppCompatActivity() {
         } else null
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val allCatches = db.fishCatchDao().getAll()
-            val filteredCatches = allCatches.filter { 
-                val caughtAt = it.caughtAt ?: 0L
-                val matchesFisherman = selectedFisherman == null || it.fisherman.uppercase() == selectedFisherman
-                
-                caughtAt in start..end && 
-                it.species != "UNKNOWN" && 
-                (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH) &&
-                matchesFisherman
-            }
-            val speciesList = db.fishSpeciesDao().getAll()
-            val speciesMap = speciesList.associateBy { it.id }
+            try {
+                val allCatches = db.fishCatchDao().getAll()
+                val filteredCatches = allCatches.filter { 
+                    val caughtAt = it.caughtAt ?: 0L
+                    val matchesFisherman = selectedFisherman == null || it.fisherman.uppercase() == selectedFisherman
+                    
+                    caughtAt in start..end && 
+                    it.species != "UNKNOWN" && 
+                    (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH) &&
+                    matchesFisherman
+                }
+                val speciesList = db.fishSpeciesDao().getAll()
+                val speciesMap = speciesList.associateBy { it.id }
 
-            val fishermanTitlePart = if (selectedFisherman != null) {
-                " (${selectedFisherman.lowercase().replaceFirstChar { it.uppercase() }})"
-            } else ""
-            val result = formatSummary(title + fishermanTitlePart, filteredCatches, speciesMap)
-            
-            withContext(Dispatchers.Main) {
-                summaryResultText.text = result
+                val fishermanTitlePart = if (selectedFisherman != null) {
+                    " (${selectedFisherman.lowercase().replaceFirstChar { it.uppercase() }})"
+                } else ""
+                val result = formatSummary(title + fishermanTitlePart, filteredCatches, speciesMap)
+                
+                withContext(Dispatchers.Main) {
+                    summaryResultText.text = result
+                    copyToClipboardButton.visibility = View.VISIBLE
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@SummaryActivity, "Virhe yhteenvetoa luotaessa", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

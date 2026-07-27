@@ -6,7 +6,7 @@
     android:padding="16dp">
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Yhteenveto"
         android:textSize="20sp"
@@ -26,13 +26,6 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         android:layout_marginBottom="16dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Tee yhteenveto ajalta"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -97,19 +90,36 @@
             android:layout_marginStart="8dp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/generateRangeSummaryButton"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Tee yhteenveto ajalta"
-        android:textSize="18sp"
-        android:textColor="@android:color/holo_blue_dark"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:layout_marginBottom="16dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/generateRangeSummaryButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Tee yhteenveto ajalta"
+            android:textSize="18sp"
+            android:textColor="@android:color/holo_blue_dark"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+        <ImageButton
+            android:id="@+id/copyToClipboardButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_copy"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Kopioi leikepöydälle"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
