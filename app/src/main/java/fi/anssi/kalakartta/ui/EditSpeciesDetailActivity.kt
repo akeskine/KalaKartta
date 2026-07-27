@@ -205,15 +205,15 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                 giantWeightInput.setText(s.giant_weight.toString())
                 giantLengthInput.setText(s.giant_length.toString())
 
+                iconDefaultPath = s.icon_default
+                iconSmallPath = s.icon_small
+                iconLargePath = s.icon_large
+                iconGiantPath = s.icon_giant
+
                 updateIconUI(R.id.iconDefaultEdit, s.icon_default)
                 updateIconUI(R.id.iconSmallEdit, s.icon_small)
                 updateIconUI(R.id.iconLargeEdit, s.icon_large)
                 updateIconUI(R.id.iconGiantEdit, s.icon_giant)
-                
-                iconDefaultPath = getIconFileName(s.icon_default)
-                iconSmallPath = getIconFileName(s.icon_small)
-                iconLargePath = getIconFileName(s.icon_large)
-                iconGiantPath = getIconFileName(s.icon_giant)
 
                 // Rajoitus: vain itse lisätyn kalalajin nimeä saa muuttaa.
                 // Järjestelmässä valmiina olevien lajien nimi ei ole muokattavissa.
@@ -225,6 +225,13 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.dialogTitle).text = getString(R.string.add_new_species)
             favouriteCheckBox.isChecked = true
             nameInput.isEnabled = true
+            
+            // Uuden lajin oletusikoni
+            iconDefaultPath = "muukala"
+            updateIconUI(R.id.iconDefaultEdit, iconDefaultPath)
+            updateIconUI(R.id.iconSmallEdit, "")
+            updateIconUI(R.id.iconLargeEdit, "")
+            updateIconUI(R.id.iconGiantEdit, "")
         }
         isDataLoaded = true
     }
@@ -244,16 +251,21 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         val pathText = layout.findViewById<TextView>(R.id.iconPath)
         val deleteButton = layout.findViewById<ImageButton>(R.id.deleteIconButton)
 
-        pathText.text = iconPath
+        pathText.text = getIconFileName(iconPath)
         
         // Näytä poistonappi vain, jos ikoni on asetettu EIKÄ se ole oletuslajin oletusikoni
+        // Uuden lajin kohdalla "muukala" on oletusikoni.
         val defaultSpecies = fi.anssi.kalakartta.data.FishSpecies.getDefaultList().find { it.id == speciesId }
-        val isDefaultIcon = defaultSpecies != null && (
+        val isDefaultIcon = if (defaultSpecies != null) {
             iconPath == defaultSpecies.icon_default ||
             iconPath == defaultSpecies.icon_small ||
             iconPath == defaultSpecies.icon_large ||
             iconPath == defaultSpecies.icon_giant
-        )
+        } else {
+            // Uusi laji: "muukala" on oletus
+            iconPath == "muukala" || iconPath.isEmpty()
+        }
+        
         deleteButton.visibility = if (iconPath.isNotEmpty() && !isDefaultIcon) View.VISIBLE else View.GONE
         
         if (iconPath.isNotEmpty()) {
