@@ -35,7 +35,8 @@ class FilterManager(private val context: Context) {
         val freeText: String? = null,
         val fisherman: String? = null,
         val onlyCaughtFish: Boolean = false,
-        val onlyFishPoints: Boolean = false
+        val onlyFishPoints: Boolean = false,
+        val onlyNonFishPoints: Boolean = false
     )
 
     fun getFilters(): Filters {
@@ -62,6 +63,7 @@ class FilterManager(private val context: Context) {
         val fisherman = prefs.getString("fisherman", null)
         val onlyCaughtFish = prefs.getBoolean("onlyCaughtFish", false)
         val onlyFishPoints = prefs.getBoolean("onlyFishPoints", false)
+        val onlyNonFishPoints = prefs.getBoolean("onlyNonFishPoints", false)
 
         return Filters(
             startDate, endDate,
@@ -72,7 +74,7 @@ class FilterManager(private val context: Context) {
             windMin, windMax,
             pressureMin, pressureMax,
             waterTempMin, waterTempMax,
-            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints
+            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints, onlyNonFishPoints
         )
     }
 
@@ -101,6 +103,7 @@ class FilterManager(private val context: Context) {
             if (filters.fisherman != null) putString("fisherman", filters.fisherman) else remove("fisherman")
             putBoolean("onlyCaughtFish", filters.onlyCaughtFish)
             putBoolean("onlyFishPoints", filters.onlyFishPoints)
+            putBoolean("onlyNonFishPoints", filters.onlyNonFishPoints)
             apply()
         }
     }
@@ -115,7 +118,8 @@ class FilterManager(private val context: Context) {
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
-                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || f.onlyCaughtFish || f.onlyFishPoints
+                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || 
+                f.onlyCaughtFish || f.onlyFishPoints || f.onlyNonFishPoints
     }
 
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
@@ -227,6 +231,9 @@ class FilterManager(private val context: Context) {
 
             // Only Caught Fish
             if (f.onlyCaughtFish && fish.eventType != FishCatch.CAUGHT_FISH) return@filter false
+
+            // Only Non-Fish Points
+            if (f.onlyNonFishPoints) return@filter false
 
             true
         }

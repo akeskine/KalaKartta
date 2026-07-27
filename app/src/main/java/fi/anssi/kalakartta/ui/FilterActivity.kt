@@ -63,6 +63,7 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var waterTempMaxEdit: EditText
     private lateinit var onlyCaughtFishCheckBox: CheckBox
     private lateinit var onlyFishPointsCheckBox: CheckBox
+    private lateinit var onlyNonFishPointsCheckBox: CheckBox
 
     private val dateOnlyFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
     private val timeOnlyFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -205,6 +206,7 @@ class FilterActivity : AppCompatActivity() {
         waterTempMaxEdit = findViewById(R.id.waterTempMaxEdit)
         onlyCaughtFishCheckBox = findViewById(R.id.onlyCaughtFishCheckBox)
         onlyFishPointsCheckBox = findViewById(R.id.onlyFishPointsCheckBox)
+        onlyNonFishPointsCheckBox = findViewById(R.id.onlyNonFishPointsCheckBox)
     }
 
     private fun loadFilters() {
@@ -273,6 +275,7 @@ class FilterActivity : AppCompatActivity() {
         waterTempMaxEdit.setText(currentFilters.waterTempMax?.toString() ?: "")
         onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
         onlyFishPointsCheckBox.isChecked = currentFilters.onlyFishPoints
+        onlyNonFishPointsCheckBox.isChecked = currentFilters.onlyNonFishPoints
     }
 
     private fun updateWindPreview() {
@@ -407,6 +410,7 @@ class FilterActivity : AppCompatActivity() {
             waterTempMaxEdit.setText("")
             onlyCaughtFishCheckBox.isChecked = false
             onlyFishPointsCheckBox.isChecked = false
+            onlyNonFishPointsCheckBox.isChecked = false
             Toast.makeText(this, R.string.filters_cleared, Toast.LENGTH_SHORT).show()
         }
 
@@ -547,7 +551,8 @@ class FilterActivity : AppCompatActivity() {
             waterTempMin = waterTempMin,
             waterTempMax = waterTempMax,
             onlyCaughtFish = onlyCaughtFishCheckBox.isChecked,
-            onlyFishPoints = onlyFishPointsCheckBox.isChecked
+            onlyFishPoints = onlyFishPointsCheckBox.isChecked,
+            onlyNonFishPoints = onlyNonFishPointsCheckBox.isChecked
         )
         filterManager.saveFilters(currentFilters)
         setResult(RESULT_OK)

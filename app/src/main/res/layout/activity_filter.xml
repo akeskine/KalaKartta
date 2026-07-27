@@ -233,6 +233,12 @@
             </LinearLayout>
 
             <!-- Laji -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/species"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"/>
 
             <Spinner
                 android:id="@+id/speciesSpinner"
@@ -459,6 +465,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Näytä vain kalapisteet"
+                android:layout_marginTop="4dp" />
+
+            <CheckBox
+                android:id="@+id/onlyNonFishPointsCheckBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Näytä vain muut kuin kalapisteet"
                 android:layout_marginTop="4dp" />
 
             <Button
