@@ -57,6 +57,9 @@ Suodatusmahdollisuuksia ovat mm.:
 - **Sääolosuhteet:** Ilmanpaine, veden lämpötila ja tuulen suunta.
 - **Tuulen suunta:** Voit määrittää sektorin (min-max), jolta tuulleesssa saaliit on saatu.
 - **Vapaa teksti:** Etsii tekstiä lisätiedoista tai muistiinpanoista.
+- **Aluerajaus:** Voit rajata suodatuksen vain tietylle kartta-alueelle. Paina "Rajaa alue kartalta", rajaa haluamasi alue ja vahvista valinta.
+
+Suodatus on voimassa, kunnes se nollataan (Poista suodattimet). Aktiivinen suodatus näkyy kartan yläreunassa tekstinä.
 
 ## 6. Sääasetukset ja automaattinen haku
 
@@ -77,17 +80,28 @@ Voit muokata kalalajeja kohdasta Asetukset -> Kalalajit.
 
 Voit viedä ja tuoda pisteitä JSON-muodossa (Asetukset -> Tiedonsiirto).
 - **Vie pisteet:** Tallentaa kaikki pisteet tiedostoon, jonka voit jakaa tai varmuuskopioida.
+- **Vie suodatetut pisteet:** Jos suodatus on päällä, voit halutessasi viedä vain ne pisteet, jotka näkyvät parhaillaan kartalla.
 - **Tuo pisteet:** Lukee pisteet tiedostosta.
 - **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki.
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 
-- **Yhteenveto:** Asetukset -> Yhteenveto näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esa ja Vesan saaliit viikonlopun ajalta.
+- **Yhteenveto:** Asetukset -> Yhteenveto näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esa ja Vesan saaliit viikonlopun ajalta. Voit kopioida yhteenvedon tekstimuodossa leikepöydälle (Kopioi teksti -painike) jaettavaksi eteenpäin.
+- **Näytä kartalla:** Voit tarkastella yhteenvedon sisältämiä pisteitä suoraan kartalla painamalla karttakuvaketta.
+- **Kopioi:** Voit kopioida yhteenvedon tekstin leikepöydälle painamalla kopiointikuvaketta.
 
 ## 10. Yleiset asetukset
 
 Yleisistä asetuksista voit:
 - Määrittää **oletuskalastajan**, joka asetetaan automaattisesti uusiin saaliisiin. Kalastajatietoa voidaan käytää myöhemmin suodatus- ja yhteenveto-toimintojen rajaamiseen.
-- Kytkeä päälle/pois **mittakaavajanan** kartan vasemmassa alareunassa.
+- Kytkeä päälle/pois **mittaustyökalut**. Tämän valinnan alta voit valita näytetäänkö kartalla mittakaavajana ja/tai mittaustyökalu-painike.
 - Kytkeä päälle/pois **oletuskalastaja** kartan oikeassa alareunassa.
 - Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi. Tämä on testatusti kätevää vesillä, jos halutaan lisätä kala puhelimen ollessa taskussa näyttö pois päältä.
+
+## 11. Mittaustyökalu
+
+Mittaustyökalulla voit mitata etäisyyksiä ja reittien pituuksia suoraan kartalta. Työkalu on käytettävissä, kun se on kytketty päälle Yleisistä asetuksista Mittaustyökalut-sivulta.
+- **Aloitus:** Paina kartan oikeassa yläreunassa olevaa mittaustyökalu-painiketta (nuppineula-ikoni). Kartan keskellä (tähtäimen kohdalla) on tällöin aloituspiste.
+- **Reittipisteiden lisäys:** Siirrä karttaa niin, että tähtäin on haluamassasi kohdassa ja paina mittauspainiketta lyhyesti. Pisteeseen tulee punainen nuppineula ja näet etäisyyden edellisestä pisteestä sekä koko reitin pituuden ruudun yläreunassa.
+- **Pisteen poisto:** Voit poistaa viimeisimmän lisätyn pisteen mittauspainikkeen alapuolella olevalla "Undo"-painikkeella.
+- **Nollaus:** Voit nollata mittauksen painamalla mittauspainiketta pitkään (n. 1 sekunti). Kaikki mittauspisteet ja reitti häviävät kartalta.
