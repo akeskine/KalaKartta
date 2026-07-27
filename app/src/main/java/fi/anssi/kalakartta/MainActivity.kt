@@ -228,6 +228,7 @@ class MainActivity : AppCompatActivity() {
                             measurementPolyline = null
                             measurementCursorLine?.let { map.overlays.remove(it) }
                             measurementCursorLine = null
+                            findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
                             map.invalidate()
                             findViewById<LinearLayout>(R.id.measurementLayout).visibility = android.view.View.GONE
                             android.widget.Toast.makeText(this, "Mittaustyökalu nollattu", android.widget.Toast.LENGTH_SHORT).show()
@@ -251,6 +252,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            findViewById<MaterialButton>(R.id.undoMeasurementButton).setOnClickListener {
+                undoLastMeasurementPoint()
+            }
+            
             android.util.Log.d("KalaKartta", "before db init")
             try {
                 db = AppDatabase.getInstance(this)
@@ -601,20 +606,6 @@ class MainActivity : AppCompatActivity() {
                 updateUIColors(false)
             }
         }
-        if (measurementPoints.isNotEmpty()) {
-            val mLayout = findViewById<LinearLayout>(R.id.measurementLayout)
-            val mButton = findViewById<MaterialButton>(R.id.measurementButton)
-            mLayout.visibility = android.view.View.GONE
-            mButton.visibility = android.view.View.GONE
-                
-            measurementPoints.clear()
-            measurementMarkers.forEach { map.overlays.remove(it) }
-            measurementMarkers.clear()
-            measurementPolyline?.let { map.overlays.remove(it) }
-            measurementPolyline = null
-            measurementCursorLine?.let { map.overlays.remove(it) }
-            measurementCursorLine = null
-        }
         updateScaleBar()
         updateDefaultFishermanUI()
     }
@@ -626,9 +617,14 @@ class MainActivity : AppCompatActivity() {
         val mapSource = prefs.getString("map_source", "OSM")
         val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
         
-        // Mittaustyökalun painike
         val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
-        measurementButton.visibility = if (showMeasurement) android.view.View.VISIBLE else android.view.View.GONE
+        if (showMeasurement) {
+            measurementButton.visibility = android.view.View.VISIBLE
+            findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = if (measurementPoints.isNotEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        } else {
+            measurementButton.visibility = android.view.View.GONE
+            findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
+        }
 
         // Poistetaan vanha jos on
         scaleBarOverlay?.let { map.overlays.remove(it) }
@@ -717,7 +713,8 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.myLocationButton),
             findViewById<MaterialButton>(R.id.addCatchButton),
             findViewById<MaterialButton>(R.id.settingsButton),
-            findViewById<MaterialButton>(R.id.measurementButton)
+            findViewById<MaterialButton>(R.id.measurementButton),
+            findViewById<MaterialButton>(R.id.undoMeasurementButton)
         )
 
         buttons.forEach { button ->
@@ -900,8 +897,32 @@ class MainActivity : AppCompatActivity() {
             measurementPolyline?.setPoints(measurementPoints)
         }
 
+        findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.VISIBLE
         updateMeasurementUI()
         map.invalidate()
+    }
+
+    private fun undoLastMeasurementPoint() {
+        if (measurementPoints.isNotEmpty()) {
+            val lastPoint = measurementPoints.removeAt(measurementPoints.size - 1)
+            val lastMarker = measurementMarkers.removeAt(measurementMarkers.size - 1)
+            map.overlays.remove(lastMarker)
+
+            if (measurementPoints.isEmpty()) {
+                measurementPolyline?.let { map.overlays.remove(it) }
+                measurementPolyline = null
+                measurementCursorLine?.let { map.overlays.remove(it) }
+                measurementCursorLine = null
+                findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
+            } else {
+                measurementPolyline?.setPoints(measurementPoints)
+                // Päivitetään cursor-viiva
+                val center = map.mapCenter as GeoPoint
+                measurementCursorLine?.setPoints(listOf(measurementPoints.last(), center))
+            }
+            updateMeasurementUI()
+            map.invalidate()
+        }
     }
 
     private fun updateMeasurementUI() {
