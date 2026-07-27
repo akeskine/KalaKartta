@@ -64,6 +64,7 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var onlyCaughtFishCheckBox: CheckBox
     private lateinit var onlyFishPointsCheckBox: CheckBox
     private lateinit var onlyNonFishPointsCheckBox: CheckBox
+    private lateinit var clearFiltersButton: Button
 
     private val dateOnlyFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
     private val timeOnlyFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -207,6 +208,7 @@ class FilterActivity : AppCompatActivity() {
         onlyCaughtFishCheckBox = findViewById(R.id.onlyCaughtFishCheckBox)
         onlyFishPointsCheckBox = findViewById(R.id.onlyFishPointsCheckBox)
         onlyNonFishPointsCheckBox = findViewById(R.id.onlyNonFishPointsCheckBox)
+        clearFiltersButton = findViewById(R.id.clearFiltersButton)
     }
 
     private fun loadFilters() {
@@ -284,7 +286,41 @@ class FilterActivity : AppCompatActivity() {
         windDirectionPreview.setRange(min, max)
     }
 
+    private fun hasAnyFilters(): Boolean {
+        val f = currentFilters
+        val windMin = windMinEdit.text.toString().toFloatOrNull()
+        val windMax = windMaxEdit.text.toString().toFloatOrNull()
+        val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
+        val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
+        val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
+        val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
+        val freeText = freeTextEdit.text.toString().let { if (it.isEmpty()) null else it }
+        
+        val speciesSelected = speciesSpinner.selectedItemPosition > 0
+        val placeTypeSelected = placeTypeSpinner.selectedItemPosition > 0
+        val fishermanSelected = fishermanSpinner.selectedItemPosition > 0
+        
+        // Varmistetaan, että speciesId on synkassa spinnerin kanssa, koska loadFilters asettaa sen,
+        // mutta hasAnyFilters saattaa tulla kutsutuksi spinnerin listenerissä.
+        val speciesId = if (speciesSelected) speciesList[speciesSpinner.selectedItemPosition].id else null
+        val otherSpeciesSelected = if (speciesId == "OTHER") otherSpeciesSpinner.selectedItemPosition > 0 else false
+
+        return f.startDate != null || f.endDate != null ||
+                f.annualStartDay != null || f.annualStartMonth != null ||
+                f.annualEndDay != null || f.annualEndMonth != null ||
+                f.startTimeMinutes != null || f.endTimeMinutes != null ||
+                f.annualStartTimeMinutes != null || f.annualEndTimeMinutes != null ||
+                windMin != null || windMax != null ||
+                pressureMin != null || pressureMax != null ||
+                waterTempMin != null || waterTempMax != null ||
+                speciesSelected || otherSpeciesSelected || placeTypeSelected || 
+                freeText != null || fishermanSelected || 
+                onlyCaughtFishCheckBox.isChecked || onlyFishPointsCheckBox.isChecked || 
+                onlyNonFishPointsCheckBox.isChecked
+    }
+
     private fun updateButtons() {
+        clearFiltersButton.visibility = if (hasAnyFilters()) View.VISIBLE else View.GONE
         startDateButton.text = currentFilters.startDate?.let { dateOnlyFormat.format(Date(it)) } ?: getString(R.string.start_date)
         clearStartDateButton.visibility = if (currentFilters.startDate != null) View.VISIBLE else View.GONE
         
@@ -340,13 +376,54 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        val updateButtonsWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateButtons()
+            }
+        }
+
         speciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedSpecies = speciesList[position]
                 otherSpeciesContainer.visibility = if (selectedSpecies.id == "OTHER") View.VISIBLE else View.GONE
+                updateButtons()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+        
+        placeTypeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateButtons()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        fishermanSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateButtons()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        otherSpeciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateButtons()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        onlyCaughtFishCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
+        onlyFishPointsCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
+        onlyNonFishPointsCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
+
+        freeTextEdit.addTextChangedListener(updateButtonsWatcher)
+        pressureMinEdit.addTextChangedListener(updateButtonsWatcher)
+        pressureMaxEdit.addTextChangedListener(updateButtonsWatcher)
+        waterTempMinEdit.addTextChangedListener(updateButtonsWatcher)
+        waterTempMaxEdit.addTextChangedListener(updateButtonsWatcher)
+
         startDateButton.setOnClickListener { showDatePicker(true) }
         endDateButton.setOnClickListener { showDatePicker(false) }
         
@@ -423,6 +500,7 @@ class FilterActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 updateWindPreview()
+                updateButtons()
             }
         }
         windMinEdit.addTextChangedListener(windWatcher)
