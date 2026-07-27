@@ -181,4 +181,34 @@
         app:strokeColor="@color/white"
         app:strokeWidth="1dp" />
 
+    <LinearLayout
+        android:id="@+id/selectionModeLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#CC000000"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <Button
+            android:id="@+id/cancelSelectionButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Peru"
+            android:textColor="@color/white"
+            app:strokeColor="@color/white" />
+
+        <Button
+            android:id="@+id/confirmSelectionButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:text="Rajaa valittu alue" />
+    </LinearLayout>
+
 </FrameLayout>

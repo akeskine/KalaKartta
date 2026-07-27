@@ -24,6 +24,7 @@ import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import androidx.core.content.ContextCompat
+import androidx.core.view.drawToBitmap
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.data.*
 import androidx.room.Room
@@ -70,6 +71,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var isUserScrolling = false
+    private var isSelectionMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val crashFile = java.io.File(filesDir, "startup-crash.txt")
@@ -376,6 +378,49 @@ class MainActivity : AppCompatActivity() {
             updateMarkersVisibility()
             updateFilterStatusUI()
             updateDefaultFishermanUI()
+
+            isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
+            if (isSelectionMode) {
+                findViewById<android.view.View>(R.id.selectionModeLayout).visibility = android.view.View.VISIBLE
+                findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.GONE
+                findViewById<android.view.View>(R.id.settingsButton).visibility = android.view.View.GONE
+                findViewById<android.view.View>(R.id.mapCrosshair).visibility = android.view.View.GONE
+                
+                findViewById<android.widget.Button>(R.id.cancelSelectionButton).setOnClickListener {
+                    setResult(RESULT_CANCELED)
+                    finish()
+                }
+
+                findViewById<android.widget.Button>(R.id.confirmSelectionButton).setOnClickListener {
+                    val bounds = map.boundingBox
+                    val resultIntent = Intent().apply {
+                        putExtra("EXTRA_LAT_NORTH", bounds.latNorth)
+                        putExtra("EXTRA_LAT_SOUTH", bounds.latSouth)
+                        putExtra("EXTRA_LON_EAST", bounds.lonEast)
+                        putExtra("EXTRA_LON_WEST", bounds.lonWest)
+                    }
+
+                    // Kaapataan kuvakaappaus thumbnailia varten
+                    try {
+                        val bitmap = android.graphics.Bitmap.createBitmap(map.width, map.height, android.graphics.Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(bitmap)
+                        map.draw(canvas)
+                        // Pienennetään thumbnailia
+                        val thumbnail = android.graphics.Bitmap.createScaledBitmap(bitmap, 160, 120, true)
+                        val thumbFile = java.io.File(cacheDir, "area_thumb.jpg")
+                        val out = java.io.FileOutputStream(thumbFile)
+                        thumbnail.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out)
+                        out.flush()
+                        out.close()
+                        resultIntent.putExtra("EXTRA_THUMB_PATH", thumbFile.absolutePath)
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Thumbnail capture failed", e)
+                    }
+
+                    setResult(RESULT_OK, resultIntent)
+                    finish()
+                }
+            }
 
             // Automaattinen kohdistus sovelluksen avauksessa
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)

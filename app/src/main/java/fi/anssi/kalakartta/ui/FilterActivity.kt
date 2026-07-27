@@ -13,10 +13,12 @@ import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.room.Room
+import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
 import fi.anssi.kalakartta.data.PlaceOfInterestType
+import android.content.Intent
 import android.graphics.BitmapFactory
 import java.io.File
 import java.text.SimpleDateFormat
@@ -65,10 +67,42 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var onlyFishPointsCheckBox: CheckBox
     private lateinit var onlyNonFishPointsCheckBox: CheckBox
     private lateinit var clearFiltersButton: Button
+    private lateinit var selectAreaButton: Button
+    private lateinit var areaThumbnailContainer: View
+    private lateinit var areaThumbnail: ImageView
+    private lateinit var clearAreaButton: ImageButton
 
     private val dateOnlyFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
     private val timeOnlyFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val annualFormat = SimpleDateFormat("dd.MM.", Locale.getDefault())
+
+    private val selectAreaLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data
+            if (data != null) {
+                val latNorth = data.getDoubleExtra("EXTRA_LAT_NORTH", 0.0)
+                val latSouth = data.getDoubleExtra("EXTRA_LAT_SOUTH", 0.0)
+                val lonEast = data.getDoubleExtra("EXTRA_LON_EAST", 0.0)
+                val lonWest = data.getDoubleExtra("EXTRA_LON_WEST", 0.0)
+                val thumbPath = data.getStringExtra("EXTRA_THUMB_PATH")
+
+                currentFilters = currentFilters.copy(
+                    latNorth = latNorth,
+                    latSouth = latSouth,
+                    lonEast = lonEast,
+                    lonWest = lonWest
+                )
+
+                areaThumbnailContainer.visibility = View.VISIBLE
+                if (thumbPath != null) {
+                    areaThumbnail.setImageBitmap(BitmapFactory.decodeFile(thumbPath))
+                } else {
+                    areaThumbnail.setImageResource(android.R.drawable.ic_menu_mapmode)
+                }
+                updateButtons()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -209,6 +243,11 @@ class FilterActivity : AppCompatActivity() {
         onlyFishPointsCheckBox = findViewById(R.id.onlyFishPointsCheckBox)
         onlyNonFishPointsCheckBox = findViewById(R.id.onlyNonFishPointsCheckBox)
         clearFiltersButton = findViewById(R.id.clearFiltersButton)
+
+        selectAreaButton = findViewById(R.id.selectAreaButton)
+        areaThumbnailContainer = findViewById(R.id.areaThumbnailContainer)
+        areaThumbnail = findViewById(R.id.areaThumbnail)
+        clearAreaButton = findViewById(R.id.clearAreaButton)
     }
 
     private fun loadFilters() {
@@ -278,6 +317,18 @@ class FilterActivity : AppCompatActivity() {
         onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
         onlyFishPointsCheckBox.isChecked = currentFilters.onlyFishPoints
         onlyNonFishPointsCheckBox.isChecked = currentFilters.onlyNonFishPoints
+
+        if (currentFilters.latNorth != null) {
+            areaThumbnailContainer.visibility = View.VISIBLE
+            val thumbFile = File(cacheDir, "area_thumb.jpg")
+            if (thumbFile.exists()) {
+                areaThumbnail.setImageBitmap(BitmapFactory.decodeFile(thumbFile.absolutePath))
+            } else {
+                areaThumbnail.setImageResource(android.R.drawable.ic_menu_mapmode)
+            }
+        } else {
+            areaThumbnailContainer.visibility = View.GONE
+        }
     }
 
     private fun updateWindPreview() {
@@ -316,7 +367,7 @@ class FilterActivity : AppCompatActivity() {
                 speciesSelected || otherSpeciesSelected || placeTypeSelected || 
                 freeText != null || fishermanSelected || 
                 onlyCaughtFishCheckBox.isChecked || onlyFishPointsCheckBox.isChecked || 
-                onlyNonFishPointsCheckBox.isChecked
+                onlyNonFishPointsCheckBox.isChecked || f.latNorth != null
     }
 
     private fun updateButtons() {
@@ -469,6 +520,26 @@ class FilterActivity : AppCompatActivity() {
         annualStartTimeButton.setOnClickListener { showTimePicker(true, isAnnual = true) }
         annualEndTimeButton.setOnClickListener { showTimePicker(false, isAnnual = true) }
 
+        selectAreaButton.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                putExtra("EXTRA_SELECTION_MODE", true)
+            }
+            selectAreaLauncher.launch(intent)
+        }
+
+        clearAreaButton.setOnClickListener {
+            currentFilters = currentFilters.copy(
+                latNorth = null,
+                latSouth = null,
+                lonEast = null,
+                lonWest = null
+            )
+            areaThumbnailContainer.visibility = View.GONE
+            val thumbFile = File(cacheDir, "area_thumb.jpg")
+            if (thumbFile.exists()) thumbFile.delete()
+            updateButtons()
+        }
+
         findViewById<Button>(R.id.clearFiltersButton).setOnClickListener {
             currentFilters = FilterManager.Filters()
             updateButtons()
@@ -488,6 +559,10 @@ class FilterActivity : AppCompatActivity() {
             onlyCaughtFishCheckBox.isChecked = false
             onlyFishPointsCheckBox.isChecked = false
             onlyNonFishPointsCheckBox.isChecked = false
+            areaThumbnailContainer.visibility = View.GONE
+            val thumbFile = File(cacheDir, "area_thumb.jpg")
+            if (thumbFile.exists()) thumbFile.delete()
+
             Toast.makeText(this, R.string.filters_cleared, Toast.LENGTH_SHORT).show()
         }
 
@@ -579,6 +654,23 @@ class FilterActivity : AppCompatActivity() {
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
         
+        currentFilters = currentFilters.copy(
+            speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
+            otherSpecies = otherSpecies,
+            placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
+            freeText = freeText,
+            fisherman = fisherman,
+            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked,
+            onlyFishPoints = onlyFishPointsCheckBox.isChecked,
+            onlyNonFishPoints = onlyNonFishPointsCheckBox.isChecked,
+            windMin = windMin,
+            windMax = windMax,
+            pressureMin = pressureMin,
+            pressureMax = pressureMax,
+            waterTempMin = waterTempMin,
+            waterTempMax = waterTempMax
+        )
+
         // Päivitetään startDate ja endDate kellonaikojen perusteella ennen tallennusta
         var startTs = currentFilters.startDate
         if (startTs != null) {

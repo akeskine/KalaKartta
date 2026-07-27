@@ -36,7 +36,11 @@ class FilterManager(private val context: Context) {
         val fisherman: String? = null,
         val onlyCaughtFish: Boolean = false,
         val onlyFishPoints: Boolean = false,
-        val onlyNonFishPoints: Boolean = false
+        val onlyNonFishPoints: Boolean = false,
+        val latNorth: Double? = null,
+        val latSouth: Double? = null,
+        val lonEast: Double? = null,
+        val lonWest: Double? = null
     )
 
     fun getFilters(): Filters {
@@ -64,6 +68,10 @@ class FilterManager(private val context: Context) {
         val onlyCaughtFish = prefs.getBoolean("onlyCaughtFish", false)
         val onlyFishPoints = prefs.getBoolean("onlyFishPoints", false)
         val onlyNonFishPoints = prefs.getBoolean("onlyNonFishPoints", false)
+        val latNorth = if (prefs.contains("latNorth")) prefs.getFloat("latNorth", 0f).toDouble() else null
+        val latSouth = if (prefs.contains("latSouth")) prefs.getFloat("latSouth", 0f).toDouble() else null
+        val lonEast = if (prefs.contains("lonEast")) prefs.getFloat("lonEast", 0f).toDouble() else null
+        val lonWest = if (prefs.contains("lonWest")) prefs.getFloat("lonWest", 0f).toDouble() else null
 
         return Filters(
             startDate, endDate,
@@ -74,7 +82,8 @@ class FilterManager(private val context: Context) {
             windMin, windMax,
             pressureMin, pressureMax,
             waterTempMin, waterTempMax,
-            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints, onlyNonFishPoints
+            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints, onlyNonFishPoints,
+            latNorth, latSouth, lonEast, lonWest
         )
     }
 
@@ -104,6 +113,10 @@ class FilterManager(private val context: Context) {
             putBoolean("onlyCaughtFish", filters.onlyCaughtFish)
             putBoolean("onlyFishPoints", filters.onlyFishPoints)
             putBoolean("onlyNonFishPoints", filters.onlyNonFishPoints)
+            if (filters.latNorth != null) putFloat("latNorth", filters.latNorth.toFloat()) else remove("latNorth")
+            if (filters.latSouth != null) putFloat("latSouth", filters.latSouth.toFloat()) else remove("latSouth")
+            if (filters.lonEast != null) putFloat("lonEast", filters.lonEast.toFloat()) else remove("lonEast")
+            if (filters.lonWest != null) putFloat("lonWest", filters.lonWest.toFloat()) else remove("lonWest")
             apply()
         }
     }
@@ -119,7 +132,8 @@ class FilterManager(private val context: Context) {
                 f.pressureMin != null || f.pressureMax != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
                 f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || 
-                f.onlyCaughtFish || f.onlyFishPoints || f.onlyNonFishPoints
+                f.onlyCaughtFish || f.onlyFishPoints || f.onlyNonFishPoints ||
+                f.latNorth != null
     }
 
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
@@ -235,6 +249,12 @@ class FilterManager(private val context: Context) {
             // Only Non-Fish Points
             if (f.onlyNonFishPoints) return@filter false
 
+            // Area selection (Bounding Box)
+            if (f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null) {
+                if (fish.latitude < f.latSouth || fish.latitude > f.latNorth ||
+                    fish.longitude < f.lonWest || fish.longitude > f.lonEast) return@filter false
+            }
+
             true
         }
     }
@@ -256,6 +276,12 @@ class FilterManager(private val context: Context) {
                 val match = place.additionalInfo.lowercase().contains(searchText) || 
                           place.originalRef.lowercase().contains(searchText)
                 if (!match) return@filter false
+            }
+
+            // Area selection (Bounding Box)
+            if (f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null) {
+                if (place.latitude < f.latSouth || place.latitude > f.latNorth ||
+                    place.longitude < f.lonWest || place.longitude > f.lonEast) return@filter false
             }
 
             true
@@ -340,6 +366,10 @@ class FilterManager(private val context: Context) {
             val start = String.format(Locale.getDefault(), "%d:%02d", startH, startM)
             val end = String.format(Locale.getDefault(), "%d:%02d", endH, endM)
             parts.add("vuosittainen klo $start-$end")
+        }
+
+        if (f.latNorth != null) {
+            parts.add("aluerajaus")
         }
 
         return parts.joinToString(" ")
