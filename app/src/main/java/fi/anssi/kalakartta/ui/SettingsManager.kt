@@ -326,6 +326,17 @@ class SettingsManager(
         }
         layout.addView(showScaleCheckbox)
 
+        val showMeasurementToolCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.show_measurement_tool)
+            isChecked = prefs.getBoolean("show_measurement_tool", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("show_measurement_tool", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(showMeasurementToolCheckbox)
+
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.scale_bar))
             .setView(layout)

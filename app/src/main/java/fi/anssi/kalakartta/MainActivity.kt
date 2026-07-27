@@ -15,6 +15,13 @@ import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.overlay.Polyline
+import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.widget.LinearLayout
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
@@ -58,6 +65,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
+    
+    // Mittaustyökalu
+    private var measurementMarkers = mutableListOf<Marker>()
+    private var measurementPolyline: Polyline? = null
+    private var measurementCursorLine: Polyline? = null
+    private var measurementPoints = mutableListOf<GeoPoint>()
+    private val measurementHandler = Handler(Looper.getMainLooper())
+    private var measurementLongClickRunnable: Runnable? = null
 
     private var isFirstResume = true
     private var screenReceiver: BroadcastReceiver? = null
@@ -197,6 +212,42 @@ class MainActivity : AppCompatActivity() {
                     }
                 } else {
                     settingsManager.openSettings()
+                }
+            }
+
+            val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
+            measurementButton.setOnTouchListener { _, event ->
+                when (event.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        measurementLongClickRunnable = Runnable {
+                            // Pitkä painallus (2s) -> tyhjennä
+                            measurementPoints.clear()
+                            measurementMarkers.forEach { map.overlays.remove(it) }
+                            measurementMarkers.clear()
+                            measurementPolyline?.let { map.overlays.remove(it) }
+                            measurementPolyline = null
+                            measurementCursorLine?.let { map.overlays.remove(it) }
+                            measurementCursorLine = null
+                            map.invalidate()
+                            findViewById<LinearLayout>(R.id.measurementLayout).visibility = android.view.View.GONE
+                            android.widget.Toast.makeText(this, "Mittaustyökalu nollattu", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        measurementHandler.postDelayed(measurementLongClickRunnable!!, 1000)
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_UP -> {
+                        measurementLongClickRunnable?.let { measurementHandler.removeCallbacks(it) }
+                        // Jos ei ollut pitkä painallus, lasketaan klikkaukseksi
+                        if (event.eventTime - event.downTime < 1000) {
+                            handleMeasurementClick()
+                        }
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_CANCEL -> {
+                        measurementLongClickRunnable?.let { measurementHandler.removeCallbacks(it) }
+                        true
+                    }
+                    else -> false
                 }
             }
 
@@ -362,6 +413,39 @@ class MainActivity : AppCompatActivity() {
                     if (map.zoomLevelDouble >= 13.0) {
                         markerManager.setMarkersVisible(true, map.zoomLevelDouble, forceRebuild = true)
                     }
+
+                    if (measurementPoints.isNotEmpty()) {
+                        val center = map.mapCenter as GeoPoint
+                        if (measurementCursorLine == null) {
+                            measurementCursorLine = Polyline(map).apply {
+                                outlinePaint.color = Color.RED
+                                outlinePaint.strokeWidth = 3f
+                                outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f)
+                            }
+                            map.overlays.add(measurementCursorLine)
+                        }
+                        measurementCursorLine?.setPoints(listOf(measurementPoints.last(), center))
+                        
+                        val textView = findViewById<TextView>(R.id.measurementText)
+                        val lastPoint = measurementPoints.last()
+                        val distanceToCenter = lastPoint.distanceToAsDouble(center)
+                        
+                        var totalDistance = 0.0
+                        for (i in 0 until measurementPoints.size - 1) {
+                            totalDistance += measurementPoints[i].distanceToAsDouble(measurementPoints[i + 1])
+                        }
+                        totalDistance += distanceToCenter
+
+                        val distStr = formatDistance(distanceToCenter)
+                        val totalStr = formatDistance(totalDistance)
+                        
+                        if (measurementPoints.size == 1) {
+                            textView.text = "${getString(R.string.distance)} $distStr."
+                        } else {
+                            textView.text = "${getString(R.string.distance)} $distStr, ${getString(R.string.route)} $totalStr"
+                        }
+                        map.invalidate()
+                    }
                     return false
                 }
                 override fun onZoom(event: ZoomEvent?): Boolean {
@@ -393,6 +477,7 @@ class MainActivity : AppCompatActivity() {
 
             isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
             if (isSelectionMode) {
+                findViewById<android.view.View>(R.id.measurementButton).visibility = android.view.View.GONE
                 // Nollataan aluerajaus valintatilaan mentäessä, jotta nähdään kaikki pisteet
                 val currentFilters = filterManager.getFilters()
                 if (currentFilters.latNorth != null) {
@@ -425,7 +510,20 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val bitmap = android.graphics.Bitmap.createBitmap(map.width, map.height, android.graphics.Bitmap.Config.ARGB_8888)
                         val canvas = android.graphics.Canvas(bitmap)
+                        
+                        // Piilotetaan mittaustyökalu kuvakaappauksen ajaksi
+                        val mLayout = findViewById<LinearLayout>(R.id.measurementLayout)
+                        val mButton = findViewById<MaterialButton>(R.id.measurementButton)
+                        val oldLayoutVis = mLayout.visibility
+                        val oldButtonVis = mButton.visibility
+                        mLayout.visibility = android.view.View.GONE
+                        mButton.visibility = android.view.View.GONE
+                        
                         map.draw(canvas)
+                        
+                        mLayout.visibility = oldLayoutVis
+                        mButton.visibility = oldButtonVis
+
                         // Pienennetään thumbnailia
                         val thumbnail = android.graphics.Bitmap.createScaledBitmap(bitmap, 160, 120, true)
                         val thumbFile = java.io.File(cacheDir, "area_thumb.jpg")
@@ -503,6 +601,20 @@ class MainActivity : AppCompatActivity() {
                 updateUIColors(false)
             }
         }
+        if (measurementPoints.isNotEmpty()) {
+            val mLayout = findViewById<LinearLayout>(R.id.measurementLayout)
+            val mButton = findViewById<MaterialButton>(R.id.measurementButton)
+            mLayout.visibility = android.view.View.GONE
+            mButton.visibility = android.view.View.GONE
+                
+            measurementPoints.clear()
+            measurementMarkers.forEach { map.overlays.remove(it) }
+            measurementMarkers.clear()
+            measurementPolyline?.let { map.overlays.remove(it) }
+            measurementPolyline = null
+            measurementCursorLine?.let { map.overlays.remove(it) }
+            measurementCursorLine = null
+        }
         updateScaleBar()
         updateDefaultFishermanUI()
     }
@@ -510,9 +622,14 @@ class MainActivity : AppCompatActivity() {
     private fun updateScaleBar() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val showScale = prefs.getBoolean("show_scale_bar", false)
+        val showMeasurement = prefs.getBoolean("show_measurement_tool", false)
         val mapSource = prefs.getString("map_source", "OSM")
         val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
         
+        // Mittaustyökalun painike
+        val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
+        measurementButton.visibility = if (showMeasurement) android.view.View.VISIBLE else android.view.View.GONE
+
         // Poistetaan vanha jos on
         scaleBarOverlay?.let { map.overlays.remove(it) }
         
@@ -599,7 +716,8 @@ class MainActivity : AppCompatActivity() {
         val buttons = listOf(
             findViewById<MaterialButton>(R.id.myLocationButton),
             findViewById<MaterialButton>(R.id.addCatchButton),
-            findViewById<MaterialButton>(R.id.settingsButton)
+            findViewById<MaterialButton>(R.id.settingsButton),
+            findViewById<MaterialButton>(R.id.measurementButton)
         )
 
         buttons.forEach { button ->
@@ -754,6 +872,80 @@ class MainActivity : AppCompatActivity() {
         // Näytetään pisteet laajemmalla zoom-alueella (alk. tasolta 1.0)
         // Optimointi on tehty MarkerManagerin kuvakevälimuistilla ja klusteroinnilla
         markerManager.setMarkersVisible(map.zoomLevelDouble >= 1.0, map.zoomLevelDouble)
+    }
+
+    private fun handleMeasurementClick() {
+        val center = map.mapCenter as GeoPoint
+        measurementPoints.add(center)
+
+        val marker = Marker(map).apply {
+            position = center
+            icon = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_myplaces)
+            // Asetetaan "nuppineula" oikeaan kohtaan. Oletuksena ic_menu_myplaces on keskellä alhaalla.
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            // Estetään infoikkunan aukeaminen
+            setOnMarkerClickListener { _, _ -> true }
+        }
+        map.overlays.add(marker)
+        measurementMarkers.add(marker)
+
+        if (measurementPoints.size > 1) {
+            if (measurementPolyline == null) {
+                measurementPolyline = Polyline(map).apply {
+                    outlinePaint.color = Color.RED
+                    outlinePaint.strokeWidth = 5f
+                }
+                map.overlays.add(measurementPolyline)
+            }
+            measurementPolyline?.setPoints(measurementPoints)
+        }
+
+        updateMeasurementUI()
+        map.invalidate()
+    }
+
+    private fun updateMeasurementUI() {
+        val layout = findViewById<LinearLayout>(R.id.measurementLayout)
+        val textView = findViewById<TextView>(R.id.measurementText)
+        
+        if (measurementPoints.isEmpty()) {
+            layout.visibility = android.view.View.GONE
+            return
+        }
+
+        layout.visibility = android.view.View.VISIBLE
+        
+        if (measurementPoints.size == 1) {
+            textView.text = getString(R.string.measurement_start_hint)
+        } else {
+            val lastPoint = measurementPoints.last()
+            val secondLastPoint = measurementPoints[measurementPoints.size - 2]
+            val distanceToLast = secondLastPoint.distanceToAsDouble(lastPoint)
+            
+            var totalDistance = 0.0
+            for (i in 0 until measurementPoints.size - 1) {
+                totalDistance += measurementPoints[i].distanceToAsDouble(measurementPoints[i + 1])
+            }
+
+            val distStr = formatDistance(distanceToLast)
+            val totalStr = formatDistance(totalDistance)
+            
+            if (measurementPoints.size == 2) {
+                textView.text = "${getString(R.string.distance)} $distStr."
+            } else {
+                textView.text = "${getString(R.string.distance)} $distStr, ${getString(R.string.route)} $totalStr"
+            }
+            
+            android.widget.Toast.makeText(this, getString(R.string.measurement_next_hint), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun formatDistance(meters: Double): String {
+        return if (meters >= 1000) {
+            String.format("%.3f km", meters / 1000.0).replace(".", ",")
+        } else {
+            "${meters.toInt()} m"
+        }
     }
 
     private fun requestLocationPermission() {

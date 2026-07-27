@@ -69,8 +69,13 @@
     <string name="add_other">Muu paikka</string>
     <string name="place_name">Paikan nimi</string>
     <string name="general_settings">Yleiset</string>
-    <string name="scale_bar">Mittakaava</string>
+    <string name="scale_bar">Mittaustyökalut</string>
     <string name="show_scale_bar">Näytä mittakaava kartalla</string>
+    <string name="show_measurement_tool">Näytä mittaustyökalu</string>
+    <string name="measurement_start_hint">Mittaus aloitettu. Lisää reittipisteitä painamalla mittauskuvaketta lyhyesti ja nollaa mittaus painamalla sitä pitkään.</string>
+    <string name="measurement_next_hint">Valitse reitin seuraava piste</string>
+    <string name="distance">Etäisyys</string>
+    <string name="route">reitti</string>
     <string name="auto_center">Automaattinen kohdistus</string>
     <string name="auto_center_on_start">Kohdista kartta omaan sijaintiin kun sovellus avataan</string>
     <string name="edit_species">Muokkaa kalalajeja</string>
