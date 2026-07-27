@@ -224,17 +224,8 @@ class MainActivity : AppCompatActivity() {
                 when (event.action) {
                     android.view.MotionEvent.ACTION_DOWN -> {
                         measurementLongClickRunnable = Runnable {
-                            // Pitkä painallus (2s) -> tyhjennä
-                            measurementPoints.clear()
-                            measurementMarkers.forEach { map.overlays.remove(it) }
-                            measurementMarkers.clear()
-                            measurementPolyline?.let { map.overlays.remove(it) }
-                            measurementPolyline = null
-                            measurementCursorLine?.let { map.overlays.remove(it) }
-                            measurementCursorLine = null
-                            findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
-                            map.invalidate()
-                            findViewById<LinearLayout>(R.id.measurementLayout).visibility = android.view.View.GONE
+                            // Pitkä painallus (1s) -> tyhjennä
+                            clearMeasurement()
                             android.widget.Toast.makeText(this, "Mittaustyökalu nollattu", android.widget.Toast.LENGTH_SHORT).show()
                         }
                         measurementHandler.postDelayed(measurementLongClickRunnable!!, 1000)
@@ -628,6 +619,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             measurementButton.visibility = android.view.View.GONE
             findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
+            if (measurementPoints.isNotEmpty()) {
+                clearMeasurement()
+            }
         }
 
         // Poistetaan vanha jos on
@@ -906,6 +900,19 @@ class MainActivity : AppCompatActivity() {
         canvas.drawLine(size / 2f, startY, size / 2f, endY, paint)
         
         return bitmap
+    }
+
+    private fun clearMeasurement() {
+        measurementPoints.clear()
+        measurementMarkers.forEach { map.overlays.remove(it) }
+        measurementMarkers.clear()
+        measurementPolyline?.let { map.overlays.remove(it) }
+        measurementPolyline = null
+        measurementCursorLine?.let { map.overlays.remove(it) }
+        measurementCursorLine = null
+        findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
+        findViewById<LinearLayout>(R.id.measurementLayout).visibility = android.view.View.GONE
+        map.invalidate()
     }
 
     private fun handleMeasurementClick() {
