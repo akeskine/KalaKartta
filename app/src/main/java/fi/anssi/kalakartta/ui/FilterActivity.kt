@@ -521,6 +521,9 @@ class FilterActivity : AppCompatActivity() {
         annualEndTimeButton.setOnClickListener { showTimePicker(false, isAnnual = true) }
 
         selectAreaButton.setOnClickListener {
+            // Tallennetaan suodattimet ennen siirtymistä MainActivityyn, jotta ne säilyvät
+            saveFiltersToManager()
+            
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra("EXTRA_SELECTION_MODE", true)
             }
@@ -639,7 +642,7 @@ class FilterActivity : AppCompatActivity() {
         }, h, m, true).show()
     }
 
-    private fun saveAndFinish() {
+    private fun saveFiltersToManager() {
         val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
         val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
         val selectedFisherman = fishermanList[fishermanSpinner.selectedItemPosition]
@@ -653,23 +656,6 @@ class FilterActivity : AppCompatActivity() {
         val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
-        
-        currentFilters = currentFilters.copy(
-            speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
-            otherSpecies = otherSpecies,
-            placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
-            freeText = freeText,
-            fisherman = fisherman,
-            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked,
-            onlyFishPoints = onlyFishPointsCheckBox.isChecked,
-            onlyNonFishPoints = onlyNonFishPointsCheckBox.isChecked,
-            windMin = windMin,
-            windMax = windMax,
-            pressureMin = pressureMin,
-            pressureMax = pressureMax,
-            waterTempMin = waterTempMin,
-            waterTempMax = waterTempMax
-        )
 
         // Päivitetään startDate ja endDate kellonaikojen perusteella ennen tallennusta
         var startTs = currentFilters.startDate
@@ -712,19 +698,21 @@ class FilterActivity : AppCompatActivity() {
             placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
             freeText = freeText,
             fisherman = fisherman,
-            annualStartTimeMinutes = currentFilters.annualStartTimeMinutes,
-            annualEndTimeMinutes = currentFilters.annualEndTimeMinutes,
+            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked,
+            onlyFishPoints = onlyFishPointsCheckBox.isChecked,
+            onlyNonFishPoints = onlyNonFishPointsCheckBox.isChecked,
             windMin = windMin,
             windMax = windMax,
             pressureMin = pressureMin,
             pressureMax = pressureMax,
             waterTempMin = waterTempMin,
-            waterTempMax = waterTempMax,
-            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked,
-            onlyFishPoints = onlyFishPointsCheckBox.isChecked,
-            onlyNonFishPoints = onlyNonFishPointsCheckBox.isChecked
+            waterTempMax = waterTempMax
         )
         filterManager.saveFilters(currentFilters)
+    }
+
+    private fun saveAndFinish() {
+        saveFiltersToManager()
         setResult(RESULT_OK)
         finish()
     }

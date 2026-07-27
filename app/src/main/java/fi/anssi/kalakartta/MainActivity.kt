@@ -134,11 +134,22 @@ class MainActivity : AppCompatActivity() {
             updateMapTileSource()
             map.setMultiTouchControls(true)
             map.setBuiltInZoomControls(false)
-            map.controller.setZoom(15.0)
 
-            // Asetetaan alkusijainti Helsingin keskustaan, jos omaa sijaintia ei vielä ole
-            val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
-            map.controller.setCenter(helsinkiCenter)
+            isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
+
+            if (isSelectionMode) {
+                val prefs = getSharedPreferences("map_state", MODE_PRIVATE)
+                val lat = prefs.getFloat("lat", 60.1695f).toDouble()
+                val lon = prefs.getFloat("lon", 24.9354f).toDouble()
+                val zoom = prefs.getFloat("zoom", 15.0f).toDouble()
+                map.controller.setZoom(zoom)
+                map.controller.setCenter(org.osmdroid.util.GeoPoint(lat, lon))
+            } else {
+                map.controller.setZoom(15.0)
+                // Asetetaan alkusijainti Helsingin keskustaan, jos omaa sijaintia ei vielä ole
+                val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
+                map.controller.setCenter(helsinkiCenter)
+            }
 
             locationOverlay = object : MyLocationNewOverlay(GpsMyLocationProvider(this), map) {
                 override fun draw(canvas: android.graphics.Canvas, map: MapView, shadow: Boolean) {
@@ -1091,7 +1102,18 @@ class MainActivity : AppCompatActivity() {
         isFirstResume = false
     }
 
+    private fun saveMapState() {
+        val prefs = getSharedPreferences("map_state", MODE_PRIVATE)
+        prefs.edit().apply {
+            putFloat("lat", map.mapCenter.latitude.toFloat())
+            putFloat("lon", map.mapCenter.longitude.toFloat())
+            putFloat("zoom", map.zoomLevelDouble.toFloat())
+            apply()
+        }
+    }
+
     override fun onPause() {
+        saveMapState()
         try {
             unregisterReceiver(locationProviderReceiver)
         } catch (_: IllegalArgumentException) {
