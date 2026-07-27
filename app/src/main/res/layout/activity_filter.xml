@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -49,22 +50,87 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
                 <Button
                     android:id="@+id/startDateButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_weight="1"
+                    android:layout_weight="1.5"
                     android:layout_height="wrap_content"
                     android:text="@string/start_date" />
+                <ImageButton
+                    android:id="@+id/clearStartDateButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
                 <Button
-                    android:id="@+id/endDateButton"
+                    android:id="@+id/startTimeButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="4dp"
+                    android:text="@string/start_time" />
+                <ImageButton
+                    android:id="@+id/clearStartTimeButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+                <Button
+                    android:id="@+id/endDateButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1.5"
+                    android:layout_height="wrap_content"
                     android:text="@string/end_date" />
+                <ImageButton
+                    android:id="@+id/clearEndDateButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
+                <Button
+                    android:id="@+id/endTimeButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="@string/end_time" />
+                <ImageButton
+                    android:id="@+id/clearEndTimeButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
             </LinearLayout>
 
             <!-- Vuosittainen -->
@@ -78,7 +144,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
                 <Button
                     android:id="@+id/annualStartButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
@@ -86,17 +153,36 @@
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:text="@string/start_date" />
+                <ImageButton
+                    android:id="@+id/clearAnnualStartDateButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
                 <Button
                     android:id="@+id/annualEndButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="4dp"
                     android:text="@string/end_date" />
+                <ImageButton
+                    android:id="@+id/clearAnnualEndDateButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
             </LinearLayout>
 
-            <!-- Kellonaika -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -107,31 +193,46 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
                 <Button
-                    android:id="@+id/startTimeButton"
+                    android:id="@+id/annualStartTimeButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:text="@string/start_time" />
+                <ImageButton
+                    android:id="@+id/clearAnnualStartTimeButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
                 <Button
-                    android:id="@+id/endTimeButton"
+                    android:id="@+id/annualEndTimeButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="4dp"
                     android:text="@string/end_time" />
+                <ImageButton
+                    android:id="@+id/clearAnnualEndTimeButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="@android:color/holo_red_dark"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    android:contentDescription="Tyhjennä" />
             </LinearLayout>
 
             <!-- Laji -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/species"
-                android:textStyle="bold"
-                android:layout_marginTop="16dp"/>
 
             <Spinner
                 android:id="@+id/speciesSpinner"
@@ -352,6 +453,13 @@
                 android:layout_height="wrap_content"
                 android:text="Näytä vain saadut kalat"
                 android:layout_marginTop="8dp" />
+
+            <CheckBox
+                android:id="@+id/onlyFishPointsCheckBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Näytä vain kalapisteet"
+                android:layout_marginTop="4dp" />
 
             <Button
                 android:id="@+id/okButton"

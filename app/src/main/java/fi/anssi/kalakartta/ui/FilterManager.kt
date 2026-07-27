@@ -21,6 +21,8 @@ class FilterManager(private val context: Context) {
         val annualEndMonth: Int? = null,
         val startTimeMinutes: Int? = null, // Minutes from midnight
         val endTimeMinutes: Int? = null,
+        val annualStartTimeMinutes: Int? = null,
+        val annualEndTimeMinutes: Int? = null,
         val windMin: Float? = null,
         val windMax: Float? = null,
         val pressureMin: Float? = null,
@@ -32,7 +34,8 @@ class FilterManager(private val context: Context) {
         val placeTypeId: String? = null,
         val freeText: String? = null,
         val fisherman: String? = null,
-        val onlyCaughtFish: Boolean = false
+        val onlyCaughtFish: Boolean = false,
+        val onlyFishPoints: Boolean = false
     )
 
     fun getFilters(): Filters {
@@ -44,6 +47,8 @@ class FilterManager(private val context: Context) {
         val annualEndMonth = if (prefs.contains("annualEndMonth")) prefs.getInt("annualEndMonth", 0) else null
         val startTimeMinutes = if (prefs.contains("startTimeMinutes")) prefs.getInt("startTimeMinutes", 0) else null
         val endTimeMinutes = if (prefs.contains("endTimeMinutes")) prefs.getInt("endTimeMinutes", 0) else null
+        val annualStartTimeMinutes = if (prefs.contains("annualStartTimeMinutes")) prefs.getInt("annualStartTimeMinutes", 0) else null
+        val annualEndTimeMinutes = if (prefs.contains("annualEndTimeMinutes")) prefs.getInt("annualEndTimeMinutes", 0) else null
         val windMin = if (prefs.contains("windMin")) prefs.getFloat("windMin", 0f) else null
         val windMax = if (prefs.contains("windMax")) prefs.getFloat("windMax", 0f) else null
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
@@ -56,16 +61,18 @@ class FilterManager(private val context: Context) {
         val freeText = prefs.getString("freeText", null)
         val fisherman = prefs.getString("fisherman", null)
         val onlyCaughtFish = prefs.getBoolean("onlyCaughtFish", false)
+        val onlyFishPoints = prefs.getBoolean("onlyFishPoints", false)
 
         return Filters(
             startDate, endDate,
             annualStartDay, annualStartMonth,
             annualEndDay, annualEndMonth,
             startTimeMinutes, endTimeMinutes,
+            annualStartTimeMinutes, annualEndTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
             waterTempMin, waterTempMax,
-            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish
+            speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints
         )
     }
 
@@ -79,6 +86,8 @@ class FilterManager(private val context: Context) {
             if (filters.annualEndMonth != null) putInt("annualEndMonth", filters.annualEndMonth) else remove("annualEndMonth")
             if (filters.startTimeMinutes != null) putInt("startTimeMinutes", filters.startTimeMinutes) else remove("startTimeMinutes")
             if (filters.endTimeMinutes != null) putInt("endTimeMinutes", filters.endTimeMinutes) else remove("endTimeMinutes")
+            if (filters.annualStartTimeMinutes != null) putInt("annualStartTimeMinutes", filters.annualStartTimeMinutes) else remove("annualStartTimeMinutes")
+            if (filters.annualEndTimeMinutes != null) putInt("annualEndTimeMinutes", filters.annualEndTimeMinutes) else remove("annualEndTimeMinutes")
             if (filters.windMin != null) putFloat("windMin", filters.windMin) else remove("windMin")
             if (filters.windMax != null) putFloat("windMax", filters.windMax) else remove("windMax")
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
@@ -91,6 +100,7 @@ class FilterManager(private val context: Context) {
             if (filters.freeText != null) putString("freeText", filters.freeText) else remove("freeText")
             if (filters.fisherman != null) putString("fisherman", filters.fisherman) else remove("fisherman")
             putBoolean("onlyCaughtFish", filters.onlyCaughtFish)
+            putBoolean("onlyFishPoints", filters.onlyFishPoints)
             apply()
         }
     }
@@ -101,10 +111,11 @@ class FilterManager(private val context: Context) {
                 f.annualStartDay != null || f.annualStartMonth != null ||
                 f.annualEndDay != null || f.annualEndMonth != null ||
                 f.startTimeMinutes != null || f.endTimeMinutes != null ||
+                f.annualStartTimeMinutes != null || f.annualEndTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
-                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || f.onlyCaughtFish
+                f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || f.onlyCaughtFish || f.onlyFishPoints
     }
 
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
@@ -139,6 +150,21 @@ class FilterManager(private val context: Context) {
                 } else {
                     // Spans across year end
                     if (currentVal < startVal && currentVal > endVal) return@filter false
+                }
+            }
+
+            // Annual Time Range
+            if (f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null) {
+                if (caughtAt == 0L) return@filter false
+                val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                val minute = calendar.get(Calendar.MINUTE)
+                val currentMinutes = hour * 60 + minute
+                
+                if (f.annualStartTimeMinutes <= f.annualEndTimeMinutes) {
+                    if (currentMinutes < f.annualStartTimeMinutes || currentMinutes > f.annualEndTimeMinutes) return@filter false
+                } else {
+                    // Spans across midnight
+                    if (currentMinutes < f.annualStartTimeMinutes && currentMinutes > f.annualEndTimeMinutes) return@filter false
                 }
             }
 
@@ -211,6 +237,9 @@ class FilterManager(private val context: Context) {
         val f = getFilters()
 
         return places.filter { place ->
+            // Jos suodatetaan vain kalapisteet, poistetaan kaikki paikat (PlaceOfInterest)
+            if (f.onlyFishPoints) return@filter false
+
             // Place Type
             if (f.placeTypeId != null && place.typeId != f.placeTypeId) return@filter false
 
@@ -297,6 +326,20 @@ class FilterManager(private val context: Context) {
 
         if (f.onlyCaughtFish) {
             parts.add("vain saadut")
+        }
+
+        if (f.onlyFishPoints) {
+            parts.add("vain kalapisteet")
+        }
+
+        if (f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null) {
+            val startH = f.annualStartTimeMinutes / 60
+            val startM = f.annualStartTimeMinutes % 60
+            val endH = f.annualEndTimeMinutes / 60
+            val endM = f.annualEndTimeMinutes % 60
+            val start = String.format(Locale.getDefault(), "%d:%02d", startH, startM)
+            val end = String.format(Locale.getDefault(), "%d:%02d", endH, endM)
+            parts.add("vuosittainen klo $start-$end")
         }
 
         return parts.joinToString(" ")

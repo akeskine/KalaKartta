@@ -33,10 +33,20 @@ class FilterActivity : AppCompatActivity() {
 
     private lateinit var startDateButton: Button
     private lateinit var endDateButton: Button
-    private lateinit var annualStartButton: Button
-    private lateinit var annualEndButton: Button
     private lateinit var startTimeButton: Button
     private lateinit var endTimeButton: Button
+    private lateinit var clearStartDateButton: ImageButton
+    private lateinit var clearEndDateButton: ImageButton
+    private lateinit var clearStartTimeButton: ImageButton
+    private lateinit var clearEndTimeButton: ImageButton
+    private lateinit var annualStartButton: Button
+    private lateinit var annualEndButton: Button
+    private lateinit var annualStartTimeButton: Button
+    private lateinit var annualEndTimeButton: Button
+    private lateinit var clearAnnualStartDateButton: ImageButton
+    private lateinit var clearAnnualEndDateButton: ImageButton
+    private lateinit var clearAnnualStartTimeButton: ImageButton
+    private lateinit var clearAnnualEndTimeButton: ImageButton
     private lateinit var speciesSpinner: Spinner
     private lateinit var placeTypeSpinner: Spinner
     private lateinit var fishermanSpinner: Spinner
@@ -52,8 +62,10 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var waterTempMinEdit: EditText
     private lateinit var waterTempMaxEdit: EditText
     private lateinit var onlyCaughtFishCheckBox: CheckBox
+    private lateinit var onlyFishPointsCheckBox: CheckBox
 
-    private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+    private val dateOnlyFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+    private val timeOnlyFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val annualFormat = SimpleDateFormat("dd.MM.", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,10 +99,20 @@ class FilterActivity : AppCompatActivity() {
     private fun initViews() {
         startDateButton = findViewById(R.id.startDateButton)
         endDateButton = findViewById(R.id.endDateButton)
-        annualStartButton = findViewById(R.id.annualStartButton)
-        annualEndButton = findViewById(R.id.annualEndButton)
         startTimeButton = findViewById(R.id.startTimeButton)
         endTimeButton = findViewById(R.id.endTimeButton)
+        clearStartDateButton = findViewById(R.id.clearStartDateButton)
+        clearEndDateButton = findViewById(R.id.clearEndDateButton)
+        clearStartTimeButton = findViewById(R.id.clearStartTimeButton)
+        clearEndTimeButton = findViewById(R.id.clearEndTimeButton)
+        annualStartButton = findViewById(R.id.annualStartButton)
+        annualEndButton = findViewById(R.id.annualEndButton)
+        annualStartTimeButton = findViewById(R.id.annualStartTimeButton)
+        annualEndTimeButton = findViewById(R.id.annualEndTimeButton)
+        clearAnnualStartDateButton = findViewById(R.id.clearAnnualStartDateButton)
+        clearAnnualEndDateButton = findViewById(R.id.clearAnnualEndDateButton)
+        clearAnnualStartTimeButton = findViewById(R.id.clearAnnualStartTimeButton)
+        clearAnnualEndTimeButton = findViewById(R.id.clearAnnualEndTimeButton)
         speciesSpinner = findViewById(R.id.speciesSpinner)
         placeTypeSpinner = findViewById(R.id.placeTypeSpinner)
         fishermanSpinner = findViewById(R.id.fishermanSpinner)
@@ -182,10 +204,38 @@ class FilterActivity : AppCompatActivity() {
         waterTempMinEdit = findViewById(R.id.waterTempMinEdit)
         waterTempMaxEdit = findViewById(R.id.waterTempMaxEdit)
         onlyCaughtFishCheckBox = findViewById(R.id.onlyCaughtFishCheckBox)
+        onlyFishPointsCheckBox = findViewById(R.id.onlyFishPointsCheckBox)
     }
 
     private fun loadFilters() {
         currentFilters = filterManager.getFilters()
+        
+        // Erotetaan kellonajat pvm:stä jos ne on asetettu
+        val cal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
+        val startTs = currentFilters.startDate
+        val startTime = if (startTs != null) {
+            cal.timeInMillis = startTs
+            val h = cal.get(Calendar.HOUR_OF_DAY)
+            val m = cal.get(Calendar.MINUTE)
+            if (h == 0 && m == 0) null else h * 60 + m
+        } else null
+
+        val endTs = currentFilters.endDate
+        val endTime = if (endTs != null) {
+            cal.timeInMillis = endTs
+            val h = cal.get(Calendar.HOUR_OF_DAY)
+            val m = cal.get(Calendar.MINUTE)
+            if (h == 23 && m == 59) null else h * 60 + m
+        } else null
+
+        // Jos filters-oliossa ei ollut erillisiä minuutteja, mutta pvm:ssä oli, käytetään niitä
+        currentFilters = currentFilters.copy(
+            startTimeMinutes = currentFilters.startTimeMinutes ?: startTime,
+            endTimeMinutes = currentFilters.endTimeMinutes ?: endTime,
+            annualStartTimeMinutes = currentFilters.annualStartTimeMinutes,
+            annualEndTimeMinutes = currentFilters.annualEndTimeMinutes
+        )
+
         updateButtons()
         
         val selectedIndex = speciesList.indexOfFirst { it.id == currentFilters.speciesId }
@@ -222,6 +272,7 @@ class FilterActivity : AppCompatActivity() {
         waterTempMinEdit.setText(currentFilters.waterTempMin?.toString() ?: "")
         waterTempMaxEdit.setText(currentFilters.waterTempMax?.toString() ?: "")
         onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
+        onlyFishPointsCheckBox.isChecked = currentFilters.onlyFishPoints
     }
 
     private fun updateWindPreview() {
@@ -231,15 +282,20 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun updateButtons() {
-        startDateButton.text = currentFilters.startDate?.let { dateFormat.format(Date(it)) } ?: getString(R.string.start_date)
-        endDateButton.text = currentFilters.endDate?.let { dateFormat.format(Date(it)) } ?: getString(R.string.end_date)
+        startDateButton.text = currentFilters.startDate?.let { dateOnlyFormat.format(Date(it)) } ?: getString(R.string.start_date)
+        clearStartDateButton.visibility = if (currentFilters.startDate != null) View.VISIBLE else View.GONE
         
+        endDateButton.text = currentFilters.endDate?.let { dateOnlyFormat.format(Date(it)) } ?: getString(R.string.end_date)
+        clearEndDateButton.visibility = if (currentFilters.endDate != null) View.VISIBLE else View.GONE
+        
+        // Vuosittaiset alku- ja loppupäivät
         annualStartButton.text = if (currentFilters.annualStartDay != null && currentFilters.annualStartMonth != null) {
             val cal = Calendar.getInstance()
             cal.set(Calendar.MONTH, currentFilters.annualStartMonth!!)
             cal.set(Calendar.DAY_OF_MONTH, currentFilters.annualStartDay!!)
             annualFormat.format(cal.time)
         } else getString(R.string.start_date)
+        clearAnnualStartDateButton.visibility = if (currentFilters.annualStartDay != null) View.VISIBLE else View.GONE
 
         annualEndButton.text = if (currentFilters.annualEndDay != null && currentFilters.annualEndMonth != null) {
             val cal = Calendar.getInstance()
@@ -247,18 +303,37 @@ class FilterActivity : AppCompatActivity() {
             cal.set(Calendar.DAY_OF_MONTH, currentFilters.annualEndDay!!)
             annualFormat.format(cal.time)
         } else getString(R.string.end_date)
+        clearAnnualEndDateButton.visibility = if (currentFilters.annualEndDay != null) View.VISIBLE else View.GONE
 
+        // Päivämäärävälin kellonajat
         startTimeButton.text = currentFilters.startTimeMinutes?.let { 
             val h = it / 60
             val m = it % 60
             String.format(Locale.getDefault(), "%02d:%02d", h, m)
         } ?: getString(R.string.start_time)
+        clearStartTimeButton.visibility = if (currentFilters.startTimeMinutes != null) View.VISIBLE else View.GONE
 
         endTimeButton.text = currentFilters.endTimeMinutes?.let { 
             val h = it / 60
             val m = it % 60
             String.format(Locale.getDefault(), "%02d:%02d", h, m)
         } ?: getString(R.string.end_time)
+        clearEndTimeButton.visibility = if (currentFilters.endTimeMinutes != null) View.VISIBLE else View.GONE
+
+        // Vuosittaisen aikavälin kellonajat
+        annualStartTimeButton.text = currentFilters.annualStartTimeMinutes?.let {
+            val h = it / 60
+            val m = it % 60
+            String.format(Locale.getDefault(), "%02d:%02d", h, m)
+        } ?: getString(R.string.start_time)
+        clearAnnualStartTimeButton.visibility = if (currentFilters.annualStartTimeMinutes != null) View.VISIBLE else View.GONE
+
+        annualEndTimeButton.text = currentFilters.annualEndTimeMinutes?.let {
+            val h = it / 60
+            val m = it % 60
+            String.format(Locale.getDefault(), "%02d:%02d", h, m)
+        } ?: getString(R.string.end_time)
+        clearAnnualEndTimeButton.visibility = if (currentFilters.annualEndTimeMinutes != null) View.VISIBLE else View.GONE
     }
 
     private fun setupListeners() {
@@ -269,14 +344,50 @@ class FilterActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        startDateButton.setOnClickListener { showFullDateTimePicker(true) }
-        endDateButton.setOnClickListener { showFullDateTimePicker(false) }
+        startDateButton.setOnClickListener { showDatePicker(true) }
+        endDateButton.setOnClickListener { showDatePicker(false) }
+        
+        clearStartDateButton.setOnClickListener {
+            currentFilters = currentFilters.copy(startDate = null)
+            updateButtons()
+        }
+        clearEndDateButton.setOnClickListener {
+            currentFilters = currentFilters.copy(endDate = null)
+            updateButtons()
+        }
+        clearStartTimeButton.setOnClickListener {
+            currentFilters = currentFilters.copy(startTimeMinutes = null)
+            updateButtons()
+        }
+        clearEndTimeButton.setOnClickListener {
+            currentFilters = currentFilters.copy(endTimeMinutes = null)
+            updateButtons()
+        }
+        
+        clearAnnualStartDateButton.setOnClickListener {
+            currentFilters = currentFilters.copy(annualStartDay = null, annualStartMonth = null)
+            updateButtons()
+        }
+        clearAnnualEndDateButton.setOnClickListener {
+            currentFilters = currentFilters.copy(annualEndDay = null, annualEndMonth = null)
+            updateButtons()
+        }
+        clearAnnualStartTimeButton.setOnClickListener {
+            currentFilters = currentFilters.copy(annualStartTimeMinutes = null)
+            updateButtons()
+        }
+        clearAnnualEndTimeButton.setOnClickListener {
+            currentFilters = currentFilters.copy(annualEndTimeMinutes = null)
+            updateButtons()
+        }
         
         annualStartButton.setOnClickListener { showAnnualDatePicker(true) }
         annualEndButton.setOnClickListener { showAnnualDatePicker(false) }
 
-        startTimeButton.setOnClickListener { showTimePicker(true) }
-        endTimeButton.setOnClickListener { showTimePicker(false) }
+        startTimeButton.setOnClickListener { showTimePicker(true, isAnnual = false) }
+        endTimeButton.setOnClickListener { showTimePicker(false, isAnnual = false) }
+        annualStartTimeButton.setOnClickListener { showTimePicker(true, isAnnual = true) }
+        annualEndTimeButton.setOnClickListener { showTimePicker(false, isAnnual = true) }
 
         findViewById<Button>(R.id.clearFiltersButton).setOnClickListener {
             currentFilters = FilterManager.Filters()
@@ -284,6 +395,8 @@ class FilterActivity : AppCompatActivity() {
             speciesSpinner.setSelection(0)
             placeTypeSpinner.setSelection(0)
             fishermanSpinner.setSelection(0)
+            otherSpeciesSpinner.setSelection(0)
+            otherSpeciesContainer.visibility = View.GONE
             freeTextEdit.setText("")
             windMinEdit.setText("")
             windMaxEdit.setText("")
@@ -292,6 +405,8 @@ class FilterActivity : AppCompatActivity() {
             pressureMaxEdit.setText("")
             waterTempMinEdit.setText("")
             waterTempMaxEdit.setText("")
+            onlyCaughtFishCheckBox.isChecked = false
+            onlyFishPointsCheckBox.isChecked = false
             Toast.makeText(this, R.string.filters_cleared, Toast.LENGTH_SHORT).show()
         }
 
@@ -310,23 +425,26 @@ class FilterActivity : AppCompatActivity() {
         windMaxEdit.addTextChangedListener(windWatcher)
     }
 
-    private fun showFullDateTimePicker(isStart: Boolean) {
+    private fun showDatePicker(isStart: Boolean) {
         val current = if (isStart) currentFilters.startDate else currentFilters.endDate
         val cal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
         if (current != null) cal.timeInMillis = current
 
         DatePickerDialog(this, { _, y, m, d ->
             cal.set(y, m, d)
-            TimePickerDialog(this, { _, h, min ->
-                cal.set(Calendar.HOUR_OF_DAY, h)
-                cal.set(Calendar.MINUTE, min)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                
-                currentFilters = if (isStart) currentFilters.copy(startDate = cal.timeInMillis)
-                else currentFilters.copy(endDate = cal.timeInMillis)
-                updateButtons()
-            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
+            // Jos kellonaikaa ei ole asetettu, asetetaan oletus
+            if (isStart && currentFilters.startTimeMinutes == null) {
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+            } else if (!isStart && currentFilters.endTimeMinutes == null) {
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+            }
+            
+            currentFilters = if (isStart) currentFilters.copy(startDate = cal.timeInMillis)
+            else currentFilters.copy(endDate = cal.timeInMillis)
+            updateButtons()
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
@@ -342,15 +460,24 @@ class FilterActivity : AppCompatActivity() {
         }, cal.get(Calendar.YEAR), m, d).show()
     }
 
-    private fun showTimePicker(isStart: Boolean) {
-        val current = if (isStart) currentFilters.startTimeMinutes else currentFilters.endTimeMinutes
+    private fun showTimePicker(isStart: Boolean, isAnnual: Boolean) {
+        val current = if (isAnnual) {
+            if (isStart) currentFilters.annualStartTimeMinutes else currentFilters.annualEndTimeMinutes
+        } else {
+            if (isStart) currentFilters.startTimeMinutes else currentFilters.endTimeMinutes
+        }
         val h = if (current != null) current / 60 else 12
         val m = if (current != null) current % 60 else 0
 
         TimePickerDialog(this, { _, hour, minute ->
             val totalMinutes = hour * 60 + minute
-            currentFilters = if (isStart) currentFilters.copy(startTimeMinutes = totalMinutes)
-            else currentFilters.copy(endTimeMinutes = totalMinutes)
+            currentFilters = if (isAnnual) {
+                if (isStart) currentFilters.copy(annualStartTimeMinutes = totalMinutes)
+                else currentFilters.copy(annualEndTimeMinutes = totalMinutes)
+            } else {
+                if (isStart) currentFilters.copy(startTimeMinutes = totalMinutes)
+                else currentFilters.copy(endTimeMinutes = totalMinutes)
+            }
             updateButtons()
         }, h, m, true).show()
     }
@@ -370,19 +497,57 @@ class FilterActivity : AppCompatActivity() {
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
         
+        // Päivitetään startDate ja endDate kellonaikojen perusteella ennen tallennusta
+        var startTs = currentFilters.startDate
+        if (startTs != null) {
+            val cal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
+            cal.timeInMillis = startTs
+            if (currentFilters.startTimeMinutes != null) {
+                cal.set(Calendar.HOUR_OF_DAY, currentFilters.startTimeMinutes!! / 60)
+                cal.set(Calendar.MINUTE, currentFilters.startTimeMinutes!! % 60)
+            } else {
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+            }
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            startTs = cal.timeInMillis
+        }
+
+        var endTs = currentFilters.endDate
+        if (endTs != null) {
+            val cal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
+            cal.timeInMillis = endTs
+            if (currentFilters.endTimeMinutes != null) {
+                cal.set(Calendar.HOUR_OF_DAY, currentFilters.endTimeMinutes!! / 60)
+                cal.set(Calendar.MINUTE, currentFilters.endTimeMinutes!! % 60)
+            } else {
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+            }
+            cal.set(Calendar.MILLISECOND, 999)
+            endTs = cal.timeInMillis
+        }
+
         currentFilters = currentFilters.copy(
+            startDate = startTs,
+            endDate = endTs,
             speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
             otherSpecies = otherSpecies,
             placeTypeId = if (selectedPlaceType.id.isEmpty()) null else selectedPlaceType.id,
             freeText = freeText,
             fisherman = fisherman,
+            annualStartTimeMinutes = currentFilters.annualStartTimeMinutes,
+            annualEndTimeMinutes = currentFilters.annualEndTimeMinutes,
             windMin = windMin,
             windMax = windMax,
             pressureMin = pressureMin,
             pressureMax = pressureMax,
             waterTempMin = waterTempMin,
             waterTempMax = waterTempMax,
-            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked
+            onlyCaughtFish = onlyCaughtFishCheckBox.isChecked,
+            onlyFishPoints = onlyFishPointsCheckBox.isChecked
         )
         filterManager.saveFilters(currentFilters)
         setResult(RESULT_OK)
