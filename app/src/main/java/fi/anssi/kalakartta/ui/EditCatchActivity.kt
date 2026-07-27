@@ -409,8 +409,8 @@ class EditCatchActivity : AppCompatActivity() {
             }
             eventTypeSpinner.adapter = eventTypeAdapter
             
-            val rainAdapter = ArrayAdapter.createFromResource(this, R.array.rain_levels, android.R.layout.simple_spinner_item)
-            rainAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            val rainAdapter = ArrayAdapter.createFromResource(this, R.array.rain_levels, R.layout.spinner_item)
+            rainAdapter.setDropDownViewResource(R.layout.spinner_item)
             rainSpinner.adapter = rainAdapter
 
             fishCatch?.let { fc ->

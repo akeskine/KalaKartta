@@ -47,8 +47,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="8dp"
-        android:minHeight="48dp"
-        android:background="@android:drawable/btn_dropdown" />
+        android:minHeight="48dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -58,22 +57,20 @@
 
         <Button
             android:id="@+id/startDateButton"
-            style="?android:attr/borderlessButtonStyle"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Alkupvm"
-            android:background="@android:drawable/btn_default" />
+            android:text="Alkupvm" />
 
         <Button
             android:id="@+id/startTimeButton"
-            style="?android:attr/borderlessButtonStyle"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Klo"
-            android:layout_marginStart="8dp"
-            android:background="@android:drawable/btn_default" />
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <LinearLayout
@@ -84,22 +81,20 @@
 
         <Button
             android:id="@+id/endDateButton"
-            style="?android:attr/borderlessButtonStyle"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Loppupvm"
-            android:background="@android:drawable/btn_default" />
+            android:text="Loppupvm" />
 
         <Button
             android:id="@+id/endTimeButton"
-            style="?android:attr/borderlessButtonStyle"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Klo"
-            android:layout_marginStart="8dp"
-            android:background="@android:drawable/btn_default" />
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <TextView

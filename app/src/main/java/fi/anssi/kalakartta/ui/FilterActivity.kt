@@ -99,8 +99,8 @@ class FilterActivity : AppCompatActivity() {
 
         val uniqueOther = db.fishCatchDao().getUniqueOtherSpecies()
         otherSpeciesList = listOf(getString(R.string.empty_selection)) + uniqueOther.map { it.lowercase().replaceFirstChar { char -> char.uppercase() } }
-        val otherAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, otherSpeciesList)
-        otherAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val otherAdapter = ArrayAdapter(this, R.layout.spinner_item, otherSpeciesList)
+        otherAdapter.setDropDownViewResource(R.layout.spinner_item)
         otherSpeciesSpinner.adapter = otherAdapter
         otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
 
@@ -170,8 +170,8 @@ class FilterActivity : AppCompatActivity() {
         fishermanList = listOf(getString(R.string.empty_selection)) + allFishermen.map { 
             it.lowercase().replaceFirstChar { char -> char.uppercase() } 
         }
-        val fishermanAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, fishermanList)
-        fishermanAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val fishermanAdapter = ArrayAdapter(this, R.layout.spinner_item, fishermanList)
+        fishermanAdapter.setDropDownViewResource(R.layout.spinner_item)
         fishermanSpinner.adapter = fishermanAdapter
 
         windMinEdit = findViewById(R.id.windMinEdit)

@@ -56,7 +56,6 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    app:backgroundTint="@color/white"
                     android:text="@string/start_date" />
                 <Button
                     android:id="@+id/endDateButton"
@@ -65,7 +64,6 @@
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    app:backgroundTint="@color/white"
                     android:text="@string/end_date" />
             </LinearLayout>
 
@@ -87,7 +85,6 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    app:backgroundTint="@color/white"
                     android:text="@string/start_date" />
                 <Button
                     android:id="@+id/annualEndButton"
@@ -96,7 +93,6 @@
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    app:backgroundTint="@color/white"
                     android:text="@string/end_date" />
             </LinearLayout>
 
@@ -118,7 +114,6 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    app:backgroundTint="@color/white"
                     android:text="@string/start_time" />
                 <Button
                     android:id="@+id/endTimeButton"
@@ -127,7 +122,6 @@
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    app:backgroundTint="@color/white"
                     android:text="@string/end_time" />
             </LinearLayout>
 
@@ -144,9 +138,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:minHeight="48dp"
-                android:background="@android:drawable/btn_dropdown"
-                android:backgroundTint="@color/white" />
+                android:minHeight="48dp" />
 
             <LinearLayout
                 android:id="@+id/otherSpeciesContainer"
@@ -164,9 +156,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:minHeight="48dp"
-                    android:background="@android:drawable/btn_dropdown"
-                    android:backgroundTint="@color/white" />
+                    android:minHeight="48dp" />
             </LinearLayout>
 
             <!-- Muu paikka -->
@@ -182,9 +172,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:minHeight="48dp"
-                android:background="@android:drawable/btn_dropdown"
-                android:backgroundTint="@color/white" />
+                android:minHeight="48dp" />
             
             <!-- Tuulen suunta -->
             <TextView
@@ -356,9 +344,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:minHeight="48dp"
-                android:background="@android:drawable/btn_dropdown"
-                android:backgroundTint="@color/white" />
+                android:minHeight="48dp" />
 
             <CheckBox
                 android:id="@+id/onlyCaughtFishCheckBox"

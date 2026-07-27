@@ -54,8 +54,8 @@ class SummaryActivity : AppCompatActivity() {
                 it.lowercase().replaceFirstChar { char -> char.uppercase() } 
             }
             withContext(Dispatchers.Main) {
-                val adapter = android.widget.ArrayAdapter(this@SummaryActivity, android.R.layout.simple_spinner_item, fishermanList)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                val adapter = android.widget.ArrayAdapter(this@SummaryActivity, R.layout.spinner_item, fishermanList)
+                adapter.setDropDownViewResource(R.layout.spinner_item)
                 fishermanSpinner.adapter = adapter
             }
         }
