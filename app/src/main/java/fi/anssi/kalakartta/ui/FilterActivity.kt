@@ -23,6 +23,7 @@ import android.graphics.BitmapFactory
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.Locale
 
 class FilterActivity : AppCompatActivity() {
 
@@ -224,10 +225,20 @@ class FilterActivity : AppCompatActivity() {
         }
         placeTypeSpinner.adapter = placeAdapter
 
-        val allFishermen = db.fishCatchDao().getUniqueFishermen()
-        fishermanList = listOf(getString(R.string.empty_selection)) + allFishermen.map { 
-            it.lowercase().replaceFirstChar { char -> char.uppercase() } 
+        val fishermenWithCounts = db.fishCatchDao().getFishermenWithCounts()
+        
+        fun formatName(name: String): String {
+            return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            }
         }
+
+        val sortedFishermen = fishermenWithCounts
+            .sortedWith(compareByDescending<fi.anssi.kalakartta.data.FishCatchDao.FishermanCount> { it.count }
+                .thenBy { it.fisherman.lowercase() })
+            .map { formatName(it.fisherman) }
+
+        fishermanList = listOf(getString(R.string.empty_selection)) + sortedFishermen
         val fishermanAdapter = ArrayAdapter(this, R.layout.spinner_item, fishermanList)
         fishermanAdapter.setDropDownViewResource(R.layout.spinner_item)
         fishermanSpinner.adapter = fishermanAdapter
@@ -300,7 +311,11 @@ class FilterActivity : AppCompatActivity() {
 
         freeTextEdit.setText(currentFilters.freeText ?: "")
         
-        val fishermanDisplay = currentFilters.fisherman?.lowercase()?.replaceFirstChar { it.uppercase() } ?: getString(R.string.empty_selection)
+        val fishermanDisplay = currentFilters.fisherman?.let {
+            it.split(" ").filter { part -> part.isNotEmpty() }.joinToString(" ") { part ->
+                part.lowercase().replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
+            }
+        } ?: getString(R.string.empty_selection)
         val fishermanIndex = fishermanList.indexOf(fishermanDisplay)
         if (fishermanIndex >= 0) {
             fishermanSpinner.setSelection(fishermanIndex)

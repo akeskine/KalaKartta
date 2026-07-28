@@ -227,12 +227,12 @@ class FilterManager(private val context: Context) {
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
             if (f.speciesId == "OTHER" && f.otherSpecies != null) {
-                if (fish.otherSpecies == null || fish.otherSpecies.uppercase() != f.otherSpecies.uppercase()) return@filter false
+                if (fish.otherSpecies == null || !fish.otherSpecies.equals(f.otherSpecies, ignoreCase = true)) return@filter false
             }
 
             // Kalastaja
             if (f.fisherman != null) {
-                if (fish.fisherman.uppercase() != f.fisherman.uppercase()) return@filter false
+                if (!fish.fisherman.equals(f.fisherman, ignoreCase = true)) return@filter false
             }
 
             // Free Text
@@ -313,7 +313,12 @@ class FilterManager(private val context: Context) {
         }
 
         if (f.fisherman != null) {
-            val fishermanDisplay = f.fisherman.lowercase().replaceFirstChar { it.uppercase() }
+            fun formatName(name: String): String {
+                return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                    part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                }
+            }
+            val fishermanDisplay = formatName(f.fisherman)
             parts.add("kalastaja: $fishermanDisplay")
         }
 

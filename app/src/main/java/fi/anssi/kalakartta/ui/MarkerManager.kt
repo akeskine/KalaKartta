@@ -1209,7 +1209,12 @@ class MarkerManager(
                 }
             }
             if (it.fisherman.isNotEmpty()) {
-                val fishermanDisplay = it.fisherman.lowercase().replaceFirstChar { char -> char.uppercase() }
+                fun formatName(name: String): String {
+                    return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                        part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+                }
+                val fishermanDisplay = formatName(it.fisherman)
                 details.append("Kalastaja: $fishermanDisplay\n")
             }
 

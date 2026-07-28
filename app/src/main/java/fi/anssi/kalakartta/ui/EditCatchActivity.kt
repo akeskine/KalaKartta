@@ -521,7 +521,13 @@ class EditCatchActivity : AppCompatActivity() {
                 }
                 additionalInfoEditText.setText(fc.additionalInfo ?: "")
                 tripNotesEditText.setText(fc.tripNotes ?: "")
-                fishermanEditText.setText(fc.fisherman ?: "")
+                fun formatName(name: String): String {
+                    return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                        part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+                }
+
+                fishermanEditText.setText(if (!fc.fisherman.isNullOrEmpty()) formatName(fc.fisherman) else "")
                 val updatedFc = fishCatch ?: fc
                 val otherSpeciesDisplay = updatedFc.otherSpecies?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""
                 otherSpeciesEditText.setText(otherSpeciesDisplay)
@@ -758,7 +764,7 @@ class EditCatchActivity : AppCompatActivity() {
             
             val fc = fishCatch ?: return
             val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
-            val otherSpecies = otherSpeciesEditText.text.toString().trim().uppercase()
+            val otherSpecies = otherSpeciesEditText.text.toString().trim()
             
             if (selectedSpeciesId == "OTHER" && otherSpecies.isEmpty()) {
                 Toast.makeText(this, "Kalalaji on annettava.", Toast.LENGTH_SHORT).show()
@@ -789,7 +795,7 @@ class EditCatchActivity : AppCompatActivity() {
                 weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
                 additionalInfo = additionalInfoEditText.text.toString(),
                 tripNotes = tripNotesEditText.text.toString(),
-                fisherman = fishermanEditText.text.toString().trim().uppercase(),
+                fisherman = fishermanEditText.text.toString().trim(),
                 latitude = latEditText.text.toString().toDoubleSafe(fc.latitude),
                 longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude)
             )
@@ -827,8 +833,8 @@ class EditCatchActivity : AppCompatActivity() {
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true
         if (tripNotesEditText.text.toString() != (fc.tripNotes ?: "")) return true
-        if (fishermanEditText.text.toString() != (fc.fisherman ?: "")) return true
-        if (otherSpeciesEditText.text.toString() != (fc.otherSpecies ?: "")) return true
+        if (fishermanEditText.text.toString().trim().equals(fc.fisherman?.trim() ?: "", ignoreCase = true).not()) return true
+        if (otherSpeciesEditText.text.toString().trim().equals(fc.otherSpecies?.trim() ?: "", ignoreCase = true).not()) return true
         return Math.abs(latEditText.text.toString().toDoubleSafe() - fc.latitude) > 0.0001 ||
                Math.abs(lonEditText.text.toString().toDoubleSafe() - fc.longitude) > 0.0001
     }

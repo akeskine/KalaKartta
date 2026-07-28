@@ -90,10 +90,21 @@ class SummaryActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val uniqueFishermen = db.fishCatchDao().getUniqueFishermen()
-            fishermanList = listOf(getString(R.string.empty_selection)) + uniqueFishermen.map { 
-                it.lowercase().replaceFirstChar { char -> char.uppercase() } 
+            val fishermenWithCounts = db.fishCatchDao().getFishermenWithCounts()
+            
+            // Format name: "KALLE KALASTAJA" -> "Kalle Kalastaja"
+            fun formatName(name: String): String {
+                return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                    part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                }
             }
+
+            val sortedFishermen = fishermenWithCounts
+                .sortedWith(compareByDescending<fi.anssi.kalakartta.data.FishCatchDao.FishermanCount> { it.count }
+                    .thenBy { it.fisherman.lowercase() })
+                .map { formatName(it.fisherman) }
+
+            fishermanList = listOf(getString(R.string.empty_selection)) + sortedFishermen
             withContext(Dispatchers.Main) {
                 val adapter = android.widget.ArrayAdapter(this@SummaryActivity, R.layout.spinner_item, fishermanList)
                 adapter.setDropDownViewResource(R.layout.spinner_item)
@@ -250,7 +261,7 @@ class SummaryActivity : AppCompatActivity() {
 
     private fun fetchAndDisplaySummary(start: Long, end: Long, title: String) {
         val selectedFisherman = if (fishermanSpinner.selectedItemPosition > 0) {
-            fishermanList[fishermanSpinner.selectedItemPosition].uppercase()
+            fishermanList[fishermanSpinner.selectedItemPosition]
         } else null
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -258,7 +269,7 @@ class SummaryActivity : AppCompatActivity() {
                 val allCatches = db.fishCatchDao().getAll()
                 val filteredCatches = allCatches.filter { 
                     val caughtAt = it.caughtAt ?: 0L
-                    val matchesFisherman = selectedFisherman == null || it.fisherman.uppercase() == selectedFisherman
+                    val matchesFisherman = selectedFisherman == null || it.fisherman.equals(selectedFisherman, ignoreCase = true)
                     
                     caughtAt in start..end && 
                     it.species != "UNKNOWN" && 
@@ -269,7 +280,7 @@ class SummaryActivity : AppCompatActivity() {
                 val speciesMap = speciesList.associateBy { it.id }
 
                 val fishermanTitlePart = if (selectedFisherman != null) {
-                    " (${selectedFisherman.lowercase().replaceFirstChar { it.uppercase() }})"
+                    " ($selectedFisherman)"
                 } else ""
                 val result = formatSummary(title + fishermanTitlePart, filteredCatches, speciesMap)
                 

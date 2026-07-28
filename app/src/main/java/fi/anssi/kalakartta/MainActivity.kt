@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
@@ -813,7 +814,12 @@ class MainActivity : AppCompatActivity() {
         val textView = findViewById<TextView>(R.id.defaultFishermanText) ?: return
 
         if (showOnMap && rawFisherman.isNotEmpty()) {
-            val fisherman = rawFisherman.lowercase().replaceFirstChar { it.uppercase() }
+            fun formatName(name: String): String {
+                return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                    part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                }
+            }
+            val fisherman = formatName(rawFisherman)
             textView.visibility = android.view.View.VISIBLE
             textView.text = fisherman
             
