@@ -78,6 +78,21 @@ class SettingsManager(
                     }
                     contentLayout.addView(helpLink)
 
+                    val traficomLink = TextView(activity).apply {
+                        text = "Traficom merikartta lisenssi"
+                        textSize = 18f
+                        setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                        setPadding(0, 10, 0, 10)
+                        val outValue = android.util.TypedValue()
+                        activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                        setBackgroundResource(outValue.resourceId)
+                        setOnClickListener {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://creativecommons.org/licenses/by/4.0/deed.fi"))
+                            activity.startActivity(intent)
+                        }
+                    }
+                    contentLayout.addView(traficomLink)
+
                     AlertDialog.Builder(activity)
                         .setCustomTitle(titleViewVersion)
                         .setView(contentLayout)
@@ -384,8 +399,8 @@ class SettingsManager(
         }
 
         val radioGroup = RadioGroup(activity).apply {
-            val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva")
-            val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA")
+            val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom))
+            val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
             
             for (i in sources.indices) {
                 val radioButton = RadioButton(activity).apply {
@@ -490,7 +505,11 @@ class SettingsManager(
         }
 
         val attributionText = TextView(activity).apply {
-            text = "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
+            text = when (currentSource) {
+                "TRAFICOM_SEA" -> activity.getString(R.string.traficom_attribution)
+                "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
+                else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
+            }
             textSize = 12f
             setPadding(0, 40, 0, 0)
             alpha = 0.7f
@@ -500,16 +519,27 @@ class SettingsManager(
         layout.addView(quickMapCheckbox)
 
         radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val visible = if (checkedId > 0) android.view.View.VISIBLE else android.view.View.GONE
-            apiKeyLabel.visibility = visible
-            apiKeyInput.visibility = visible
-            setApiKeyButton.visibility = visible
-            attributionText.visibility = visible
+            val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
+            val selectedSource = internalIds[checkedId]
             
-            if (checkedId > 0) {
+            val mmlVisible = if (checkedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
+            apiKeyLabel.visibility = mmlVisible
+            apiKeyInput.visibility = mmlVisible
+            setApiKeyButton.visibility = mmlVisible
+            
+            attributionText.visibility = android.view.View.VISIBLE
+            attributionText.text = when (selectedSource) {
+                "TRAFICOM_SEA" -> activity.getString(R.string.traficom_attribution)
+                "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
+                else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
+            }
+            
+            if (checkedId in 1..2) {
                 if (apiKeyInput.text.isNotEmpty()) {
                     validateApiKey(apiKeyInput.text.toString())
                 }
+            } else {
+                quickMapCheckbox.visibility = android.view.View.VISIBLE
             }
         }
 
@@ -518,13 +548,14 @@ class SettingsManager(
             .setView(layout)
             .setPositiveButton("OK") { _, _ ->
                 val selectedId = radioGroup.checkedRadioButtonId
-                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA")
+                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
                 val newSource = internalIds[selectedId]
                 val newApiKey = apiKeyInput.text.toString()
 
                 // Jos API-avain on tyhjä tai checkbox on piilotettu (validointi puuttuu)
-                // piilotetaan myös pikavalinta
-                val finalShowQuickMap = if (newApiKey.isEmpty() || quickMapCheckbox.visibility != android.view.View.VISIBLE) false else showQuickMapCurrent
+                // piilotetaan myös pikavalinta (vain MML-lähteille)
+                val mmlSources = setOf("MML_MAASTO", "MML_ILMA")
+                val finalShowQuickMap = if (newSource in mmlSources && (newApiKey.isEmpty() || quickMapCheckbox.visibility != android.view.View.VISIBLE)) false else showQuickMapCurrent
 
                 prefs.edit().apply {
                     putString("map_source", newSource)

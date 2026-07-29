@@ -47,6 +47,7 @@ import fi.anssi.kalakartta.ui.FilterManager
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.MMLTileSource
+import fi.anssi.kalakartta.utils.TraficomTileSource
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -269,9 +270,10 @@ class MainActivity : AppCompatActivity() {
                 val currentSource = prefs.getString("map_source", "OSM")
                 val nextSource = when (currentSource) {
                     "OSM" -> {
-                        if (currentApiKey.isNotEmpty()) "MML_MAASTO" else "OSM"
+                        if (currentApiKey.isNotEmpty()) "MML_MAASTO" else "TRAFICOM_SEA"
                     }
                     "MML_MAASTO" -> "MML_ILMA"
+                    "MML_ILMA" -> "TRAFICOM_SEA"
                     else -> "OSM"
                 }
                 prefs.edit().putString("map_source", nextSource).apply()
@@ -615,6 +617,10 @@ class MainActivity : AppCompatActivity() {
         val apiKey = prefs.getString("mml_api_key", "") ?: ""
 
         when (mapSource) {
+            "TRAFICOM_SEA" -> {
+                map.setTileSource(TraficomTileSource())
+                updateUIColors(true)
+            }
             "MML_MAASTO" -> {
                 map.setTileSource(MMLTileSource("MML Maastokartta", "maastokartta", apiKey))
                 updateUIColors(true)
@@ -637,9 +643,9 @@ class MainActivity : AppCompatActivity() {
         val showScale = prefs.getBoolean("show_scale_bar", false)
         val showMeasurement = prefs.getBoolean("show_measurement_tool", false)
         val apiKey = prefs.getString("mml_api_key", "") ?: ""
-        val showQuickMap = prefs.getBoolean("show_quick_map_source", false) && apiKey.isNotEmpty()
+        val showQuickMap = prefs.getBoolean("show_quick_map_source", false)
         val mapSource = prefs.getString("map_source", "OSM")
-        val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
+        val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA"
         
         val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
         if (showMeasurement) {

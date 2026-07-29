@@ -109,4 +109,6 @@
     <string name="quick_map_source">Karttapohjan pikavalinta</string>
     <string name="show_quick_map_source">Näytä karttapohjan pikavalinta</string>
     <string name="set_api_key">Aseta API-avain</string>
+    <string name="map_source_traficom">Traficom merikartta</string>
+    <string name="traficom_attribution">Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.</string>
 </resources>
