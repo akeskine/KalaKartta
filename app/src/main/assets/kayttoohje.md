@@ -16,7 +16,14 @@ Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata
 
 Oma sijaintisi näytetään kartalla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta.
 
-Kartan taustakartan voit vaihtaa asetuksista (Asetukset -> Taustakartta). MML:n karttojen käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
+Kartan taustakartan voit vaihtaa asetuksista (Asetukset -> Taustakartta). 
+
+KalaKartassa on käytettävissä seuraavat karttapohjat:
+- **OpenStreetMap:** Maailmanlaajuinen avoin kartta-aineisto.
+- **MML Maastokartta ja Ilmakuva:** Maanmittauslaitoksen tarkat aineistot Suomesta. Käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
+- **Traficom merikartta:** Traficomin virallinen merikartta-aineisto (Merikarttasarjat). *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
+
+Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet kytkenyt **Karttapohjan pikavalinnan** päälle asetuksista.
 
 ## 2. Kalapisteen lisääminen
 
@@ -98,7 +105,17 @@ Yleisistä asetuksista voit:
 - Kytkeä päälle/pois **oletuskalastaja** kartan oikeassa alareunassa.
 - Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi. Tämä on testatusti kätevää vesillä, jos halutaan lisätä kala puhelimen ollessa taskussa näyttö pois päältä.
 
-## 11. Mittaustyökalu
+## 11. Karttapohjan pikavalinta
+
+Pikavalinnan avulla voit vaihtaa karttapohjaa nopeasti suoraan karttanäkymästä ilman asetuksiin menemistä.
+
+- Mene kohtaan **Asetukset -> Taustakartta**. 
+- Laita ruksi kohtaan **"Näytä karttapohjan pikavalinta"**.
+- Kartan vasempaan yläreunaan ilmestyy karttakuvake (mittauspainikkeen alapuolelle). Painiketta klikkaamalla karttapohja vaihtuu seuraavaan valittuun vaihtoehtoon.
+- Voit itse päättää mitkä karttapohjat ovat mukana pikavalinnan kierrossa: rasti haluamasi kartat **"Pikavalinta"**-sarakkeesta Taustakartta-asetuksissa.
+- Huom: MML:n kartat ovat mukana pikavalinnassa vain, jos olet asettanut toimivan API-avaimen.
+
+## 12. Mittaustyökalu
 
 Mittaustyökalulla voit mitata etäisyyksiä ja reittien pituuksia suoraan kartalta. Työkalu on käytettävissä, kun se on kytketty päälle Yleisistä asetuksista Mittaustyökalut-sivulta.
 - **Aloitus:** Paina kartan oikeassa yläreunassa olevaa mittaustyökalu-painiketta (nuppineula-ikoni). Kartan keskellä (tähtäimen kohdalla) on tällöin aloituspiste.

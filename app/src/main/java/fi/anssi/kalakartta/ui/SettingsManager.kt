@@ -78,21 +78,6 @@ class SettingsManager(
                     }
                     contentLayout.addView(helpLink)
 
-                    val traficomLink = TextView(activity).apply {
-                        text = "Traficom merikartta lisenssi"
-                        textSize = 18f
-                        setTextColor(activity.getColor(android.R.color.holo_blue_dark))
-                        setPadding(0, 10, 0, 10)
-                        val outValue = android.util.TypedValue()
-                        activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-                        setBackgroundResource(outValue.resourceId)
-                        setOnClickListener {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://creativecommons.org/licenses/by/4.0/deed.fi"))
-                            activity.startActivity(intent)
-                        }
-                    }
-                    contentLayout.addView(traficomLink)
-
                     AlertDialog.Builder(activity)
                         .setCustomTitle(titleViewVersion)
                         .setView(contentLayout)
