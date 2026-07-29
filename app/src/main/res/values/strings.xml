@@ -106,4 +106,7 @@
     <string name="delete_species_confirm">Oletko varma, että haluat poistaa kalalajin?</string>
     <string name="delete_icon_confirm">Oletko varma, että haluat poistaa kuvakkeen?</string>
     <string name="unsaved_species_changes">Kalalajin tietoja on muokattu. Hylätäänkö muutokset?</string>
+    <string name="quick_map_source">Karttapohjan pikavalinta</string>
+    <string name="show_quick_map_source">Näytä karttapohjan pikavalinta</string>
+    <string name="set_api_key">Aseta API-avain</string>
 </resources>

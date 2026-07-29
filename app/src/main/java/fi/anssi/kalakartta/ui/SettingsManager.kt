@@ -371,10 +371,12 @@ class SettingsManager(
             .enlargeButtons()
     }
 
+
     private fun openMapSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
         val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
         val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
+        var showQuickMapCurrent = prefs.getBoolean("show_quick_map_source", false)
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -399,6 +401,17 @@ class SettingsManager(
         }
         layout.addView(radioGroup)
 
+        val quickMapCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.show_quick_map_source)
+            isChecked = showQuickMapCurrent
+            textSize = 18f
+            setPadding(0, 20, 0, 40)
+            visibility = android.view.View.GONE
+            setOnCheckedChangeListener { _, isChecked ->
+                showQuickMapCurrent = isChecked
+            }
+        }
+
         val apiKeyLabel = TextView(activity).apply {
             text = "MML API-avain:"
             textSize = 16f
@@ -414,53 +427,67 @@ class SettingsManager(
         }
         layout.addView(apiKeyInput)
 
-        val testButton = Button(activity).apply {
-            text = "Testaa API-avain"
+        val setApiKeyButton = Button(activity).apply {
+            text = activity.getString(R.string.set_api_key)
             visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
-            setOnClickListener {
-                val apiKey = apiKeyInput.text.toString()
-                if (apiKey.isEmpty()) {
-                    Toast.makeText(activity, "Syötä API-avain ensin", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                
-                val selectedId = radioGroup.checkedRadioButtonId
-                val layer = if (selectedId == 2) "ortokuva" else "maastokartta"
-                
-                activity.lifecycleScope.launch(Dispatchers.IO) {
-                    try {
-                        // Testataan hakemalla yksi tiili (zoom 0, x 0, y 0)
-                        val urlString = "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/$layer/default/WGS84_Pseudo-Mercator/0/0/0.png?api-key=$apiKey"
-                        val url = java.net.URL(urlString)
-                        val connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.requestMethod = "GET"
-                        connection.connectTimeout = 5000
-                        connection.readTimeout = 5000
-                        
-                        val responseCode = connection.responseCode
-                        withContext(Dispatchers.Main) {
-                            val message = if (responseCode == 200) {
-                                "API-avain OK"
-                            } else {
-                                "API-avain ei kelpaa (HTTP $responseCode)."
+        }
+        layout.addView(setApiKeyButton)
+
+        fun validateApiKey(apiKey: String, updateCheckbox: Boolean = true) {
+            if (apiKey.isEmpty()) {
+                if (updateCheckbox) quickMapCheckbox.visibility = android.view.View.GONE
+                return
+            }
+
+            val selectedId = radioGroup.checkedRadioButtonId
+            val layer = if (selectedId == 2) "ortokuva" else "maastokartta"
+
+            activity.lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val urlString = "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/$layer/default/WGS84_Pseudo-Mercator/0/0/0.png?api-key=$apiKey"
+                    val url = java.net.URL(urlString)
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 5000
+
+                    val responseCode = connection.responseCode
+                    withContext(Dispatchers.Main) {
+                        if (responseCode == 200) {
+                            if (updateCheckbox) {
+                                quickMapCheckbox.visibility = android.view.View.VISIBLE
                             }
-                            AlertDialog.Builder(activity)
-                                .setMessage(message)
-                                .setPositiveButton("OK", null)
-                                .show()
+                            Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
+                        } else {
+                            if (updateCheckbox) quickMapCheckbox.visibility = android.view.View.GONE
+                            Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
                         }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            AlertDialog.Builder(activity)
-                                .setMessage("Virhe testatessa: ${e.message}")
-                                .setPositiveButton("OK", null)
-                                .show()
-                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        if (updateCheckbox) quickMapCheckbox.visibility = android.view.View.GONE
+                        Toast.makeText(activity, "Virhe testatessa: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         }
-        layout.addView(testButton)
+
+        setApiKeyButton.setOnClickListener {
+            validateApiKey(apiKeyInput.text.toString())
+        }
+
+        apiKeyInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                // Automaattinen validointi poistettu, piilotetaan checkbox jos tekstiä muutetaan
+                quickMapCheckbox.visibility = android.view.View.GONE
+            }
+        })
+
+        if (currentApiKey.isNotEmpty()) {
+            validateApiKey(currentApiKey)
+        }
 
         val attributionText = TextView(activity).apply {
             text = "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
@@ -470,13 +497,20 @@ class SettingsManager(
             visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
         }
         layout.addView(attributionText)
+        layout.addView(quickMapCheckbox)
 
         radioGroup.setOnCheckedChangeListener { _, checkedId ->
             val visible = if (checkedId > 0) android.view.View.VISIBLE else android.view.View.GONE
             apiKeyLabel.visibility = visible
             apiKeyInput.visibility = visible
-            testButton.visibility = visible
+            setApiKeyButton.visibility = visible
             attributionText.visibility = visible
+            
+            if (checkedId > 0) {
+                if (apiKeyInput.text.isNotEmpty()) {
+                    validateApiKey(apiKeyInput.text.toString())
+                }
+            }
         }
 
         val dialog = AlertDialog.Builder(activity)
@@ -488,9 +522,14 @@ class SettingsManager(
                 val newSource = internalIds[selectedId]
                 val newApiKey = apiKeyInput.text.toString()
 
+                // Jos API-avain on tyhjä tai checkbox on piilotettu (validointi puuttuu)
+                // piilotetaan myös pikavalinta
+                val finalShowQuickMap = if (newApiKey.isEmpty() || quickMapCheckbox.visibility != android.view.View.VISIBLE) false else showQuickMapCurrent
+
                 prefs.edit().apply {
                     putString("map_source", newSource)
                     putString("mml_api_key", newApiKey)
+                    putBoolean("show_quick_map_source", finalShowQuickMap)
                     apply()
                 }
                 onMapSettingsChanged()

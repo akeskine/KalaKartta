@@ -262,6 +262,21 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.undoMeasurementButton).setOnClickListener {
                 undoLastMeasurementPoint()
             }
+
+            findViewById<MaterialButton>(R.id.quickMapSourceButton).setOnClickListener {
+                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
+                val currentSource = prefs.getString("map_source", "OSM")
+                val nextSource = when (currentSource) {
+                    "OSM" -> {
+                        if (currentApiKey.isNotEmpty()) "MML_MAASTO" else "OSM"
+                    }
+                    "MML_MAASTO" -> "MML_ILMA"
+                    else -> "OSM"
+                }
+                prefs.edit().putString("map_source", nextSource).apply()
+                updateMapTileSource()
+            }
             
             android.util.Log.d("KalaKartta", "before db init")
             try {
@@ -621,6 +636,8 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val showScale = prefs.getBoolean("show_scale_bar", false)
         val showMeasurement = prefs.getBoolean("show_measurement_tool", false)
+        val apiKey = prefs.getString("mml_api_key", "") ?: ""
+        val showQuickMap = prefs.getBoolean("show_quick_map_source", false) && apiKey.isNotEmpty()
         val mapSource = prefs.getString("map_source", "OSM")
         val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
         
@@ -635,6 +652,8 @@ class MainActivity : AppCompatActivity() {
                 clearMeasurement()
             }
         }
+
+        findViewById<MaterialButton>(R.id.quickMapSourceButton).visibility = if (showQuickMap) android.view.View.VISIBLE else android.view.View.GONE
 
         // Poistetaan vanha jos on
         scaleBarOverlay?.let { map.overlays.remove(it) }
@@ -723,6 +742,7 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.myLocationButton),
             findViewById<MaterialButton>(R.id.addCatchButton),
             findViewById<MaterialButton>(R.id.settingsButton),
+            findViewById<MaterialButton>(R.id.quickMapSourceButton),
             findViewById<MaterialButton>(R.id.measurementButton),
             findViewById<MaterialButton>(R.id.undoMeasurementButton)
         )
