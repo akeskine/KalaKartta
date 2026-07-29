@@ -600,7 +600,7 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putString("last_version_name", currentVersionName).apply()
             }
 
-            if (autoCenter) {
+            if (autoCenter && !isSelectionMode) {
                 locationOverlay.runOnFirstFix {
                     runOnUiThread {
                         val myLocation = locationOverlay.myLocation
@@ -1128,7 +1128,7 @@ class MainActivity : AppCompatActivity() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_ON) {
                     val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                    if (prefs.getBoolean("auto_center_on_start", true)) {
+                    if (prefs.getBoolean("auto_center_on_start", true) && !isSelectionMode) {
                         val myLocation = locationOverlay.myLocation
                         if (myLocation != null) {
                             map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
