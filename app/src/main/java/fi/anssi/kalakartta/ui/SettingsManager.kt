@@ -393,28 +393,83 @@ class SettingsManager(
         val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
         var showQuickMapCurrent = prefs.getBoolean("show_quick_map_source", false)
 
+        val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom))
+        val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
+        
+        // Luetaan yksittäisten karttapohjien pikavalinta-asetukset
+        val quickSelectEnabled = internalIds.associateWith { id ->
+            // MML-kartat vaativat validin API-avaimen oletuksena
+            val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
+            prefs.getBoolean("quick_select_$id", default)
+        }.toMutableMap()
+
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
         }
 
-        val radioGroup = RadioGroup(activity).apply {
-            val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom))
-            val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
-            
-            for (i in sources.indices) {
-                val radioButton = RadioButton(activity).apply {
-                    text = sources[i]
-                    id = i
-                    textSize = 18f
-                }
-                addView(radioButton)
-                if (currentSource == internalIds[i]) {
-                    check(i)
+        // Otsikkorivi
+        val headerLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 20)
+            weightSum = 1f
+        }
+        
+        headerLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.map_background)
+            textSize = 16f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
+        })
+        
+        headerLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.quick_select)
+            textSize = 16f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = android.view.Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.3f)
+        })
+        
+        layout.addView(headerLayout)
+
+        val radioButtons = mutableListOf<RadioButton>()
+        val checkBoxes = mutableMapOf<String, CheckBox>()
+
+        for (i in sources.indices) {
+            val id = internalIds[i]
+            val row = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                weightSum = 1f
+                setPadding(0, 10, 0, 10)
+            }
+
+            val rb = RadioButton(activity).apply {
+                text = sources[i]
+                textSize = 18f
+                isChecked = currentSource == id
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
+                setOnClickListener {
+                    radioButtons.forEach { it.isChecked = false }
+                    isChecked = true
                 }
             }
+            radioButtons.add(rb)
+            row.addView(rb)
+
+            val cb = CheckBox(activity).apply {
+                isChecked = quickSelectEnabled[id] ?: true
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.3f)
+                gravity = android.view.Gravity.CENTER
+                setOnCheckedChangeListener { _, isChecked ->
+                    quickSelectEnabled[id] = isChecked
+                }
+            }
+            checkBoxes[id] = cb
+            row.addView(cb)
+
+            layout.addView(row)
         }
-        layout.addView(radioGroup)
 
         val quickMapCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.show_quick_map_source)
@@ -431,29 +486,36 @@ class SettingsManager(
             text = "MML API-avain:"
             textSize = 16f
             setPadding(0, 30, 0, 0)
-            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
+            val initialSelectedId = internalIds.indexOf(currentSource)
+            visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
         }
         layout.addView(apiKeyLabel)
 
         val apiKeyInput = EditText(activity).apply {
             setText(currentApiKey)
             hint = "Syötä API-avain"
-            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
+            val initialSelectedId = internalIds.indexOf(currentSource)
+            visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
         }
         layout.addView(apiKeyInput)
 
         val setApiKeyButton = Button(activity).apply {
             text = activity.getString(R.string.set_api_key)
-            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
+            val initialSelectedId = internalIds.indexOf(currentSource)
+            visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
         }
         layout.addView(setApiKeyButton)
+
+        fun getSelectedId(): Int {
+            return radioButtons.indexOfFirst { it.isChecked }
+        }
 
         fun validateApiKey(apiKey: String, updateCheckbox: Boolean = true) {
             if (apiKey.isEmpty()) {
                 return
             }
 
-            val selectedId = radioGroup.checkedRadioButtonId
+            val selectedId = getSelectedId()
             val layer = if (selectedId == 2) "ortokuva" else "maastokartta"
 
             activity.lifecycleScope.launch(Dispatchers.IO) {
@@ -469,6 +531,11 @@ class SettingsManager(
                     withContext(Dispatchers.Main) {
                         if (responseCode == 200) {
                             Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
+                            // Päivitetään MML-pikavalinnat jos avain tuli validiksi
+                            if (apiKey.isNotEmpty()) {
+                                if (checkBoxes["MML_MAASTO"]?.isChecked == false && !prefs.contains("quick_select_MML_MAASTO")) checkBoxes["MML_MAASTO"]?.isChecked = true
+                                if (checkBoxes["MML_ILMA"]?.isChecked == false && !prefs.contains("quick_select_MML_ILMA")) checkBoxes["MML_ILMA"]?.isChecked = true
+                            }
                         } else {
                             Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
                         }
@@ -506,30 +573,28 @@ class SettingsManager(
             textSize = 12f
             setPadding(0, 40, 0, 0)
             alpha = 0.7f
-            visibility = if (radioGroup.checkedRadioButtonId > 0) android.view.View.VISIBLE else android.view.View.GONE
         }
         layout.addView(attributionText)
         layout.addView(quickMapCheckbox)
 
-        radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
-            val selectedSource = internalIds[checkedId]
-            
-            val mmlVisible = if (checkedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
-            apiKeyLabel.visibility = mmlVisible
-            apiKeyInput.visibility = mmlVisible
-            setApiKeyButton.visibility = mmlVisible
-            
-            attributionText.visibility = android.view.View.VISIBLE
-            attributionText.text = when (selectedSource) {
-                "TRAFICOM_SEA" -> activity.getString(R.string.traficom_attribution)
-                "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
-                else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
-            }
-            
-            if (checkedId in 1..2) {
-                if (apiKeyInput.text.isNotEmpty()) {
-                    validateApiKey(apiKeyInput.text.toString())
+        radioButtons.forEachIndexed { index, radioButton ->
+            radioButton.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    val id = internalIds[index]
+                    val mmlVisible = if (index in 1..2) android.view.View.VISIBLE else android.view.View.GONE
+                    apiKeyLabel.visibility = mmlVisible
+                    apiKeyInput.visibility = mmlVisible
+                    setApiKeyButton.visibility = mmlVisible
+                    
+                    attributionText.text = when (id) {
+                        "TRAFICOM_SEA" -> activity.getString(R.string.traficom_attribution)
+                        "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
+                        else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
+                    }
+
+                    if (index in 1..2 && apiKeyInput.text.isNotEmpty()) {
+                        validateApiKey(apiKeyInput.text.toString())
+                    }
                 }
             }
         }
@@ -538,18 +603,21 @@ class SettingsManager(
             .setTitle("Taustakartta")
             .setView(layout)
             .setPositiveButton("OK") { _, _ ->
-                val selectedId = radioGroup.checkedRadioButtonId
-                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
+                val selectedId = getSelectedId()
                 val newSource = internalIds[selectedId]
                 val newApiKey = apiKeyInput.text.toString()
-
-                // Tallenetaan pikavalinta-asetus sellaisenaan
                 val finalShowQuickMap = showQuickMapCurrent
 
                 prefs.edit().apply {
                     putString("map_source", newSource)
                     putString("mml_api_key", newApiKey)
                     putBoolean("show_quick_map_source", finalShowQuickMap)
+                    
+                    // Tallennetaan jokaisen karttapohjan pikavalinta-asetus
+                    internalIds.forEach { id ->
+                        putBoolean("quick_select_$id", quickSelectEnabled[id] ?: true)
+                    }
+                    
                     apply()
                 }
                 onMapSettingsChanged()

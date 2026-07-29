@@ -267,17 +267,24 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.quickMapSourceButton).setOnClickListener {
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                 val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
-                val currentSource = prefs.getString("map_source", "OSM")
-                val nextSource = when (currentSource) {
-                    "OSM" -> {
-                        if (currentApiKey.isNotEmpty()) "MML_MAASTO" else "TRAFICOM_SEA"
-                    }
-                    "MML_MAASTO" -> "MML_ILMA"
-                    "MML_ILMA" -> "TRAFICOM_SEA"
-                    else -> "OSM"
+                val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
+                
+                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
+                
+                // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
+                val enabledSources = internalIds.filter { id ->
+                    val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
+                    prefs.getBoolean("quick_select_$id", default)
                 }
-                prefs.edit().putString("map_source", nextSource).apply()
-                updateMapTileSource()
+                
+                if (enabledSources.isNotEmpty()) {
+                    val currentIndex = enabledSources.indexOf(currentSource)
+                    val nextIndex = (currentIndex + 1) % enabledSources.size
+                    val nextSource = enabledSources[nextIndex]
+                    
+                    prefs.edit().putString("map_source", nextSource).apply()
+                    updateMapTileSource()
+                }
             }
             
             android.util.Log.d("KalaKartta", "before db init")
