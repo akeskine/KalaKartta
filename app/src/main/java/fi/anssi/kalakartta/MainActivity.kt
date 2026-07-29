@@ -52,6 +52,7 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
+import org.osmdroid.views.overlay.TilesOverlay
 import fi.anssi.kalakartta.utils.enlargeButtons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -71,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
+    private var traficomVeneilyOverlay: TilesOverlay? = null
     
     // Mittaustyökalu
     private var measurementMarkers = mutableListOf<Marker>()
@@ -623,9 +625,22 @@ class MainActivity : AppCompatActivity() {
         val mapSource = prefs.getString("map_source", "OSM")
         val apiKey = prefs.getString("mml_api_key", "") ?: ""
 
+        // Poistetaan Traficom-lisäkerros jos sellainen on
+        traficomVeneilyOverlay?.let { 
+            map.overlays.remove(it)
+            it.onDetach(map)
+            traficomVeneilyOverlay = null
+        }
+
         when (mapSource) {
             "TRAFICOM_SEA" -> {
-                map.setTileSource(TraficomTileSource())
+                map.setTileSource(TraficomTileSource("Traficom:Merikarttasarjat public"))
+                val veneilyOverlay = TilesOverlay(
+                    org.osmdroid.tileprovider.MapTileProviderBasic(applicationContext, TraficomTileSource("Traficom:Veneilykartat public")),
+                    applicationContext
+                )
+                map.overlays.add(0, veneilyOverlay)
+                traficomVeneilyOverlay = veneilyOverlay
                 updateUIColors(true)
             }
             "MML_MAASTO" -> {
