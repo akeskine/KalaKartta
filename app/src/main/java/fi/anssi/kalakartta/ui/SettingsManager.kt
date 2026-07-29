@@ -421,7 +421,7 @@ class SettingsManager(
             isChecked = showQuickMapCurrent
             textSize = 18f
             setPadding(0, 20, 0, 40)
-            visibility = android.view.View.GONE
+            visibility = android.view.View.VISIBLE
             setOnCheckedChangeListener { _, isChecked ->
                 showQuickMapCurrent = isChecked
             }
@@ -450,7 +450,6 @@ class SettingsManager(
 
         fun validateApiKey(apiKey: String, updateCheckbox: Boolean = true) {
             if (apiKey.isEmpty()) {
-                if (updateCheckbox) quickMapCheckbox.visibility = android.view.View.GONE
                 return
             }
 
@@ -469,18 +468,13 @@ class SettingsManager(
                     val responseCode = connection.responseCode
                     withContext(Dispatchers.Main) {
                         if (responseCode == 200) {
-                            if (updateCheckbox) {
-                                quickMapCheckbox.visibility = android.view.View.VISIBLE
-                            }
                             Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
                         } else {
-                            if (updateCheckbox) quickMapCheckbox.visibility = android.view.View.GONE
                             Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        if (updateCheckbox) quickMapCheckbox.visibility = android.view.View.GONE
                         Toast.makeText(activity, "Virhe testatessa: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -495,8 +489,7 @@ class SettingsManager(
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                // Automaattinen validointi poistettu, piilotetaan checkbox jos tekstiä muutetaan
-                quickMapCheckbox.visibility = android.view.View.GONE
+                // Automaattinen validointi poistettu
             }
         })
 
@@ -538,8 +531,6 @@ class SettingsManager(
                 if (apiKeyInput.text.isNotEmpty()) {
                     validateApiKey(apiKeyInput.text.toString())
                 }
-            } else {
-                quickMapCheckbox.visibility = android.view.View.VISIBLE
             }
         }
 
@@ -552,10 +543,8 @@ class SettingsManager(
                 val newSource = internalIds[selectedId]
                 val newApiKey = apiKeyInput.text.toString()
 
-                // Jos API-avain on tyhjä tai checkbox on piilotettu (validointi puuttuu)
-                // piilotetaan myös pikavalinta (vain MML-lähteille)
-                val mmlSources = setOf("MML_MAASTO", "MML_ILMA")
-                val finalShowQuickMap = if (newSource in mmlSources && (newApiKey.isEmpty() || quickMapCheckbox.visibility != android.view.View.VISIBLE)) false else showQuickMapCurrent
+                // Tallenetaan pikavalinta-asetus sellaisenaan
+                val finalShowQuickMap = showQuickMapCurrent
 
                 prefs.edit().apply {
                     putString("map_source", newSource)
