@@ -52,7 +52,6 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
-import org.osmdroid.views.overlay.TilesOverlay
 import fi.anssi.kalakartta.utils.enlargeButtons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -72,8 +71,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
-    private var traficomVeneilyOverlay: TilesOverlay? = null
-    
+
     // Mittaustyökalu
     private var measurementMarkers = mutableListOf<Marker>()
     private var measurementPolyline: Polyline? = null
@@ -270,38 +268,38 @@ class MainActivity : AppCompatActivity() {
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                 val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
                 val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
-                
+
                 val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
-                
+
                 // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
                 val enabledSources = internalIds.filter { id ->
                     val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
                     prefs.getBoolean("quick_select_$id", default)
                 }
-                
+
                 if (enabledSources.isNotEmpty()) {
                     val currentIndex = enabledSources.indexOf(currentSource)
                     val nextIndex = (currentIndex + 1) % enabledSources.size
                     val nextSource = enabledSources[nextIndex]
-                    
+
                     prefs.edit().putString("map_source", nextSource).apply()
                     updateMapTileSource()
                 }
             }
-            
+
             android.util.Log.d("KalaKartta", "before db init")
             try {
                 db = AppDatabase.getInstance(this)
             } catch (e: Exception) {
                 android.util.Log.e("KalaKartta", "Database initialization failed", e)
                 com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
-                
+
                 AlertDialog.Builder(this)
                     .setTitle("Tietokantavirhe")
                     .setMessage("Tietokannan avaaminen epäonnistui. Tämä johtuu yleensä sovelluspäivityksen yhteydessä tapahtuneesta migraatiovirheestä.\n\nVirhe: ${e.localizedMessage}\n\nJos virhe toistuu, voit yrittää poistaa sovelluksen ja asentaa sen uudelleen (huom: tiedot katoavat).")
                     .setPositiveButton("OK", null)
                     .show()
-                
+
                 // Luodaan tyhjä in-memory tietokanta, jotta sovellus ei kaadu heti kaikkialla
                 db = androidx.room.Room.inMemoryDatabaseBuilder(
                     applicationContext,
@@ -414,11 +412,11 @@ class MainActivity : AppCompatActivity() {
             markerManager = MarkerManager(this, map, db) { marker ->
                 val fish = marker.relatedObject as? FishCatch
                 val place = marker.relatedObject as? PlaceOfInterest
-                
+
                 // Poistetaan välittömästi MarkerManagerin listoista ja kartalta,
                 // jotta onScroll/rebuildMarkers ei tuo sitä takaisin tietokantapoiston aikana.
                 markerManager.removeMarker(marker)
-                
+
                 lifecycleScope.launch {
                     val deletedId = fish?.id ?: place?.id
                     android.util.Log.d("MainActivity", "Deleting from DB: ID=$deletedId")
@@ -433,7 +431,7 @@ class MainActivity : AppCompatActivity() {
                     // Lisätään väliaikainen ilmoitus käyttäjän pyynnöstä
                     android.util.Log.d("MainActivity", "Deleted from DB")
                     android.widget.Toast.makeText(this@MainActivity, "Piste poistettu", android.widget.Toast.LENGTH_SHORT).show()
-                    
+
                     // Kun poisto on valmistunut tietokannassa, ladataan listat uudelleen.
                     // MarkerManager pitää huolen että poistettu ID ei näy väliaikanakaan.
                     reloadMarkersFromDb()
@@ -463,11 +461,11 @@ class MainActivity : AppCompatActivity() {
                             map.overlays.add(measurementCursorLine)
                         }
                         measurementCursorLine?.setPoints(listOf(measurementPoints.last(), center))
-                        
+
                         val textView = findViewById<TextView>(R.id.measurementText)
                         val lastPoint = measurementPoints.last()
                         val distanceToCenter = lastPoint.distanceToAsDouble(center)
-                        
+
                         var totalDistance = 0.0
                         for (i in 0 until measurementPoints.size - 1) {
                             totalDistance += measurementPoints[i].distanceToAsDouble(measurementPoints[i + 1])
@@ -476,7 +474,7 @@ class MainActivity : AppCompatActivity() {
 
                         val distStr = formatDistance(distanceToCenter)
                         val totalStr = formatDistance(totalDistance)
-                        
+
                         if (measurementPoints.size == 1) {
                             textView.text = "${getString(R.string.distance)} $distStr."
                         } else {
@@ -496,7 +494,7 @@ class MainActivity : AppCompatActivity() {
 
             weatherService = WeatherService(this)
 
-            catchManager = CatchManager(this, map, db, weatherService, 
+            catchManager = CatchManager(this, map, db, weatherService,
                 onCatchAdded = { fish ->
                     markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
                 },
@@ -529,7 +527,7 @@ class MainActivity : AppCompatActivity() {
                 findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.GONE
                 findViewById<android.view.View>(R.id.settingsButton).visibility = android.view.View.GONE
                 findViewById<android.view.View>(R.id.mapCrosshair).visibility = android.view.View.GONE
-                
+
                 findViewById<android.widget.Button>(R.id.cancelSelectionButton).setOnClickListener {
                     setResult(RESULT_CANCELED)
                     finish()
@@ -548,7 +546,7 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val bitmap = android.graphics.Bitmap.createBitmap(map.width, map.height, android.graphics.Bitmap.Config.ARGB_8888)
                         val canvas = android.graphics.Canvas(bitmap)
-                        
+
                         // Piilotetaan mittaustyökalu kuvakaappauksen ajaksi
                         val mLayout = findViewById<LinearLayout>(R.id.measurementLayout)
                         val mButton = findViewById<MaterialButton>(R.id.measurementButton)
@@ -556,9 +554,9 @@ class MainActivity : AppCompatActivity() {
                         val oldButtonVis = mButton.visibility
                         mLayout.visibility = android.view.View.GONE
                         mButton.visibility = android.view.View.GONE
-                        
+
                         map.draw(canvas)
-                        
+
                         mLayout.visibility = oldLayoutVis
                         mButton.visibility = oldButtonVis
 
@@ -625,22 +623,9 @@ class MainActivity : AppCompatActivity() {
         val mapSource = prefs.getString("map_source", "OSM")
         val apiKey = prefs.getString("mml_api_key", "") ?: ""
 
-        // Poistetaan Traficom-lisäkerros jos sellainen on
-        traficomVeneilyOverlay?.let { 
-            map.overlays.remove(it)
-            it.onDetach(map)
-            traficomVeneilyOverlay = null
-        }
-
         when (mapSource) {
             "TRAFICOM_SEA" -> {
-                map.setTileSource(TraficomTileSource("Traficom:Merikarttasarjat public"))
-                val veneilyOverlay = TilesOverlay(
-                    org.osmdroid.tileprovider.MapTileProviderBasic(applicationContext, TraficomTileSource("Traficom:Veneilykartat public")),
-                    applicationContext
-                )
-                map.overlays.add(0, veneilyOverlay)
-                traficomVeneilyOverlay = veneilyOverlay
+                map.setTileSource(TraficomTileSource())
                 updateUIColors(true)
             }
             "MML_MAASTO" -> {
@@ -668,7 +653,7 @@ class MainActivity : AppCompatActivity() {
         val showQuickMap = prefs.getBoolean("show_quick_map_source", false)
         val mapSource = prefs.getString("map_source", "OSM")
         val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA"
-        
+
         val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
         if (showMeasurement) {
             measurementButton.visibility = android.view.View.VISIBLE
@@ -685,7 +670,7 @@ class MainActivity : AppCompatActivity() {
 
         // Poistetaan vanha jos on
         scaleBarOverlay?.let { map.overlays.remove(it) }
-        
+
         if (showScale) {
             val density = resources.displayMetrics.density
             val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
@@ -702,7 +687,7 @@ class MainActivity : AppCompatActivity() {
                 override fun draw(canvas: android.graphics.Canvas, mapView: MapView, shadow: Boolean) {
                     if (shadow) return
 
-                    // Pakotetaan pituus heijastuksella juuri ennen piirtoa, 
+                    // Pakotetaan pituus heijastuksella juuri ennen piirtoa,
                     // jos osmdroid yrittää laskea sen uudelleen
                     try {
                         val fields = listOf("mLineWidth", "lineWidth", "mMinWidth", "minWidth", "mMaxWidth", "maxWidth")
@@ -719,14 +704,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }.apply {
                 setAlignBottom(true)
-                
+
                 // yOffset mitataan pohjasta ylöspäin (koska setAlignBottom(true)).
-                val yOffset = buttonMargin - (22 * density).toInt() 
+                val yOffset = buttonMargin - (22 * density).toInt()
                 val xOffset = 60
                 setScaleBarOffset(xOffset, yOffset)
-                
+
                 setTextSize(density * 12)
-                
+
                 // Asetetaan värit
                 barPaint.color = color
                 textPaint.color = color
@@ -736,13 +721,13 @@ class MainActivity : AppCompatActivity() {
         } else {
             scaleBarOverlay = null
         }
-        
+
         // Nappien paikka ei enää muutu mittakaavan mukaan
         val myLocationButton = findViewById<MaterialButton>(R.id.myLocationButton)
         val addCatchButton = findViewById<MaterialButton>(R.id.addCatchButton)
-        
+
         val baseMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
-        
+
         val myLocParams = myLocationButton.layoutParams as FrameLayout.LayoutParams
         myLocParams.bottomMargin = baseMargin
         myLocationButton.layoutParams = myLocParams
@@ -750,7 +735,7 @@ class MainActivity : AppCompatActivity() {
         val addCatchParams = addCatchButton.layoutParams as FrameLayout.LayoutParams
         addCatchParams.bottomMargin = baseMargin
         addCatchButton.layoutParams = addCatchParams
-        
+
         myLocationButton.requestLayout()
         addCatchButton.requestLayout()
         updateDefaultFishermanUI()
@@ -789,7 +774,7 @@ class MainActivity : AppCompatActivity() {
         val catches = db.fishCatchDao().getAll()
         val filteredCatches = filterManager.applyFilter(catches)
         markerManager.setAllCatches(filteredCatches)
-        
+
         val places = db.placeOfInterestDao().getAll()
         val filteredPlaces = filterManager.applyPlaceFilter(places)
         markerManager.setAllPlaces(filteredPlaces)
@@ -799,12 +784,12 @@ class MainActivity : AppCompatActivity() {
         val layout = findViewById<android.view.View>(R.id.filterStatusLayout)
         val text = findViewById<android.widget.TextView>(R.id.filterStatusText)
         val windView = findViewById<WindDirectionView>(R.id.filterWindView)
-        
+
         val filters = filterManager.getFilters()
         if (filterManager.hasActiveFilters()) {
             layout.visibility = android.view.View.VISIBLE
             text.text = filterManager.getFilterDescription()
-            
+
             if (filters.windMin != null && filters.windMax != null) {
                 windView.visibility = android.view.View.VISIBLE
                 windView.setRange(filters.windMin, filters.windMax)
@@ -870,7 +855,7 @@ class MainActivity : AppCompatActivity() {
             val fisherman = formatName(rawFisherman)
             textView.visibility = android.view.View.VISIBLE
             textView.text = fisherman
-            
+
             val mapSource = prefs.getString("map_source", "OSM")
             val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
             val color = if (useBlack) {
@@ -884,7 +869,7 @@ class MainActivity : AppCompatActivity() {
             val density = resources.displayMetrics.density
             val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
             val yOffset = buttonMargin - (22 * density).toInt()
-            
+
             val params = textView.layoutParams as FrameLayout.LayoutParams
             params.bottomMargin = yOffset
             textView.layoutParams = params
@@ -897,7 +882,7 @@ class MainActivity : AppCompatActivity() {
         if (force) {
             weatherCheckDone = false
         }
-        
+
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val isEnabled = prefs.getBoolean("weather_enabled", true)
         if (!isEnabled) return
@@ -943,27 +928,27 @@ class MainActivity : AppCompatActivity() {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        
+
         // Piirretään pallo (nuppineulan pää)
-        // Nuppi halkaisijaltaan puolet nykyisestä -> säde puoleen. 
+        // Nuppi halkaisijaltaan puolet nykyisestä -> säde puoleen.
         // Aiemmin säde oli size/4f, nyt size/8f.
         paint.color = color
         canvas.drawCircle(size / 2f, size / 4f, size / 8f, paint)
-        
+
         // Piirretään neula
         // Pidennä nuppineulan vartta 30 %.
         // Aiemmin pituus oli (size * 0.9f) - (size / 3f + size / 4f) = 0.9 - 0.583 = 0.317 size
         // Uusi pituus: 0.317 * 1.3 = 0.412 size.
-        // Uusi loppupiste: 0.25 (alku) + 0.125 (nupin säde) + 0.412 = 0.787 size? 
+        // Uusi loppupiste: 0.25 (alku) + 0.125 (nupin säde) + 0.412 = 0.787 size?
         // Itse asiassa helpompi:
         val startY = size / 4f + size / 8f
         val originalLength = size * 0.9f - (size / 3f + size / 4f)
         val newLength = originalLength * 1.3f
         val endY = startY + newLength
-        
+
         paint.strokeWidth = size / 10f
         canvas.drawLine(size / 2f, startY, size / 2f, endY, paint)
-        
+
         return bitmap
     }
 
@@ -989,7 +974,7 @@ class MainActivity : AppCompatActivity() {
             // Luodaan punainen nuppineula koodilla
             val bitmap = createMeasurementPinBitmap(Color.RED)
             icon = BitmapDrawable(resources, bitmap)
-            
+
             // Lasketaan ankkuri uudelleen pidentyneen varren mukaan
             val size = (32 * resources.displayMetrics.density).toInt()
             val startY = size / 4f + size / 8f
@@ -997,7 +982,7 @@ class MainActivity : AppCompatActivity() {
             val newLength = originalLength * 1.3f
             val endY = startY + newLength
             setAnchor(Marker.ANCHOR_CENTER, endY / size.toFloat())
-            
+
             // Estetään infoikkunan aukeaminen
             setOnMarkerClickListener { _, _ -> true }
         }
@@ -1046,21 +1031,21 @@ class MainActivity : AppCompatActivity() {
     private fun updateMeasurementUI() {
         val layout = findViewById<LinearLayout>(R.id.measurementLayout)
         val textView = findViewById<TextView>(R.id.measurementText)
-        
+
         if (measurementPoints.isEmpty()) {
             layout.visibility = android.view.View.GONE
             return
         }
 
         layout.visibility = android.view.View.VISIBLE
-        
+
         if (measurementPoints.size == 1) {
             textView.text = getString(R.string.measurement_start_hint)
         } else {
             val lastPoint = measurementPoints.last()
             val secondLastPoint = measurementPoints[measurementPoints.size - 2]
             val distanceToLast = secondLastPoint.distanceToAsDouble(lastPoint)
-            
+
             var totalDistance = 0.0
             for (i in 0 until measurementPoints.size - 1) {
                 totalDistance += measurementPoints[i].distanceToAsDouble(measurementPoints[i + 1])
@@ -1068,13 +1053,13 @@ class MainActivity : AppCompatActivity() {
 
             val distStr = formatDistance(distanceToLast)
             val totalStr = formatDistance(totalDistance)
-            
+
             if (measurementPoints.size == 2) {
                 textView.text = "${getString(R.string.distance)} $distStr."
             } else {
                 textView.text = "${getString(R.string.distance)} $distStr, ${getString(R.string.route)} $totalStr"
             }
-            
+
             android.widget.Toast.makeText(this, getString(R.string.measurement_next_hint), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
@@ -1194,8 +1179,8 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
             false
         }
-        
-        findViewById<MaterialButton>(R.id.myLocationButton).visibility = 
+
+        findViewById<MaterialButton>(R.id.myLocationButton).visibility =
             if (hasPermission && (isGpsEnabled || isNetworkEnabled)) android.view.View.VISIBLE else android.view.View.GONE
     }
 
@@ -1213,7 +1198,7 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
             val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
-            
+
             if (requestCode == 1001 && catchId != -1L) {
                 // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
                 val fish = db.fishCatchDao().getById(catchId)
