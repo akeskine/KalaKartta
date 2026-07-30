@@ -110,6 +110,7 @@
     <string name="show_quick_map_source">Näytä karttapohjan pikavalinta</string>
     <string name="set_api_key">Aseta API-avain</string>
     <string name="map_source_traficom">Traficom merikartta</string>
+    <string name="map_source_traficom_boating">Traficom veneilykartta</string>
     <string name="traficom_attribution">Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön. Ei täytä asianmukaisen merikartan vaatimuksia. Lisenssi: CC BY 4.0 / Traficomin merikartoitusaineiston lisenssi.</string>
     <string name="quick_select">Pikavalinta</string>
     <string name="map_background">Karttapohja</string>

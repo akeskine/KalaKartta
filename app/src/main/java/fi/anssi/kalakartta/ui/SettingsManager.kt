@@ -378,8 +378,8 @@ class SettingsManager(
         val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
         var showQuickMapCurrent = prefs.getBoolean("show_quick_map_source", false)
 
-        val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom))
-        val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
+        val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom), activity.getString(R.string.map_source_traficom_boating))
+        val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
         
         // Luetaan yksittäisten karttapohjien pikavalinta-asetukset
         val quickSelectEnabled = internalIds.associateWith { id ->
@@ -551,7 +551,7 @@ class SettingsManager(
 
         val attributionText = TextView(activity).apply {
             text = when (currentSource) {
-                "TRAFICOM_SEA" -> activity.getString(R.string.traficom_attribution)
+                "TRAFICOM_SEA", "TRAFICOM_BOATING" -> activity.getString(R.string.traficom_attribution)
                 "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
                 else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
             }
@@ -572,7 +572,7 @@ class SettingsManager(
                     setApiKeyButton.visibility = mmlVisible
                     
                     attributionText.text = when (id) {
-                        "TRAFICOM_SEA" -> activity.getString(R.string.traficom_attribution)
+                        "TRAFICOM_SEA", "TRAFICOM_BOATING" -> activity.getString(R.string.traficom_attribution)
                         "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
                         else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
                     }

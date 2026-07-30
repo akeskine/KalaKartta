@@ -48,6 +48,7 @@ import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.MMLTileSource
 import fi.anssi.kalakartta.utils.TraficomTileSource
+import fi.anssi.kalakartta.utils.VeneilykarttaTileSource
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -269,7 +270,7 @@ class MainActivity : AppCompatActivity() {
                 val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
                 val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
 
-                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA")
+                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
 
                 // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
                 val enabledSources = internalIds.filter { id ->
@@ -628,6 +629,10 @@ class MainActivity : AppCompatActivity() {
                 map.setTileSource(TraficomTileSource())
                 updateUIColors(true)
             }
+            "TRAFICOM_BOATING" -> {
+                map.setTileSource(VeneilykarttaTileSource())
+                updateUIColors(true)
+            }
             "MML_MAASTO" -> {
                 map.setTileSource(MMLTileSource("MML Maastokartta", "maastokartta", apiKey))
                 updateUIColors(true)
@@ -652,7 +657,7 @@ class MainActivity : AppCompatActivity() {
         val apiKey = prefs.getString("mml_api_key", "") ?: ""
         val showQuickMap = prefs.getBoolean("show_quick_map_source", false)
         val mapSource = prefs.getString("map_source", "OSM")
-        val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA"
+        val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA" || mapSource == "TRAFICOM_BOATING"
 
         val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
         if (showMeasurement) {
