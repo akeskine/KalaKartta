@@ -145,7 +145,7 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="@dimen/side_margin"
         android:layout_marginBottom="@dimen/button_margin_bottom"
-        android:contentDescription="@string/add_catch"
+        android:contentDescription="@string/add_catch_short"
         android:insetLeft="0dp"
         android:insetTop="0dp"
         android:insetRight="0dp"

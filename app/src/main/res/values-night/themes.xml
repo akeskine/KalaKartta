@@ -2,7 +2,8 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.KalaKartta" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">#BB86FC</item>
+        <item name="colorOnPrimary">#000000</item>
         <item name="editTextStyle">@style/Widget.AppCompat.EditText</item>
         <item name="android:spinnerStyle">@style/Widget.AppCompat.Spinner</item>
     </style>
