@@ -27,6 +27,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.*
 
+import android.text.format.DateFormat
+import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.Locale
+
 class SettingsManager(
     private val activity: AppCompatActivity,
     private val db: AppDatabase,
@@ -879,6 +884,56 @@ class SettingsManager(
         }
 
         if (!isRecording) {
+            var dialog: AlertDialog? = null
+
+            val visibleSessionId = mainActivity?.getVisibleArchivedSessionId() ?: -1L
+            if (visibleSessionId != -1L) {
+                val visibleInfoLabel = TextView(activity).apply {
+                    textSize = 14f
+                    setPadding(0, 0, 0, 10)
+                }
+                layout.addView(visibleInfoLabel)
+
+                val hideSessionButton = MaterialButton(activity).apply {
+                    text = "Piilota näkyvä sessio"
+                    val params = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    params.setMargins(0, 0, 0, 30)
+                    layoutParams = params
+                    setOnClickListener {
+                        mainActivity?.hideArchivedSession()
+                        dialog?.dismiss()
+                        openFishingSessionSettings()
+                    }
+                }
+                layout.addView(hideSessionButton)
+
+                activity.lifecycleScope.launch(Dispatchers.IO) {
+                    val session = db.fishingSessionDao().getById(visibleSessionId)
+                    if (session != null) {
+                        val sdfDate = SimpleDateFormat("d.M.yyyy", Locale.getDefault())
+                        val sdfTime = SimpleDateFormat("H:mm", Locale.getDefault())
+                        val startStr = sdfTime.format(Date(session.startedAt))
+                        val endStr = session.endedAt?.let { sdfTime.format(Date(it)) } ?: "?"
+                        
+                        val startDay = sdfDate.format(Date(session.startedAt))
+                        val endDay = session.endedAt?.let { sdfDate.format(Date(it)) } ?: startDay
+
+                        val infoText = if (startDay == endDay) {
+                            "Näkyvä kalastussessio $startDay $startStr - $endStr"
+                        } else {
+                            "Näkyvä kalastussessio $startDay $startStr - $endDay $endStr"
+                        }
+
+                        withContext(Dispatchers.Main) {
+                            visibleInfoLabel.text = infoText
+                        }
+                    }
+                }
+            }
+
             val fetchButton = MaterialButton(activity).apply {
                 text = "Hae kalastussessiot"
                 val params = LinearLayout.LayoutParams(
@@ -919,8 +974,6 @@ class SettingsManager(
             }
             layout.addView(statusText)
 
-            var dialog: AlertDialog? = null
-            
             val startButton = MaterialButton(activity).apply {
                 text = "Aloita tallennus"
                 val params = LinearLayout.LayoutParams(

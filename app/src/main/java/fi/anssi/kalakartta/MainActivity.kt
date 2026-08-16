@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
     private var isBound = false
     private var sessionPolyline: Polyline? = null
     private var archivedSessionPolyline: Polyline? = null
+    private var visibleArchivedSessionId: Long = -1L
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
     private val recordingBlinkRunnable = object : Runnable {
@@ -119,8 +120,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showArchivedSessionOnMap(sessionId: Long) {
         lifecycleScope.launch(Dispatchers.IO) {
+            val session = db.fishingSessionDao().getById(sessionId)
             val points = db.trackPointDao().getPointsForSession(sessionId)
-            if (points.isNotEmpty()) {
+            if (points.isNotEmpty() && session != null) {
                 withContext(Dispatchers.Main) {
                     if (archivedSessionPolyline != null) {
                         map.overlays.remove(archivedSessionPolyline)
@@ -132,6 +134,7 @@ class MainActivity : AppCompatActivity() {
                     val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
                     archivedSessionPolyline?.setPoints(geoPoints)
                     map.overlays.add(archivedSessionPolyline)
+                    visibleArchivedSessionId = sessionId
                     
                     // Zoomataan session alkuun
                     map.controller.animateTo(geoPoints[0], 15.0, 500L)
@@ -140,6 +143,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    fun hideArchivedSession() {
+        if (archivedSessionPolyline != null) {
+            map.overlays.remove(archivedSessionPolyline)
+            archivedSessionPolyline = null
+            visibleArchivedSessionId = -1L
+            map.invalidate()
+        }
+    }
+
+    fun getVisibleArchivedSessionId(): Long = visibleArchivedSessionId
 
     private val sessionEndedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -1081,11 +1095,7 @@ class MainActivity : AppCompatActivity() {
 
     fun startFishingSession(interval: Int) {
         // Poistetaan vanha arkistoitu reitti jos sellainen on näkyvissä
-        if (archivedSessionPolyline != null) {
-            map.overlays.remove(archivedSessionPolyline)
-            archivedSessionPolyline = null
-            map.invalidate()
-        }
+        hideArchivedSession()
 
         val intent = Intent(this, FishingSessionService::class.java).apply {
             putExtra("INTERVAL", interval)
