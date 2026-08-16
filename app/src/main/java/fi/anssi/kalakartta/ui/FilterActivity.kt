@@ -72,6 +72,12 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var areaThumbnailContainer: View
     private lateinit var areaThumbnail: ImageView
     private lateinit var clearAreaButton: ImageButton
+    private lateinit var weightMinEdit: EditText
+    private lateinit var weightMaxEdit: EditText
+    private lateinit var lengthMinEdit: EditText
+    private lateinit var lengthMaxEdit: EditText
+    private lateinit var operatorAndRadio: RadioButton
+    private lateinit var operatorOrRadio: RadioButton
 
     private val dateOnlyFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
     private val timeOnlyFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -254,11 +260,16 @@ class FilterActivity : AppCompatActivity() {
         onlyFishPointsCheckBox = findViewById(R.id.onlyFishPointsCheckBox)
         onlyNonFishPointsCheckBox = findViewById(R.id.onlyNonFishPointsCheckBox)
         clearFiltersButton = findViewById(R.id.clearFiltersButton)
-
         selectAreaButton = findViewById(R.id.selectAreaButton)
         areaThumbnailContainer = findViewById(R.id.areaThumbnailContainer)
         areaThumbnail = findViewById(R.id.areaThumbnail)
         clearAreaButton = findViewById(R.id.clearAreaButton)
+        weightMinEdit = findViewById(R.id.weightMinEdit)
+        weightMaxEdit = findViewById(R.id.weightMaxEdit)
+        lengthMinEdit = findViewById(R.id.lengthMinEdit)
+        lengthMaxEdit = findViewById(R.id.lengthMaxEdit)
+        operatorAndRadio = findViewById(R.id.operatorAndRadio)
+        operatorOrRadio = findViewById(R.id.operatorOrRadio)
     }
 
     private fun loadFilters() {
@@ -332,6 +343,16 @@ class FilterActivity : AppCompatActivity() {
         onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
         onlyFishPointsCheckBox.isChecked = currentFilters.onlyFishPoints
         onlyNonFishPointsCheckBox.isChecked = currentFilters.onlyNonFishPoints
+
+        weightMinEdit.setText(currentFilters.weightMin?.toString() ?: "")
+        weightMaxEdit.setText(currentFilters.weightMax?.toString() ?: "")
+        lengthMinEdit.setText(currentFilters.lengthMin?.toString() ?: "")
+        lengthMaxEdit.setText(currentFilters.lengthMax?.toString() ?: "")
+        if (currentFilters.weightLengthOperator == "AND") {
+            operatorAndRadio.isChecked = true
+        } else {
+            operatorOrRadio.isChecked = true
+        }
 
         if (currentFilters.latNorth != null) {
             areaThumbnailContainer.visibility = View.VISIBLE
@@ -577,6 +598,11 @@ class FilterActivity : AppCompatActivity() {
             onlyCaughtFishCheckBox.isChecked = false
             onlyFishPointsCheckBox.isChecked = false
             onlyNonFishPointsCheckBox.isChecked = false
+            weightMinEdit.setText("")
+            weightMaxEdit.setText("")
+            lengthMinEdit.setText("")
+            lengthMaxEdit.setText("")
+            operatorOrRadio.isChecked = true
             areaThumbnailContainer.visibility = View.GONE
             val thumbFile = File(cacheDir, "area_thumb.jpg")
             if (thumbFile.exists()) thumbFile.delete()
@@ -671,6 +697,11 @@ class FilterActivity : AppCompatActivity() {
         val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
+        val weightMin = weightMinEdit.text.toString().toLongOrNull()
+        val weightMax = weightMaxEdit.text.toString().toLongOrNull()
+        val lengthMin = lengthMinEdit.text.toString().toLongOrNull()
+        val lengthMax = lengthMaxEdit.text.toString().toLongOrNull()
+        val weightLengthOperator = if (operatorAndRadio.isChecked) "AND" else "OR"
 
         // Päivitetään startDate ja endDate kellonaikojen perusteella ennen tallennusta
         var startTs = currentFilters.startDate
@@ -721,7 +752,12 @@ class FilterActivity : AppCompatActivity() {
             pressureMin = pressureMin,
             pressureMax = pressureMax,
             waterTempMin = waterTempMin,
-            waterTempMax = waterTempMax
+            waterTempMax = waterTempMax,
+            weightMin = weightMin,
+            weightMax = weightMax,
+            lengthMin = lengthMin,
+            lengthMax = lengthMax,
+            weightLengthOperator = weightLengthOperator
         )
         filterManager.saveFilters(currentFilters)
     }

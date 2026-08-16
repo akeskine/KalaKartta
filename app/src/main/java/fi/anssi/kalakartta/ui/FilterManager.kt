@@ -40,7 +40,12 @@ class FilterManager(private val context: Context) {
         val latNorth: Double? = null,
         val latSouth: Double? = null,
         val lonEast: Double? = null,
-        val lonWest: Double? = null
+        val lonWest: Double? = null,
+        val weightMin: Long? = null,
+        val weightMax: Long? = null,
+        val lengthMin: Long? = null,
+        val lengthMax: Long? = null,
+        val weightLengthOperator: String = "OR" // "AND" tai "OR"
     )
 
     fun getFilters(): Filters {
@@ -72,6 +77,11 @@ class FilterManager(private val context: Context) {
         val latSouth = if (prefs.contains("latSouth")) prefs.getFloat("latSouth", 0f).toDouble() else null
         val lonEast = if (prefs.contains("lonEast")) prefs.getFloat("lonEast", 0f).toDouble() else null
         val lonWest = if (prefs.contains("lonWest")) prefs.getFloat("lonWest", 0f).toDouble() else null
+        val weightMin = if (prefs.contains("weightMin")) prefs.getLong("weightMin", 0) else null
+        val weightMax = if (prefs.contains("weightMax")) prefs.getLong("weightMax", 0) else null
+        val lengthMin = if (prefs.contains("lengthMin")) prefs.getLong("lengthMin", 0) else null
+        val lengthMax = if (prefs.contains("lengthMax")) prefs.getLong("lengthMax", 0) else null
+        val weightLengthOperator = prefs.getString("weightLengthOperator", "OR") ?: "OR"
 
         return Filters(
             startDate, endDate,
@@ -83,7 +93,8 @@ class FilterManager(private val context: Context) {
             pressureMin, pressureMax,
             waterTempMin, waterTempMax,
             speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints, onlyNonFishPoints,
-            latNorth, latSouth, lonEast, lonWest
+            latNorth, latSouth, lonEast, lonWest,
+            weightMin, weightMax, lengthMin, lengthMax, weightLengthOperator
         )
     }
 
@@ -117,6 +128,11 @@ class FilterManager(private val context: Context) {
             if (filters.latSouth != null) putFloat("latSouth", filters.latSouth.toFloat()) else remove("latSouth")
             if (filters.lonEast != null) putFloat("lonEast", filters.lonEast.toFloat()) else remove("lonEast")
             if (filters.lonWest != null) putFloat("lonWest", filters.lonWest.toFloat()) else remove("lonWest")
+            if (filters.weightMin != null) putLong("weightMin", filters.weightMin) else remove("weightMin")
+            if (filters.weightMax != null) putLong("weightMax", filters.weightMax) else remove("weightMax")
+            if (filters.lengthMin != null) putLong("lengthMin", filters.lengthMin) else remove("lengthMin")
+            if (filters.lengthMax != null) putLong("lengthMax", filters.lengthMax) else remove("lengthMax")
+            putString("weightLengthOperator", filters.weightLengthOperator)
             apply()
         }
     }
@@ -255,6 +271,31 @@ class FilterManager(private val context: Context) {
                     fish.longitude < f.lonWest || fish.longitude > f.lonEast) return@filter false
             }
 
+            // Weight and Length
+            val weightOk = (f.weightMin == null || (fish.weight ?: 0L) >= f.weightMin) &&
+                          (f.weightMax == null || (fish.weight ?: 0L) <= f.weightMax)
+            val lengthOk = (f.lengthMin == null || (fish.length ?: 0L) >= f.lengthMin) &&
+                          (f.lengthMax == null || (fish.length ?: 0L) <= f.lengthMax)
+            
+            val hasWeightFilter = f.weightMin != null || f.weightMax != null
+            val hasLengthFilter = f.lengthMin != null || f.lengthMax != null
+
+            if (hasWeightFilter || hasLengthFilter) {
+                if (f.weightLengthOperator == "AND") {
+                    if (!(weightOk && lengthOk)) return@filter false
+                } else {
+                    // OR logic: matches if it passes weight filter OR length filter
+                    // Note: if only one filter is set, it behaves as single filter
+                    if (hasWeightFilter && hasLengthFilter) {
+                        if (!(weightOk || lengthOk)) return@filter false
+                    } else if (hasWeightFilter) {
+                        if (!weightOk) return@filter false
+                    } else if (hasLengthFilter) {
+                        if (!lengthOk) return@filter false
+                    }
+                }
+            }
+
             true
         }
     }
@@ -384,6 +425,26 @@ class FilterManager(private val context: Context) {
                 parts.add("vesi $min C")
             } else {
                 parts.add("vesi $min-$max C")
+            }
+        }
+
+        if (f.weightMin != null || f.weightMax != null) {
+            val min = f.weightMin?.toString() ?: "..."
+            val max = f.weightMax?.toString() ?: "..."
+            if (min == max && min != "...") {
+                parts.add("paino $min g")
+            } else {
+                parts.add("paino $min-$max g")
+            }
+        }
+
+        if (f.lengthMin != null || f.lengthMax != null) {
+            val min = f.lengthMin?.toString() ?: "..."
+            val max = f.lengthMax?.toString() ?: "..."
+            if (min == max && min != "...") {
+                parts.add("pituus $min cm")
+            } else {
+                parts.add("pituus $min-$max cm")
             }
         }
 

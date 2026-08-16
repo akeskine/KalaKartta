@@ -67,6 +67,12 @@
     <string name="water_temp_c">Veden lämpötila (C)</string>
     <string name="min_temp">Min (C)</string>
     <string name="max_temp">Max (C)</string>
+    <string name="min_weight">Min paino (g)</string>
+    <string name="max_weight">Max paino (g)</string>
+    <string name="min_length">Min pituus (cm)</string>
+    <string name="max_length">Max pituus (cm)</string>
+    <string name="filter_and">JA</string>
+    <string name="filter_or">TAI</string>
     <string name="add_other">Muu paikka</string>
     <string name="place_name">Paikan nimi</string>
     <string name="general_settings">Yleiset</string>
