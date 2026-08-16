@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class FishingSession(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val startedAt: Long,
-    val endedAt: Long? = null
+    val endedAt: Long? = null,
+    val notes: String = ""
 )

@@ -11,6 +11,7 @@ import android.text.style.URLSpan
 import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
 import android.widget.*
+import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.BuildConfig
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -90,10 +91,7 @@ class SettingsManager(
                     .setItems(arrayOf("Taustakartta", "Kalastussession tallennus", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
                             0 -> openMapSettings()
-                            1 -> {
-                                // TODO: Kalastussession tallennus
-                                Toast.makeText(activity, "Kalastussession tallennus tulossa pian", Toast.LENGTH_SHORT).show()
-                            }
+                            1 -> openFishingSessionSettings()
                             2 -> openFilterSettings()
                             3 -> openSummary()
                             4 -> openDataTransferSettings(
@@ -840,6 +838,105 @@ class SettingsManager(
                     .show()
                 dialog.enlargeButtons()
             }
+        }
+    }
+
+    private fun openFishingSessionSettings() {
+        val mainActivity = activity as? fi.anssi.kalakartta.MainActivity
+        val fishingService = mainActivity?.getFishingService()
+        val isRecording = fishingService?.isRecording() ?: false
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        if (!isRecording) {
+            val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+            val interval = prefs.getInt("track_point_interval", 30)
+
+            val label = TextView(activity).apply {
+                text = "Kalastussession tallennusväli"
+                textSize = 16f
+                setPadding(0, 0, 0, 20)
+            }
+            layout.addView(label)
+
+            val input = EditText(activity).apply {
+                setText(interval.toString())
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                hint = "Sekuntia (esim. 30)"
+            }
+            layout.addView(input)
+
+            var dialog: AlertDialog? = null
+            
+            val startButton = MaterialButton(activity).apply {
+                text = "Aloita tallennus"
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                params.setMargins(0, 20, 0, 10)
+                layoutParams = params
+                setOnClickListener {
+                    val newInterval = input.text.toString().toIntOrNull() ?: 30
+                    prefs.edit().putInt("track_point_interval", newInterval).apply()
+                    mainActivity?.startFishingSession(newInterval)
+                    dialog?.dismiss()
+                }
+            }
+            layout.addView(startButton)
+
+            dialog = AlertDialog.Builder(activity)
+                .setTitle("Kalastussession tallennus")
+                .setView(layout)
+                .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+                .show()
+            dialog.enlargeButtons()
+        } else {
+            val startedAt = fishingService?.getStartedAt() ?: 0L
+            val duration = System.currentTimeMillis() - startedAt
+            val hours = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(duration)
+            val minutes = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(duration) % 60
+            val seconds = java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds(duration) % 60
+            
+            val durationStr = if (hours > 0) "${hours} h ${minutes} min ${seconds} s" else "${minutes} min ${seconds} s"
+            val distance = fishingService?.getTotalDistance() ?: 0.0
+            val distanceStr = String.format("%.1f km", distance / 1000.0).replace(".", ",")
+            val interval = fishingService?.getIntervalSeconds() ?: 30
+            val pointCount = fishingService?.getCurrentTrackPoints()?.size ?: 0
+
+            val infoText = TextView(activity).apply {
+                text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} s."
+                textSize = 16f
+                setPadding(0, 0, 0, 40)
+            }
+            layout.addView(infoText)
+
+            var dialog: AlertDialog? = null
+            
+            val stopButton = MaterialButton(activity).apply {
+                text = "Lopeta tallennus"
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                params.setMargins(0, 20, 0, 10)
+                layoutParams = params
+                setOnClickListener {
+                    mainActivity?.stopFishingSession()
+                    dialog?.dismiss()
+                }
+            }
+            layout.addView(stopButton)
+
+            dialog = AlertDialog.Builder(activity)
+                .setTitle("Kalastussession tallennus")
+                .setView(layout)
+                .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+                .show()
+            dialog.enlargeButtons()
         }
     }
 

@@ -49,6 +49,7 @@ import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.MMLTileSource
 import fi.anssi.kalakartta.utils.TraficomTileSource
 import fi.anssi.kalakartta.utils.VeneilykarttaTileSource
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -57,6 +58,10 @@ import fi.anssi.kalakartta.utils.enlargeButtons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+import fi.anssi.kalakartta.service.FishingSessionService
+import android.content.ServiceConnection
+import android.os.IBinder
 
 class MainActivity : AppCompatActivity() {
 
@@ -72,6 +77,71 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
+
+    // Kalastussessio
+    private var fishingService: FishingSessionService? = null
+    private var isBound = false
+    private var sessionPolyline: Polyline? = null
+    private val recordingHandler = Handler(Looper.getMainLooper())
+    private var recordingDotVisible = true
+    private val recordingBlinkRunnable = object : Runnable {
+        override fun run() {
+            val dot = findViewById<android.view.View>(R.id.recordingDot)
+            if (dot != null) {
+                recordingDotVisible = !recordingDotVisible
+                dot.visibility = if (recordingDotVisible) android.view.View.VISIBLE else android.view.View.INVISIBLE
+            }
+            updateSessionLine()
+            recordingHandler.postDelayed(this, 1000)
+        }
+    }
+
+    private fun updateSessionLine() {
+        val points = fishingService?.getCurrentTrackPoints()
+        if (points != null && points.isNotEmpty()) {
+            if (sessionPolyline == null) {
+                sessionPolyline = Polyline(map).apply {
+                    outlinePaint.color = Color.GREEN
+                    outlinePaint.strokeWidth = 8f
+                }
+                map.overlays.add(sessionPolyline)
+            }
+            val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
+            sessionPolyline?.setPoints(geoPoints)
+            map.invalidate()
+        } else if (sessionPolyline != null) {
+            map.overlays.remove(sessionPolyline)
+            sessionPolyline = null
+            map.invalidate()
+        }
+    }
+
+    private val sessionEndedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "fi.anssi.kalakartta.SESSION_ENDED") {
+                val sessionId = intent.getLongExtra("SESSION_ID", -1L)
+                updateRecordingStatusUI()
+                if (sessionId != -1L) {
+                    showSessionNotesDialog(sessionId)
+                }
+            }
+        }
+    }
+
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(className: android.content.ComponentName, service: IBinder) {
+            val binder = service as FishingSessionService.LocalBinder
+            fishingService = binder.getService()
+            isBound = true
+            updateRecordingStatusUI()
+        }
+
+        override fun onServiceDisconnected(arg0: android.content.ComponentName) {
+            isBound = false
+            fishingService = null
+            updateRecordingStatusUI()
+        }
+    }
 
     // Mittaustyökalu
     private var measurementMarkers = mutableListOf<Marker>()
@@ -955,6 +1025,107 @@ class MainActivity : AppCompatActivity() {
         canvas.drawLine(size / 2f, startY, size / 2f, endY, paint)
 
         return bitmap
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Yhdistetään FishingSessionServiceen
+        Intent(this, FishingSessionService::class.java).also { intent ->
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        }
+        val filter = IntentFilter("fi.anssi.kalakartta.SESSION_ENDED")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(sessionEndedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(sessionEndedReceiver, filter)
+        }
+        updateRecordingStatusUI()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isBound) {
+            unbindService(connection)
+            isBound = false
+        }
+        try {
+            unregisterReceiver(sessionEndedReceiver)
+        } catch (e: Exception) {}
+        recordingHandler.removeCallbacks(recordingBlinkRunnable)
+    }
+
+    fun startFishingSession(interval: Int) {
+        val intent = Intent(this, FishingSessionService::class.java).apply {
+            putExtra("INTERVAL", interval)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        // Yhdistetään uudelleen jos ei oltu yhdistettynä
+        bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        updateRecordingStatusUI(true)
+    }
+
+    fun stopFishingSession() {
+        fishingService?.stopSession()
+        updateRecordingStatusUI(false)
+    }
+
+    fun getFishingService() = fishingService
+
+    private fun updateRecordingStatusUI(overrideRecording: Boolean? = null) {
+        val recordingLayout = findViewById<android.view.View>(R.id.recordingStatusLayout) ?: return
+        val isRecording = overrideRecording ?: (fishingService?.isRecording() ?: false)
+        val dot = findViewById<android.view.View>(R.id.recordingDot)
+        
+        if (isRecording) {
+            recordingLayout.visibility = android.view.View.VISIBLE
+            recordingHandler.removeCallbacks(recordingBlinkRunnable)
+            recordingHandler.post(recordingBlinkRunnable)
+        } else {
+            recordingLayout.visibility = android.view.View.GONE
+            recordingHandler.removeCallbacks(recordingBlinkRunnable)
+            dot?.visibility = android.view.View.GONE
+            updateSessionLine()
+        }
+    }
+
+    private fun showSessionNotesDialog(sessionId: Long) {
+        if (isFinishing || isDestroyed) return
+        
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Kalastussessio lopetettu")
+        
+        val layout = android.widget.LinearLayout(this)
+        layout.orientation = android.widget.LinearLayout.VERTICAL
+        layout.setPadding(48, 24, 48, 24)
+
+        val label = android.widget.TextView(this)
+        label.text = "Kalastussession huomiot:"
+        label.textSize = 16f
+        layout.addView(label)
+        
+        val input = android.widget.EditText(this)
+        input.hint = "Lisää muistiinpanoja sessiosta..."
+        input.setLines(3)
+        input.gravity = android.view.Gravity.TOP
+        
+        layout.addView(input)
+        builder.setView(layout)
+
+        builder.setPositiveButton("Tallenna") { _, _ ->
+            val notes = input.text.toString()
+            lifecycleScope.launch(Dispatchers.IO) {
+                val session = db.fishingSessionDao().getById(sessionId)
+                if (session != null) {
+                    db.fishingSessionDao().update(session.copy(notes = notes))
+                }
+            }
+        }
+        builder.setNegativeButton("Sulje", null)
+        builder.show()
     }
 
     private fun clearMeasurement() {
