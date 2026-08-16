@@ -31,6 +31,7 @@ class FishingSessionActivity : AppCompatActivity() {
     private var allSessions: List<FishingSession> = emptyList()
     private var currentCalendar = Calendar.getInstance()
     private var selectedCalendar = Calendar.getInstance()
+    private var openSessionId: Long = -1L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -46,6 +47,12 @@ class FishingSessionActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_fishing_sessions)
+
+        if (savedInstanceState != null) {
+            currentCalendar.timeInMillis = savedInstanceState.getLong("currentCalendar", System.currentTimeMillis())
+            selectedCalendar.timeInMillis = savedInstanceState.getLong("selectedCalendar", System.currentTimeMillis())
+            openSessionId = savedInstanceState.getLong("openSessionId", -1L)
+        }
 
         db = AppDatabase.getInstance(this)
         calendarGrid = findViewById(R.id.calendarGrid)
@@ -68,6 +75,13 @@ class FishingSessionActivity : AppCompatActivity() {
         }
 
         loadSessions()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong("currentCalendar", currentCalendar.timeInMillis)
+        outState.putLong("selectedCalendar", selectedCalendar.timeInMillis)
+        outState.putLong("openSessionId", openSessionId)
     }
 
     private fun loadSessions() {
@@ -237,7 +251,9 @@ class FishingSessionActivity : AppCompatActivity() {
         sessionView.setOnClickListener {
             if (detailsContainer.visibility == View.VISIBLE) {
                 detailsContainer.visibility = View.GONE
+                openSessionId = -1L
             } else {
+                openSessionId = session.id
                 if (detailsContainer.childCount == 0) {
                     loadSessionDetails(session, detailsContainer)
                 }
@@ -247,6 +263,11 @@ class FishingSessionActivity : AppCompatActivity() {
 
         sessionView.addView(detailsContainer)
         sessionsContainer.addView(sessionView)
+
+        if (session.id == openSessionId) {
+            loadSessionDetails(session, detailsContainer)
+            detailsContainer.visibility = View.VISIBLE
+        }
     }
 
     private fun loadSessionDetails(session: FishingSession, container: LinearLayout) {
