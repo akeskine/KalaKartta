@@ -86,6 +86,12 @@ class MainActivity : AppCompatActivity() {
     private var archivedSessionPolyline: Polyline? = null
     private var replayJob: Job? = null
     private var visibleArchivedSessionId: Long = -1L
+    private var isReplayPlaying = true
+    private var replaySpeed = 60
+    private var currentReplayTime = 0L
+    private var replayStartTime = 0L
+    private var replayEndTime = 0L
+    private var replayPoints = listOf<TrackPoint>()
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
     private val recordingBlinkRunnable = object : Runnable {
@@ -118,6 +124,159 @@ class MainActivity : AppCompatActivity() {
             sessionPolyline = null
             map.invalidate()
         }
+    }
+
+    private fun replaySessionOnMap(sessionId: Long) {
+        replayJob?.cancel()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            val session = db.fishingSessionDao().getById(sessionId)
+            val points = db.trackPointDao().getPointsForSession(sessionId)
+            if (points.isEmpty() || session == null) return@launch
+
+            withContext(Dispatchers.Main) {
+                replayPoints = points
+                replayStartTime = session.startedAt
+                replayEndTime = session.endedAt ?: points.last().timestamp
+                currentReplayTime = replayStartTime
+                isReplayPlaying = true
+                
+                initReplayUI()
+                
+                if (archivedSessionPolyline != null) {
+                    map.overlays.remove(archivedSessionPolyline)
+                }
+                archivedSessionPolyline = Polyline(map).apply {
+                    outlinePaint.color = Color.BLUE
+                    outlinePaint.strokeWidth = 8f
+                }
+                map.overlays.add(archivedSessionPolyline)
+                visibleArchivedSessionId = sessionId
+                
+                map.controller.animateTo(GeoPoint(points[0].latitude, points[0].longitude), 15.0, 500L)
+                markerManager.setMaxTimestamp(replayStartTime)
+                
+                updateReplayUI()
+                startReplayLoop()
+            }
+        }
+    }
+
+    private fun initReplayUI() {
+        val playerLayout = findViewById<android.view.View>(R.id.replayPlayerLayout)
+        val playerContainer = findViewById<android.view.View>(R.id.replayPlayerContainer)
+        val restoreButton = findViewById<android.view.View>(R.id.replayRestoreButton)
+        val playPauseButton = findViewById<android.widget.ImageButton>(R.id.replayPlayPauseButton)
+        val seekBar = findViewById<android.widget.SeekBar>(R.id.replaySeekBar)
+        val speedSpinner = findViewById<android.widget.Spinner>(R.id.replaySpeedSpinner)
+        val minimizeButton = findViewById<android.view.View>(R.id.replayMinimizeButton)
+
+        playerLayout.visibility = android.view.View.VISIBLE
+        playerContainer.visibility = android.view.View.VISIBLE
+        restoreButton.visibility = android.view.View.GONE
+        
+        // Piilotetaan muut napit
+        findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.GONE
+        findViewById<android.view.View>(R.id.myLocationButton).visibility = android.view.View.GONE
+
+        playPauseButton.setOnClickListener {
+            isReplayPlaying = !isReplayPlaying
+            updateReplayPlayPauseIcon()
+            if (isReplayPlaying) startReplayLoop()
+        }
+
+        seekBar.max = (replayEndTime - replayStartTime).toInt()
+        seekBar.progress = 0
+        seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    currentReplayTime = replayStartTime + progress
+                    updateReplayFrame()
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
+
+        val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x")
+        val adapter = android.widget.ArrayAdapter(this, R.layout.spinner_item, speedOptions)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        speedSpinner.adapter = adapter
+        speedSpinner.setSelection(2) // 60x
+        
+        // Asetetaan valkoiset värit spinnerin tekstille
+        speedSpinner.post {
+            (speedSpinner.selectedView as? android.widget.TextView)?.setTextColor(android.graphics.Color.WHITE)
+        }
+        
+        speedSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                replaySpeed = speedOptions[position].replace("x", "").toIntOrNull() ?: 60
+                (view as? android.widget.TextView)?.setTextColor(android.graphics.Color.WHITE)
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        minimizeButton.setOnClickListener {
+            playerContainer.visibility = android.view.View.GONE
+            restoreButton.visibility = android.view.View.VISIBLE
+        }
+
+        restoreButton.setOnClickListener {
+            playerContainer.visibility = android.view.View.VISIBLE
+            restoreButton.visibility = android.view.View.GONE
+        }
+        
+        updateReplayPlayPauseIcon()
+    }
+
+    private fun updateReplayPlayPauseIcon() {
+        val playPauseButton = findViewById<android.widget.ImageButton>(R.id.replayPlayPauseButton)
+        playPauseButton.setImageResource(if (isReplayPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+    }
+
+    private fun startReplayLoop() {
+        replayJob?.cancel()
+        replayJob = lifecycleScope.launch(Dispatchers.Main) {
+            val stepMs = 100L
+            while (isActive && isReplayPlaying && currentReplayTime < replayEndTime) {
+                val simStepMs = stepMs * replaySpeed
+                currentReplayTime += simStepMs
+                if (currentReplayTime > replayEndTime) currentReplayTime = replayEndTime
+                
+                updateReplayFrame()
+                updateReplayUI()
+                
+                if (currentReplayTime >= replayEndTime) {
+                    isReplayPlaying = false
+                    updateReplayPlayPauseIcon()
+                    break
+                }
+                delay(stepMs)
+            }
+        }
+    }
+
+    private fun updateReplayFrame() {
+        val currentTime = currentReplayTime
+        val visiblePoints = replayPoints.filter { it.timestamp <= currentTime }
+        val geoPoints = visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
+        
+        archivedSessionPolyline?.setPoints(geoPoints)
+        markerManager.setMaxTimestamp(currentTime)
+        map.invalidate()
+    }
+
+    private fun updateReplayUI() {
+        val seekBar = findViewById<android.widget.SeekBar>(R.id.replaySeekBar)
+        val timeText = findViewById<android.widget.TextView>(R.id.replayTimeText)
+        
+        seekBar.progress = (currentReplayTime - replayStartTime).toInt()
+        
+        val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+        val currentStr = sdf.format(java.util.Date(currentReplayTime))
+        val endStr = sdf.format(java.util.Date(replayEndTime))
+        timeText.text = "$currentStr / $endStr"
     }
 
     private fun showArchivedSessionOnMap(sessionId: Long) {
@@ -210,6 +369,11 @@ class MainActivity : AppCompatActivity() {
 
     fun hideArchivedSession() {
         replayJob?.cancel()
+        
+        findViewById<android.view.View>(R.id.replayPlayerLayout).visibility = android.view.View.GONE
+        findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.VISIBLE
+        updateMyLocationButtonVisibility()
+
         if (archivedSessionPolyline != null) {
             map.overlays.remove(archivedSessionPolyline)
             archivedSessionPolyline = null
@@ -1483,11 +1647,11 @@ class MainActivity : AppCompatActivity() {
         if (resultCode == RESULT_OK) {
             val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
             val sessionId = data?.getLongExtra("EXTRA_SESSION_ID", -1L) ?: -1L
-            val replaySpeed = data?.getIntExtra("EXTRA_REPLAY_SPEED", -1) ?: -1
+            val replayRequest = data?.getBooleanExtra("EXTRA_REPLAY_REQUEST", false) ?: false
 
             if (sessionId != -1L) {
-                if (replaySpeed != -1) {
-                    replaySessionOnMap(sessionId, replaySpeed)
+                if (replayRequest) {
+                    replaySessionOnMap(sessionId)
                 } else {
                     showArchivedSessionOnMap(sessionId)
                 }

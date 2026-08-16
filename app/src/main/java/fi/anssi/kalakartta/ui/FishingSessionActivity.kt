@@ -282,8 +282,8 @@ class FishingSessionActivity : AppCompatActivity() {
                     setPadding(0, 10, 0, 10)
                 }
 
-                val showLink = TextView(this@FishingSessionActivity).apply {
-                    text = "Näytä"
+                val replayLink = TextView(this@FishingSessionActivity).apply {
+                    text = "Toista"
                     setTextColor(Color.BLUE)
                     paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
                     setPadding(0, 10, 20, 10)
@@ -291,47 +291,12 @@ class FishingSessionActivity : AppCompatActivity() {
                     setOnClickListener {
                         val intent = Intent()
                         intent.putExtra("EXTRA_SESSION_ID", session.id)
+                        intent.putExtra("EXTRA_REPLAY_REQUEST", true)
                         setResult(RESULT_OK, intent)
                         finish()
                     }
                 }
-                replayRow.addView(showLink)
-
-                val replayLink = TextView(this@FishingSessionActivity).apply {
-                    text = "Toista"
-                    setTextColor(Color.BLUE)
-                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setPadding(20, 10, 5, 10)
-                    isClickable = true
-                }
                 replayRow.addView(replayLink)
-
-                val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x")
-                val adapter = ArrayAdapter(this@FishingSessionActivity, R.layout.spinner_item, speedOptions)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                
-                val speedSpinner = Spinner(this@FishingSessionActivity).apply {
-                    this.adapter = adapter
-                    setSelection(2) // Oletus 60x
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        marginStart = 10
-                    }
-                }
-                replayRow.addView(speedSpinner)
-
-                replayLink.setOnClickListener {
-                    val speedStr = speedSpinner.selectedItem.toString().replace("x", "")
-                    val speed = speedStr.toIntOrNull() ?: 60
-                    
-                    val intent = Intent()
-                    intent.putExtra("EXTRA_SESSION_ID", session.id)
-                    intent.putExtra("EXTRA_REPLAY_SPEED", speed)
-                    setResult(RESULT_OK, intent)
-                    finish()
-                }
 
                 container.addView(replayRow)
             }
