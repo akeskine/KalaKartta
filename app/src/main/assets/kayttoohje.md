@@ -22,6 +22,7 @@ KalaKartassa on käytettävissä seuraavat karttapohjat:
 - **OpenStreetMap:** Maailmanlaajuinen avoin kartta-aineisto.
 - **MML Maastokartta ja Ilmakuva:** Maanmittauslaitoksen tarkat aineistot Suomesta. Käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
 - **Traficom merikartta:** Traficomin virallinen merikartta-aineisto (Merikarttasarjat). *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
+- **Traficom veneilykartta:** Traficomin virallinen veneilykartta-aineistoa eräiltä järvialueilta, mm. Puula ja Inari. *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
 
 Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet kytkenyt **Karttapohjan pikavalinnan** päälle asetuksista.
 
