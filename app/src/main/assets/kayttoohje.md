@@ -8,7 +8,7 @@ KalaKartan keskeisiä periaatteita ovat:
 - **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä takeltelematta.
 - **Yksityisyys:** Kaikki tiedot tallennetaan vain laitteeseesi. Niitä ei lähetetä palvelimille. Pisteiden jakaminen on aina käyttäjän omassa kontrollissa.
 - **Automaatio:** Sovellus hakee säätiedot automaattisesti kalapisteisiin Ilmatieteen laitoksen (FMI) avoimesta datasta.
-- **Monipuoliset kartat:** Voit käyttää OpenStreetMapin lisäksi Maanmittauslaitoksen (MML) tarkkoja maasto- ja ilmakuvia.
+- **Monipuoliset kartat:** Voit käyttää OpenStreetMapin lisäksi Maanmittauslaitoksen (MML) tarkkoja maasto- ja ilmakuvia sekä Traficomin merikartta-aineistoja.
 
 ## 1. Kartan käyttö
 
