@@ -709,7 +709,7 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setCustomTitle(layout)
-            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Poista kaikki pisteet")) { _, which ->
+            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Poista kaikki pisteet", "Poista kaikki reitit")) { _, which ->
                 when (which) {
                     0 -> {
                         if (isFiltered) {
@@ -732,7 +732,10 @@ class SettingsManager(
                         }
                     }
                     1 -> importExportManager.launchImport()
-                    2 -> confirmDeleteAllCatches()
+                    2 -> importExportManager.launchExportRoutes()
+                    3 -> importExportManager.launchImportRoutes()
+                    4 -> confirmDeleteAllCatches()
+                    5 -> confirmDeleteAllRoutes()
                 }
             }
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
@@ -760,6 +763,30 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setMessage("Kaikki tiedot poistettu.")
+            .setPositiveButton("OK", null)
+            .show()
+        dialog.enlargeButtons()
+    }
+
+    private fun confirmDeleteAllRoutes() {
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Poista kaikki reitit?")
+            .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalastussessiot ja reittipisteet? Tätä toimintoa ei voi kumota.")
+            .setPositiveButton("Takaisin", null)
+            .setNegativeButton("Poista") { _, _ ->
+                deleteAllRoutes()
+            }
+            .show()
+
+        dialog.enlargeButtons()
+    }
+
+    private fun deleteAllRoutes() {
+        db.fishingSessionDao().deleteAll()
+        onDataChanged(false)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setMessage("Kaikki reitit poistettu.")
             .setPositiveButton("OK", null)
             .show()
         dialog.enlargeButtons()

@@ -86,11 +86,14 @@ Voit muokata kalalajeja kohdasta Asetukset -> Kalalajit.
 
 ## 8. Pisteiden tuonti ja vienti (Export/Import)
 
-Voit viedä ja tuoda pisteitä JSON-muodossa (Asetukset -> Tiedonsiirto).
-- **Vie pisteet:** Tallentaa kaikki pisteet tiedostoon, jonka voit jakaa tai varmuuskopioida.
+Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (Asetukset -> Tiedonsiirto).
+- **Vie pisteet:** Tallentaa kaikki kalapisteet ja muut merkit tiedostoon.
 - **Vie suodatetut pisteet:** Jos suodatus on päällä, voit halutessasi viedä vain ne pisteet, jotka näkyvät parhaillaan kartalla.
 - **Tuo pisteet:** Lukee pisteet tiedostosta.
-- **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki.
+- **Vie reitit:** Tallentaa kaikki kalastussessiot ja niiden reittipisteet tiedostoon.
+- **Tuo reitit:** Lukee sessiot ja reitit tiedostosta.
+- **Poista kaikki reitit:** Tyhjentää kaikki tallennetut reittitiedot sovelluksesta.
+- **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki. Reittien osalta tuodaan toistaiseksi kaikki sessiot uusina.
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 

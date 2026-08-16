@@ -16,6 +16,99 @@ class JsonService {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
+    fun exportRoutes(contentResolver: ContentResolver, uri: Uri, sessions: List<FishingSession>, pointsMap: Map<Long, List<TrackPoint>>) {
+        try {
+            val root = JSONObject()
+            root.put("sessions", sessionsToJson(sessions, pointsMap))
+            
+            contentResolver.openOutputStream(uri)?.use { 
+                it.write(root.toString(4).toByteArray())
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JsonService", "Error exporting routes", e)
+        }
+    }
+
+    private fun sessionsToJson(sessions: List<FishingSession>, pointsMap: Map<Long, List<TrackPoint>>): JSONArray {
+        val array = JSONArray()
+        sessions.forEach { session ->
+            val obj = JSONObject()
+            obj.put("startedAt", isoFormat.format(Date(session.startedAt)))
+            if (session.endedAt != null) {
+                obj.put("endedAt", isoFormat.format(Date(session.endedAt)))
+            }
+            obj.put("notes", session.notes)
+            
+            val pointsArray = JSONArray()
+            pointsMap[session.id]?.forEach { pt ->
+                val pObj = JSONObject()
+                pObj.put("timestamp", isoFormat.format(Date(pt.timestamp)))
+                pObj.put("latitude", String.format(Locale.US, "%.6f", pt.latitude).toDouble())
+                pObj.put("longitude", String.format(Locale.US, "%.6f", pt.longitude).toDouble())
+                pObj.put("speed", pt.speed)
+                pObj.put("accuracy", pt.accuracy)
+                pointsArray.put(pObj)
+            }
+            obj.put("points", pointsArray)
+            array.put(obj)
+        }
+        return array
+    }
+
+    fun importRoutes(contentResolver: ContentResolver, uri: Uri): List<Pair<FishingSession, List<TrackPoint>>> {
+        val text = contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?: return emptyList()
+
+        val results = mutableListOf<Pair<FishingSession, List<TrackPoint>>>()
+
+        try {
+            val root = JSONObject(text)
+            val sessionsArray = root.optJSONArray("sessions") ?: return emptyList()
+
+            for (i in 0 until sessionsArray.length()) {
+                val sObj = sessionsArray.getJSONObject(i)
+                
+                val startedAt = sObj.optString("startedAt", "")
+                val startedAtMs = try { isoFormat.parse(startedAt)?.time ?: 0L } catch(e: Exception) { 0L }
+                
+                val endedAt = sObj.optString("endedAt", "")
+                val endedAtMs = if (endedAt.isNotEmpty()) {
+                    try { isoFormat.parse(endedAt)?.time } catch(e: Exception) { null }
+                } else null
+                
+                val notes = sObj.optString("notes", "")
+                
+                val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes)
+                
+                val points = mutableListOf<TrackPoint>()
+                val pointsArray = sObj.optJSONArray("points")
+                if (pointsArray != null) {
+                    for (j in 0 until pointsArray.length()) {
+                        val pObj = pointsArray.getJSONObject(j)
+                        val ts = pObj.optString("timestamp", "")
+                        val tsMs = try { isoFormat.parse(ts)?.time ?: 0L } catch(e: Exception) { 0L }
+                        
+                        points.add(TrackPoint(
+                            fishingSessionId = 0, // Id assigned later when inserting session
+                            timestamp = tsMs,
+                            latitude = pObj.optDouble("latitude", 0.0),
+                            longitude = pObj.optDouble("longitude", 0.0),
+                            speed = pObj.optDouble("speed", 0.0).toFloat(),
+                            accuracy = pObj.optDouble("accuracy", 0.0).toFloat()
+                        ))
+                    }
+                }
+                results.add(Pair(session, points))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JsonService", "Error parsing routes JSON", e)
+        }
+
+        return results
+    }
+
     fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
         val root = JSONObject()
         root.put("catches", catchesToJson(catches))

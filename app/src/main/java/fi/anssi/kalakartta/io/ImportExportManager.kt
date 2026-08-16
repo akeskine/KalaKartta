@@ -41,6 +41,12 @@ class ImportExportManager(
         uri?.let { exportSpeciesToJson(it) }
     }
 
+    private val exportRoutesLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { exportRoutesToJson(it) }
+    }
+
     private val importLauncher = activity.registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -51,6 +57,12 @@ class ImportExportManager(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importSpeciesFromJson(it) }
+    }
+
+    private val importRoutesLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { importRoutesFromJson(it) }
     }
 
     fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null) {
@@ -69,6 +81,14 @@ class ImportExportManager(
 
     fun launchImportSpecies() {
         importSpeciesLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+    }
+
+    fun launchExportRoutes() {
+        exportRoutesLauncher.launch("reitit.json")
+    }
+
+    fun launchImportRoutes() {
+        importRoutesLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
     }
 
     private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {
@@ -90,6 +110,56 @@ class ImportExportManager(
                 android.util.Log.e("ImportExportManager", "Species export failed", e)
                 activity.runOnUiThread {
                     showConfirmationDialog("Kalalajien asetusten vienti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
+    }
+
+    private fun exportRoutesToJson(uri: Uri) {
+        Thread {
+            try {
+                val sessions = db.fishingSessionDao().getAll()
+                val pointsMap = mutableMapOf<Long, List<fi.anssi.kalakartta.data.TrackPoint>>()
+                sessions.forEach { session ->
+                    pointsMap[session.id] = db.trackPointDao().getPointsForSession(session.id)
+                }
+                jsonService.exportRoutes(activity.contentResolver, uri, sessions, pointsMap)
+                showConfirmationDialog("Reittien vienti valmis (${sessions.size} reittiä).")
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Routes export failed", e)
+                activity.runOnUiThread {
+                    showConfirmationDialog("Reittien vienti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
+    }
+
+    private fun importRoutesFromJson(uri: Uri) {
+        Thread {
+            try {
+                val imported = jsonService.importRoutes(activity.contentResolver, uri)
+                if (imported.isEmpty()) {
+                    activity.runOnUiThread {
+                        showConfirmationDialog("Tiedostosta ei löytynyt tuotavia reittejä.")
+                    }
+                    return@Thread
+                }
+
+                imported.forEach { (session, points) ->
+                    val newSessionId = db.fishingSessionDao().insert(session)
+                    points.forEach { pt ->
+                        db.trackPointDao().insert(pt.copy(fishingSessionId = newSessionId))
+                    }
+                }
+
+                activity.runOnUiThread {
+                    onImportDone(false)
+                    showConfirmationDialog("Reittien tuonti valmis (${imported.size} reittiä).")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Routes import failed", e)
+                activity.runOnUiThread {
+                    showConfirmationDialog("Reittien tuonti epäonnistui: ${e.message}")
                 }
             }
         }.start()
