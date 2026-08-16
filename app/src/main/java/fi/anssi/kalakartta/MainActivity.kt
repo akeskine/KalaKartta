@@ -97,12 +97,23 @@ class MainActivity : AppCompatActivity() {
     private val recordingBlinkRunnable = object : Runnable {
         override fun run() {
             val dot = findViewById<android.view.View>(R.id.recordingDot)
+            val interval = fishingService?.getIntervalSeconds() ?: 30
+            
+            val (onMs, offMs) = when {
+                interval <= 1 -> 500L to 500L
+                else -> (interval - 1) * 1000L to 1000L
+            }
+
             if (dot != null) {
                 recordingDotVisible = !recordingDotVisible
                 dot.visibility = if (recordingDotVisible) android.view.View.VISIBLE else android.view.View.INVISIBLE
+                
+                val nextDelay = if (recordingDotVisible) onMs else offMs
+                recordingHandler.postDelayed(this, nextDelay)
+            } else {
+                recordingHandler.postDelayed(this, 1000)
             }
             updateSessionLine()
-            recordingHandler.postDelayed(this, 1000)
         }
     }
 
@@ -1430,7 +1441,13 @@ class MainActivity : AppCompatActivity() {
         if (isRecording) {
             recordingLayout.visibility = android.view.View.VISIBLE
             recordingHandler.removeCallbacks(recordingBlinkRunnable)
-            recordingHandler.post(recordingBlinkRunnable)
+            recordingDotVisible = true
+            dot?.visibility = android.view.View.VISIBLE
+            
+            val interval = fishingService?.getIntervalSeconds() ?: 30
+            val onMs = if (interval <= 1) 500L else (interval - 1) * 1000L
+            
+            recordingHandler.postDelayed(recordingBlinkRunnable, onMs)
         } else {
             recordingLayout.visibility = android.view.View.GONE
             recordingHandler.removeCallbacks(recordingBlinkRunnable)
