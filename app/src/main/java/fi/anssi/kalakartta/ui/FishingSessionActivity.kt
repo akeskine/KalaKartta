@@ -4,8 +4,9 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
+import android.view.LayoutInflater
 import android.widget.Button
-import android.widget.CalendarView
+import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -24,17 +25,21 @@ import java.util.concurrent.TimeUnit
 class FishingSessionActivity : AppCompatActivity() {
 
     private lateinit var db: AppDatabase
-    private lateinit var calendarView: CalendarView
+    private lateinit var calendarGrid: GridLayout
+    private lateinit var monthYearText: TextView
     private lateinit var sessionsContainer: LinearLayout
     private lateinit var sessionsLabel: TextView
     private var allSessions: List<FishingSession> = emptyList()
+    private var currentCalendar = Calendar.getInstance()
+    private var selectedCalendar = Calendar.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_fishing_sessions)
 
         db = AppDatabase.getInstance(this)
-        calendarView = findViewById(R.id.calendarView)
+        calendarGrid = findViewById(R.id.calendarGrid)
+        monthYearText = findViewById(R.id.monthYearText)
         sessionsContainer = findViewById(R.id.sessionsContainer)
         sessionsLabel = findViewById(R.id.sessionsLabel)
 
@@ -42,8 +47,14 @@ class FishingSessionActivity : AppCompatActivity() {
             finish()
         }
 
-        calendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
-            showSessionsForDate(year, month, dayOfMonth)
+        findViewById<Button>(R.id.prevMonthButton).setOnClickListener {
+            currentCalendar.add(Calendar.MONTH, -1)
+            updateCalendar()
+        }
+
+        findViewById<Button>(R.id.nextMonthButton).setOnClickListener {
+            currentCalendar.add(Calendar.MONTH, 1)
+            updateCalendar()
         }
 
         loadSessions()
@@ -53,10 +64,107 @@ class FishingSessionActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             allSessions = db.fishingSessionDao().getAll().filter { it.endedAt != null }
             withContext(Dispatchers.Main) {
-                // Oletuksena näytetään tämän päivän sessiot
-                val cal = Calendar.getInstance()
-                showSessionsForDate(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                updateCalendar()
+                showSessionsForDate(
+                    selectedCalendar.get(Calendar.YEAR),
+                    selectedCalendar.get(Calendar.MONTH),
+                    selectedCalendar.get(Calendar.DAY_OF_MONTH)
+                )
             }
+        }
+    }
+
+    private fun updateCalendar() {
+        calendarGrid.removeAllViews()
+        
+        val sdf = SimpleDateFormat("MMMM yyyy", Locale("fi", "FI"))
+        monthYearText.text = sdf.format(currentCalendar.time).replaceFirstChar { it.uppercase() }
+
+        val cal = currentCalendar.clone() as Calendar
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        
+        // Suomalainen viikko alkaa maanantaista (Calendar.MONDAY = 2)
+        // cal.get(Calendar.DAY_OF_WEEK) palauttaa: SUN=1, MON=2, ..., SAT=7
+        var firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY
+        if (firstDayOfWeek < 0) firstDayOfWeek += 7
+
+        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+        // Lisätään viikonpäivien nimet
+        val daysOfWeek = listOf("ma", "ti", "ke", "to", "pe", "la", "su")
+        daysOfWeek.forEach { dayName ->
+            val tv = TextView(this).apply {
+                text = dayName
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, 10, 0, 10)
+                textSize = 12f
+            }
+            val params = GridLayout.LayoutParams().apply {
+                width = 0
+                height = GridLayout.LayoutParams.WRAP_CONTENT
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            }
+            calendarGrid.addView(tv, params)
+        }
+
+        // Tyhjät välit ennen ensimmäistä päivää
+        for (i in 0 until firstDayOfWeek) {
+            val emptyView = View(this)
+            val params = GridLayout.LayoutParams().apply {
+                width = 0
+                height = 1
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            }
+            calendarGrid.addView(emptyView, params)
+        }
+
+        val inflater = LayoutInflater.from(this)
+        for (day in 1..daysInMonth) {
+            val dayView = inflater.inflate(R.layout.item_calendar_day, calendarGrid, false)
+            val dayText = dayView.findViewById<TextView>(R.id.dayText)
+            val indicator = dayView.findViewById<View>(R.id.sessionIndicator)
+            
+            dayText.text = day.toString()
+
+            val dayCal = cal.clone() as Calendar
+            dayCal.set(Calendar.DAY_OF_MONTH, day)
+            
+            // Tarkista onko sessioita
+            val hasSessions = allSessions.any {
+                val sCal = Calendar.getInstance()
+                sCal.timeInMillis = it.startedAt
+                sCal.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
+                sCal.get(Calendar.MONTH) == dayCal.get(Calendar.MONTH) &&
+                sCal.get(Calendar.DAY_OF_MONTH) == dayCal.get(Calendar.DAY_OF_MONTH)
+            }
+            
+            if (hasSessions) {
+                indicator.visibility = View.VISIBLE
+            }
+
+            // Korosta valittu päivä
+            if (dayCal.get(Calendar.YEAR) == selectedCalendar.get(Calendar.YEAR) &&
+                dayCal.get(Calendar.MONTH) == selectedCalendar.get(Calendar.MONTH) &&
+                dayCal.get(Calendar.DAY_OF_MONTH) == selectedCalendar.get(Calendar.DAY_OF_MONTH)) {
+                dayView.setBackgroundColor(0x330000FF.toInt()) // Vaaleansininen korostus
+            }
+
+            dayView.setOnClickListener {
+                selectedCalendar = dayCal
+                updateCalendar()
+                showSessionsForDate(
+                    dayCal.get(Calendar.YEAR),
+                    dayCal.get(Calendar.MONTH),
+                    dayCal.get(Calendar.DAY_OF_MONTH)
+                )
+            }
+
+            val params = GridLayout.LayoutParams().apply {
+                width = 0
+                height = GridLayout.LayoutParams.WRAP_CONTENT
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            }
+            calendarGrid.addView(dayView, params)
         }
     }
 

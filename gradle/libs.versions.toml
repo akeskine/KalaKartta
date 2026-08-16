@@ -15,6 +15,7 @@ coroutines = "1.9.0"
 firebaseBom = "33.10.0"
 googleGmsGoogleServices = "4.4.2"
 googleFirebaseCrashlytics = "3.0.3"
+materialCalendarView = "2.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +33,7 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+materialCalendarView = { group = "com.github.prolificinteractive", name = "material-calendarview", version.ref = "materialCalendarView" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
