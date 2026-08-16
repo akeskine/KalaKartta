@@ -896,6 +896,14 @@ class SettingsManager(
             }
             layout.addView(input)
 
+            val statusText = TextView(activity).apply {
+                textSize = 14f
+                setTextColor(Color.RED)
+                setPadding(0, 10, 0, 10)
+                visibility = View.GONE
+            }
+            layout.addView(statusText)
+
             var dialog: AlertDialog? = null
             
             val startButton = MaterialButton(activity).apply {
@@ -915,10 +923,40 @@ class SettingsManager(
             }
             layout.addView(startButton)
 
+            val updateJob = activity.lifecycleScope.launch {
+                val locationManager = activity.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                while (isActive) {
+                    val isGpsEnabled = try {
+                        locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+                    } catch (_: Exception) {
+                        false
+                    }
+                    val isNetworkEnabled = try {
+                        locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+                    } catch (_: Exception) {
+                        false
+                    }
+                    
+                    val locationEnabled = isGpsEnabled || isNetworkEnabled
+                    startButton.isEnabled = locationEnabled
+                    if (locationEnabled) {
+                        statusText.visibility = View.GONE
+                    } else {
+                        statusText.text = "Sijaintipalvelu ei ole päällä. Ota sijainti käyttöön aloittaaksesi tallennuksen."
+                        statusText.visibility = View.VISIBLE
+                    }
+                    
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+
             dialog = AlertDialog.Builder(activity)
                 .setTitle("Kalastussessiot")
                 .setView(layout)
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+                .setOnDismissListener {
+                    updateJob.cancel()
+                }
                 .show()
             dialog.enlargeButtons()
         } else {
