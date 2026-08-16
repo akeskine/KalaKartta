@@ -87,24 +87,28 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Tiedonsiirto", "Tiedon suodatus", "Sää", "Yhteenveto", "Taustakartta", activity.getString(R.string.fish_species_settings), "Yleiset", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Taustakartta", "Kalastussession tallennus", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset", "Takaisin")) { _, which ->
                         when (which) {
-                            0 -> openDataTransferSettings(
-                                count, 
-                                placeCount, 
-                                isFiltered, 
-                                filteredCatches?.size ?: 0, 
+                            0 -> openMapSettings()
+                            1 -> {
+                                // TODO: Kalastussession tallennus
+                                Toast.makeText(activity, "Kalastussession tallennus tulossa pian", Toast.LENGTH_SHORT).show()
+                            }
+                            2 -> openFilterSettings()
+                            3 -> openSummary()
+                            4 -> openDataTransferSettings(
+                                count,
+                                placeCount,
+                                isFiltered,
+                                filteredCatches?.size ?: 0,
                                 filteredPlaces?.size ?: 0,
                                 filteredCatches,
                                 filteredPlaces
                             )
-                            1 -> openFilterSettings()
-                            2 -> openWeatherSettings()
-                            3 -> openSummary()
-                            4 -> openMapSettings()
-                            5 -> openSpeciesSettings()
-                            6 -> openGeneralSettings()
-                            7 -> { /* Sulje valikko */ }
+                            5 -> openWeatherSettings()
+                            6 -> openSpeciesSettings()
+                            7 -> openGeneralSettings()
+                            8 -> { /* Sulje valikko */ }
                         }
                     }
                     .show()
@@ -302,7 +306,7 @@ class SettingsManager(
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
-            .setPositiveButton("Sulje", null)
+            .setPositiveButton("Takaisin", null)
             .show()
             .enlargeButtons()
     }
@@ -340,7 +344,7 @@ class SettingsManager(
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.scale_bar))
             .setView(layout)
-            .setPositiveButton("Sulje", null)
+            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .show()
             .enlargeButtons()
     }
@@ -366,7 +370,7 @@ class SettingsManager(
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.auto_center))
             .setView(layout)
-            .setPositiveButton("Sulje", null)
+            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .show()
             .enlargeButtons()
     }
@@ -587,7 +591,8 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Taustakartta")
             .setView(layout)
-            .setPositiveButton("OK") { _, _ ->
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .setNegativeButton("OK") { _, _ ->
                 val selectedId = getSelectedId()
                 val newSource = internalIds[selectedId]
                 val newApiKey = apiKeyInput.text.toString()
@@ -607,7 +612,6 @@ class SettingsManager(
                 }
                 onMapSettingsChanged()
             }
-            .setNegativeButton("Takaisin") { _, _ -> openSettings() }
             .show()
         dialog.enlargeButtons()
     }
@@ -647,7 +651,10 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Sääasetukset")
             .setView(layout)
-            .setPositiveButton("OK") { _, _ ->
+            .setPositiveButton("Takaisin") { _, _ ->
+                openSettings()
+            }
+            .setNegativeButton("OK") { _, _ ->
                 if (isEnabledCurrent != isEnabledInitial) {
                     prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
                     if (isEnabledCurrent) {
@@ -655,9 +662,6 @@ class SettingsManager(
                     }
                     onWeatherSettingsChanged(isEnabledCurrent)
                 }
-            }
-            .setNegativeButton("Takaisin") { _, _ ->
-                openSettings()
             }
             .show()
         dialog.enlargeButtons()
@@ -716,13 +720,13 @@ class SettingsManager(
                                 .setMessage("Viedäänkö kaikki pisteet vai nykyisen suodatuksen rajaamat pisteet?\n\n" +
                                         "Kaikki: $count kalapistettä, $placeCount muuta pistettä\n\n" +
                                         "Suodatetut: $filteredCount kalapistettä, $filteredPlaceCount muuta pistettä")
-                                .setPositiveButton("Vie suodatetut") { _, _ ->
+                                .setPositiveButton("Takaisin", null)
+                                .setNegativeButton("Vie suodatetut") { _, _ ->
                                     importExportManager.launchExport(filteredCatches, filteredPlaces)
                                 }
-                                .setNegativeButton("Vie kaikki") { _, _ ->
+                                .setNeutralButton("Vie kaikki") { _, _ ->
                                     importExportManager.launchExport()
                                 }
-                                .setNeutralButton("Peruuta", null)
                                 .show()
                             exportDialog.enlargeButtons()
                         } else {
@@ -742,10 +746,10 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Poista kaikki tiedot?")
             .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalamerkit ja paikkamerkit? Tätä toimintoa ei voi kumota.")
-            .setPositiveButton("Poista kaikki") { _, _ ->
+            .setPositiveButton("Takaisin", null)
+            .setNegativeButton("Poista kaikki") { _, _ ->
                 deleteAllCatches()
             }
-            .setNegativeButton("Peruuta", null)
             .show()
 
         dialog.enlargeButtons()
@@ -790,7 +794,7 @@ class SettingsManager(
                 }
                 options.add("Takaisin")
 
-                AlertDialog.Builder(activity)
+                val dialog = AlertDialog.Builder(activity)
                     .setTitle(activity.getString(R.string.fish_species_settings))
                     .setItems(options.toTypedArray()) { _, which ->
                         when (options[which]) {
@@ -804,17 +808,18 @@ class SettingsManager(
                             activity.getString(R.string.import_species_settings) -> {
                                 AlertDialog.Builder(activity)
                                     .setMessage(R.string.import_species_confirm)
-                                    .setPositiveButton(R.string.ok) { _, _ ->
+                                    .setPositiveButton("Takaisin", null)
+                                    .setNegativeButton(R.string.ok) { _, _ ->
                                         importExportManager.launchImportSpecies()
                                     }
-                                    .setNegativeButton(R.string.cancel, null)
                                     .show()
                                     .enlargeButtons()
                             }
                             activity.getString(R.string.reset_default_species) -> {
                                 AlertDialog.Builder(activity)
                                     .setMessage(R.string.reset_species_confirm)
-                                    .setPositiveButton(R.string.delete) { _, _ ->
+                                    .setPositiveButton("Takaisin", null)
+                                    .setNegativeButton(R.string.delete) { _, _ ->
                                         activity.lifecycleScope.launch(Dispatchers.IO) {
                                             db.fishSpeciesDao().deleteAll()
                                             // MainActivityn esitäyttö hoitaa loput, mutta voimme myös täyttää tässä heti
@@ -827,14 +832,13 @@ class SettingsManager(
                                             }
                                         }
                                     }
-                                    .setNegativeButton(R.string.cancel, null)
                                     .show()
                                     .enlargeButtons()
                             }
                         }
                     }
                     .show()
-                    .enlargeButtons()
+                dialog.enlargeButtons()
             }
         }
     }
@@ -875,7 +879,8 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Oletuskalastaja")
             .setView(layout)
-            .setPositiveButton("Tallenna") { _, _ ->
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .setNegativeButton("Tallenna") { _, _ ->
                 val newFisherman = input.text.toString().trim()
                 prefs.edit().apply {
                     putString("default_fisherman", newFisherman)
@@ -884,7 +889,6 @@ class SettingsManager(
                 }
                 onMapSettingsChanged() // Käytetään tätä päivittämään UI
             }
-            .setNegativeButton("Takaisin") { _, _ -> openSettings() }
             .show()
         dialog.enlargeButtons()
     }

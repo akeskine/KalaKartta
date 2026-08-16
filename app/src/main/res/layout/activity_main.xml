@@ -190,7 +190,7 @@
         android:insetBottom="0dp"
         android:padding="0dp"
         app:backgroundTint="@android:color/transparent"
-        app:icon="@android:drawable/ic_menu_manage"
+        app:icon="@drawable/ic_menu"
         app:iconGravity="textStart"
         app:iconPadding="0dp"
         app:iconSize="32dp"
