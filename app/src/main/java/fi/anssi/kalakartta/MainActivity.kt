@@ -1212,9 +1212,12 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     reloadMarkersFromDb()
                 }
-            } else if (requestCode == 2001) {
-                // Suodattimet päivitetty
+            } else if (requestCode == 2001 || requestCode == 2002) {
+                // Suodattimet tai yhteenveto päivitetty
                 reloadMarkersFromDb()
+                if (data?.getBooleanExtra("BACK_TO_SETTINGS", false) == true) {
+                    settingsManager.openSettings()
+                }
             } else if (requestCode == 1002) {
                 // Kalalajit muokattu: pakotetaan MarkerManagerin päivitys
                 markerManager.rebuildMarkers(map.zoomLevelDouble, forceRefreshSpecies = true)

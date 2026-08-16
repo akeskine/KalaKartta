@@ -87,7 +87,7 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Taustakartta", "Kalastussession tallennus", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset", "Takaisin")) { _, which ->
+                    .setItems(arrayOf("Taustakartta", "Kalastussession tallennus", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
                             0 -> openMapSettings()
                             1 -> {
@@ -108,9 +108,9 @@ class SettingsManager(
                             5 -> openWeatherSettings()
                             6 -> openSpeciesSettings()
                             7 -> openGeneralSettings()
-                            8 -> { /* Sulje valikko */ }
                         }
                     }
+                    .setPositiveButton("Takaisin", null)
                     .show()
                 dialog.enlargeButtons()
             }
@@ -261,7 +261,7 @@ class SettingsManager(
         // Oletuskalastaja -linkki
         val fishermanLink = TextView(activity).apply {
             text = "Oletuskalastaja"
-            textSize = 20f
+            textSize = 18f
             setTextColor(activity.getColor(android.R.color.holo_blue_dark))
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
@@ -276,7 +276,7 @@ class SettingsManager(
         // Mittakaava -linkki
         val scaleLink = TextView(activity).apply {
             text = activity.getString(R.string.scale_bar)
-            textSize = 20f
+            textSize = 18f
             setTextColor(activity.getColor(android.R.color.holo_blue_dark))
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
@@ -291,7 +291,7 @@ class SettingsManager(
         // Automaattinen kohdistus -linkki
         val autoCenterLink = TextView(activity).apply {
             text = activity.getString(R.string.auto_center)
-            textSize = 20f
+            textSize = 18f
             setTextColor(activity.getColor(android.R.color.holo_blue_dark))
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
@@ -306,7 +306,7 @@ class SettingsManager(
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
-            .setPositiveButton("Takaisin", null)
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .show()
             .enlargeButtons()
     }
@@ -592,7 +592,7 @@ class SettingsManager(
             .setTitle("Taustakartta")
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .setNegativeButton("OK") { _, _ ->
+            .setNegativeButton("Tallenna") { _, _ ->
                 val selectedId = getSelectedId()
                 val newSource = internalIds[selectedId]
                 val newApiKey = apiKeyInput.text.toString()
@@ -654,7 +654,7 @@ class SettingsManager(
             .setPositiveButton("Takaisin") { _, _ ->
                 openSettings()
             }
-            .setNegativeButton("OK") { _, _ ->
+            .setNegativeButton("Tallenna") { _, _ ->
                 if (isEnabledCurrent != isEnabledInitial) {
                     prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
                     if (isEnabledCurrent) {
@@ -671,7 +671,7 @@ class SettingsManager(
 
     private fun openSummary() {
         val intent = android.content.Intent(activity, SummaryActivity::class.java)
-        activity.startActivity(intent)
+        activity.startActivityForResult(intent, 2002)
     }
 
     private fun openFilterSettings() {
@@ -695,7 +695,7 @@ class SettingsManager(
 
         val titleView = TextView(activity).apply {
             text = "Tiedonsiirto"
-            textSize = 22f
+            textSize = 20f
             setTextColor(activity.resources.getColor(android.R.color.primary_text_light))
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
@@ -711,7 +711,7 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setCustomTitle(layout)
-            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Poista kaikki pisteet", "Takaisin")) { _, which ->
+            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Poista kaikki pisteet")) { _, which ->
                 when (which) {
                     0 -> {
                         if (isFiltered) {
@@ -735,9 +735,9 @@ class SettingsManager(
                     }
                     1 -> importExportManager.launchImport()
                     2 -> confirmDeleteAllCatches()
-                    3 -> openSettings()
                 }
             }
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .show()
         dialog.enlargeButtons()
     }
@@ -747,7 +747,7 @@ class SettingsManager(
             .setTitle("Poista kaikki tiedot?")
             .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalamerkit ja paikkamerkit? Tätä toimintoa ei voi kumota.")
             .setPositiveButton("Takaisin", null)
-            .setNegativeButton("Poista kaikki") { _, _ ->
+            .setNegativeButton("Poista") { _, _ ->
                 deleteAllCatches()
             }
             .show()
@@ -792,7 +792,6 @@ class SettingsManager(
                 if (isModified) {
                     options.add(activity.getString(R.string.reset_default_species))
                 }
-                options.add("Takaisin")
 
                 val dialog = AlertDialog.Builder(activity)
                     .setTitle(activity.getString(R.string.fish_species_settings))
@@ -809,7 +808,7 @@ class SettingsManager(
                                 AlertDialog.Builder(activity)
                                     .setMessage(R.string.import_species_confirm)
                                     .setPositiveButton("Takaisin", null)
-                                    .setNegativeButton(R.string.ok) { _, _ ->
+                                    .setNegativeButton("Tuo") { _, _ ->
                                         importExportManager.launchImportSpecies()
                                     }
                                     .show()
@@ -819,7 +818,7 @@ class SettingsManager(
                                 AlertDialog.Builder(activity)
                                     .setMessage(R.string.reset_species_confirm)
                                     .setPositiveButton("Takaisin", null)
-                                    .setNegativeButton(R.string.delete) { _, _ ->
+                                    .setNegativeButton("Palauta") { _, _ ->
                                         activity.lifecycleScope.launch(Dispatchers.IO) {
                                             db.fishSpeciesDao().deleteAll()
                                             // MainActivityn esitäyttö hoitaa loput, mutta voimme myös täyttää tässä heti
@@ -837,6 +836,7 @@ class SettingsManager(
                             }
                         }
                     }
+                    .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                     .show()
                 dialog.enlargeButtons()
             }
@@ -879,7 +879,7 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Oletuskalastaja")
             .setView(layout)
-            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .setNegativeButton("Tallenna") { _, _ ->
                 val newFisherman = input.text.toString().trim()
                 prefs.edit().apply {

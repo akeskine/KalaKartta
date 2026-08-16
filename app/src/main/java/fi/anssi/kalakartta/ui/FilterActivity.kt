@@ -614,6 +614,11 @@ class FilterActivity : AppCompatActivity() {
             saveAndFinish()
         }
 
+        findViewById<Button>(R.id.backButton).setOnClickListener {
+            setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
+            finish()
+        }
+
         val windWatcher = object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}

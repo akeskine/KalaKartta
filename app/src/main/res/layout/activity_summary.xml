@@ -143,19 +143,24 @@
             android:textSize="16sp" />
     </ScrollView>
 
-    <TextView
-        android:id="@+id/backButton"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Takaisin"
-        android:textSize="18sp"
-        android:textColor="@android:color/holo_blue_dark"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
+        android:orientation="horizontal"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="48dp" />
+        android:layout_marginBottom="48dp">
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/backButton"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/back" />
+    </LinearLayout>
 
 </LinearLayout>
