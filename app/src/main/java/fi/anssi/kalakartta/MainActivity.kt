@@ -59,6 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import kotlinx.coroutines.*
 import fi.anssi.kalakartta.service.FishingSessionService
 import android.content.ServiceConnection
 import android.os.IBinder
@@ -83,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     private var isBound = false
     private var sessionPolyline: Polyline? = null
     private var archivedSessionPolyline: Polyline? = null
+    private var replayJob: Job? = null
     private var visibleArchivedSessionId: Long = -1L
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
@@ -138,6 +140,68 @@ class MainActivity : AppCompatActivity() {
                     
                     // Zoomataan session alkuun
                     map.controller.animateTo(geoPoints[0], 15.0, 500L)
+                    markerManager.setMaxTimestamp(Long.MAX_VALUE)
+                    map.invalidate()
+                }
+            }
+        }
+    }
+
+    private fun replaySessionOnMap(sessionId: Long, speed: Int) {
+        replayJob?.cancel()
+        replayJob = lifecycleScope.launch(Dispatchers.IO) {
+            val session = db.fishingSessionDao().getById(sessionId)
+            val points = db.trackPointDao().getPointsForSession(sessionId)
+            if (points.isEmpty() || session == null) return@launch
+
+            withContext(Dispatchers.Main) {
+                if (archivedSessionPolyline != null) {
+                    map.overlays.remove(archivedSessionPolyline)
+                }
+                archivedSessionPolyline = Polyline(map).apply {
+                    outlinePaint.color = Color.BLUE
+                    outlinePaint.strokeWidth = 8f
+                }
+                map.overlays.add(archivedSessionPolyline)
+                visibleArchivedSessionId = sessionId
+                
+                // Zoomataan session alkuun
+                map.controller.animateTo(GeoPoint(points[0].latitude, points[0].longitude), 15.0, 500L)
+                markerManager.setMaxTimestamp(session.startedAt)
+                map.invalidate()
+            }
+
+            val startTime = session.startedAt
+            val endTime = session.endedAt ?: points.last().timestamp
+            val duration = endTime - startTime
+            
+            // Toistoväli esim 100ms välein
+            val stepMs = 100L
+            val simStepMs = stepMs * speed
+            
+            var currentSimTime = startTime
+            
+            while (currentSimTime <= endTime && isActive) {
+                val currentTime = currentSimTime
+                val visiblePoints = points.filter { it.timestamp <= currentTime }
+                val geoPoints = visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
+                
+                withContext(Dispatchers.Main) {
+                    archivedSessionPolyline?.setPoints(geoPoints)
+                    markerManager.setMaxTimestamp(currentTime)
+                    map.invalidate()
+                }
+                
+                delay(stepMs)
+                currentSimTime += simStepMs
+            }
+            
+            // Varmistetaan lopuksi kaikki pisteet näkyviin
+            if (isActive) {
+                withContext(Dispatchers.Main) {
+                    val allGeoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
+                    archivedSessionPolyline?.setPoints(allGeoPoints)
+                    markerManager.setMaxTimestamp(Long.MAX_VALUE)
                     map.invalidate()
                 }
             }
@@ -145,10 +209,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun hideArchivedSession() {
+        replayJob?.cancel()
         if (archivedSessionPolyline != null) {
             map.overlays.remove(archivedSessionPolyline)
             archivedSessionPolyline = null
             visibleArchivedSessionId = -1L
+            markerManager.setMaxTimestamp(Long.MAX_VALUE)
             map.invalidate()
         }
     }
@@ -1417,9 +1483,14 @@ class MainActivity : AppCompatActivity() {
         if (resultCode == RESULT_OK) {
             val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
             val sessionId = data?.getLongExtra("EXTRA_SESSION_ID", -1L) ?: -1L
+            val replaySpeed = data?.getIntExtra("EXTRA_REPLAY_SPEED", -1) ?: -1
 
             if (sessionId != -1L) {
-                showArchivedSessionOnMap(sessionId)
+                if (replaySpeed != -1) {
+                    replaySessionOnMap(sessionId, replaySpeed)
+                } else {
+                    showArchivedSessionOnMap(sessionId)
+                }
             } else if (requestCode == 1001 && catchId != -1L) {
                 // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
                 val fish = db.fishCatchDao().getById(catchId)

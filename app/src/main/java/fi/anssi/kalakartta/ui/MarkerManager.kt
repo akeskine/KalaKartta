@@ -410,6 +410,13 @@ class MarkerManager(
         return Quadruple(drawableId, iconPath, adjustedFinalIconSize, finalVisibleSize)
     }
 
+    private var maxTimestamp: Long = Long.MAX_VALUE
+
+    fun setMaxTimestamp(timestamp: Long) {
+        maxTimestamp = timestamp
+        rebuildMarkers(lastZoom)
+    }
+
     fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
         if (forceRefreshSpecies) {
             speciesCache.clear()
@@ -439,7 +446,7 @@ class MarkerManager(
             delay(if (catchesCount < 100) 10 else 40)
             
             val catchesCopy = synchronized(allCatches) { 
-                allCatches.filter { !deletedFishIds.contains(it.id) }.toList() 
+                allCatches.filter { !deletedFishIds.contains(it.id) && (it.caughtAt ?: 0L) <= maxTimestamp }.toList() 
             }
             val placesCopy = synchronized(allPlaces) { 
                 allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList() 
