@@ -88,7 +88,7 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Taustakartta", "Kalastussession tallennus", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
+                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
                             0 -> openMapSettings()
                             1 -> openFishingSessionSettings()
@@ -916,7 +916,7 @@ class SettingsManager(
             layout.addView(startButton)
 
             dialog = AlertDialog.Builder(activity)
-                .setTitle("Kalastussession tallennus")
+                .setTitle("Kalastussessiot")
                 .setView(layout)
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                 .show()
@@ -959,7 +959,7 @@ class SettingsManager(
             layout.addView(stopButton)
 
             dialog = AlertDialog.Builder(activity)
-                .setTitle("Kalastussession tallennus")
+                .setTitle("Kalastussessiot")
                 .setView(layout)
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                 .show()
