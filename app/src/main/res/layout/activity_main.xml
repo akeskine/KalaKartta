@@ -60,7 +60,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="@dimen/replay_player_margin_bottom"
         android:paddingHorizontal="16dp"
         android:visibility="gone"
         tools:visibility="visible">
@@ -71,7 +71,8 @@
             android:layout_height="wrap_content"
             android:background="#CC000000"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="12dp"
+            android:elevation="10dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -135,6 +136,7 @@
             android:insetBottom="0dp"
             android:padding="0dp"
             android:visibility="gone"
+            android:elevation="11dp"
             app:backgroundTint="#CC000000"
             app:icon="@android:drawable/ic_media_play"
             app:iconGravity="textStart"

@@ -162,6 +162,54 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun restoreReplaySession(sessionId: Long, minimized: Boolean) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val session = db.fishingSessionDao().getById(sessionId)
+            val points = db.trackPointDao().getPointsForSession(sessionId)
+            if (points.isEmpty() || session == null) return@launch
+
+            withContext(Dispatchers.Main) {
+                replayPoints = points
+                replayStartTime = session.startedAt
+                replayEndTime = session.endedAt ?: points.last().timestamp
+                // currentReplayTime, replaySpeed ja isReplayPlaying on jo palautettu
+                
+                initReplayUI()
+                
+                val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x")
+                val speedIndex = speedOptions.indexOf("${replaySpeed}x")
+                if (speedIndex != -1) {
+                    findViewById<android.widget.Spinner>(R.id.replaySpeedSpinner).setSelection(speedIndex)
+                }
+
+                if (minimized) {
+                    findViewById<android.view.View>(R.id.replayPlayerContainer).visibility = android.view.View.GONE
+                    findViewById<android.view.View>(R.id.replayRestoreButton).visibility = android.view.View.VISIBLE
+                }
+
+                if (archivedSessionPolyline != null) {
+                    map.overlays.remove(archivedSessionPolyline)
+                }
+                archivedSessionPolyline = Polyline(map).apply {
+                    outlinePaint.color = Color.BLUE
+                    outlinePaint.strokeWidth = 8f
+                }
+                map.overlays.add(archivedSessionPolyline)
+                visibleArchivedSessionId = sessionId
+                
+                // Päivitetään frame nykyisen ajan mukaan
+                updateReplayFrame()
+                updateReplayUI()
+                
+                if (isReplayPlaying) {
+                    startReplayLoop()
+                } else {
+                    updateReplayPlayPauseIcon()
+                }
+            }
+        }
+    }
+
     private fun initReplayUI() {
         val playerLayout = findViewById<android.view.View>(R.id.replayPlayerLayout)
         val playerContainer = findViewById<android.view.View>(R.id.replayPlayerContainer)
@@ -434,6 +482,19 @@ class MainActivity : AppCompatActivity() {
     private var isUserScrolling = false
     private var isSelectionMode = false
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong("visibleArchivedSessionId", visibleArchivedSessionId)
+        outState.putLong("currentReplayTime", currentReplayTime)
+        outState.putInt("replaySpeed", replaySpeed)
+        outState.putBoolean("isReplayPlaying", isReplayPlaying)
+        
+        val playerContainer = findViewById<android.view.View>(R.id.replayPlayerContainer)
+        if (playerContainer != null) {
+            outState.putBoolean("replayMinimized", playerContainer.visibility == android.view.View.GONE)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val crashFile = java.io.File(filesDir, "startup-crash.txt")
 
@@ -553,6 +614,20 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         android.widget.Toast.makeText(this, "Sijaintia ei ole vielä saatavilla", android.widget.Toast.LENGTH_SHORT).show()
                     }
+                }
+            }
+
+            // Palautetaan toisto-tila
+            if (savedInstanceState != null) {
+                val sessionId = savedInstanceState.getLong("visibleArchivedSessionId", -1L)
+                if (sessionId != -1L) {
+                    currentReplayTime = savedInstanceState.getLong("currentReplayTime", 0L)
+                    replaySpeed = savedInstanceState.getInt("replaySpeed", 60)
+                    isReplayPlaying = savedInstanceState.getBoolean("isReplayPlaying", false)
+                    val minimized = savedInstanceState.getBoolean("replayMinimized", false)
+                    
+                    // Ladataan sessio uudelleen ja asetetaan tila
+                    restoreReplaySession(sessionId, minimized)
                 }
             }
 
@@ -1650,11 +1725,18 @@ class MainActivity : AppCompatActivity() {
             val replayRequest = data?.getBooleanExtra("EXTRA_REPLAY_REQUEST", false) ?: false
 
             if (sessionId != -1L) {
+                // Suljetaan mahdolliset dialogit ennen kartalle siirtymistä
+                supportFragmentManager.fragments.forEach { 
+                    if (it is androidx.fragment.app.DialogFragment) it.dismiss()
+                }
+                
                 if (replayRequest) {
                     replaySessionOnMap(sessionId)
                 } else {
                     showArchivedSessionOnMap(sessionId)
                 }
+            } else if (requestCode == 3001) {
+                // Sessioiden listauksesta palattiin ilman valintaa, ei tehdä mitään erikoista
             } else if (requestCode == 1001 && catchId != -1L) {
                 // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
                 val fish = db.fishCatchDao().getById(catchId)

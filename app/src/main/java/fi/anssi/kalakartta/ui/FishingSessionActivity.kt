@@ -298,6 +298,22 @@ class FishingSessionActivity : AppCompatActivity() {
                 }
                 replayRow.addView(replayLink)
 
+                val showLink = TextView(this@FishingSessionActivity).apply {
+                    text = "Näytä"
+                    setTextColor(Color.BLUE)
+                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                    setPadding(0, 10, 20, 10)
+                    isClickable = true
+                    setOnClickListener {
+                        val intent = Intent()
+                        intent.putExtra("EXTRA_SESSION_ID", session.id)
+                        intent.putExtra("EXTRA_REPLAY_REQUEST", false)
+                        setResult(RESULT_OK, intent)
+                        finish()
+                    }
+                }
+                replayRow.addView(showLink)
+
                 container.addView(replayRow)
             }
         }
