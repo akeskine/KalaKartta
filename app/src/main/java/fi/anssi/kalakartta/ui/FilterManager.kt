@@ -326,14 +326,23 @@ class FilterManager(private val context: Context) {
             val df = SimpleDateFormat("d.M.yyyy", Locale.getDefault())
             val start = f.startDate?.let { df.format(Date(it)) } ?: "..."
             val end = f.endDate?.let { df.format(Date(it)) } ?: "..."
-            parts.add("$start-$end")
+            
+            if (start == end && start != "...") {
+                parts.add(start)
+            } else {
+                parts.add("$start-$end")
+            }
         }
 
         if (f.annualStartDay != null && f.annualStartMonth != null && 
             f.annualEndDay != null && f.annualEndMonth != null) {
             val start = "${f.annualStartDay}.${f.annualStartMonth + 1}."
             val end = "${f.annualEndDay}.${f.annualEndMonth + 1}."
-            parts.add("$start-$end")
+            if (start == end) {
+                parts.add(start)
+            } else {
+                parts.add("$start-$end")
+            }
         }
 
         if (f.startTimeMinutes != null && f.endTimeMinutes != null) {
@@ -343,23 +352,39 @@ class FilterManager(private val context: Context) {
             val endM = f.endTimeMinutes % 60
             val start = String.format(Locale.getDefault(), "%d:%02d", startH, startM)
             val end = String.format(Locale.getDefault(), "%d:%02d", endH, endM)
-            parts.add("klo $start-$end")
+            if (start == end) {
+                parts.add("klo $start")
+            } else {
+                parts.add("klo $start-$end")
+            }
         }
 
         if (f.windMin != null && f.windMax != null) {
-            parts.add("tuuli ${f.windMin.toInt()}°-${f.windMax.toInt()}°")
+            if (f.windMin == f.windMax) {
+                parts.add("tuuli ${f.windMin.toInt()}°")
+            } else {
+                parts.add("tuuli ${f.windMin.toInt()}°-${f.windMax.toInt()}°")
+            }
         }
 
         if (f.pressureMin != null || f.pressureMax != null) {
             val min = f.pressureMin?.toInt()?.toString() ?: "..."
             val max = f.pressureMax?.toInt()?.toString() ?: "..."
-            parts.add("paine $min-$max hPa")
+            if (min == max && min != "...") {
+                parts.add("paine $min hPa")
+            } else {
+                parts.add("paine $min-$max hPa")
+            }
         }
 
         if (f.waterTempMin != null || f.waterTempMax != null) {
             val min = f.waterTempMin?.toInt()?.toString() ?: "..."
             val max = f.waterTempMax?.toInt()?.toString() ?: "..."
-            parts.add("vesi $min-$max C")
+            if (min == max && min != "...") {
+                parts.add("vesi $min C")
+            } else {
+                parts.add("vesi $min-$max C")
+            }
         }
 
 
@@ -370,7 +395,11 @@ class FilterManager(private val context: Context) {
             val endM = f.annualEndTimeMinutes % 60
             val start = String.format(Locale.getDefault(), "%d:%02d", startH, startM)
             val end = String.format(Locale.getDefault(), "%d:%02d", endH, endM)
-            parts.add("vuosittainen klo $start-$end")
+            if (start == end) {
+                parts.add("vuosittainen klo $start")
+            } else {
+                parts.add("vuosittainen klo $start-$end")
+            }
         }
 
         if (f.latNorth != null) {

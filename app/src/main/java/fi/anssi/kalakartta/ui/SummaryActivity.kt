@@ -192,7 +192,7 @@ class SummaryActivity : AppCompatActivity() {
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         startDateTime = cal.clone() as Calendar
-        startTimeSet = true
+        startTimeSet = false
         val start = cal.timeInMillis
         
         cal.set(Calendar.HOUR_OF_DAY, 23)
@@ -200,11 +200,15 @@ class SummaryActivity : AppCompatActivity() {
         cal.set(Calendar.SECOND, 59)
         cal.set(Calendar.MILLISECOND, 999)
         endDateTime = cal.clone() as Calendar
-        endTimeSet = true
+        endTimeSet = false
         val end = cal.timeInMillis
 
         updateDateButtons()
-        val title = "Kalansaaliit ${dateFormat.format(Date())}"
+        val title = if (startTimeSet || endTimeSet) {
+            "Kalansaaliit ${dateFormat.format(Date())}"
+        } else {
+            "Kalansaaliit ${dateFormat.format(Date())}" // Periaatteessa sama, mutta selkeyden vuoksi
+        }
         fetchAndDisplaySummary(start, end, title)
     }
 
@@ -240,19 +244,46 @@ class SummaryActivity : AppCompatActivity() {
 
         val sb = StringBuilder("Kalansaaliit aikavälillä ")
         if (startDateTime != null) {
-            sb.append(dateFormat.format(startDateTime!!.time))
-            if (startTimeSet) sb.append(" klo ").append(timeFormat.format(startDateTime!!.time))
+            val startDateStr = dateFormat.format(startDateTime!!.time)
+            val endDateStr = endDateTime?.let { dateFormat.format(it.time) }
+            
+            if (startDateStr == endDateStr) {
+                sb.append(startDateStr)
+                if (startTimeSet && endTimeSet) {
+                    val startTimeStr = timeFormat.format(startDateTime!!.time)
+                    val endTimeStr = timeFormat.format(endDateTime!!.time)
+                    if (startTimeStr == endTimeStr) {
+                        sb.append(" klo ").append(startTimeStr)
+                    } else {
+                        sb.append(" klo ").append(startTimeStr).append("-").append(endTimeStr)
+                    }
+                } else if (startTimeSet) {
+                    sb.append(" alkaen klo ").append(timeFormat.format(startDateTime!!.time))
+                } else if (endTimeSet) {
+                    sb.append(" loppuen klo ").append(timeFormat.format(endDateTime!!.time))
+                }
+            } else {
+                sb.append(startDateStr)
+                if (startTimeSet) sb.append(" klo ").append(timeFormat.format(startDateTime!!.time))
+                
+                sb.append(" - ")
+                
+                if (endDateTime != null) {
+                    sb.append(dateFormat.format(endDateTime!!.time))
+                    if (endTimeSet) sb.append(" klo ").append(timeFormat.format(endDateTime!!.time))
+                } else {
+                    sb.append("kaikki")
+                }
+            }
         } else {
             sb.append("kaikki")
-        }
-        
-        sb.append(" - ")
-        
-        if (endDateTime != null) {
-            sb.append(dateFormat.format(endDateTime!!.time))
-            if (endTimeSet) sb.append(" klo ").append(timeFormat.format(endDateTime!!.time))
-        } else {
-            sb.append("kaikki")
+            sb.append(" - ")
+            if (endDateTime != null) {
+                sb.append(dateFormat.format(endDateTime!!.time))
+                if (endTimeSet) sb.append(" klo ").append(timeFormat.format(endDateTime!!.time))
+            } else {
+                sb.append("kaikki")
+            }
         }
         sb.append(":")
 
