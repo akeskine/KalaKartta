@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
     private var fishingService: FishingSessionService? = null
     private var isBound = false
     private var sessionPolyline: Polyline? = null
+    private var archivedSessionPolyline: Polyline? = null
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
     private val recordingBlinkRunnable = object : Runnable {
@@ -113,6 +114,30 @@ class MainActivity : AppCompatActivity() {
             map.overlays.remove(sessionPolyline)
             sessionPolyline = null
             map.invalidate()
+        }
+    }
+
+    private fun showArchivedSessionOnMap(sessionId: Long) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val points = db.trackPointDao().getPointsForSession(sessionId)
+            if (points.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    if (archivedSessionPolyline != null) {
+                        map.overlays.remove(archivedSessionPolyline)
+                    }
+                    archivedSessionPolyline = Polyline(map).apply {
+                        outlinePaint.color = Color.BLUE
+                        outlinePaint.strokeWidth = 8f
+                    }
+                    val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
+                    archivedSessionPolyline?.setPoints(geoPoints)
+                    map.overlays.add(archivedSessionPolyline)
+                    
+                    // Zoomataan session alkuun
+                    map.controller.animateTo(geoPoints[0], 15.0, 500L)
+                    map.invalidate()
+                }
+            }
         }
     }
 
@@ -1055,6 +1080,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun startFishingSession(interval: Int) {
+        // Poistetaan vanha arkistoitu reitti jos sellainen on näkyvissä
+        if (archivedSessionPolyline != null) {
+            map.overlays.remove(archivedSessionPolyline)
+            archivedSessionPolyline = null
+            map.invalidate()
+        }
+
         val intent = Intent(this, FishingSessionService::class.java).apply {
             putExtra("INTERVAL", interval)
         }
@@ -1374,8 +1406,11 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
             val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
+            val sessionId = data?.getLongExtra("EXTRA_SESSION_ID", -1L) ?: -1L
 
-            if (requestCode == 1001 && catchId != -1L) {
+            if (sessionId != -1L) {
+                showArchivedSessionOnMap(sessionId)
+            } else if (requestCode == 1001 && catchId != -1L) {
                 // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
                 val fish = db.fishCatchDao().getById(catchId)
                 if (fish != null) {

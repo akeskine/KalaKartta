@@ -879,6 +879,21 @@ class SettingsManager(
         }
 
         if (!isRecording) {
+            val fetchButton = MaterialButton(activity).apply {
+                text = "Hae kalastussessiot"
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                params.setMargins(0, 0, 0, 30)
+                layoutParams = params
+                setOnClickListener {
+                    val intent = Intent(activity, FishingSessionActivity::class.java)
+                    activity.startActivityForResult(intent, 3001)
+                }
+            }
+            layout.addView(fetchButton)
+
             val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
             val interval = prefs.getInt("track_point_interval", 30)
 
