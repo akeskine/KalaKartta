@@ -922,26 +922,35 @@ class SettingsManager(
                 .show()
             dialog.enlargeButtons()
         } else {
-            val startedAt = fishingService?.getStartedAt() ?: 0L
-            val duration = System.currentTimeMillis() - startedAt
-            val hours = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(duration)
-            val minutes = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(duration) % 60
-            val seconds = java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds(duration) % 60
+            var dialog: AlertDialog? = null
             
-            val durationStr = if (hours > 0) "${hours} h ${minutes} min ${seconds} s" else "${minutes} min ${seconds} s"
-            val distance = fishingService?.getTotalDistance() ?: 0.0
-            val distanceStr = String.format("%.1f km", distance / 1000.0).replace(".", ",")
-            val interval = fishingService?.getIntervalSeconds() ?: 30
-            val pointCount = fishingService?.getCurrentTrackPoints()?.size ?: 0
-
             val infoText = TextView(activity).apply {
-                text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} s."
                 textSize = 16f
                 setPadding(0, 0, 0, 40)
             }
             layout.addView(infoText)
 
-            var dialog: AlertDialog? = null
+            val updateJob = activity.lifecycleScope.launch {
+                while (isActive) {
+                    val currentService = (activity as? fi.anssi.kalakartta.MainActivity)?.getFishingService()
+                    if (currentService != null && currentService.isRecording()) {
+                        val startedAt = currentService.getStartedAt()
+                        val duration = System.currentTimeMillis() - startedAt
+                        val hours = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(duration)
+                        val minutes = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(duration) % 60
+                        val seconds = java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds(duration) % 60
+                        
+                        val durationStr = if (hours > 0) "${hours} h ${minutes} min ${seconds} s" else "${minutes} min ${seconds} s"
+                        val distance = currentService.getTotalDistance()
+                        val distanceStr = String.format("%.1f km", distance / 1000.0).replace(".", ",")
+                        val interval = currentService.getIntervalSeconds()
+                        val pointCount = currentService.getCurrentTrackPoints().size
+
+                        infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} s."
+                    }
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
             
             val stopButton = MaterialButton(activity).apply {
                 text = "Lopeta tallennus"
@@ -952,7 +961,7 @@ class SettingsManager(
                 params.setMargins(0, 20, 0, 10)
                 layoutParams = params
                 setOnClickListener {
-                    mainActivity?.stopFishingSession()
+                    (activity as? fi.anssi.kalakartta.MainActivity)?.stopFishingSession()
                     dialog?.dismiss()
                 }
             }
@@ -962,6 +971,9 @@ class SettingsManager(
                 .setTitle("Kalastussessiot")
                 .setView(layout)
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+                .setOnDismissListener {
+                    updateJob.cancel()
+                }
                 .show()
             dialog.enlargeButtons()
         }
