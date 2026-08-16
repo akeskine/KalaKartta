@@ -41,6 +41,13 @@ class SettingsManager(
     private val onDataChanged: (forceRefreshSpecies: Boolean) -> Unit
 ) {
 
+    private var currentDialog: AlertDialog? = null
+
+    fun closeSettings() {
+        currentDialog?.dismiss()
+        currentDialog = null
+    }
+
     fun openSettings(
         isFiltered: Boolean = false,
         filteredCatches: List<fi.anssi.kalakartta.data.FishCatch>? = null,
@@ -115,6 +122,7 @@ class SettingsManager(
                     }
                     .setPositiveButton("Takaisin", null)
                     .show()
+                currentDialog = dialog
                 dialog.enlargeButtons()
             }
         }
@@ -306,12 +314,13 @@ class SettingsManager(
         }
         layout.addView(autoCenterLink)
 
-        AlertDialog.Builder(activity)
+        val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .show()
-            .enlargeButtons()
+        currentDialog = dialog
+        dialog.enlargeButtons()
     }
 
     private fun openScaleSettings() {
@@ -344,12 +353,13 @@ class SettingsManager(
         }
         layout.addView(showMeasurementToolCheckbox)
 
-        AlertDialog.Builder(activity)
+        val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.scale_bar))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .show()
-            .enlargeButtons()
+        currentDialog = dialog
+        dialog.enlargeButtons()
     }
 
     private fun openAutoCenterSettings() {
@@ -370,12 +380,13 @@ class SettingsManager(
         }
         layout.addView(autoCenterCheckbox)
 
-        AlertDialog.Builder(activity)
+        val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.auto_center))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .show()
-            .enlargeButtons()
+        currentDialog = dialog
+        dialog.enlargeButtons()
     }
 
 
@@ -616,6 +627,7 @@ class SettingsManager(
                 onMapSettingsChanged()
             }
             .show()
+        currentDialog = dialog
         dialog.enlargeButtons()
     }
 
@@ -667,6 +679,7 @@ class SettingsManager(
                 }
             }
             .show()
+        currentDialog = dialog
         dialog.enlargeButtons()
     }
 
@@ -823,52 +836,55 @@ class SettingsManager(
                     options.add(activity.getString(R.string.reset_default_species))
                 }
 
-                val dialog = AlertDialog.Builder(activity)
-                    .setTitle(activity.getString(R.string.fish_species_settings))
-                    .setItems(options.toTypedArray()) { _, which ->
-                        when (options[which]) {
-                            activity.getString(R.string.edit_species) -> {
-                                val intent = Intent(activity, EditSpeciesActivity::class.java)
-                                activity.startActivityForResult(intent, 1002)
-                            }
-                            activity.getString(R.string.export_species_settings) -> {
-                                importExportManager.launchExportSpecies()
-                            }
-                            activity.getString(R.string.import_species_settings) -> {
-                                AlertDialog.Builder(activity)
-                                    .setMessage(R.string.import_species_confirm)
-                                    .setPositiveButton("Takaisin", null)
-                                    .setNegativeButton("Tuo") { _, _ ->
-                                        importExportManager.launchImportSpecies()
-                                    }
-                                    .show()
-                                    .enlargeButtons()
-                            }
-                            activity.getString(R.string.reset_default_species) -> {
-                                AlertDialog.Builder(activity)
-                                    .setMessage(R.string.reset_species_confirm)
-                                    .setPositiveButton("Takaisin", null)
-                                    .setNegativeButton("Palauta") { _, _ ->
-                                        activity.lifecycleScope.launch(Dispatchers.IO) {
-                                            db.fishSpeciesDao().deleteAll()
-                                            // MainActivityn esitäyttö hoitaa loput, mutta voimme myös täyttää tässä heti
-                                            fi.anssi.kalakartta.data.FishSpecies.getDefaultList().forEach {
-                                                db.fishSpeciesDao().insert(it)
-                                            }
-                                            withContext(Dispatchers.Main) {
-                                                onDataChanged(true)
-                                                Toast.makeText(activity, "Oletukset palautettu", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    }
-                                    .show()
-                                    .enlargeButtons()
-                            }
-                        }
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.fish_species_settings))
+            .setItems(options.toTypedArray()) { _, which ->
+                when (options[which]) {
+                    activity.getString(R.string.edit_species) -> {
+                        val intent = Intent(activity, EditSpeciesActivity::class.java)
+                        activity.startActivityForResult(intent, 1002)
                     }
-                    .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-                    .show()
-                dialog.enlargeButtons()
+                    activity.getString(R.string.export_species_settings) -> {
+                        importExportManager.launchExportSpecies()
+                    }
+                    activity.getString(R.string.import_species_settings) -> {
+                        val d = AlertDialog.Builder(activity)
+                            .setMessage(R.string.import_species_confirm)
+                            .setPositiveButton("Takaisin", null)
+                            .setNegativeButton("Tuo") { _, _ ->
+                                importExportManager.launchImportSpecies()
+                            }
+                            .show()
+                        currentDialog = d
+                        d.enlargeButtons()
+                    }
+                    activity.getString(R.string.reset_default_species) -> {
+                        val d = AlertDialog.Builder(activity)
+                            .setMessage(R.string.reset_species_confirm)
+                            .setPositiveButton("Takaisin", null)
+                            .setNegativeButton("Palauta") { _, _ ->
+                                activity.lifecycleScope.launch(Dispatchers.IO) {
+                                    db.fishSpeciesDao().deleteAll()
+                                    // MainActivityn esitäyttö hoitaa loput, mutta voimme myös täyttää tässä heti
+                                    fi.anssi.kalakartta.data.FishSpecies.getDefaultList().forEach {
+                                        db.fishSpeciesDao().insert(it)
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        onDataChanged(true)
+                                        Toast.makeText(activity, "Oletukset palautettu", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                            .show()
+                        currentDialog = d
+                        d.enlargeButtons()
+                    }
+                }
+            }
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .show()
+        currentDialog = dialog
+        dialog.enlargeButtons()
             }
         }
     }
@@ -1024,8 +1040,10 @@ class SettingsManager(
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                 .setOnDismissListener {
                     updateJob.cancel()
+                    if (currentDialog == dialog) currentDialog = null
                 }
                 .show()
+            currentDialog = dialog
             dialog.enlargeButtons()
         } else {
             var dialog: AlertDialog? = null
@@ -1079,8 +1097,10 @@ class SettingsManager(
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                 .setOnDismissListener {
                     updateJob.cancel()
+                    if (currentDialog == dialog) currentDialog = null
                 }
                 .show()
+            currentDialog = dialog
             dialog.enlargeButtons()
         }
     }
@@ -1132,6 +1152,7 @@ class SettingsManager(
                 onMapSettingsChanged() // Käytetään tätä päivittämään UI
             }
             .show()
+        currentDialog = dialog
         dialog.enlargeButtons()
     }
 }

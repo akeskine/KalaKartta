@@ -247,7 +247,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x")
-        val adapter = android.widget.ArrayAdapter(this, R.layout.spinner_item, speedOptions)
+        val adapter = android.widget.ArrayAdapter(this, R.layout.spinner_item_narrow, speedOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         speedSpinner.adapter = adapter
         speedSpinner.setSelection(2) // 60x
@@ -1726,9 +1726,7 @@ class MainActivity : AppCompatActivity() {
 
             if (sessionId != -1L) {
                 // Suljetaan mahdolliset dialogit ennen kartalle siirtymistä
-                supportFragmentManager.fragments.forEach { 
-                    if (it is androidx.fragment.app.DialogFragment) it.dismiss()
-                }
+                settingsManager.closeSettings()
                 
                 if (replayRequest) {
                     replaySessionOnMap(sessionId)
