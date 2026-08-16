@@ -2,7 +2,9 @@ package fi.anssi.kalakartta.ui
 
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.view.View
 import android.view.LayoutInflater
 import android.widget.Button
@@ -34,6 +36,17 @@ class FishingSessionActivity : AppCompatActivity() {
     private var selectedCalendar = Calendar.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_fishing_sessions)
 
