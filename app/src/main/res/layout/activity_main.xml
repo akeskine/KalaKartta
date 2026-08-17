@@ -359,6 +359,32 @@
         app:strokeWidth="1dp" />
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/heatmapShortcutButton"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_gravity="top|start"
+        android:layout_marginTop="220dp"
+        android:layout_marginStart="@dimen/side_margin"
+        android:contentDescription="Heatmap päälle/pois"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        android:padding="0dp"
+        android:visibility="gone"
+        app:backgroundTint="@android:color/transparent"
+        app:icon="@drawable/ic_heatmap"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="24dp"
+        app:iconTint="@color/white"
+        app:rippleColor="@android:color/transparent"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.KalaKartta.Rounded"
+        app:strokeColor="@color/white"
+        app:strokeWidth="1dp" />
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/measurementButton"
         style="@style/Widget.Material3.Button.OutlinedButton"
         android:layout_width="80dp"

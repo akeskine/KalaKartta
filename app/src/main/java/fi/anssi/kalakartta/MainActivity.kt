@@ -44,6 +44,7 @@ import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
+import fi.anssi.kalakartta.ui.FishingHeatmapOverlay
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.MMLTileSource
@@ -52,6 +53,7 @@ import fi.anssi.kalakartta.utils.VeneilykarttaTileSource
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.content.res.ColorStateList
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.utils.enlargeButtons
@@ -84,6 +86,7 @@ class MainActivity : AppCompatActivity() {
     private var isBound = false
     private var sessionPolyline: Polyline? = null
     private var archivedSessionPolyline: Polyline? = null
+    private var heatmapOverlay: FishingHeatmapOverlay? = null
     private var replayJob: Job? = null
     private var visibleArchivedSessionId: Long = -1L
     private var isReplayPlaying = true
@@ -545,6 +548,87 @@ class MainActivity : AppCompatActivity() {
 
             android.util.Log.d("KalaKartta", "before map init")
             map = findViewById(R.id.map)
+
+            // Alustetaan tietokanta ja managerit ennen UI-päivityksiä (kuten updateMapTileSource)
+            // jotta ne eivät kaadu lateinit-virheisiin (esim. heatmap)
+            android.util.Log.d("KalaKartta", "before db init")
+            try {
+                db = AppDatabase.getInstance(this)
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Database initialization failed", e)
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
+
+                AlertDialog.Builder(this)
+                    .setTitle("Tietokantavirhe")
+                    .setMessage("Tietokannan avaaminen epäonnistui. Tämä johtuu yleensä sovelluspäivityksen yhteydessä tapahtuneesta migraatiovirheestä.\n\nVirhe: ${e.localizedMessage}\n\nJos virhe toistuu, voit yrittää poistaa sovelluksen ja asentaa sen uudelleen (huom: tiedot katoavat).")
+                    .setPositiveButton("OK", null)
+                    .show()
+
+                // Luodaan tyhjä in-memory tietokanta, jotta sovellus ei kaadu heti kaikkialla
+                db = androidx.room.Room.inMemoryDatabaseBuilder(
+                    applicationContext,
+                    AppDatabase::class.java
+                ).allowMainThreadQueries().build()
+            }
+            android.util.Log.d("KalaKartta", "after db init")
+
+            filterManager = FilterManager(this)
+            weatherService = WeatherService(this)
+
+            importExportManager = ImportExportManager(this, db) { forceRefreshSpecies ->
+                reloadMarkersFromDb(forceRefreshSpecies)
+            }
+
+            settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
+                if (isEnabled) {
+                    checkWeather(force = true)
+                } else {
+                    updateWeatherUI()
+                }
+            }, onMapSettingsChanged = {
+                updateMapTileSource()
+            }) { forceRefreshSpecies ->
+                reloadMarkersFromDb(forceRefreshSpecies)
+            }
+
+            markerManager = MarkerManager(this, map, db) { marker ->
+                val fish = marker.relatedObject as? FishCatch
+                val place = marker.relatedObject as? PlaceOfInterest
+
+                // Poistetaan välittömästi MarkerManagerin listoista ja kartalta,
+                // jotta onScroll/rebuildMarkers ei tuo sitä takaisin tietokantapoiston aikana.
+                markerManager.removeMarker(marker)
+
+                lifecycleScope.launch {
+                    val deletedId = fish?.id ?: place?.id
+                    android.util.Log.d("MainActivity", "Deleting from DB: ID=$deletedId")
+                    withContext(Dispatchers.IO) {
+                        if (fish != null) {
+                            db.fishCatchDao().deleteById(fish.id)
+                        }
+                        if (place != null) {
+                            db.placeOfInterestDao().deleteById(place.id)
+                        }
+                    }
+                    // Lisätään väliaikainen ilmoitus käyttäjän pyynnöstä
+                    android.util.Log.d("MainActivity", "Deleted from DB")
+                    android.widget.Toast.makeText(this@MainActivity, "Piste poistettu", android.widget.Toast.LENGTH_SHORT).show()
+
+                    // Kun poisto on valmistunut tietokannassa, ladataan listat uudelleen.
+                    // MarkerManager pitää huolen että poistettu ID ei näy väliaikanakaan.
+                    reloadMarkersFromDb()
+                }
+            }
+
+            catchManager = CatchManager(this, map, db, weatherService,
+                onCatchAdded = { fish ->
+                    markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
+                },
+                onPlaceAdded = { place ->
+                    markerManager.addOrUpdatePlaceIncremental(place, map.zoomLevelDouble)
+                }
+            )
+
             updateMapTileSource()
             map.setMultiTouchControls(true)
             map.setBuiltInZoomControls(false)
@@ -600,6 +684,14 @@ class MainActivity : AppCompatActivity() {
 
             findViewById<MaterialButton>(R.id.addCatchButton).setOnClickListener {
                 catchManager.showSpeciesDialog()
+            }
+
+            findViewById<MaterialButton>(R.id.heatmapShortcutButton).setOnClickListener {
+                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                val currentState = prefs.getBoolean("heatmap_enabled", false)
+                val newState = !currentState
+                prefs.edit().putBoolean("heatmap_enabled", newState).apply()
+                updateFishingHeatmap()
             }
 
             findViewById<MaterialButton>(R.id.myLocationButton).setOnClickListener {
@@ -713,27 +805,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            android.util.Log.d("KalaKartta", "before db init")
-            try {
-                db = AppDatabase.getInstance(this)
-            } catch (e: Exception) {
-                android.util.Log.e("KalaKartta", "Database initialization failed", e)
-                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
-
-                AlertDialog.Builder(this)
-                    .setTitle("Tietokantavirhe")
-                    .setMessage("Tietokannan avaaminen epäonnistui. Tämä johtuu yleensä sovelluspäivityksen yhteydessä tapahtuneesta migraatiovirheestä.\n\nVirhe: ${e.localizedMessage}\n\nJos virhe toistuu, voit yrittää poistaa sovelluksen ja asentaa sen uudelleen (huom: tiedot katoavat).")
-                    .setPositiveButton("OK", null)
-                    .show()
-
-                // Luodaan tyhjä in-memory tietokanta, jotta sovellus ei kaadu heti kaikkialla
-                db = androidx.room.Room.inMemoryDatabaseBuilder(
-                    applicationContext,
-                    AppDatabase::class.java
-                ).allowMainThreadQueries().build()
-            }
             android.util.Log.d("KalaKartta", "after db init")
-
+            
             // Esitäyttö taustasäikeessä
             Thread {
                 val speciesDao = db.fishSpeciesDao()
@@ -819,51 +892,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }.start()
 
-            importExportManager = ImportExportManager(this, db) { forceRefreshSpecies ->
-                reloadMarkersFromDb(forceRefreshSpecies)
-            }
-
-            settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
-                if (isEnabled) {
-                    checkWeather(force = true)
-                } else {
-                    updateWeatherUI()
-                }
-            }, onMapSettingsChanged = {
-                updateMapTileSource()
-            }) { forceRefreshSpecies ->
-                reloadMarkersFromDb(forceRefreshSpecies)
-            }
-
-            markerManager = MarkerManager(this, map, db) { marker ->
-                val fish = marker.relatedObject as? FishCatch
-                val place = marker.relatedObject as? PlaceOfInterest
-
-                // Poistetaan välittömästi MarkerManagerin listoista ja kartalta,
-                // jotta onScroll/rebuildMarkers ei tuo sitä takaisin tietokantapoiston aikana.
-                markerManager.removeMarker(marker)
-
-                lifecycleScope.launch {
-                    val deletedId = fish?.id ?: place?.id
-                    android.util.Log.d("MainActivity", "Deleting from DB: ID=$deletedId")
-                    withContext(Dispatchers.IO) {
-                        if (fish != null) {
-                            db.fishCatchDao().deleteById(fish.id)
-                        }
-                        if (place != null) {
-                            db.placeOfInterestDao().deleteById(place.id)
-                        }
-                    }
-                    // Lisätään väliaikainen ilmoitus käyttäjän pyynnöstä
-                    android.util.Log.d("MainActivity", "Deleted from DB")
-                    android.widget.Toast.makeText(this@MainActivity, "Piste poistettu", android.widget.Toast.LENGTH_SHORT).show()
-
-                    // Kun poisto on valmistunut tietokannassa, ladataan listat uudelleen.
-                    // MarkerManager pitää huolen että poistettu ID ei näy väliaikanakaan.
-                    reloadMarkersFromDb()
-                }
-            }
-
             map.addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean {
                     // Jos käyttäjä skrollaa itse, poistetaan automaattinen seuranta
@@ -915,19 +943,6 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
             })
-
-            filterManager = FilterManager(this)
-
-            weatherService = WeatherService(this)
-
-            catchManager = CatchManager(this, map, db, weatherService,
-                onCatchAdded = { fish ->
-                    markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
-                },
-                onPlaceAdded = { place ->
-                    markerManager.addOrUpdatePlaceIncremental(place, map.zoomLevelDouble)
-                }
-            )
 
             android.util.Log.d("KalaKartta", "before loadCatches")
             loadCatches()
@@ -1169,6 +1184,12 @@ class MainActivity : AppCompatActivity() {
         myLocationButton.requestLayout()
         addCatchButton.requestLayout()
         updateDefaultFishermanUI()
+        val showShortcut = prefs.getBoolean("show_heatmap_shortcut", false)
+        findViewById<MaterialButton>(R.id.heatmapShortcutButton).visibility = 
+            if (showShortcut) android.view.View.VISIBLE else android.view.View.GONE
+
+        updateFishingHeatmap()
+        
         map.invalidate()
     }
 
@@ -1345,6 +1366,33 @@ class MainActivity : AppCompatActivity() {
     private fun updateWeatherUI() {
         val weatherStationText = findViewById<TextView>(R.id.weatherStationText)
         weatherStationText.visibility = android.view.View.GONE
+    }
+
+    private fun updateFishingHeatmap() {
+        if (!::db.isInitialized) return
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val enabled = prefs.getBoolean("heatmap_enabled", false)
+
+        if (enabled) {
+            if (heatmapOverlay == null) {
+                heatmapOverlay = FishingHeatmapOverlay(this, db)
+                map.overlays.add(0, heatmapOverlay) // Lisätään pohjalle
+            } else {
+                heatmapOverlay?.refreshData()
+            }
+        } else {
+            heatmapOverlay?.let {
+                map.overlays.remove(it)
+                heatmapOverlay = null
+            }
+        }
+        
+        val shortcutButton = findViewById<MaterialButton>(R.id.heatmapShortcutButton)
+        shortcutButton.backgroundTintList = ColorStateList.valueOf(
+            if (enabled) Color.parseColor("#80FF0000") else Color.TRANSPARENT
+        )
+        
+        map.invalidate()
     }
 
     private fun updateMarkersVisibility() {

@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.ui
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.view.View
@@ -100,13 +101,14 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
+                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Kalastetut alueet", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
                             0 -> openMapSettings()
                             1 -> openFishingSessionSettings()
-                            2 -> openFilterSettings()
-                            3 -> openSummary()
-                            4 -> openDataTransferSettings(
+                            2 -> openFishingHeatmapSettings()
+                            3 -> openFilterSettings()
+                            4 -> openSummary()
+                            5 -> openDataTransferSettings(
                                 count,
                                 placeCount,
                                 isFiltered,
@@ -115,9 +117,9 @@ class SettingsManager(
                                 filteredCatches,
                                 filteredPlaces
                             )
-                            5 -> openWeatherSettings()
-                            6 -> openSpeciesSettings()
-                            7 -> openGeneralSettings()
+                            6 -> openWeatherSettings()
+                            7 -> openSpeciesSettings()
+                            8 -> openGeneralSettings()
                         }
                     }
                     .setPositiveButton("Takaisin", null)
@@ -261,6 +263,123 @@ class SettingsManager(
         html = html.replace("\n\n", "<br><br>")
         
         return html
+    }
+
+    private fun openFishingHeatmapSettings() {
+        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val heatmapEnabledCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.show_fishing_heatmap)
+            isChecked = prefs.getBoolean("heatmap_enabled", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("heatmap_enabled", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(heatmapEnabledCb)
+
+        val showShortcutCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.show_heatmap_shortcut)
+            isChecked = prefs.getBoolean("show_heatmap_shortcut", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("show_heatmap_shortcut", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(showShortcutCb)
+
+        // Värivalinta
+        val colorLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_color)
+            textSize = 16f
+            setPadding(0, 20, 0, 10)
+        }
+        layout.addView(colorLabel)
+
+        val colors = arrayOf(
+            activity.getString(R.string.color_red),
+            activity.getString(R.string.color_purple),
+            activity.getString(R.string.color_yellow),
+            activity.getString(R.string.color_green)
+        )
+        val colorSpinner = Spinner(activity)
+        val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, colors)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        colorSpinner.adapter = adapter
+        
+        val currentColor = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
+        val colorIndex = colors.indexOf(currentColor).coerceAtLeast(0)
+        colorSpinner.setSelection(colorIndex)
+        
+        colorSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                prefs.edit().putString("heatmap_color", colors[position]).apply()
+                onMapSettingsChanged()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        layout.addView(colorSpinner)
+
+        // Minimipisteet
+        val minPointsLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_min_points)
+            textSize = 16f
+            setPadding(0, 20, 0, 10)
+        }
+        layout.addView(minPointsLabel)
+
+        val minPointsEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("heatmap_min_points", 1).toString())
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s.toString().toIntOrNull() ?: 1
+                    prefs.edit().putInt("heatmap_min_points", value).apply()
+                    onMapSettingsChanged()
+                }
+            })
+        }
+        layout.addView(minPointsEdit)
+
+        // Maksimipisteet
+        val maxPointsLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_max_points)
+            textSize = 16f
+            setPadding(0, 20, 0, 10)
+        }
+        layout.addView(maxPointsLabel)
+
+        val maxPointsEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("heatmap_max_points", 20).toString())
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s.toString().toIntOrNull() ?: 20
+                    prefs.edit().putInt("heatmap_max_points", value).apply()
+                    onMapSettingsChanged()
+                }
+            })
+        }
+        layout.addView(maxPointsEdit)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.action_fishing_heatmap))
+            .setView(ScrollView(activity).apply { addView(layout) })
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .show()
+        currentDialog = dialog
+        dialog.enlargeButtons()
     }
 
     private fun openGeneralSettings() {

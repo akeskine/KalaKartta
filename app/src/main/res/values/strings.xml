@@ -121,4 +121,14 @@
     <string name="traficom_attribution">Sisältää Liikenne- ja viestintävirasto Traficomin merikartta/veneilykartta-aineistoa. Ei navigointikäyttöön. Ei täytä asianmukaisen merikartan vaatimuksia. Lisenssi: CC BY 4.0 / Traficomin merikartoitusaineiston lisenssi.</string>
     <string name="quick_select">Pikavalinta</string>
     <string name="map_background">Karttapohja</string>
+    <string name="action_fishing_heatmap">Kalastetut alueet</string>
+    <string name="show_fishing_heatmap">Näytä kalastetut alueet</string>
+    <string name="show_heatmap_shortcut">Näytä kalastettujen alueiden pikavalinta</string>
+    <string name="heatmap_color">Heat mapin väri</string>
+    <string name="heatmap_min_points">Minimipisteet ruudussa</string>
+    <string name="heatmap_max_points">Maksimipisteet ruudussa</string>
+    <string name="color_red">Punainen</string>
+    <string name="color_purple">Violetti</string>
+    <string name="color_yellow">Keltainen</string>
+    <string name="color_green">Vihreä</string>
 </resources>
