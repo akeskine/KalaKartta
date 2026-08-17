@@ -360,12 +360,12 @@ class SettingsManager(
 
         val maxPointsEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("heatmap_max_points", 20).toString())
+            setText(prefs.getInt("heatmap_max_points", 5).toString())
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().toIntOrNull() ?: 20
+                    val value = s.toString().toIntOrNull() ?: 5
                     prefs.edit().putInt("heatmap_max_points", value).apply()
                     onMapSettingsChanged()
                 }

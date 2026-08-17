@@ -40,13 +40,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var baseColor = Color.RED
     
     init {
+        refreshSettings()
         refreshData()
     }
     
     fun refreshSettings() {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         minPoints = prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
-        maxPoints = prefs.getInt("heatmap_max_points", 20).coerceAtLeast(minPoints + 1)
+        maxPoints = prefs.getInt("heatmap_max_points", 5).coerceAtLeast(minPoints + 1)
         
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
@@ -74,7 +75,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     }
 
     private fun processPoints(points: List<TrackPoint>): Map<Pair<Int, Int>, Int> {
-        val counts = mutableMapOf<Pair<Int, Int>, Int>()
+        val gridSessions = mutableMapOf<Pair<Int, Int>, MutableSet<Long>>()
         
         // Approksimaatio: 1 aste latitudia on n. 111320 metriä
         val latDegreeMeters = 111320.0
@@ -86,10 +87,13 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             val y = (p.latitude * latDegreeMeters / gridSizeMeters).roundToInt()
             
             val key = Pair(x, y)
-            counts[key] = (counts[key] ?: 0) + 1
+            if (!gridSessions.containsKey(key)) {
+                gridSessions[key] = mutableSetOf()
+            }
+            gridSessions[key]?.add(p.fishingSessionId)
         }
         
-        return counts
+        return gridSessions.mapValues { it.value.size }
     }
 
     override fun draw(c: Canvas, osmv: MapView, shadow: Boolean) {
