@@ -454,6 +454,7 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))
             .setView(ScrollView(activity).apply { addView(layout) })
+            .setNegativeButton("Tallenna", null)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .show()
         currentDialog = dialog
