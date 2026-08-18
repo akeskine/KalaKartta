@@ -828,6 +828,7 @@ class MarkerManager(
             when (place.typeId) {
                 "SHALLOW", "DEEP" -> iconSize = (iconSize * 0.5).toInt()
                 "ROCK", "VEGETATION" -> iconSize = (iconSize * 0.7).toInt()
+                "ACCESS", "SHELTER", "PARKING", "RAMP", "LANDINGSPOT", "HARBOUR", "OTHER", "CAMPFIRE", "PROSPECT" -> iconSize = (iconSize * 0.8).toInt()
             }
             
             if (zoom >= 16.5 && place.name.isNotEmpty()) {
