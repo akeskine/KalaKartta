@@ -371,7 +371,30 @@ class SettingsManager(
                 }
             })
         }
-        layout.addView(maxPointsEdit)
+                layout.addView(maxPointsEdit)
+
+        // Ruudun koko
+        val gridSizeLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_grid_size)
+            textSize = 16f
+            setPadding(0, 20, 0, 10)
+        }
+        layout.addView(gridSizeLabel)
+
+        val gridSizeEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(prefs.getFloat("heatmap_grid_size", 30.0f).toString())
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s.toString().replace(",", ".").toFloatOrNull() ?: 30.0f
+                    prefs.edit().putFloat("heatmap_grid_size", value.coerceAtLeast(1.0f)).apply()
+                    onMapSettingsChanged()
+                }
+            })
+        }
+        layout.addView(gridSizeEdit)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))

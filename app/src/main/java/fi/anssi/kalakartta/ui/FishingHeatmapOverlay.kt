@@ -24,9 +24,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var dataJob: Job? = null
     
     // Ruudun koko metreinä
-    private val gridSizeMeters = 30.0
+    private var gridSizeMeters = 30.0
     
-    // Ruudutus: Map<Pair<RuutuX, RuutuY>, PisteidenMäärä>
+    // Ruudutus: Map<Pair<RuutuX, RuutuY>, VierailuKerrat>
     private var heatmapData = mapOf<Pair<Int, Int>, Int>()
     
     private val paint = Paint().apply {
@@ -44,8 +44,10 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         refreshData()
     }
     
-    fun refreshSettings() {
+    fun refreshSettings(): Boolean {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val oldGridSize = gridSizeMeters
+        gridSizeMeters = prefs.getFloat("heatmap_grid_size", 30.0f).toDouble().coerceAtLeast(1.0)
         minPoints = prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
         maxPoints = prefs.getInt("heatmap_max_points", 5).coerceAtLeast(minPoints + 1)
         
@@ -56,6 +58,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             "Vihreä" -> Color.GREEN
             else -> Color.RED
         }
+        return oldGridSize != gridSizeMeters
     }
 
     fun refreshData() {
