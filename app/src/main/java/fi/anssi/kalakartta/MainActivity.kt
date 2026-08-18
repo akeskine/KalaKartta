@@ -1388,9 +1388,20 @@ class MainActivity : AppCompatActivity() {
         }
         
         val shortcutButton = findViewById<MaterialButton>(R.id.heatmapShortcutButton)
-        shortcutButton.backgroundTintList = ColorStateList.valueOf(
-            if (enabled) Color.parseColor("#80FF0000") else Color.TRANSPARENT
-        )
+        if (enabled) {
+            val colorStr = prefs.getString("heatmap_color", "Punainen")
+            val baseColor = when (colorStr) {
+                "Violetti" -> Color.rgb(128, 0, 128)
+                "Keltainen" -> Color.YELLOW
+                "Vihreä" -> Color.GREEN
+                else -> Color.RED
+            }
+            // Alfa 80 (n. 31%) kuten aiemmin, mutta valitulla värillä
+            val shortcutColor = Color.argb(80, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+            shortcutButton.backgroundTintList = ColorStateList.valueOf(shortcutColor)
+        } else {
+            shortcutButton.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+        }
         
         map.invalidate()
     }

@@ -318,26 +318,56 @@ class SettingsManager(
         val colorIndex = colors.indexOf(currentColor).coerceAtLeast(0)
         colorSpinner.setSelection(colorIndex)
         
-        colorSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                prefs.edit().putString("heatmap_color", colors[position]).apply()
-                onMapSettingsChanged()
+        val gradientView = View(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40).apply {
+                topMargin = 20
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+        
+        fun updateGradient(colorName: String?) {
+            val baseColor = when (colorName) {
+                activity.getString(R.string.color_purple) -> Color.rgb(128, 0, 128)
+                activity.getString(R.string.color_yellow) -> Color.YELLOW
+                activity.getString(R.string.color_green) -> Color.GREEN
+                else -> Color.RED
+            }
+            val startColor = Color.argb(40, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+            val endColor = Color.argb(240, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+            val gradient = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(startColor, endColor)
+            )
+            gradientView.background = gradient
+        }
+        
+        updateGradient(currentColor)
         layout.addView(colorSpinner)
+        layout.addView(gradientView)
 
-        // Minimipisteet
-        val minPointsLabel = TextView(activity).apply {
-            text = activity.getString(R.string.heatmap_min_points)
-            textSize = 16f
-            setPadding(0, 20, 0, 10)
+        val minMaxLayout = RelativeLayout(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        layout.addView(minPointsLabel)
 
-        val minPointsEdit = EditText(activity).apply {
+        val minLabel = TextView(activity).apply {
+            id = View.generateViewId()
+            text = "Min"
+            textSize = 14f
+        }
+        val minLabelParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+            addRule(RelativeLayout.ALIGN_PARENT_LEFT)
+        }
+        minMaxLayout.addView(minLabel, minLabelParams)
+
+        val minEdit = EditText(activity).apply {
+            id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setText(prefs.getInt("heatmap_min_points", 1).toString())
+            textSize = 14f
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.BELOW, minLabel.id)
+                addRule(RelativeLayout.ALIGN_LEFT, minLabel.id)
+            }
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -348,19 +378,28 @@ class SettingsManager(
                 }
             })
         }
-        layout.addView(minPointsEdit)
+        minMaxLayout.addView(minEdit)
 
-        // Maksimipisteet
-        val maxPointsLabel = TextView(activity).apply {
-            text = activity.getString(R.string.heatmap_max_points)
-            textSize = 16f
-            setPadding(0, 20, 0, 10)
+        val maxLabel = TextView(activity).apply {
+            id = View.generateViewId()
+            text = "Max"
+            textSize = 14f
         }
-        layout.addView(maxPointsLabel)
+        val maxLabelParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+            addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+        }
+        minMaxLayout.addView(maxLabel, maxLabelParams)
 
-        val maxPointsEdit = EditText(activity).apply {
+        val maxEdit = EditText(activity).apply {
+            id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setText(prefs.getInt("heatmap_max_points", 5).toString())
+            textSize = 14f
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.BELOW, maxLabel.id)
+                addRule(RelativeLayout.ALIGN_RIGHT, maxLabel.id)
+            }
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -371,7 +410,18 @@ class SettingsManager(
                 }
             })
         }
-                layout.addView(maxPointsEdit)
+        minMaxLayout.addView(maxEdit)
+        layout.addView(minMaxLayout)
+
+        colorSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedColor = colors[position]
+                prefs.edit().putString("heatmap_color", selectedColor).apply()
+                updateGradient(selectedColor)
+                onMapSettingsChanged()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
 
         // Ruudun koko
         val gridSizeLabel = TextView(activity).apply {
@@ -387,13 +437,13 @@ class SettingsManager(
         gridAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         gridSizeSpinner.adapter = gridAdapter
 
-        val currentGridSize = prefs.getFloat("heatmap_grid_size", 30.0f).toInt().toString()
+        val currentGridSize = prefs.getFloat("heatmap_grid_size", 100.0f).toInt().toString()
         val gridIndex = gridSizes.indexOf(currentGridSize).coerceAtLeast(0)
         gridSizeSpinner.setSelection(gridIndex)
 
         gridSizeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val value = gridSizes[position].toFloatOrNull() ?: 30.0f
+                val value = gridSizes[position].toFloatOrNull() ?: 100.0f
                 prefs.edit().putFloat("heatmap_grid_size", value).apply()
                 onMapSettingsChanged()
             }
