@@ -16,7 +16,7 @@ Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata
 
 Oma sijaintisi näytetään kartalla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta.
 
-Kartan taustakartan voit vaihtaa asetuksista (Asetukset -> Taustakartta). 
+Kartan taustakartan voit vaihtaa valikosta (**Valikko -> Taustakartta**). 
 
 KalaKartassa on käytettävissä seuraavat karttapohjat:
 - **OpenStreetMap:** Maailmanlaajuinen avoin kartta-aineisto.
@@ -29,7 +29,7 @@ Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet kytkenyt
 ## 2. Kalapisteen lisääminen
 
 Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa **+**-painiketta. Tämä avaa Lisää merkintä-ikkunan:
-- **Laji:** Valitse kalalaji kuvakkeesta. Jos lajia ei ole listalla, voit valita "Muu kalalaji" tai lisätä uusia lajeja Asetukset -> Kalalajit -> Muokkaa kalalajeja -valikosta.
+- **Laji:** Valitse kalalaji kuvakkeesta. Jos lajia ei ole listalla, voit valita "Muu kalalaji" tai lisätä uusia lajeja **Valikko -> Kalalajit -> Muokkaa kalalajeja** -valikosta.
 - **Tapahtuma:** Valitse oliko kyseessä saatu kala, karkuutus, varma tärppi, epävarma tärppi vai seurio.
 - **Paino ja pituus:** Voit syöttää ne suoraan pikalistaan tai jättää tyhjäksi.
 - **Lisää tarkemmat tiedot:** Tästä painikkeesta pääset täyttämään laajemmat tiedot (esim. viehe, syvyys, sää).
@@ -41,7 +41,7 @@ Piste tallentuu aina kartan keskipisteen (tähtäimen) kohdalle.
 Voit tallentaa myös muita kiinnostavia kohteita kuten kiviä, matalikkoja, veneenlaskupaikkoja tai laavuja:
 1. Paina **+**-painiketta.
 2. Valitse alhaalta **"Muu paikka"**.
-3. Valitse haluamasi kohdetie (esim. Kivi tai Veneramppi).
+3. Valitse haluamasi kohdetyyppi (esim. Kivi tai Veneramppi).
 4. Voit antaa kohteelle nimen.
 
 ## 4. Pisteiden tarkastelu ja muokkaus
@@ -56,7 +56,7 @@ Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
 
 ## 5. Tiedon suodatus
 
-Voit suodattaa kartalla näkyviä pisteitä Asetukset -> Tiedon suodatus -valikosta.
+Voit suodattaa kartalla näkyviä pisteitä **Valikko -> Tiedon suodatus** -valikosta.
 
 Suodatusmahdollisuuksia ovat mm.:
 - **Aika:** Kiinteä aikaväli tai vuosittain toistuva jakso (esim. "kaikki toukokuun saaliit eri vuosilta").
@@ -71,14 +71,14 @@ Suodatus on voimassa, kunnes se nollataan (Poista suodattimet). Aktiivinen suoda
 
 ## 6. Sääasetukset ja automaattinen haku
 
-Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdolista kytkeä pois päältä Asetukset -> Sää -> Sääasetukset -valikosta.
+Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdolista kytkeä pois päältä **Valikko -> Sää -> Sääasetukset** -valikosta.
 - **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta (max. 300 km säteeltä kalapisteestä) parhaan tarkkuuden saavuttamiseksi.
 - **Automaattinen päivitys:** Voit kytkeä automaattihaun pois päältä sääasetuksista.
 - **Puuttuvien tietojen haku:** Voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla.
 
 ## 7. Kalalajien hallinta
 
-Voit muokata kalalajeja kohdasta Asetukset -> Kalalajit.
+Voit muokata kalalajeja kohdasta **Valikko -> Kalalajit**.
 - **Muokkaa lajeja:** Voit vaihtaa lajien järjestystä sovelluksen valintalistoissa ja asettaa rajat "pienelle, ""suurelle" ja "jättiläiselle" kalalle.
 - **Omat ikonit:** Voit lisätä lajin eri kokoisille kaloille oman kuvan puhelimesi galleriasta. Kuvan maksimikoko on 1536 x 1024 pikseliä, sen pitää olla png-muotoinen. Kuvan taustan kannattaa olla läpinäkyvä (transparent).
 - **Lajin lisäys:** Voit myös lisätä kokonaan uusia kalalajeja ja määritellä niille omat ikonit.
@@ -86,7 +86,7 @@ Voit muokata kalalajeja kohdasta Asetukset -> Kalalajit.
 
 ## 8. Pisteiden tuonti ja vienti (Export/Import)
 
-Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (Asetukset -> Tiedonsiirto).
+Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedonsiirto**).
 - **Vie pisteet:** Tallentaa kaikki kalapisteet ja muut merkit tiedostoon.
 - **Vie suodatetut pisteet:** Jos suodatus on päällä, voit halutessasi viedä vain ne pisteet, jotka näkyvät parhaillaan kartalla.
 - **Tuo pisteet:** Lukee pisteet tiedostosta.
@@ -97,7 +97,7 @@ Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (Asetukset -> Tiedo
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 
-- **Yhteenveto:** Asetukset -> Yhteenveto näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esa ja Vesan saaliit viikonlopun ajalta. Voit kopioida yhteenvedon tekstimuodossa leikepöydälle (Kopioi teksti -painike) jaettavaksi eteenpäin.
+- **Yhteenveto:** **Valikko -> Yhteenveto** näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esa ja Vesan saaliit viikonlopun ajalta. Voit kopioida yhteenvedon tekstimuodossa leikepöydälle (Kopioi teksti -painike) jaettavaksi eteenpäin.
 - **Näytä kartalla:** Voit tarkastella yhteenvedon sisältämiä pisteitä suoraan kartalla painamalla karttakuvaketta.
 - **Kopioi:** Voit kopioida yhteenvedon tekstin leikepöydälle painamalla kopiointikuvaketta.
 
@@ -113,7 +113,7 @@ Yleisistä asetuksista voit:
 
 Pikavalinnan avulla voit vaihtaa karttapohjaa nopeasti suoraan karttanäkymästä ilman asetuksiin menemistä.
 
-- Mene kohtaan **Asetukset -> Taustakartta**. 
+- Mene kohtaan **Valikko -> Taustakartta**. 
 - Laita ruksi kohtaan **"Näytä karttapohjan pikavalinta"**.
 - Kartan vasempaan yläreunaan ilmestyy karttakuvake (mittauspainikkeen alapuolelle). Painiketta klikkaamalla karttapohja vaihtuu seuraavaan valittuun vaihtoehtoon.
 - Voit itse päättää mitkä karttapohjat ovat mukana pikavalinnan kierrossa: rasti haluamasi kartat **"Pikavalinta"**-sarakkeesta Taustakartta-asetuksissa.
@@ -126,3 +126,25 @@ Mittaustyökalulla voit mitata etäisyyksiä ja reittien pituuksia suoraan karta
 - **Reittipisteiden lisäys:** Siirrä karttaa niin, että tähtäin on haluamassasi kohdassa ja paina mittauspainiketta lyhyesti. Pisteeseen tulee punainen nuppineula ja näet etäisyyden edellisestä pisteestä sekä koko reitin pituuden ruudun yläreunassa.
 - **Pisteen poisto:** Voit poistaa viimeisimmän lisätyn pisteen mittauspainikkeen alapuolella olevalla "Undo"-painikkeella.
 - **Nollaus:** Voit nollata mittauksen painamalla mittauspainiketta pitkään (n. 1 sekunti). Kaikki mittauspisteet ja reitti häviävät kartalta.
+
+## 13. Kalastussessiot
+
+Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti taustalla.
+
+- **Tallennuksen aloitus:** **Valikko -> Kalastussessiot -> Aloita tallennus**. Kun tallennus on käynnissä, kartan vasemmassa yläkulmassa vilkkuu punainen REC-pallo. Tallennuksen aloitus on mahdollista vain, jos sijaintipalvelu on puhelmiessa päällä.
+- **Tallennuksen lopetus:** **Valikko -> Kalastussessiot -> Aloita tallennus**.
+- **Sessioiden tarkastelu:** Pääset selaamaan tallennettuja sessioita kohdasta **Valikko -> Kalastussessiot -> Hae kalastussessiot **.
+- **Kalenteri:** Sessiot on järjestetty kalenteriin. Valitse päivä nähdäksesi kyseisen päivän sessiot.
+- **Toistaminen:** Klikkaamalla sessiota näet sen keston, pituuden ja reittipisteiden määrän. Voit toistaa session kartalla painamalla **"Toista"**. Toiston aikana voit säätää nopeutta ja kelata reittiä eteen ja taaksepäin tai pysäyttää toiston haluamaasi kohtaan.
+- **Vienti ja tuonti:** Sessiot reitteineen voidaan viedä ja tuoda JSON-muodossa **Tiedonsiirto**-asetuksista.
+
+## 14. Kalastetut alueet (Heatmap)
+
+Kalastetut alueet -toiminto (Heatmap) visualisoi kartalla ne alueet, joissa olet viettänyt eniten aikaa kalastussessioiden aikana.
+
+- **Käyttöönotto:** Voit kytkeä ominaisuuden päälle kohdasta **Valikko -> Kalastetut alueet -> Näytä kalastetut alueet**.
+- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heatmapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.
+- **Konfigurointi:**
+    - **Väri:** Voit vaihtaa heatmapin värin (punainen, violetti, keltainen, vihreä).
+    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (esim. 100 metriä).
+    - **Min/Max vierailukerrat:** Voit säätää, kuinka monta kertaa ruudussa on täytynyt käydä, jotta se näkyy kartalla ja milloin se saavuttaa maksimivärin.

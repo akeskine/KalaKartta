@@ -867,7 +867,8 @@ class MainActivity : AppCompatActivity() {
                     PlaceOfInterestType("CAMP", "Leiripaikka", icon = "leiripaikka", sortOrder = 11),
                     PlaceOfInterestType("CAMPFIRE", "Tulipaikka", icon = "tulipaikka", sortOrder = 12),
                     PlaceOfInterestType("SHELTER", "Laavu", icon = "laavu", sortOrder = 13),
-                    PlaceOfInterestType("OTHER", "Muu kiinnostava paikka", icon = "tahti", sortOrder = 14)
+                    PlaceOfInterestType("OTHER", "Muu kiinnostava paikka", icon = "tahti", sortOrder = 14),
+                    PlaceOfInterestType("PROSPECT", "Mahdollinen kalapaikka", icon = "ehka", sortOrder = 15)
                 )
 
                 placeDefaults.forEach { type ->
