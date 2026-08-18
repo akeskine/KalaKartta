@@ -18,7 +18,7 @@ import org.osmdroid.views.overlay.Overlay
 import kotlin.math.cos
 import kotlin.math.roundToInt
 
-class FishingHeatmapOverlay(private val context: Context, private val db: AppDatabase) : Overlay() {
+class FishingHeatmapOverlay(private val context: Context, private val db: AppDatabase, private val mapView: MapView) : Overlay() {
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private var dataJob: Job? = null
@@ -74,6 +74,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             }
             
             heatmapData = newData
+            mapView.invalidate()
         }
     }
 

@@ -1375,7 +1375,7 @@ class MainActivity : AppCompatActivity() {
 
         if (enabled) {
             if (heatmapOverlay == null) {
-                heatmapOverlay = FishingHeatmapOverlay(this, db)
+                heatmapOverlay = FishingHeatmapOverlay(this, db, map)
                 map.overlays.add(0, heatmapOverlay) // Lisätään pohjalle
             } else {
                 heatmapOverlay?.refreshData()

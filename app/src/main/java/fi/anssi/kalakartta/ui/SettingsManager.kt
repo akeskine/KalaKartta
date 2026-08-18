@@ -381,20 +381,25 @@ class SettingsManager(
         }
         layout.addView(gridSizeLabel)
 
-        val gridSizeEdit = EditText(activity).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setText(prefs.getFloat("heatmap_grid_size", 30.0f).toString())
-            addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().replace(",", ".").toFloatOrNull() ?: 30.0f
-                    prefs.edit().putFloat("heatmap_grid_size", value.coerceAtLeast(1.0f)).apply()
-                    onMapSettingsChanged()
-                }
-            })
+        val gridSizes = arrayOf("10", "30", "100", "300", "1000")
+        val gridSizeSpinner = Spinner(activity)
+        val gridAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, gridSizes)
+        gridAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        gridSizeSpinner.adapter = gridAdapter
+
+        val currentGridSize = prefs.getFloat("heatmap_grid_size", 30.0f).toInt().toString()
+        val gridIndex = gridSizes.indexOf(currentGridSize).coerceAtLeast(0)
+        gridSizeSpinner.setSelection(gridIndex)
+
+        gridSizeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val value = gridSizes[position].toFloatOrNull() ?: 30.0f
+                prefs.edit().putFloat("heatmap_grid_size", value).apply()
+                onMapSettingsChanged()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        layout.addView(gridSizeEdit)
+        layout.addView(gridSizeSpinner)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))
