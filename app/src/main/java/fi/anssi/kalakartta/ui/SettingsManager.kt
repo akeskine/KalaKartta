@@ -1190,7 +1190,7 @@ class SettingsManager(
             val interval = prefs.getInt("track_point_interval", 30)
 
             val label = TextView(activity).apply {
-                text = "Kalastussession tallennusväli"
+                text = "Reittipisteiden tallennusväli (sekuntia)"
                 textSize = 16f
                 setPadding(0, 0, 0, 20)
             }
@@ -1229,9 +1229,10 @@ class SettingsManager(
                 layoutParams = params
                 setOnClickListener {
                     val newInterval = input.text.toString().toIntOrNull() ?: 30
-                    prefs.edit().putInt("track_point_interval", newInterval).apply()
+                    prefs.edit().putInt("track_point_interval", newInterval).commit()
                     mainActivity?.startFishingSession(newInterval)
                     dialog?.dismiss()
+                    closeSettings()
                 }
             }
             layout.addView(startButton)
@@ -1299,7 +1300,7 @@ class SettingsManager(
                         val interval = currentService.getIntervalSeconds()
                         val pointCount = currentService.getCurrentTrackPoints().size
 
-                        infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} s."
+                        infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} sekuntia."
                     }
                     kotlinx.coroutines.delay(1000)
                 }

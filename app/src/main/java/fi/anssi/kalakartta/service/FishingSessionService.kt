@@ -32,7 +32,7 @@ class FishingSessionService : Service() {
     private var startedAt: Long = 0L
     private var totalDistance: Double = 0.0
     private var lastLocation: Location? = null
-    private var intervalSeconds: Int = 30
+    private var intervalSeconds: Int = 0
     private var lastSavedTimestamp: Long = 0L
 
     private val serviceJob = Job()
@@ -64,7 +64,14 @@ class FishingSessionService : Service() {
         }
         
         val interval = intent?.getIntExtra("INTERVAL", 30) ?: 30
-        startSession(interval)
+        if (recording) {
+            intervalSeconds = interval
+            // Päivitetään ilmoitus jos tarpeen tai lähetetään uusi broadcast
+            val updateIntent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
+            sendBroadcast(updateIntent)
+        } else {
+            startSession(interval)
+        }
         
         return START_STICKY
     }
@@ -86,6 +93,10 @@ class FishingSessionService : Service() {
             launch(Dispatchers.Main) {
                 startForeground(NOTIFICATION_ID, createNotification())
                 requestLocationUpdates()
+                
+                // Ilmoitetaan MainActivitylle että sessio on alkanut (ja interval on asetettu)
+                val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
+                sendBroadcast(intent)
             }
         }
     }

@@ -97,12 +97,15 @@ class MainActivity : AppCompatActivity() {
     private var replayPoints = listOf<TrackPoint>()
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
+    private var recordingIntervalSeconds = 0
     private val recordingBlinkRunnable = object : Runnable {
         override fun run() {
             val dot = findViewById<android.view.View>(R.id.recordingDot)
-            val interval = fishingService?.getIntervalSeconds() ?: 30
+            val serviceInterval = if (fishingService?.isRecording() == true) fishingService?.getIntervalSeconds() ?: 0 else 0
+            val interval = if (serviceInterval > 0) serviceInterval else recordingIntervalSeconds
             
             val (onMs, offMs) = when {
+                interval <= 0 -> 500L to 500L
                 interval <= 1 -> 500L to 500L
                 else -> (interval - 1) * 1000L to 1000L
             }
@@ -447,13 +450,21 @@ class MainActivity : AppCompatActivity() {
 
     fun getVisibleArchivedSessionId(): Long = visibleArchivedSessionId
 
-    private val sessionEndedReceiver = object : BroadcastReceiver() {
+    private val sessionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "fi.anssi.kalakartta.SESSION_ENDED") {
-                val sessionId = intent.getLongExtra("SESSION_ID", -1L)
-                updateRecordingStatusUI()
-                if (sessionId != -1L) {
-                    showSessionNotesDialog(sessionId)
+            when (intent?.action) {
+                "fi.anssi.kalakartta.SESSION_ENDED" -> {
+                    val sessionId = intent.getLongExtra("SESSION_ID", -1L)
+                    updateRecordingStatusUI()
+                    if (sessionId != -1L) {
+                        showSessionNotesDialog(sessionId)
+                    }
+                }
+                "fi.anssi.kalakartta.SESSION_STARTED" -> {
+                    // Päivitetään paikallinen väli siltä varalta että se on muuttunut palvelussa
+                    val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+                    recordingIntervalSeconds = prefs.getInt("track_point_interval", 30)
+                    updateRecordingStatusUI()
                 }
             }
         }
@@ -1460,15 +1471,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        
+        // Luetaan tallennusväli asetuksista
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        recordingIntervalSeconds = prefs.getInt("track_point_interval", 30)
+
         // Yhdistetään FishingSessionServiceen
         Intent(this, FishingSessionService::class.java).also { intent ->
             bindService(intent, connection, Context.BIND_AUTO_CREATE)
         }
-        val filter = IntentFilter("fi.anssi.kalakartta.SESSION_ENDED")
+        val filter = IntentFilter().apply {
+            addAction("fi.anssi.kalakartta.SESSION_STARTED")
+            addAction("fi.anssi.kalakartta.SESSION_ENDED")
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(sessionEndedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(sessionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            registerReceiver(sessionEndedReceiver, filter)
+            registerReceiver(sessionReceiver, filter)
         }
         updateRecordingStatusUI()
     }
@@ -1480,7 +1499,7 @@ class MainActivity : AppCompatActivity() {
             isBound = false
         }
         try {
-            unregisterReceiver(sessionEndedReceiver)
+            unregisterReceiver(sessionReceiver)
         } catch (e: Exception) {}
         recordingHandler.removeCallbacks(recordingBlinkRunnable)
     }
@@ -1489,6 +1508,7 @@ class MainActivity : AppCompatActivity() {
         // Poistetaan vanha arkistoitu reitti jos sellainen on näkyvissä
         hideArchivedSession()
 
+        recordingIntervalSeconds = interval
         val intent = Intent(this, FishingSessionService::class.java).apply {
             putExtra("INTERVAL", interval)
         }
@@ -1513,6 +1533,7 @@ class MainActivity : AppCompatActivity() {
         val recordingLayout = findViewById<android.view.View>(R.id.recordingStatusLayout) ?: return
         val isRecording = overrideRecording ?: (fishingService?.isRecording() ?: false)
         val dot = findViewById<android.view.View>(R.id.recordingDot)
+        val statusText = findViewById<android.widget.TextView>(R.id.recordingStatusText)
         
         if (isRecording) {
             recordingLayout.visibility = android.view.View.VISIBLE
@@ -1520,7 +1541,12 @@ class MainActivity : AppCompatActivity() {
             recordingDotVisible = true
             dot?.visibility = android.view.View.VISIBLE
             
-            val interval = fishingService?.getIntervalSeconds() ?: 30
+            // Käytetään palvelun arvoa jos mahdollista, muuten paikallista (joka vastaa asetuksia)
+            val isServiceRecording = fishingService?.isRecording() ?: false
+            val serviceInterval = if (isServiceRecording) fishingService?.getIntervalSeconds() ?: 0 else 0
+            val interval = if (serviceInterval > 0) serviceInterval else recordingIntervalSeconds
+            statusText?.text = if (interval > 0) "REC $interval" else "REC"
+            
             val onMs = if (interval <= 1) 500L else (interval - 1) * 1000L
             
             recordingHandler.postDelayed(recordingBlinkRunnable, onMs)
@@ -1703,6 +1729,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         map.onResume()
+        
+        updateRecordingStatusUI()
 
         if (ContextCompat.checkSelfPermission(
                 this,
