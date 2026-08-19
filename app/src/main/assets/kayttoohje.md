@@ -140,11 +140,12 @@ Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti tau
 
 ## 14. Kalastetut alueet (Heatmap)
 
-Kalastetut alueet -toiminto (Heatmap) visualisoi kartalla ne alueet, joissa olet viettänyt eniten aikaa kalastussessioiden aikana.
+Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa olet viettänyt eniten aikaa kalastussessioiden aikana. Tämän toiminnon avulla voit verrata saamiasi saaliita alueella viettämääsi aikaan tai nähdä helposti, mitkä osat vesistöä ansaitsisivat vielä lisää tutkimista.
 
 - **Käyttöönotto:** Voit kytkeä ominaisuuden päälle kohdasta **Valikko -> Kalastetut alueet -> Näytä kalastetut alueet**.
-- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heatmapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.
+- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.
+  - **Suodatus:** Tästä voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin.
 - **Konfigurointi:**
-    - **Väri:** Voit vaihtaa heatmapin värin (punainen, violetti, keltainen, vihreä).
+    - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).
     - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (esim. 100 metriä).
     - **Min/Max vierailukerrat:** Voit säätää, kuinka monta kertaa ruudussa on täytynyt käydä, jotta se näkyy kartalla ja milloin se saavuttaa maksimivärin.
