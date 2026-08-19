@@ -209,7 +209,7 @@ class EditCatchActivity : AppCompatActivity() {
                     longitude = String.format(java.util.Locale.US, "%.5f", lon).toDouble(),
                     name = intent.getStringExtra("EXTRA_PLACE_NAME") ?: ""
                 )
-                titleTextView.setText(R.string.add_detailed)
+                titleTextView.setText(R.string.add_detailed_title)
             } else {
                 placeOfInterest = db.placeOfInterestDao().getById(placeId)
                 titleTextView.text = "Muokkaa paikkaa"
@@ -266,7 +266,7 @@ class EditCatchActivity : AppCompatActivity() {
             }
 
             if (catchId == -1L) {
-                titleTextView.setText(R.string.add_detailed)
+                titleTextView.setText(R.string.add_detailed_title)
                 setupWeatherForNewCatch(fishCatch!!.latitude, fishCatch!!.longitude)
             } else {
                 titleTextView.setText(R.string.edit_catch_title)
@@ -837,13 +837,20 @@ class EditCatchActivity : AppCompatActivity() {
             return true
         }
         
-        if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0) > 0) fc.weight else null)) return true
+        if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0L) > 0L) fc.weight else null)) return true
+        if (methodEditText.text.toString().isNotBlank() && (fc.method ?: "").isBlank()) return true
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
+        if (lureEditText.text.toString().isNotBlank() && (fc.lure ?: "").isBlank()) return true
         if (lureEditText.text.toString() != (fc.lure ?: "")) return true
+        if (lureColorEditText.text.toString().isNotBlank() && (fc.lureColor ?: "").isBlank()) return true
         if (lureColorEditText.text.toString() != (fc.lureColor ?: "")) return true
+        if (additionalInfoEditText.text.toString().isNotBlank() && (fc.additionalInfo ?: "").isBlank()) return true
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true
+        if (tripNotesEditText.text.toString().isNotBlank() && (fc.tripNotes ?: "").isBlank()) return true
         if (tripNotesEditText.text.toString() != (fc.tripNotes ?: "")) return true
+        if (fishermanEditText.text.toString().trim().isNotBlank() && (fc.fisherman ?: "").isBlank()) return true
         if (fishermanEditText.text.toString().trim().equals(fc.fisherman?.trim() ?: "", ignoreCase = true).not()) return true
+        if (otherSpeciesEditText.text.toString().trim().isNotBlank() && (fc.otherSpecies ?: "").isBlank()) return true
         if (otherSpeciesEditText.text.toString().trim().equals(fc.otherSpecies?.trim() ?: "", ignoreCase = true).not()) return true
         return Math.abs(latEditText.text.toString().toDoubleSafe() - fc.latitude) > 0.0001 ||
                Math.abs(lonEditText.text.toString().toDoubleSafe() - fc.longitude) > 0.0001

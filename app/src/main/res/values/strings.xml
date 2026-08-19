@@ -1,8 +1,9 @@
 <resources>
     <string name="app_name">KalaKartta</string>
-    <string name="add_catch">Lisää merkintä -dialogi</string>
+    <string name="add_catch">Lisää kalapiste</string>
     <string name="add_catch_short">Lisää merkintä</string>
-    <string name="add_detailed">Tarkemmat tiedot</string>
+    <string name="add_detailed">Tarkemmin</string>
+    <string name="add_detailed_title">Tarkemmat tiedot</string>
     <string name="my_location">Oma sijainti</string>
     <string name="settings">Asetukset</string>
     <string name="ok">OK</string>
