@@ -1393,7 +1393,6 @@ class MainActivity : AppCompatActivity() {
             val colorStr = prefs.getString("heatmap_color", "Punainen")
             val baseColor = when (colorStr) {
                 "Violetti" -> Color.rgb(128, 0, 128)
-                "Keltainen" -> Color.YELLOW
                 "Vihreä" -> Color.GREEN
                 else -> Color.RED
             }

@@ -295,39 +295,27 @@ class SettingsManager(
         }
         layout.addView(showShortcutCb)
 
-        // Värivalinta
-        val colorLabel = TextView(activity).apply {
-            text = activity.getString(R.string.heatmap_color)
-            textSize = 16f
-            setPadding(0, 20, 0, 10)
-        }
-        layout.addView(colorLabel)
-
         val colors = arrayOf(
             activity.getString(R.string.color_red),
             activity.getString(R.string.color_purple),
-            activity.getString(R.string.color_yellow),
             activity.getString(R.string.color_green)
         )
-        val colorSpinner = Spinner(activity)
-        val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, colors)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        colorSpinner.adapter = adapter
         
         val currentColor = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
-        val colorIndex = colors.indexOf(currentColor).coerceAtLeast(0)
-        colorSpinner.setSelection(colorIndex)
         
         val gradientView = View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 100).apply {
                 topMargin = 20
             }
+            isClickable = true
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            foreground = activity.getDrawable(outValue.resourceId)
         }
         
         fun updateGradient(colorName: String?) {
             val baseColor = when (colorName) {
                 activity.getString(R.string.color_purple) -> Color.rgb(128, 0, 128)
-                activity.getString(R.string.color_yellow) -> Color.YELLOW
                 activity.getString(R.string.color_green) -> Color.GREEN
                 else -> Color.RED
             }
@@ -341,11 +329,28 @@ class SettingsManager(
         }
         
         updateGradient(currentColor)
-        layout.addView(colorSpinner)
+        
+        gradientView.setOnClickListener {
+            val current = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
+            val currentIndex = colors.indexOf(current).coerceAtLeast(0)
+            val nextIndex = (currentIndex + 1) % colors.size
+            val nextColor = colors[nextIndex]
+            
+            prefs.edit().putString("heatmap_color", nextColor).apply()
+            updateGradient(nextColor)
+            onMapSettingsChanged()
+        }
+        
         layout.addView(gradientView)
 
         val minMaxLayout = RelativeLayout(activity).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        val midText = TextView(activity).apply {
+            id = View.generateViewId()
+            text = "Käyntikerrat ruudussa"
+            textSize = 14f
         }
 
         val minLabel = TextView(activity).apply {
@@ -411,17 +416,16 @@ class SettingsManager(
             })
         }
         minMaxLayout.addView(maxEdit)
+
+        // Sijoitetaan midText keskelle minEditin ja maxEditin tasolle tai väliin
+        val midTextParamsReal = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+            addRule(RelativeLayout.CENTER_HORIZONTAL)
+            addRule(RelativeLayout.ALIGN_BASELINE, minEdit.id)
+        }
+        minMaxLayout.addView(midText, midTextParamsReal)
+
         layout.addView(minMaxLayout)
 
-        colorSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selectedColor = colors[position]
-                prefs.edit().putString("heatmap_color", selectedColor).apply()
-                updateGradient(selectedColor)
-                onMapSettingsChanged()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
 
         // Ruudun koko
         val gridSizeLabel = TextView(activity).apply {

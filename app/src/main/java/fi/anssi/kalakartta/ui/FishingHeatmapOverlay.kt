@@ -54,7 +54,6 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
             "Violetti" -> Color.rgb(128, 0, 128)
-            "Keltainen" -> Color.YELLOW
             "Vihreä" -> Color.GREEN
             else -> Color.RED
         }
