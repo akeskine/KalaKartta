@@ -1208,6 +1208,7 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.addCatchButton),
             findViewById<MaterialButton>(R.id.settingsButton),
             findViewById<MaterialButton>(R.id.quickMapSourceButton),
+            findViewById<MaterialButton>(R.id.heatmapShortcutButton),
             findViewById<MaterialButton>(R.id.measurementButton),
             findViewById<MaterialButton>(R.id.undoMeasurementButton)
         )
@@ -1399,8 +1400,22 @@ class MainActivity : AppCompatActivity() {
             // Alfa 80 (n. 31%) kuten aiemmin, mutta valitulla värillä
             val shortcutColor = Color.argb(80, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
             shortcutButton.backgroundTintList = ColorStateList.valueOf(shortcutColor)
+            
+            // Muutetaan myös reunus painikkeen väriseksi jos heatmap on päällä, 
+            // jotta se erottuu pikanäppäimenä mutta osoittaa tilan
+            shortcutButton.strokeColor = ColorStateList.valueOf(baseColor)
         } else {
             shortcutButton.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+            
+            // Palautetaan normaali reunusväri karttapohjan mukaan
+            val currentMapSource = prefs.getString("map_source", "OSM")
+            val useBlack = currentMapSource == "MML_MAASTO" || currentMapSource == "MML_ILMA" || currentMapSource == "TRAFICOM_SEA" || currentMapSource == "TRAFICOM_BOATING"
+            val color = if (useBlack) {
+                ContextCompat.getColor(this, android.R.color.black)
+            } else {
+                ContextCompat.getColor(this, android.R.color.white)
+            }
+            shortcutButton.strokeColor = ColorStateList.valueOf(color)
         }
         
         map.invalidate()
