@@ -22,19 +22,19 @@ class WeatherUpdateActivity : AppCompatActivity() {
 
     private lateinit var pointsToUpdateText: TextView
     private lateinit var maxCountEditText: EditText
-    private lateinit var startButton: Button
+    private lateinit var startButton: TextView
     private lateinit var progressLayout: LinearLayout
     private lateinit var progressBar: ProgressBar
     private lateinit var statusText: TextView
     private lateinit var statsText: TextView
-    private lateinit var cancelButton: Button
+    private lateinit var cancelButton: TextView
     private lateinit var resultLayout: LinearLayout
     private lateinit var summaryText: TextView
     private lateinit var successCountText: TextView
     private lateinit var failureCountText: TextView
-    private lateinit var errorLogButton: Button
-    private lateinit var okButton: Button
-    private lateinit var backButton: Button
+    private lateinit var errorLogButton: TextView
+    private lateinit var okButton: TextView
+    private lateinit var backButton: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
