@@ -1226,6 +1226,14 @@ class MarkerManager(
                 details.append("Kalastaja: $fishermanDisplay\n")
             }
 
+            if (it.method.isNotEmpty()) details.append("Kalastustapa: ${it.method}\n")
+            if (!it.lure.isNullOrEmpty() || !it.lureColor.isNullOrEmpty()) {
+                val lureParts = mutableListOf<String>()
+                if (!it.lure.isNullOrEmpty()) lureParts.add(it.lure!!)
+                if (!it.lureColor.isNullOrEmpty()) lureParts.add(it.lureColor!!)
+                details.append("Viehe: ${lureParts.joinToString(", ")}\n")
+            }
+
             if (it.weight != null && it.weight!! > 0) details.append("Paino: ${it.weight} g\n")
             if (it.length != null && it.length!! > 0) details.append("Pituus: ${it.length} cm\n")
             

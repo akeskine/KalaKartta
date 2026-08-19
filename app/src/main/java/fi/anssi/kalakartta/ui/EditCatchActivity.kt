@@ -50,6 +50,8 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var weightEditText: EditText
     private lateinit var lengthEditText: EditText
     private lateinit var methodEditText: EditText
+    private lateinit var lureEditText: EditText
+    private lateinit var lureColorEditText: EditText
     private lateinit var strikeDepthEditText: EditText
     private lateinit var waterDepthEditText: EditText
     private lateinit var waterTempEditText: EditText
@@ -144,6 +146,8 @@ class EditCatchActivity : AppCompatActivity() {
         weightEditText = findViewById(R.id.weightEditText)
         lengthEditText = findViewById(R.id.lengthEditText)
         methodEditText = findViewById(R.id.methodEditText)
+        lureEditText = findViewById(R.id.lureEditText)
+        lureColorEditText = findViewById(R.id.lureColorEditText)
         strikeDepthEditText = findViewById(R.id.strikeDepthEditText)
         waterDepthEditText = findViewById(R.id.waterDepthEditText)
         waterTempEditText = findViewById(R.id.waterTempEditText)
@@ -459,6 +463,8 @@ class EditCatchActivity : AppCompatActivity() {
                 weightEditText.setText(if (fc.weight != null && fc.weight!! > 0) fc.weight.toString() else "")
                 lengthEditText.setText(if (fc.length != null && fc.length!! > 0) fc.length.toString() else "")
                 methodEditText.setText(fc.method ?: "")
+                lureEditText.setText(fc.lure ?: "")
+                lureColorEditText.setText(fc.lureColor ?: "")
                 strikeDepthEditText.setText(if (fc.strikeDepth != null && fc.strikeDepth!! != 0.0) fc.strikeDepth.toString() else "")
                 waterDepthEditText.setText(if (fc.waterDepth != null && fc.waterDepth!! != 0.0) fc.waterDepth.toString() else "")
                 waterTempEditText.setText(if (fc.waterTemp != null && fc.waterTemp!! != 0.0) fc.waterTemp.toString() else "")
@@ -780,6 +786,8 @@ class EditCatchActivity : AppCompatActivity() {
                 weight = weightEditText.text.toString().toLongOrNull(),
                 length = lengthEditText.text.toString().toLongOrNull(),
                 method = methodEditText.text.toString(),
+                lure = lureEditText.text.toString().takeIf { it.isNotBlank() },
+                lureColor = lureColorEditText.text.toString().takeIf { it.isNotBlank() },
                 strikeDepth = strikeDepthEditText.text.toString().toDoubleOrNull(),
                 waterDepth = waterDepthEditText.text.toString().toDoubleOrNull(),
                 waterTemp = waterTempEditText.text.toString().toDoubleOrNull(),
@@ -831,6 +839,8 @@ class EditCatchActivity : AppCompatActivity() {
         
         if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0) > 0) fc.weight else null)) return true
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
+        if (lureEditText.text.toString() != (fc.lure ?: "")) return true
+        if (lureColorEditText.text.toString() != (fc.lureColor ?: "")) return true
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true
         if (tripNotesEditText.text.toString() != (fc.tripNotes ?: "")) return true
         if (fishermanEditText.text.toString().trim().equals(fc.fisherman?.trim() ?: "", ignoreCase = true).not()) return true

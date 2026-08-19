@@ -227,6 +227,8 @@ class JsonService {
             if (it.weight != null) obj.put("weight", it.weight)
             if (it.length != null) obj.put("length", it.length)
             obj.put("method", it.method)
+            if (it.lure != null) obj.put("lure", it.lure)
+            if (it.lureColor != null) obj.put("lureColor", it.lureColor)
             if (it.strikeDepth != null) obj.put("strikeDepth", it.strikeDepth)
             if (it.waterDepth != null) obj.put("waterDepth", it.waterDepth)
             if (it.waterTemp != null) obj.put("waterTemp", it.waterTemp)
@@ -436,6 +438,8 @@ class JsonService {
                     weight = if (obj.isNull("weight")) null else obj.optLong("weight"),
                     length = if (obj.isNull("length")) null else obj.optLong("length"),
                     method = obj.optString("method", ""),
+                    lure = if (obj.isNull("lure")) null else obj.optString("lure"),
+                    lureColor = if (obj.isNull("lureColor")) null else obj.optString("lureColor"),
                     strikeDepth = if (obj.isNull("strikeDepth")) null else obj.optDouble("strikeDepth"),
                     waterDepth = if (obj.isNull("waterDepth")) null else obj.optDouble("waterDepth"),
                     waterTemp = if (obj.isNull("waterTemp")) null else obj.optDouble("waterTemp"),

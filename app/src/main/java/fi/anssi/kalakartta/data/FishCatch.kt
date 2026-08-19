@@ -31,6 +31,8 @@ data class FishCatch(
     val originalRef: String = "",
     val tripNotes: String = "",
     val fisherman: String = "",
+    val lure: String? = null,
+    val lureColor: String? = null,
     val otherSpecies: String? = null,
     /**
      * Aika, jolloin säätiedot on todettu "valmiiksi" siinä mielessä, että kaikki mahdolliset

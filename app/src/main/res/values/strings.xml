@@ -2,7 +2,7 @@
     <string name="app_name">KalaKartta</string>
     <string name="add_catch">Lisää merkintä -dialogi</string>
     <string name="add_catch_short">Lisää merkintä</string>
-    <string name="add_detailed">Tarkemmin</string>
+    <string name="add_detailed">Tarkemmat tiedot</string>
     <string name="my_location">Oma sijainti</string>
     <string name="settings">Asetukset</string>
     <string name="ok">OK</string>
@@ -30,6 +30,8 @@
     <string name="longitude">Pituusaste (Lon)</string>
     <string name="trip_notes">Kalapäiväkirjan merkinnät</string>
     <string name="fisherman">Kalastaja</string>
+    <string name="lure">Viehe</string>
+    <string name="lure_color">Väri</string>
     <string name="save">Tallenna</string>
     <string name="cancel">Peruuta</string>
     <string name="edit_success">Tietojen muokkaus onnistui</string>
