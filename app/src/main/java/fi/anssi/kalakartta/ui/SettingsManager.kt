@@ -1152,13 +1152,21 @@ class SettingsManager(
                 }
             }
 
-            val fetchButton = MaterialButton(activity).apply {
+            val fetchButton = TextView(activity).apply {
                 text = "Hae kalastussessiot"
+                textSize = 18f
+                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                val outValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+                isClickable = true
+                isFocusable = true
+                setPadding(0, 20, 0, 20)
                 val params = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                params.setMargins(0, 0, 0, 30)
+                params.setMargins(0, 0, 0, 20)
                 layoutParams = params
                 setOnClickListener {
                     val intent = Intent(activity, FishingSessionActivity::class.java)
@@ -1192,13 +1200,21 @@ class SettingsManager(
             }
             layout.addView(statusText)
 
-            val startButton = MaterialButton(activity).apply {
+            val startButton = TextView(activity).apply {
                 text = "Aloita tallennus"
+                textSize = 18f
+                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                val outValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+                isClickable = true
+                isFocusable = true
+                setPadding(0, 20, 0, 20)
                 val params = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                params.setMargins(0, 20, 0, 10)
+                params.setMargins(0, 10, 0, 10)
                 layoutParams = params
                 setOnClickListener {
                     val newInterval = input.text.toString().toIntOrNull() ?: 30
