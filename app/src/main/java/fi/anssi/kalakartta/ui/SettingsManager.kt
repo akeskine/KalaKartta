@@ -295,6 +295,17 @@ class SettingsManager(
         }
         layout.addView(showShortcutCb)
 
+        val heatmapFilterEnabledCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.heatmap_filter_enabled)
+            isChecked = prefs.getBoolean("heatmap_filter_enabled", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("heatmap_filter_enabled", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(heatmapFilterEnabledCb)
+
         val colors = arrayOf(
             activity.getString(R.string.color_red),
             activity.getString(R.string.color_purple),

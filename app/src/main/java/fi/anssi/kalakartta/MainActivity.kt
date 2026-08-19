@@ -587,6 +587,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }, onMapSettingsChanged = {
                 updateMapTileSource()
+                updateFishingHeatmap()
             }) { forceRefreshSpecies ->
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
@@ -1259,6 +1260,7 @@ class MainActivity : AppCompatActivity() {
             markerManager.rebuildMarkers(map.zoomLevelDouble, forceRefreshSpecies = true)
         }
         loadCatches()
+        updateFishingHeatmap()
     }
 
     private fun checkDefaultFisherman() {

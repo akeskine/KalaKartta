@@ -6,6 +6,7 @@ import androidx.room.Room
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.PlaceOfInterest
+import fi.anssi.kalakartta.data.TrackPoint
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -323,6 +324,84 @@ class FilterManager(private val context: Context) {
             if (f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null) {
                 if (place.latitude < f.latSouth || place.latitude > f.latNorth ||
                     place.longitude < f.lonWest || place.longitude > f.lonEast) return@filter false
+            }
+
+            true
+        }
+    }
+
+    fun applyTrackPointFilter(points: List<TrackPoint>): List<TrackPoint> {
+        if (!hasActiveFilters()) return points
+        val f = getFilters()
+        
+        // Heatmap suodatetaan vain tietyillä aikasuodattimilla
+        val hasDateFilter = f.startDate != null || f.endDate != null
+        val hasAnnualDateFilter = f.annualStartDay != null && f.annualStartMonth != null && 
+                                f.annualEndDay != null && f.annualEndMonth != null
+        val hasTimeFilter = f.startTimeMinutes != null && f.endTimeMinutes != null
+        val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
+        
+        if (!hasDateFilter && !hasAnnualDateFilter && !hasTimeFilter && !hasAnnualTimeFilter) return points
+        
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
+
+        return points.filter { p ->
+            val timestamp = p.timestamp
+            calendar.timeInMillis = timestamp
+            
+            // Date Range
+            if (hasDateFilter) {
+                if (timestamp == 0L) return@filter false
+                if (f.startDate != null && timestamp < f.startDate) return@filter false
+                if (f.endDate != null && timestamp > f.endDate) return@filter false
+            }
+
+            // Annual Date Range
+            if (hasAnnualDateFilter) {
+                if (timestamp == 0L) return@filter false
+                val month = calendar.get(Calendar.MONTH)
+                val day = calendar.get(Calendar.DAY_OF_MONTH)
+                
+                val currentVal = month * 100 + day
+                val startVal = f.annualStartMonth!! * 100 + f.annualStartDay!!
+                val endVal = f.annualEndMonth!! * 100 + f.annualEndDay!!
+                
+                if (startVal <= endVal) {
+                    if (currentVal < startVal || currentVal > endVal) return@filter false
+                } else {
+                    // Spans across year end
+                    if (currentVal < startVal && currentVal > endVal) return@filter false
+                }
+            }
+
+            // Annual Time Range
+            if (hasAnnualTimeFilter) {
+                if (timestamp == 0L) return@filter false
+                val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                val minute = calendar.get(Calendar.MINUTE)
+                val currentMinutes = hour * 60 + minute
+                
+                if (f.annualStartTimeMinutes!! <= f.annualEndTimeMinutes!!) {
+                    if (currentMinutes < f.annualStartTimeMinutes || currentMinutes > f.annualEndTimeMinutes) return@filter false
+                } else {
+                    // Spans across midnight
+                    if (currentMinutes < f.annualStartTimeMinutes && currentMinutes > f.annualEndTimeMinutes) return@filter false
+                }
+            }
+
+            // Time Range
+            if (hasTimeFilter) {
+                if (timestamp == 0L) return@filter false
+                val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                val minute = calendar.get(Calendar.MINUTE)
+                val currentMinutes = hour * 60 + minute
+                
+                if (f.startTimeMinutes!! <= f.endTimeMinutes!!) {
+                    if (currentMinutes < f.startTimeMinutes || currentMinutes > f.endTimeMinutes) return@filter false
+                } else {
+                    // Spans across midnight
+                    if (currentMinutes < f.startTimeMinutes && currentMinutes > f.endTimeMinutes) return@filter false
+                }
             }
 
             true

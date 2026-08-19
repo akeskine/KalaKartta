@@ -38,6 +38,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var minPoints = 1
     private var maxPoints = 5
     private var baseColor = Color.RED
+    private var filterEnabled = false
     
     init {
         refreshSettings()
@@ -50,6 +51,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         gridSizeMeters = prefs.getFloat("heatmap_grid_size", 100.0f).toDouble().coerceAtLeast(1.0)
         minPoints = prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
         maxPoints = prefs.getInt("heatmap_max_points", 5).coerceAtLeast(minPoints + 1)
+        filterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
         
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
@@ -64,8 +66,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         refreshSettings()
         dataJob?.cancel()
         dataJob = scope.launch {
-            val points = withContext(Dispatchers.IO) {
+            var points = withContext(Dispatchers.IO) {
                 db.trackPointDao().getAll()
+            }
+            
+            if (filterEnabled) {
+                points = withContext(Dispatchers.Default) {
+                    FilterManager(context).applyTrackPointFilter(points)
+                }
             }
             
             val newData = withContext(Dispatchers.Default) {
