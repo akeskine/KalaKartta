@@ -34,6 +34,7 @@ class EditCatchActivity : AppCompatActivity() {
     private var isPlace = false
     private var speciesList: List<FishSpecies> = emptyList()
     private var placeTypeList: List<PlaceOfInterestType> = emptyList()
+    private var eventTypes: MutableList<String> = mutableListOf()
 
     private fun getDrawableId(iconName: String): Int {
         if (iconName.isEmpty()) return 0
@@ -257,13 +258,7 @@ class EditCatchActivity : AppCompatActivity() {
             // Alustetaan kalenteri nykyhetkeen, vaikka sitä ei näytettäisi painikkeessa
             selectedCalendar.timeInMillis = System.currentTimeMillis()
 
-            // Lisätään tyhjä vaihtoehto vain jos muokataan vanhaa pistettä ja sen laji on tyhjä tai UNKNOWN
-            speciesList = if (catchId != -1L && (fishCatch?.species == "" || fishCatch?.species == "UNKNOWN")) {
-                val emptySpecies = FishSpecies(id = "UNKNOWN", name = getString(R.string.empty_selection))
-                listOf(emptySpecies) + allSpecies
-            } else {
-                allSpecies
-            }
+            speciesList = allSpecies
 
             if (catchId == -1L) {
                 titleTextView.setText(R.string.add_detailed_title)
@@ -352,7 +347,7 @@ class EditCatchActivity : AppCompatActivity() {
             speciesSpinner.adapter = adapter
 
             val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
-            val eventTypes = mutableListOf(
+            eventTypes = mutableListOf(
                 FishCatch.CAUGHT_FISH,
                 FishCatch.LOST_FISH,
                 FishCatch.STRIKE_CERTAIN,
@@ -418,7 +413,7 @@ class EditCatchActivity : AppCompatActivity() {
             rainSpinner.adapter = rainAdapter
 
             fishCatch?.let { fc ->
-                var speciesIndex = speciesList.indexOfFirst { it.id == fc.species || (it.id == "UNKNOWN" && fc.species == "") }
+                var speciesIndex = speciesList.indexOfFirst { it.id == fc.species }
                 
                 // Jos lajia ei löydy (esim. poistettu itse lisätty laji), vaihdetaan se "Muu kalalaji" -tyyppiin
                 if (speciesIndex == -1 && fc.species != "UNKNOWN" && fc.species.isNotEmpty()) {
@@ -756,17 +751,7 @@ class EditCatchActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this, R.string.save_success, Toast.LENGTH_SHORT).show(); setResult(RESULT_OK); finish() }
             }.start()
         } else {
-            val eventTypes = mutableListOf(
-                FishCatch.CAUGHT_FISH,
-                FishCatch.LOST_FISH,
-                FishCatch.STRIKE_CERTAIN,
-                FishCatch.STRIKE_UNCERTAIN,
-                FishCatch.FISH_FOLLOW
-            )
             val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
-            if (catchId != -1L && fishCatch?.eventType == null) {
-                eventTypes.add(0, "EMPTY")
-            }
             
             val fc = fishCatch ?: return
             val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
@@ -828,8 +813,19 @@ class EditCatchActivity : AppCompatActivity() {
                    Math.abs(lonEditText.text.toString().toDoubleSafe() - poi.longitude) > 0.0001
         }
         val fc = fishCatch ?: return false
-        if (speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id != fc.species) return true
         
+        val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
+        if (selectedSpeciesId != fc.species) {
+            // Jos alkuperäinen laji oli UNKNOWN/tyhjä, ja nyt on valittu listan ensimmäinen, se ei ole muutos
+            val isInitialDefault = (fc.species == "" || fc.species == "UNKNOWN") && 
+                                 speciesSpinner.selectedItemPosition == 0
+            if (!isInitialDefault) return true
+        }
+        
+        val selectedType = eventTypes.getOrNull(eventTypeSpinner.selectedItemPosition)
+        val currentType = if (selectedType == "EMPTY") null else (selectedType ?: FishCatch.CAUGHT_FISH)
+        if (currentType != fc.eventType && !(currentType == FishCatch.CAUGHT_FISH && fc.eventType == null)) return true
+
         val currentTime = if (isTimeSetManually || (fc.caughtAt ?: 0L) > 0L) selectedCalendar.timeInMillis else null
         if (currentTime != null && fc.caughtAt != null) {
             if (currentTime / 60000 != fc.caughtAt / 60000) return true
@@ -838,20 +834,21 @@ class EditCatchActivity : AppCompatActivity() {
         }
         
         if (weightEditText.text.toString().toLongOrNull() != (if ((fc.weight ?: 0L) > 0L) fc.weight else null)) return true
-        if (methodEditText.text.toString().isNotBlank() && (fc.method ?: "").isBlank()) return true
+        if (lengthEditText.text.toString().toLongOrNull() != (if ((fc.length ?: 0L) > 0L) fc.length else null)) return true
+        
+        if (strikeDepthEditText.text.toString().toDoubleOrNull() != (if ((fc.strikeDepth ?: 0.0) != 0.0) fc.strikeDepth else null)) return true
+        if (waterDepthEditText.text.toString().toDoubleOrNull() != (if ((fc.waterDepth ?: 0.0) != 0.0) fc.waterDepth else null)) return true
+        if (waterTempEditText.text.toString().toDoubleOrNull() != (if ((fc.waterTemp ?: 0.0) != 0.0) fc.waterTemp else null)) return true
+
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
-        if (lureEditText.text.toString().isNotBlank() && (fc.lure ?: "").isBlank()) return true
         if (lureEditText.text.toString() != (fc.lure ?: "")) return true
-        if (lureColorEditText.text.toString().isNotBlank() && (fc.lureColor ?: "").isBlank()) return true
         if (lureColorEditText.text.toString() != (fc.lureColor ?: "")) return true
-        if (additionalInfoEditText.text.toString().isNotBlank() && (fc.additionalInfo ?: "").isBlank()) return true
         if (additionalInfoEditText.text.toString() != (fc.additionalInfo ?: "")) return true
-        if (tripNotesEditText.text.toString().isNotBlank() && (fc.tripNotes ?: "").isBlank()) return true
         if (tripNotesEditText.text.toString() != (fc.tripNotes ?: "")) return true
-        if (fishermanEditText.text.toString().trim().isNotBlank() && (fc.fisherman ?: "").isBlank()) return true
-        if (fishermanEditText.text.toString().trim().equals(fc.fisherman?.trim() ?: "", ignoreCase = true).not()) return true
-        if (otherSpeciesEditText.text.toString().trim().isNotBlank() && (fc.otherSpecies ?: "").isBlank()) return true
-        if (otherSpeciesEditText.text.toString().trim().equals(fc.otherSpecies?.trim() ?: "", ignoreCase = true).not()) return true
+        
+        if (!fishermanEditText.text.toString().trim().equals(fc.fisherman?.trim() ?: "", ignoreCase = true)) return true
+        if (!otherSpeciesEditText.text.toString().trim().equals(fc.otherSpecies?.trim() ?: "", ignoreCase = true)) return true
+
         return Math.abs(latEditText.text.toString().toDoubleSafe() - fc.latitude) > 0.0001 ||
                Math.abs(lonEditText.text.toString().toDoubleSafe() - fc.longitude) > 0.0001
     }
