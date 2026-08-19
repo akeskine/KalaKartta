@@ -16,7 +16,6 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
@@ -54,7 +53,7 @@ class EditSpeciesActivity : AppCompatActivity() {
         
         loadSpecies()
 
-        findViewById<MaterialButton>(R.id.addNewSpeciesButton).setOnClickListener {
+        findViewById<TextView>(R.id.addNewSpeciesButton).setOnClickListener {
             val intent = Intent(this, EditSpeciesDetailActivity::class.java)
             startActivity(intent)
         }
