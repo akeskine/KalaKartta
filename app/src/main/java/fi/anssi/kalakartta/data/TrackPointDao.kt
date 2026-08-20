@@ -13,6 +13,9 @@ interface TrackPointDao {
     @Query("SELECT * FROM TrackPoint WHERE fishingSessionId = :sessionId ORDER BY timestamp ASC")
     fun getPointsForSession(sessionId: Long): List<TrackPoint>
 
+    @Query("SELECT * FROM TrackPoint WHERE fishingSessionId = :sessionId ORDER BY timestamp DESC LIMIT 1")
+    fun getLastPointForSession(sessionId: Long): TrackPoint?
+
     @Query("SELECT COUNT(*) FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun getPointCountForSession(sessionId: Long): Int
 

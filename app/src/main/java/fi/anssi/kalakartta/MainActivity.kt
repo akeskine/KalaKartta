@@ -1077,6 +1077,8 @@ class MainActivity : AppCompatActivity() {
             if (crashFile.exists()) {
                 crashFile.delete()
             }
+            
+            checkUnfinishedSessions()
         } catch (t: Throwable) {
             crashFile.writeText(t.stackTraceToString())
             throw t
@@ -1539,6 +1541,64 @@ class MainActivity : AppCompatActivity() {
     fun stopFishingSession() {
         fishingService?.stopSession()
         updateRecordingStatusUI(false)
+    }
+
+    private fun checkUnfinishedSessions() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val unfinishedSession = db.fishingSessionDao().getActiveSession()
+            if (unfinishedSession != null) {
+                val lastPoint = db.trackPointDao().getLastPointForSession(unfinishedSession.id)
+                val lastTime = lastPoint?.timestamp ?: unfinishedSession.startedAt
+                
+                withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Keskeneräinen sessio löytyi")
+                        .setMessage("Haluatko jatkaa aiempaa sessiota vai päättää sen viimeiseen reittipisteeseen?")
+                        .setPositiveButton("Jatka sessiota") { _, _ ->
+                            continueFishingSession(unfinishedSession)
+                        }
+                        .setNegativeButton("Päätä sessio viimeiseen pisteeseen") { _, _ ->
+                            finishUnfinishedSession(unfinishedSession, lastTime)
+                        }
+                        .setCancelable(false)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun continueFishingSession(session: FishingSession) {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val locInt = prefs.getInt("location_check_interval", 10)
+        val minInt = prefs.getInt("min_track_point_interval", 30)
+        val maxInt = prefs.getInt("max_track_point_interval", 300)
+        val minDist = prefs.getInt("min_track_point_distance", 20)
+
+        val intent = Intent(this, FishingSessionService::class.java).apply {
+            putExtra("LOCATION_CHECK_INTERVAL", locInt)
+            putExtra("MIN_INTERVAL", minInt)
+            putExtra("MAX_INTERVAL", maxInt)
+            putExtra("MIN_DISTANCE", minDist)
+            putExtra("CONTINUE_SESSION_ID", session.id)
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        updateRecordingStatusUI(true)
+    }
+
+    private fun finishUnfinishedSession(session: FishingSession, endTime: Long) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            db.fishingSessionDao().update(session.copy(endedAt = endTime))
+            withContext(Dispatchers.Main) {
+                updateSessionLine()
+                android.widget.Toast.makeText(this@MainActivity, "Sessio päätetty", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     fun getFishingService() = fishingService

@@ -71,6 +71,7 @@ class FishingSessionService : Service() {
         val minInt = intent?.getIntExtra("MIN_INTERVAL", 30) ?: 30
         val maxInt = intent?.getIntExtra("MAX_INTERVAL", 300) ?: 300
         val minDist = intent?.getIntExtra("MIN_DISTANCE", 20) ?: 20
+        val continueId = intent?.getLongExtra("CONTINUE_SESSION_ID", -1L) ?: -1L
 
         if (recording) {
             locationCheckIntervalSeconds = locInt
@@ -84,6 +85,8 @@ class FishingSessionService : Service() {
             // Päivitetään ilmoitus jos tarpeen tai lähetetään uusi broadcast
             val updateIntent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
             sendBroadcast(updateIntent)
+        } else if (continueId != -1L) {
+            continueSession(continueId, locInt, minInt, maxInt, minDist)
         } else {
             startSession(locInt, minInt, maxInt, minDist)
         }
@@ -117,6 +120,43 @@ class FishingSessionService : Service() {
                 // Ilmoitetaan MainActivitylle että sessio on alkanut (ja interval on asetettu)
                 val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
                 sendBroadcast(intent)
+            }
+        }
+    }
+
+    private fun continueSession(sessionId: Long, locInt: Int, minInt: Int, maxInt: Int, minDist: Int) {
+        if (recording) return
+        recording = true
+        currentSessionId = sessionId
+        locationCheckIntervalSeconds = locInt
+        minTrackPointIntervalSeconds = minInt
+        maxTrackPointIntervalSeconds = maxInt
+        minTrackPointDistanceMeters = minDist
+
+        serviceScope.launch {
+            val session = db.fishingSessionDao().getById(sessionId)
+            startedAt = session?.startedAt ?: System.currentTimeMillis()
+            
+            // Lasketaan tähänastinen matka tallennetuista pisteistä
+            val points = db.trackPointDao().getPointsForSession(sessionId)
+            totalDistance = 0.0
+            var prevLoc: Location? = null
+            points.forEach { pt ->
+                val loc = Location("stored").apply {
+                    latitude = pt.latitude
+                    longitude = pt.longitude
+                }
+                prevLoc?.let { totalDistance += it.distanceTo(loc).toDouble() }
+                prevLoc = loc
+            }
+            lastLocation = prevLoc
+            lastSavedLocation = prevLoc
+            lastSavedTimestamp = points.lastOrNull()?.timestamp ?: 0L
+
+            launch(Dispatchers.Main) {
+                startForeground(NOTIFICATION_ID, createNotification())
+                requestLocationUpdates()
+                sendBroadcast(Intent("fi.anssi.kalakartta.SESSION_STARTED"))
             }
         }
     }
