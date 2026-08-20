@@ -1,0 +1,95 @@
+{
+  "randomSeed": 12345,
+  "trackingIntervalSeconds": 10,
+  "outputFile": "build/generated-test-data/fishing-sessions.json",
+  "prettyPrint": false,
+
+  "areas": [
+    {
+      "name": "Paijanne",
+      "centerLatitude": 61.2500,
+      "centerLongitude": 25.5000,
+
+      "tripCount": 900,
+
+      "dateFrom": "2006-05-01",
+      "dateTo": "2026-10-31",
+
+      "averageTripDurationMinutes": 480,
+      "tripDurationVariationPercent": 20,
+
+      "averageDirectionDegrees": 20,
+      "directionVariationDegrees": 30,
+
+      "averageDistanceMeters": 18000,
+      "distanceVariationPercent": 25,
+
+      "averageSpeedMetersPerSecond": 1.8,
+      "speedVariationPercent": 35,
+
+      "averageAccuracyMeters": 5.0,
+      "accuracyVariationPercent": 40,
+
+      "ellipseAspectRatio": 0.45,
+      "loopDirectionVariationDegrees": 45
+    },
+
+    {
+      "name": "Helsinki",
+      "centerLatitude": 60.1500,
+      "centerLongitude": 24.8800,
+
+      "tripCount": 650,
+
+      "dateFrom": "2006-04-15",
+      "dateTo": "2026-11-15",
+
+      "averageTripDurationMinutes": 420,
+      "tripDurationVariationPercent": 25,
+
+      "averageDirectionDegrees": 110,
+      "directionVariationDegrees": 40,
+
+      "averageDistanceMeters": 14000,
+      "distanceVariationPercent": 30,
+
+      "averageSpeedMetersPerSecond": 2.0,
+      "speedVariationPercent": 40,
+
+      "averageAccuracyMeters": 5.5,
+      "accuracyVariationPercent": 45,
+
+      "ellipseAspectRatio": 0.55,
+      "loopDirectionVariationDegrees": 45
+    },
+
+    {
+      "name": "Saimaa",
+      "centerLatitude": 61.5000,
+      "centerLongitude": 28.5000,
+
+      "tripCount": 450,
+
+      "dateFrom": "2006-05-01",
+      "dateTo": "2026-10-15",
+
+      "averageTripDurationMinutes": 510,
+      "tripDurationVariationPercent": 20,
+
+      "averageDirectionDegrees": 330,
+      "directionVariationDegrees": 35,
+
+      "averageDistanceMeters": 20000,
+      "distanceVariationPercent": 30,
+
+      "averageSpeedMetersPerSecond": 1.7,
+      "speedVariationPercent": 35,
+
+      "averageAccuracyMeters": 4.5,
+      "accuracyVariationPercent": 40,
+
+      "ellipseAspectRatio": 0.40,
+      "loopDirectionVariationDegrees": 45
+    }
+  ]
+}

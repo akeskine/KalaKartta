@@ -61,6 +61,26 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+}
+
+tasks.register("generateFishingSessionTestData") {
+    group = "verification"
+    description = "Generates large fishing session test data."
+    
+    doLast {
+        println("TestDataGenerator on toteutettu.")
+        println("Voit ajaa sen suoraan IDE:stä (TestDataRunner.kt) tai Gradlen kautta:")
+        println("./gradlew :app:testDebugUnitTest --tests fi.anssi.kalakartta.testdata.TestDataRunner -PrunGenerator")
+    }
+}
+
+tasks.withType<Test> {
+    if ((name == "testDebugUnitTest" || name == "testReleaseUnitTest") && !project.hasProperty("runGenerator")) {
+        filter {
+            excludeTestsMatching("fi.anssi.kalakartta.testdata.TestDataRunner")
+        }
+    }
 }
