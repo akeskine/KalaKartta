@@ -446,19 +446,19 @@ class SettingsManager(
         }
         layout.addView(gridSizeLabel)
 
-        val gridSizes = arrayOf("10", "30", "100", "300", "1000")
+        val gridSizes = arrayOf("100", "300", "1000")
         val gridSizeSpinner = Spinner(activity)
         val gridAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, gridSizes)
         gridAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         gridSizeSpinner.adapter = gridAdapter
 
-        val currentGridSize = prefs.getFloat("heatmap_grid_size", 100.0f).toInt().toString()
+        val currentGridSize = prefs.getFloat("heatmap_grid_size", 300.0f).toInt().toString()
         val gridIndex = gridSizes.indexOf(currentGridSize).coerceAtLeast(0)
         gridSizeSpinner.setSelection(gridIndex)
 
         gridSizeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val value = gridSizes[position].toFloatOrNull() ?: 100.0f
+                val value = gridSizes[position].toFloatOrNull() ?: 300.0f
                 prefs.edit().putFloat("heatmap_grid_size", value).apply()
                 onMapSettingsChanged()
             }

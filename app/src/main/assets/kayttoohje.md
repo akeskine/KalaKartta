@@ -147,5 +147,5 @@ Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa ole
   - **Suodatus:** Tästä voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin.
 - **Konfigurointi:**
     - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).
-    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (esim. 100 metriä).
+    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 100, 300 ja 1000 metriä). Oletus on 300 metriä.
     - **Min/Max vierailukerrat:** Voit säätää, kuinka monta kertaa ruudussa on täytynyt käydä, jotta se näkyy kartalla ja milloin se saavuttaa maksimivärin.

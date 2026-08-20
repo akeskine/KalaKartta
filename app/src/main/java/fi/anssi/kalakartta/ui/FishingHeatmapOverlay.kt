@@ -49,7 +49,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     fun refreshSettings(): Boolean {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val oldGridSize = gridSizeMeters
-        gridSizeMeters = prefs.getFloat("heatmap_grid_size", 100.0f).toDouble().coerceAtLeast(1.0)
+        gridSizeMeters = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
         minPoints = prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
         maxPoints = prefs.getInt("heatmap_max_points", 5).coerceAtLeast(minPoints + 1)
         filterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
