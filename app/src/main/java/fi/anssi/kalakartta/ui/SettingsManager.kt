@@ -976,7 +976,7 @@ class SettingsManager(
 
     private fun confirmDeleteAllCatches() {
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Poista kaikki tiedot?")
+            .setTitle("Poista kaikki pisteet?")
             .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalamerkit ja paikkamerkit? Tätä toimintoa ei voi kumota.")
             .setPositiveButton("Takaisin", null)
             .setNegativeButton("Poista") { _, _ ->
@@ -993,7 +993,7 @@ class SettingsManager(
         onDataChanged(false)
 
         val dialog = AlertDialog.Builder(activity)
-            .setMessage("Kaikki tiedot poistettu.")
+            .setMessage("Kaikki pisteet poistettu.")
             .setPositiveButton("OK", null)
             .show()
         dialog.enlargeButtons()
