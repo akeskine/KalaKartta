@@ -1298,7 +1298,10 @@ class SettingsManager(
                         val distance = currentService.getTotalDistance()
                         val distanceStr = String.format("%.1f km", distance / 1000.0).replace(".", ",")
                         val interval = currentService.getIntervalSeconds()
-                        val pointCount = currentService.getCurrentTrackPoints().size
+                        val sessionId = currentService.getCurrentSessionId()
+                        val pointCount = if (sessionId != -1L) {
+                            db.trackPointDao().getPointCountForSession(sessionId)
+                        } else 0
 
                         infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} sekuntia."
                     }

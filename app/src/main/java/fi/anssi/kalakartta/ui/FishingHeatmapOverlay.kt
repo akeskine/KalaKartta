@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.TrackPoint
+import fi.anssi.kalakartta.data.TrackPointHeatmapData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,18 +67,89 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         refreshSettings()
         dataJob?.cancel()
         dataJob = scope.launch {
-            var points = withContext(Dispatchers.IO) {
-                db.trackPointDao().getAll()
-            }
-            
-            if (filterEnabled) {
-                points = withContext(Dispatchers.Default) {
-                    FilterManager(context).applyTrackPointFilter(points)
+            val newData = withContext(Dispatchers.IO) {
+                val fm = FilterManager(context)
+                val f = fm.getFilters()
+                
+                // Approksimaatio: 1 aste latitudia on n. 111320 metriä
+                val latDegreeMeters = 111320.0
+                // Käytetään kiinteää latitudia (60 astetta) longitudin muunnokseen, jotta ruudutus on vakio
+                val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(60.0))
+
+                val hasAnnualDateFilter = f.annualStartDay != null && f.annualStartMonth != null && 
+                                        f.annualEndDay != null && f.annualEndMonth != null
+                val hasTimeFilter = f.startTimeMinutes != null && f.endTimeMinutes != null
+                val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
+                
+                // Jos meillä on monimutkaisempia filttereitä joita ei voi helposti tehdä SQL:llä,
+                // joudutaan edelleen lataamaan pisteet. Mutta useimmiten näin ei ole.
+                if (filterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
+                    val rawPoints = if (f.startDate != null || f.endDate != null) {
+                        db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
+                    } else {
+                        db.trackPointDao().getAllForHeatmap()
+                    }
+
+                    val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
+                    val filteredPoints = rawPoints.filter { p ->
+                        calendar.timeInMillis = p.timestamp
+                        
+                        if (hasAnnualDateFilter) {
+                            val month = calendar.get(java.util.Calendar.MONTH)
+                            val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                            val currentVal = month * 100 + day
+                            val startVal = f.annualStartMonth!! * 100 + f.annualStartDay!!
+                            val endVal = f.annualEndMonth!! * 100 + f.annualEndDay!!
+                            if (startVal <= endVal) {
+                                if (currentVal < startVal || currentVal > endVal) return@filter false
+                            } else {
+                                if (currentVal < startVal && currentVal > endVal) return@filter false
+                            }
+                        }
+
+                        if (hasAnnualTimeFilter) {
+                            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                            val minute = calendar.get(java.util.Calendar.MINUTE)
+                            val currentMinutes = hour * 60 + minute
+                            if (f.annualStartTimeMinutes!! <= f.annualEndTimeMinutes!!) {
+                                if (currentMinutes < f.annualStartTimeMinutes || currentMinutes > f.annualEndTimeMinutes) return@filter false
+                            } else {
+                                if (currentMinutes < f.annualStartTimeMinutes && currentMinutes > f.annualEndTimeMinutes) return@filter false
+                            }
+                        }
+
+                        if (hasTimeFilter) {
+                            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                            val minute = calendar.get(java.util.Calendar.MINUTE)
+                            val currentMinutes = hour * 60 + minute
+                            if (f.startTimeMinutes!! <= f.endTimeMinutes!!) {
+                                if (currentMinutes < f.startTimeMinutes || currentMinutes > f.endTimeMinutes) return@filter false
+                            } else {
+                                if (currentMinutes < f.startTimeMinutes && currentMinutes > f.endTimeMinutes) return@filter false
+                            }
+                        }
+                        true
+                    }
+                    processPoints(filteredPoints)
+                } else {
+                    // Käytetään SQL-tason aggregointia
+                    val aggregated = if (filterEnabled && (f.startDate != null || f.endDate != null)) {
+                        db.trackPointDao().getAggregatedHeatmapRange(
+                            f.startDate ?: 0L, 
+                            f.endDate ?: Long.MAX_VALUE,
+                            latDegreeMeters,
+                            lonDegreeMeters,
+                            gridSizeMeters
+                        )
+                    } else {
+                        db.trackPointDao().getAggregatedHeatmap(
+                            latDegreeMeters,
+                            lonDegreeMeters,
+                            gridSizeMeters
+                        )
+                    }
+                    aggregated.associate { Pair(it.x, it.y) to it.sessionCount }
                 }
-            }
-            
-            val newData = withContext(Dispatchers.Default) {
-                processPoints(points)
             }
             
             heatmapData = newData
@@ -85,13 +157,13 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         }
     }
 
-    private fun processPoints(points: List<TrackPoint>): Map<Pair<Int, Int>, Int> {
+    private fun processPoints(points: List<TrackPointHeatmapData>): Map<Pair<Int, Int>, Int> {
         val gridSessions = mutableMapOf<Pair<Int, Int>, MutableSet<Long>>()
         
         // Approksimaatio: 1 aste latitudia on n. 111320 metriä
         val latDegreeMeters = 111320.0
         // Käytetään kiinteää latitudia (60 astetta) longitudin muunnokseen, jotta ruudutus on vakio
-        val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
+        val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(60.0))
         
         for (p in points) {
             val x = (p.longitude * lonDegreeMeters / gridSizeMeters).roundToInt()

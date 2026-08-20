@@ -119,11 +119,9 @@ class ImportExportManager(
         Thread {
             try {
                 val sessions = db.fishingSessionDao().getAll()
-                val pointsMap = mutableMapOf<Long, List<fi.anssi.kalakartta.data.TrackPoint>>()
-                sessions.forEach { session ->
-                    pointsMap[session.id] = db.trackPointDao().getPointsForSession(session.id)
+                jsonService.exportRoutes(activity.contentResolver, uri, sessions) { sessionId ->
+                    db.trackPointDao().getPointsForSession(sessionId)
                 }
-                jsonService.exportRoutes(activity.contentResolver, uri, sessions, pointsMap)
                 showConfirmationDialog("Reittien vienti valmis (${sessions.size} reittiä).")
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Routes export failed", e)

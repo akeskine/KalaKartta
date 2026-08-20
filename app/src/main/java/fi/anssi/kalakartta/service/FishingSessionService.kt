@@ -234,10 +234,7 @@ class FishingSessionService : Service() {
     fun getStartedAt() = startedAt
     fun getTotalDistance() = totalDistance
     fun getIntervalSeconds() = intervalSeconds
-
-    fun getCurrentTrackPoints(): List<TrackPoint> {
-        return db.trackPointDao().getPointsForSession(currentSessionId)
-    }
+    fun getCurrentSessionId() = currentSessionId
 
     override fun onDestroy() {
         serviceJob.cancel()

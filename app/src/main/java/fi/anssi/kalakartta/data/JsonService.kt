@@ -17,44 +17,54 @@ class JsonService {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    fun exportRoutes(contentResolver: ContentResolver, uri: Uri, sessions: List<FishingSession>, pointsMap: Map<Long, List<TrackPoint>>) {
+    fun exportRoutes(
+        contentResolver: ContentResolver,
+        uri: Uri,
+        sessions: List<FishingSession>,
+        onGetPoints: (Long) -> List<TrackPoint>
+    ) {
         try {
-            val root = JSONObject()
-            root.put("sessions", sessionsToJson(sessions, pointsMap))
-            
-            contentResolver.openOutputStream(uri)?.use { 
-                it.write(root.toString(4).toByteArray())
+            contentResolver.openOutputStream(uri)?.use { outputStream ->
+                val writer = android.util.JsonWriter(outputStream.bufferedWriter())
+                writer.setIndent("    ")
+                writer.beginObject()
+                writer.name("sessions")
+                writer.beginArray()
+                
+                sessions.forEach { session ->
+                    writer.beginObject()
+                    writer.name("startedAt").value(isoFormat.format(java.util.Date(session.startedAt)))
+                    if (session.endedAt != null) {
+                        writer.name("endedAt").value(isoFormat.format(java.util.Date(session.endedAt)))
+                    }
+                    writer.name("notes").value(session.notes)
+                    
+                    writer.name("points")
+                    writer.beginArray()
+                    val points = onGetPoints(session.id)
+                    points.forEach { pt ->
+                        writer.beginObject()
+                        writer.name("timestamp").value(isoFormat.format(java.util.Date(pt.timestamp)))
+                        writer.name("latitude").value(pt.latitude)
+                        writer.name("longitude").value(pt.longitude)
+                        writer.name("speed").value(pt.speed.toDouble())
+                        writer.name("accuracy").value(pt.accuracy.toDouble())
+                        writer.endObject()
+                    }
+                    writer.endArray()
+                    
+                    writer.endObject()
+                }
+                
+                writer.endArray()
+                writer.endObject()
+                writer.close()
             }
         } catch (e: Exception) {
             android.util.Log.e("JsonService", "Error exporting routes", e)
         }
     }
 
-    private fun sessionsToJson(sessions: List<FishingSession>, pointsMap: Map<Long, List<TrackPoint>>): JSONArray {
-        val array = JSONArray()
-        sessions.forEach { session ->
-            val obj = JSONObject()
-            obj.put("startedAt", isoFormat.format(Date(session.startedAt)))
-            if (session.endedAt != null) {
-                obj.put("endedAt", isoFormat.format(Date(session.endedAt)))
-            }
-            obj.put("notes", session.notes)
-            
-            val pointsArray = JSONArray()
-            pointsMap[session.id]?.forEach { pt ->
-                val pObj = JSONObject()
-                pObj.put("timestamp", isoFormat.format(Date(pt.timestamp)))
-                pObj.put("latitude", String.format(Locale.US, "%.6f", pt.latitude).toDouble())
-                pObj.put("longitude", String.format(Locale.US, "%.6f", pt.longitude).toDouble())
-                pObj.put("speed", pt.speed)
-                pObj.put("accuracy", pt.accuracy)
-                pointsArray.put(pObj)
-            }
-            obj.put("points", pointsArray)
-            array.put(obj)
-        }
-        return array
-    }
 
     fun importRoutesStream(
         contentResolver: ContentResolver,

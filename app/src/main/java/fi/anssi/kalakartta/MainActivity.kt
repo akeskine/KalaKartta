@@ -124,18 +124,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSessionLine() {
-        val points = fishingService?.getCurrentTrackPoints()
-        if (points != null && points.isNotEmpty()) {
-            if (sessionPolyline == null) {
-                sessionPolyline = Polyline(map).apply {
-                    outlinePaint.color = Color.GREEN
-                    outlinePaint.strokeWidth = 8f
+        val sessionId = fishingService?.getCurrentSessionId() ?: -1L
+        if (sessionId != -1L) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val points = db.trackPointDao().getPointsForSession(sessionId)
+                withContext(Dispatchers.Main) {
+                    if (points.isNotEmpty()) {
+                        if (sessionPolyline == null) {
+                            sessionPolyline = Polyline(map).apply {
+                                outlinePaint.color = Color.GREEN
+                                outlinePaint.strokeWidth = 8f
+                            }
+                            map.overlays.add(sessionPolyline)
+                        }
+                        val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
+                        sessionPolyline?.setPoints(geoPoints)
+                        map.invalidate()
+                    } else if (sessionPolyline != null) {
+                        map.overlays.remove(sessionPolyline)
+                        sessionPolyline = null
+                        map.invalidate()
+                    }
                 }
-                map.overlays.add(sessionPolyline)
             }
-            val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
-            sessionPolyline?.setPoints(geoPoints)
-            map.invalidate()
         } else if (sessionPolyline != null) {
             map.overlays.remove(sessionPolyline)
             sessionPolyline = null

@@ -10,12 +10,55 @@ interface TrackPointDao {
     @Insert
     fun insertAll(trackPoints: List<TrackPoint>)
 
-    @Query("SELECT * FROM TrackPoint")
-    fun getAll(): List<TrackPoint>
-
     @Query("SELECT * FROM TrackPoint WHERE fishingSessionId = :sessionId ORDER BY timestamp ASC")
     fun getPointsForSession(sessionId: Long): List<TrackPoint>
+
+    @Query("SELECT COUNT(*) FROM TrackPoint WHERE fishingSessionId = :sessionId")
+    fun getPointCountForSession(sessionId: Long): Int
+
+    @Query("SELECT fishingSessionId, latitude, longitude, timestamp FROM TrackPoint")
+    fun getAllForHeatmap(): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT fishingSessionId, latitude, longitude, timestamp FROM TrackPoint 
+        WHERE timestamp >= :startDate AND timestamp <= :endDate
+    """)
+    fun getPointsForHeatmapRange(startDate: Long, endDate: Long): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT 
+            CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+            CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
+            COUNT(DISTINCT fishingSessionId) as sessionCount
+        FROM TrackPoint
+        GROUP BY x, y
+    """)
+    fun getAggregatedHeatmap(latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
+
+    @Query("""
+        SELECT 
+            CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+            CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
+            COUNT(DISTINCT fishingSessionId) as sessionCount
+        FROM TrackPoint 
+        WHERE timestamp >= :startDate AND timestamp <= :endDate
+        GROUP BY x, y
+    """)
+    fun getAggregatedHeatmapRange(startDate: Long, endDate: Long, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
 
     @Query("DELETE FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun deleteForSession(sessionId: Long)
 }
+
+data class TrackPointHeatmapData(
+    val fishingSessionId: Long,
+    val latitude: Double,
+    val longitude: Double,
+    val timestamp: Long
+)
+
+data class HeatmapGridCell(
+    val x: Int,
+    val y: Int,
+    val sessionCount: Int
+)
