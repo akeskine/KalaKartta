@@ -2,4 +2,5 @@
 <resources>
     <color name="white">#FFFFFFFF</color>
     <color name="button_text_color">#6200EE</color>
+    <color name="link_color">#6200EE</color>
 </resources>

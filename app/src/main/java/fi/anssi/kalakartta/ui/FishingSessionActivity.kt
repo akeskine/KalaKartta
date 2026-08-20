@@ -170,7 +170,9 @@ class FishingSessionActivity : AppCompatActivity() {
             if (dayCal.get(Calendar.YEAR) == selectedCalendar.get(Calendar.YEAR) &&
                 dayCal.get(Calendar.MONTH) == selectedCalendar.get(Calendar.MONTH) &&
                 dayCal.get(Calendar.DAY_OF_MONTH) == selectedCalendar.get(Calendar.DAY_OF_MONTH)) {
-                dayView.setBackgroundColor(0x330000FF.toInt()) // Vaaleansininen korostus
+                val outValue = android.util.TypedValue()
+                theme.resolveAttribute(android.R.attr.colorControlHighlight, outValue, true)
+                dayView.setBackgroundColor(outValue.data)
             }
 
             dayView.setOnClickListener {
@@ -238,7 +240,6 @@ class FishingSessionActivity : AppCompatActivity() {
         val titleText = TextView(this).apply {
             text = "Sessio: $startTime - $endTime"
             textSize = 18f
-            setTextColor(Color.BLACK)
         }
         sessionView.addView(titleText)
 
@@ -305,7 +306,7 @@ class FishingSessionActivity : AppCompatActivity() {
 
                 val replayLink = TextView(this@FishingSessionActivity).apply {
                     text = "Toista"
-                    setTextColor(Color.BLUE)
+                    setTextColor(androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.link_color))
                     paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
                     setPadding(0, 10, 20, 10)
                     isClickable = true
@@ -321,7 +322,7 @@ class FishingSessionActivity : AppCompatActivity() {
 
                 val notesLink = TextView(this@FishingSessionActivity).apply {
                     text = "Näytä muistiinpanot"
-                    setTextColor(Color.BLUE)
+                    setTextColor(androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.link_color))
                     paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
                     setPadding(0, 10, 0, 10)
                     isClickable = true
@@ -345,14 +346,12 @@ class FishingSessionActivity : AppCompatActivity() {
 
         val detailsText = TextView(this).apply {
             text = "Kesto: $durationStr\nMatka: $distanceStr\nReittipisteitä: $pointsCount kpl"
-            setTextColor(Color.BLACK)
             setPadding(0, 0, 0, 20)
         }
         container.addView(detailsText)
 
         val notesText = TextView(this).apply {
             text = session.notes
-            setTextColor(Color.BLACK)
         }
         container.addView(notesText)
 
