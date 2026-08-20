@@ -13,6 +13,9 @@ interface FishingSessionDao {
     @Query("SELECT * FROM FishingSession WHERE id = :id")
     fun getById(id: Long): FishingSession?
 
+    @Query("SELECT * FROM FishingSession WHERE endedAt IS NOT NULL ORDER BY startedAt DESC")
+    fun getFinishedSessions(): List<FishingSession>
+
     @Query("SELECT * FROM FishingSession ORDER BY startedAt DESC")
     fun getAll(): List<FishingSession>
 

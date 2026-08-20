@@ -86,7 +86,7 @@ class FishingSessionActivity : AppCompatActivity() {
 
     private fun loadSessions() {
         lifecycleScope.launch(Dispatchers.IO) {
-            allSessions = db.fishingSessionDao().getAll().filter { it.endedAt != null }
+            allSessions = db.fishingSessionDao().getFinishedSessions()
             withContext(Dispatchers.Main) {
                 updateCalendar()
                 showSessionsForDate(

@@ -471,6 +471,14 @@ class MainActivity : AppCompatActivity() {
                         showSessionNotesDialog(sessionId)
                     }
                 }
+                "fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF" -> {
+                    updateRecordingStatusUI()
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Kalastussessio lopetettu")
+                        .setMessage("Kalastussessio on lopetettu, koska sijaintipalvelu on pois päältä.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
                 "fi.anssi.kalakartta.SESSION_STARTED" -> {
                     // Päivitetään paikallinen väli siltä varalta että se on muuttunut palvelussa
                     val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -1496,9 +1504,10 @@ class MainActivity : AppCompatActivity() {
         val filter = IntentFilter().apply {
             addAction("fi.anssi.kalakartta.SESSION_STARTED")
             addAction("fi.anssi.kalakartta.SESSION_ENDED")
+            addAction("fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(sessionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(sessionReceiver, filter)
         }
@@ -1541,9 +1550,12 @@ class MainActivity : AppCompatActivity() {
     fun stopFishingSession() {
         fishingService?.stopSession()
         updateRecordingStatusUI(false)
+        updateSessionLine()
     }
 
     private fun checkUnfinishedSessions() {
+        if (FishingSessionService.isRunning) return
+        
         lifecycleScope.launch(Dispatchers.IO) {
             val unfinishedSession = db.fishingSessionDao().getActiveSession()
             if (unfinishedSession != null) {

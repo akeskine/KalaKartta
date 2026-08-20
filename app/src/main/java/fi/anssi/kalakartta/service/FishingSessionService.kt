@@ -1,8 +1,10 @@
 package fi.anssi.kalakartta.service
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -38,6 +40,7 @@ class FishingSessionService : Service() {
     private var minTrackPointDistanceMeters: Int = 20
     private var lastSavedTimestamp: Long = 0L
     private var lastSavedLocation: Location? = null
+    private var locationProviderReceiver: BroadcastReceiver? = null
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
@@ -46,6 +49,7 @@ class FishingSessionService : Service() {
         const val CHANNEL_ID = "FishingSessionChannel"
         const val NOTIFICATION_ID = 101
         const val ACTION_STOP = "STOP_SESSION"
+        var isRunning = false
     }
 
     inner class LocalBinder : Binder() {
@@ -56,9 +60,72 @@ class FishingSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         db = AppDatabase.getInstance(this)
         createNotificationChannel()
+        
+        registerLocationProviderReceiver()
+    }
+
+    private fun registerLocationProviderReceiver() {
+        locationProviderReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
+                    checkGpsStatus()
+                }
+            }
+        }
+        val filter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
+        // PROVIDERS_CHANGED_ACTION on järjestelmän lähetys, mutta joissain laitteissa se saattaa vaatia EXPORTED
+        // tai se voi toimia NOT_EXPORTED kanssa. Kokeillaan tässä NOT_EXPORTED ensin, mutta varmistetaan toimivuus.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(locationProviderReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(locationProviderReceiver, filter)
+        }
+    }
+
+    private fun checkGpsStatus() {
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        if (recording && !isGpsEnabled) {
+            stopSessionDueToLocationOff()
+        }
+    }
+
+    private fun stopSessionDueToLocationOff() {
+        if (!recording) return
+        
+        recording = false
+        val sessionId = currentSessionId
+        currentSessionId = -1L
+
+        serviceScope.launch {
+            if (sessionId != -1L) {
+                val session = db.fishingSessionDao().getById(sessionId)
+                if (session != null) {
+                    db.fishingSessionDao().update(session.copy(endedAt = System.currentTimeMillis()))
+                }
+            }
+            
+            launch(Dispatchers.Main) {
+                try {
+                    locationManager.removeUpdates(locationListener)
+                } catch (e: Exception) {}
+                
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.cancel(NOTIFICATION_ID)
+                
+                val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF")
+                intent.putExtra("SESSION_ID", sessionId)
+                intent.setPackage(packageName)
+                sendBroadcast(intent)
+                
+                stopSelf()
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -84,6 +151,7 @@ class FishingSessionService : Service() {
 
             // Päivitetään ilmoitus jos tarpeen tai lähetetään uusi broadcast
             val updateIntent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
+            updateIntent.setPackage(packageName)
             sendBroadcast(updateIntent)
         } else if (continueId != -1L) {
             continueSession(continueId, locInt, minInt, maxInt, minDist)
@@ -119,6 +187,7 @@ class FishingSessionService : Service() {
                 
                 // Ilmoitetaan MainActivitylle että sessio on alkanut (ja interval on asetettu)
                 val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
+                intent.setPackage(packageName)
                 sendBroadcast(intent)
             }
         }
@@ -156,7 +225,9 @@ class FishingSessionService : Service() {
             launch(Dispatchers.Main) {
                 startForeground(NOTIFICATION_ID, createNotification())
                 requestLocationUpdates()
-                sendBroadcast(Intent("fi.anssi.kalakartta.SESSION_STARTED"))
+                val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
+                intent.setPackage(packageName)
+                sendBroadcast(intent)
             }
         }
     }
@@ -188,6 +259,7 @@ class FishingSessionService : Service() {
                 // Ilmoitetaan MainActivitylle että sessio loppui, jotta se voi avata dialogin
                 val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED")
                 intent.putExtra("SESSION_ID", sessionId)
+                intent.setPackage(packageName)
                 sendBroadcast(intent)
                 
                 stopSelf()
@@ -237,7 +309,11 @@ class FishingSessionService : Service() {
 
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
         override fun onProviderEnabled(provider: String) {}
-        override fun onProviderDisabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {
+            if (provider == LocationManager.GPS_PROVIDER) {
+                checkGpsStatus()
+            }
+        }
     }
 
     private fun saveTrackPoint(location: Location) {
@@ -307,6 +383,10 @@ class FishingSessionService : Service() {
     fun getCurrentSessionId() = currentSessionId
 
     override fun onDestroy() {
+        isRunning = false
+        locationProviderReceiver?.let {
+            unregisterReceiver(it)
+        }
         serviceJob.cancel()
         super.onDestroy()
     }
