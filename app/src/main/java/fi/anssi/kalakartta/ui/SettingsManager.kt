@@ -1186,22 +1186,142 @@ class SettingsManager(
             }
             layout.addView(fetchButton)
 
+            val sectionTitle = TextView(activity).apply {
+                text = "Reittipisteiden tallennusvälit"
+                textSize = 18f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setPadding(0, 30, 0, 20)
+            }
+            layout.addView(sectionTitle)
+
             val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-            val interval = prefs.getInt("track_point_interval", 30)
+            
+            val locationIntervals = arrayOf("10", "30", "60", "120")
+            val minIntervals = arrayOf("10", "30", "60", "120")
+            val maxIntervals = arrayOf("60", "120", "300", "600")
+            val minDistances = arrayOf("10", "20", "50", "100", "200")
 
-            val label = TextView(activity).apply {
-                text = "Reittipisteiden tallennusväli (sekuntia)"
-                textSize = 16f
-                setPadding(0, 0, 0, 20)
-            }
-            layout.addView(label)
+            var currentLocationInterval = prefs.getInt("location_check_interval", 10).toString()
+            var currentMinInterval = prefs.getInt("min_track_point_interval", 30).toString()
+            var currentMaxInterval = prefs.getInt("max_track_point_interval", 300).toString()
+            var currentMinDistance = prefs.getInt("min_track_point_distance", 20).toString()
 
-            val input = EditText(activity).apply {
-                setText(interval.toString())
-                inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                hint = "Sekuntia (esim. 30)"
+            // Varmistetaan että asetukset ovat valittavissa olevia arvoja
+            if (currentLocationInterval !in locationIntervals) currentLocationInterval = "10"
+            if (currentMinInterval !in minIntervals) currentMinInterval = "30"
+            if (currentMaxInterval !in maxIntervals) currentMaxInterval = "300"
+            if (currentMinDistance !in minDistances) currentMinDistance = "20"
+
+            val locationSpinner = Spinner(activity)
+            val minIntervalSpinner = Spinner(activity)
+            val maxIntervalSpinner = Spinner(activity)
+            val minDistanceSpinner = Spinner(activity)
+
+            fun updateSpinners() {
+                val locVal = currentLocationInterval.toInt()
+                val minVal = currentMinInterval.toInt()
+                val maxVal = currentMaxInterval.toInt()
+
+                var changed = false
+                if (maxVal < minVal) {
+                    currentMinInterval = currentMaxInterval
+                    minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
+                    changed = true
+                }
+                
+                val newMinVal = currentMinInterval.toInt()
+                if (newMinVal < locVal) {
+                    currentLocationInterval = currentMinInterval
+                    locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
+                    changed = true
+                }
             }
-            layout.addView(input)
+
+            fun createRow(labelText: String, spinner: Spinner): LinearLayout {
+                val row = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(0, 10, 0, 10)
+                }
+                
+                val label = TextView(activity).apply {
+                    text = labelText
+                    textSize = 16f
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                }
+                
+                spinner.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                
+                row.addView(label)
+                row.addView(spinner)
+                return row
+            }
+
+            layout.addView(createRow("Sijainnin tarkastuksen aikaväli (s)", locationSpinner.apply {
+                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, locationIntervals)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                this.adapter = adapter
+                setSelection(locationIntervals.indexOf(currentLocationInterval))
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                        currentLocationInterval = locationIntervals[pos]
+                        updateSpinners()
+                    }
+                    override fun onNothingSelected(p0: AdapterView<*>?) {}
+                }
+            }))
+
+            layout.addView(createRow("Tallennusaikaväli min (s)", minIntervalSpinner.apply {
+                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minIntervals)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                this.adapter = adapter
+                setSelection(minIntervals.indexOf(currentMinInterval))
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                        currentMinInterval = minIntervals[pos]
+                        updateSpinners()
+                    }
+                    override fun onNothingSelected(p0: AdapterView<*>?) {}
+                }
+            }))
+
+            layout.addView(createRow("Tallennusaikaväli max (s)", maxIntervalSpinner.apply {
+                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, maxIntervals)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                this.adapter = adapter
+                setSelection(maxIntervals.indexOf(currentMaxInterval))
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                        currentMaxInterval = maxIntervals[pos]
+                        updateSpinners()
+                    }
+                    override fun onNothingSelected(p0: AdapterView<*>?) {}
+                }
+            }))
+
+            layout.addView(createRow("Pisteiden minimietäisyys (m)", minDistanceSpinner.apply {
+                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minDistances)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                this.adapter = adapter
+                setSelection(minDistances.indexOf(currentMinDistance))
+                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                        currentMinDistance = minDistances[pos]
+                    }
+                    override fun onNothingSelected(p0: AdapterView<*>?) {}
+                }
+            }))
 
             val statusText = TextView(activity).apply {
                 textSize = 14f
@@ -1228,9 +1348,19 @@ class SettingsManager(
                 params.setMargins(0, 10, 0, 10)
                 layoutParams = params
                 setOnClickListener {
-                    val newInterval = input.text.toString().toIntOrNull() ?: 30
-                    prefs.edit().putInt("track_point_interval", newInterval).commit()
-                    mainActivity?.startFishingSession(newInterval)
+                    val locInt = currentLocationInterval.toInt()
+                    val minInt = currentMinInterval.toInt()
+                    val maxInt = currentMaxInterval.toInt()
+                    val minDist = currentMinDistance.toInt()
+                    
+                    prefs.edit()
+                        .putInt("location_check_interval", locInt)
+                        .putInt("min_track_point_interval", minInt)
+                        .putInt("max_track_point_interval", maxInt)
+                        .putInt("min_track_point_distance", minDist)
+                        .commit()
+                        
+                    mainActivity?.startFishingSession(locInt, minInt, maxInt, minDist)
                     dialog?.dismiss()
                     closeSettings()
                 }
@@ -1297,13 +1427,16 @@ class SettingsManager(
                         val durationStr = if (hours > 0) "${hours} h ${minutes} min ${seconds} s" else "${minutes} min ${seconds} s"
                         val distance = currentService.getTotalDistance()
                         val distanceStr = String.format("%.1f km", distance / 1000.0).replace(".", ",")
-                        val interval = currentService.getIntervalSeconds()
+                        val minInterval = currentService.getMinIntervalSeconds()
+                        val maxInterval = currentService.getMaxIntervalSeconds()
+                        val locInterval = currentService.getLocationCheckIntervalSeconds()
+                        val minDist = currentService.getMinDistanceMeters()
                         val sessionId = currentService.getCurrentSessionId()
                         val pointCount = if (sessionId != -1L) {
                             db.trackPointDao().getPointCountForSession(sessionId)
                         } else 0
 
-                        infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nReittipisteiden tallennusväli ${interval} sekuntia."
+                        infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nTallennusvälit: min ${minInterval}s, max ${maxInterval}s, etäisyys ${minDist}m, tarkastus ${locInterval}s."
                     }
                     kotlinx.coroutines.delay(1000)
                 }

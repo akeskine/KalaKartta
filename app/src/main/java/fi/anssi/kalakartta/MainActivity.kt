@@ -101,7 +101,7 @@ class MainActivity : AppCompatActivity() {
     private val recordingBlinkRunnable = object : Runnable {
         override fun run() {
             val dot = findViewById<android.view.View>(R.id.recordingDot)
-            val serviceInterval = if (fishingService?.isRecording() == true) fishingService?.getIntervalSeconds() ?: 0 else 0
+            val serviceInterval = if (fishingService?.isRecording() == true) fishingService?.getMinIntervalSeconds() ?: 0 else 0
             val interval = if (serviceInterval > 0) serviceInterval else recordingIntervalSeconds
             
             val (onMs, offMs) = when {
@@ -474,7 +474,7 @@ class MainActivity : AppCompatActivity() {
                 "fi.anssi.kalakartta.SESSION_STARTED" -> {
                     // Päivitetään paikallinen väli siltä varalta että se on muuttunut palvelussa
                     val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                    recordingIntervalSeconds = prefs.getInt("track_point_interval", 30)
+                    recordingIntervalSeconds = prefs.getInt("min_track_point_interval", 30)
                     updateRecordingStatusUI()
                 }
             }
@@ -1485,7 +1485,7 @@ class MainActivity : AppCompatActivity() {
         
         // Luetaan tallennusväli asetuksista
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        recordingIntervalSeconds = prefs.getInt("track_point_interval", 30)
+        recordingIntervalSeconds = prefs.getInt("min_track_point_interval", 30)
 
         // Yhdistetään FishingSessionServiceen
         Intent(this, FishingSessionService::class.java).also { intent ->
@@ -1515,13 +1515,16 @@ class MainActivity : AppCompatActivity() {
         recordingHandler.removeCallbacks(recordingBlinkRunnable)
     }
 
-    fun startFishingSession(interval: Int) {
+    fun startFishingSession(locationCheckInterval: Int, minInterval: Int, maxInterval: Int, minDistance: Int) {
         // Poistetaan vanha arkistoitu reitti jos sellainen on näkyvissä
         hideArchivedSession()
 
-        recordingIntervalSeconds = interval
+        recordingIntervalSeconds = minInterval
         val intent = Intent(this, FishingSessionService::class.java).apply {
-            putExtra("INTERVAL", interval)
+            putExtra("LOCATION_CHECK_INTERVAL", locationCheckInterval)
+            putExtra("MIN_INTERVAL", minInterval)
+            putExtra("MAX_INTERVAL", maxInterval)
+            putExtra("MIN_DISTANCE", minDistance)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -1554,7 +1557,7 @@ class MainActivity : AppCompatActivity() {
             
             // Käytetään palvelun arvoa jos mahdollista, muuten paikallista (joka vastaa asetuksia)
             val isServiceRecording = fishingService?.isRecording() ?: false
-            val serviceInterval = if (isServiceRecording) fishingService?.getIntervalSeconds() ?: 0 else 0
+            val serviceInterval = if (isServiceRecording) fishingService?.getMinIntervalSeconds() ?: 0 else 0
             val interval = if (serviceInterval > 0) serviceInterval else recordingIntervalSeconds
             statusText?.text = if (interval > 0) "REC $interval" else "REC"
             

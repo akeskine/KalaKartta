@@ -32,8 +32,12 @@ class FishingSessionService : Service() {
     private var startedAt: Long = 0L
     private var totalDistance: Double = 0.0
     private var lastLocation: Location? = null
-    private var intervalSeconds: Int = 0
+    private var locationCheckIntervalSeconds: Int = 10
+    private var minTrackPointIntervalSeconds: Int = 30
+    private var maxTrackPointIntervalSeconds: Int = 300
+    private var minTrackPointDistanceMeters: Int = 20
     private var lastSavedTimestamp: Long = 0L
+    private var lastSavedLocation: Location? = null
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
@@ -63,27 +67,43 @@ class FishingSessionService : Service() {
             return START_NOT_STICKY
         }
         
-        val interval = intent?.getIntExtra("INTERVAL", 30) ?: 30
+        val locInt = intent?.getIntExtra("LOCATION_CHECK_INTERVAL", 10) ?: 10
+        val minInt = intent?.getIntExtra("MIN_INTERVAL", 30) ?: 30
+        val maxInt = intent?.getIntExtra("MAX_INTERVAL", 300) ?: 300
+        val minDist = intent?.getIntExtra("MIN_DISTANCE", 20) ?: 20
+
         if (recording) {
-            intervalSeconds = interval
+            locationCheckIntervalSeconds = locInt
+            minTrackPointIntervalSeconds = minInt
+            maxTrackPointIntervalSeconds = maxInt
+            minTrackPointDistanceMeters = minDist
+            
+            // Päivitetään päivitysväli jos se muuttui lennosta
+            requestLocationUpdates()
+
             // Päivitetään ilmoitus jos tarpeen tai lähetetään uusi broadcast
             val updateIntent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
             sendBroadcast(updateIntent)
         } else {
-            startSession(interval)
+            startSession(locInt, minInt, maxInt, minDist)
         }
         
         return START_STICKY
     }
 
-    private fun startSession(interval: Int) {
+    private fun startSession(locInt: Int, minInt: Int, maxInt: Int, minDist: Int) {
         if (recording) return
         
         recording = true
-        intervalSeconds = interval
+        locationCheckIntervalSeconds = locInt
+        minTrackPointIntervalSeconds = minInt
+        maxTrackPointIntervalSeconds = maxInt
+        minTrackPointDistanceMeters = minDist
+        
         startedAt = System.currentTimeMillis()
         totalDistance = 0.0
         lastLocation = null
+        lastSavedLocation = null
         lastSavedTimestamp = 0L
 
         serviceScope.launch {
@@ -139,7 +159,7 @@ class FishingSessionService : Service() {
         try {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
-                1000L,
+                locationCheckIntervalSeconds * 1000L,
                 0f,
                 locationListener
             )
@@ -158,10 +178,17 @@ class FishingSessionService : Service() {
             }
             lastLocation = location
 
-            // Tallennetaan reittipiste jos väli on kulunut
-            if (now - lastSavedTimestamp >= intervalSeconds * 1000L) {
+            // Tallennetaan reittipiste jos ehdot täyttyvät
+            val timeSinceLastSave = now - lastSavedTimestamp
+            val distanceSinceLastSave = lastSavedLocation?.distanceTo(location) ?: Float.MAX_VALUE
+            
+            val shouldSave = (timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L && distanceSinceLastSave >= minTrackPointDistanceMeters) ||
+                             (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
+
+            if (shouldSave) {
                 saveTrackPoint(location)
                 lastSavedTimestamp = now
+                lastSavedLocation = location
             }
             
             // Päivitetään ilmoitus
@@ -233,7 +260,10 @@ class FishingSessionService : Service() {
     fun isRecording() = recording
     fun getStartedAt() = startedAt
     fun getTotalDistance() = totalDistance
-    fun getIntervalSeconds() = intervalSeconds
+    fun getMinIntervalSeconds() = minTrackPointIntervalSeconds
+    fun getMaxIntervalSeconds() = maxTrackPointIntervalSeconds
+    fun getLocationCheckIntervalSeconds() = locationCheckIntervalSeconds
+    fun getMinDistanceMeters() = minTrackPointDistanceMeters
     fun getCurrentSessionId() = currentSessionId
 
     override fun onDestroy() {
