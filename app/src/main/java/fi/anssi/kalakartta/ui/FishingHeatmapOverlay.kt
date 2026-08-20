@@ -198,10 +198,10 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val count = heatmapData[Pair(x, y)] ?: continue
                 if (count < minPoints) continue
                 
-                // Lasketaan alfa
+                // Lasketaan alfa (max peittävyys 60% = 153/255)
                 val ratio = (count.toFloat() - minPoints) / (maxPoints - minPoints)
                 val clampedRatio = ratio.coerceIn(0f, 1f)
-                val alpha = (40 + (200 * clampedRatio)).toInt() // 40-240
+                val alpha = (40 + (113 * clampedRatio)).toInt() // 40-153 (15%-60%)
                 
                 paint.color = Color.argb(
                     alpha,
