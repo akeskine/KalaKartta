@@ -1426,7 +1426,7 @@ class SettingsManager(
                         
                         val durationStr = if (hours > 0) "${hours} h ${minutes} min ${seconds} s" else "${minutes} min ${seconds} s"
                         val distance = currentService.getTotalDistance()
-                        val distanceStr = String.format("%.1f km", distance / 1000.0).replace(".", ",")
+                        val distanceStr = String.format("%.4f km", distance / 1000.0).replace(".", ",")
                         val minInterval = currentService.getMinIntervalSeconds()
                         val maxInterval = currentService.getMaxIntervalSeconds()
                         val locInterval = currentService.getLocationCheckIntervalSeconds()
@@ -1436,7 +1436,24 @@ class SettingsManager(
                             db.trackPointDao().getPointCountForSession(sessionId)
                         } else 0
 
-                        infoText.text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nTallennusvälit: min ${minInterval}s, max ${maxInterval}s, etäisyys ${minDist}m, tarkastus ${locInterval}s."
+                        var text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nTallennusvälit: min ${minInterval}s, max ${maxInterval}s, etäisyys ${minDist}m, tarkastus ${locInterval}s."
+                        
+                        if (fi.anssi.kalakartta.service.FishingSessionService.KALASTUSSESSIOT_DEBUG) {
+                            val checkCount = currentService.getLocationCheckCount()
+                            val lastTimestamp = currentService.getLastSavedTimestamp()
+                            val now = System.currentTimeMillis()
+                            
+                            val distanceToLast = currentService.getDistanceSinceLastSave()?.let { String.format("%.1f m", it) } ?: "-"
+                            val timeStr = if (lastTimestamp > 0) "${(now - lastTimestamp) / 1000} s" else "-"
+                            val savedStr = if (currentService.getShouldSaveStatus()) "kyllä" else "ei"
+                            
+                            text += "\n\nSijainnin tarkastus nro: $checkCount"
+                            text += "\nEtäisyys edellisestä pisteestä: $distanceToLast"
+                            text += "\nAika edellisen pisteen tallennuksesta: $timeStr"
+                            text += "\nTallennettiinko uusi piste: $savedStr"
+                        }
+                        
+                        infoText.text = text
                     }
                     kotlinx.coroutines.delay(1000)
                 }

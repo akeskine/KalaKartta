@@ -41,11 +41,13 @@ class FishingSessionService : Service() {
     private var lastSavedTimestamp: Long = 0L
     private var lastSavedLocation: Location? = null
     private var locationProviderReceiver: BroadcastReceiver? = null
+    private var locationCheckCount = 0
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
 
     companion object {
+        const val KALASTUSSESSIOT_DEBUG = true
         const val CHANNEL_ID = "FishingSessionChannel"
         const val NOTIFICATION_ID = 101
         const val ACTION_STOP = "STOP_SESSION"
@@ -283,6 +285,7 @@ class FishingSessionService : Service() {
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             val now = System.currentTimeMillis()
+            locationCheckCount++
             
             // Päivitetään matka
             lastLocation?.let {
@@ -296,6 +299,17 @@ class FishingSessionService : Service() {
             
             val shouldSave = (timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L && distanceSinceLastSave >= minTrackPointDistanceMeters) ||
                              (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
+
+            if (KALASTUSSESSIOT_DEBUG) {
+                val distanceStr = lastSavedLocation?.let { String.format("%.1f m", distanceSinceLastSave) } ?: "-"
+                val timeStr = if (lastSavedTimestamp > 0) "${(now - lastSavedTimestamp) / 1000} s" else "-"
+                val savedStr = if (shouldSave) "kyllä" else "ei"
+                
+                android.util.Log.d("FishingSessionService", "Sijainnin tarkastus nro: $locationCheckCount")
+                android.util.Log.d("FishingSessionService", "Etäisyys edellisestä pisteestä: $distanceStr")
+                android.util.Log.d("FishingSessionService", "Aika edellisen pisteen tallennuksesta: $timeStr")
+                android.util.Log.d("FishingSessionService", "Tallennettiinko uusi piste: $savedStr")
+            }
 
             if (shouldSave) {
                 saveTrackPoint(location)
@@ -341,7 +355,7 @@ class FishingSessionService : Service() {
         val hours = TimeUnit.MILLISECONDS.toHours(duration)
         val minutes = TimeUnit.MILLISECONDS.toMinutes(duration) % 60
         val durationStr = if (hours > 0) "${hours} h ${minutes} min" else "${minutes} min"
-        val distanceStr = String.format("%.1f km", totalDistance / 1000.0).replace(".", ",")
+        val distanceStr = String.format("%.4f km", totalDistance / 1000.0).replace(".", ",")
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("KalaKartta - session tallennus käynnissä")
@@ -381,6 +395,24 @@ class FishingSessionService : Service() {
     fun getLocationCheckIntervalSeconds() = locationCheckIntervalSeconds
     fun getMinDistanceMeters() = minTrackPointDistanceMeters
     fun getCurrentSessionId() = currentSessionId
+    fun getLocationCheckCount() = locationCheckCount
+    fun getLastSavedLocation() = lastSavedLocation
+    fun getLastSavedTimestamp() = lastSavedTimestamp
+    fun getLastLocation() = lastLocation
+    fun getDistanceSinceLastSave(): Float? {
+        val last = lastLocation ?: return null
+        val saved = lastSavedLocation ?: return null
+        return last.distanceTo(saved)
+    }
+    fun getShouldSaveStatus(): Boolean {
+        val now = System.currentTimeMillis()
+        val timeSinceLastSave = now - lastSavedTimestamp
+        val last = lastLocation ?: return (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
+        val distanceSinceLastSave = lastSavedLocation?.distanceTo(last) ?: Float.MAX_VALUE
+        
+        return (timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L && distanceSinceLastSave >= minTrackPointDistanceMeters) ||
+                         (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
+    }
 
     override fun onDestroy() {
         isRunning = false

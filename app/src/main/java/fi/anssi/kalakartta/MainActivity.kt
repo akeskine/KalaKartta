@@ -119,6 +119,12 @@ class MainActivity : AppCompatActivity() {
             } else {
                 recordingHandler.postDelayed(this, 1000)
             }
+            
+            if (FishingSessionService.KALASTUSSESSIOT_DEBUG) {
+                android.util.Log.d("MainActivity", "Päivitetään tallennustilan UI")
+            }
+            
+            updateRecordingStatusUI()
             updateSessionLine()
         }
     }

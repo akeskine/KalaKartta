@@ -288,7 +288,7 @@ class FishingSessionActivity : AppCompatActivity() {
                 android.location.Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
                 totalDistance += results[0]
             }
-            val distanceStr = String.format("%.2f km", totalDistance / 1000.0).replace(".", ",")
+            val distanceStr = String.format("%.4f km", totalDistance / 1000.0).replace(".", ",")
 
             withContext(Dispatchers.Main) {
                 val infoText = TextView(this@FishingSessionActivity).apply {
