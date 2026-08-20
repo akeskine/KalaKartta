@@ -7,6 +7,9 @@ interface TrackPointDao {
     @Insert
     fun insert(trackPoint: TrackPoint)
 
+    @Insert
+    fun insertAll(trackPoints: List<TrackPoint>)
+
     @Query("SELECT * FROM TrackPoint")
     fun getAll(): List<TrackPoint>
 

@@ -137,24 +137,76 @@ class ImportExportManager(
     private fun importRoutesFromJson(uri: Uri) {
         Thread {
             try {
-                val imported = jsonService.importRoutes(activity.contentResolver, uri)
-                if (imported.isEmpty()) {
-                    activity.runOnUiThread {
-                        showConfirmationDialog("Tiedostosta ei löytynyt tuotavia reittejä.")
-                    }
-                    return@Thread
-                }
-
-                imported.forEach { (session, points) ->
-                    val newSessionId = db.fishingSessionDao().insert(session)
-                    points.forEach { pt ->
-                        db.trackPointDao().insert(pt.copy(fishingSessionId = newSessionId))
-                    }
-                }
-
                 activity.runOnUiThread {
-                    onImportDone(false)
-                    showConfirmationDialog("Reittien tuonti valmis (${imported.size} reittiä).")
+                    val progressLayout = LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(50, 40, 50, 10)
+                    }
+
+                    val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                        max = 100
+                        progress = 0
+                        isIndeterminate = true
+                    }
+
+                    val progressText = TextView(activity).apply {
+                        text = "Tuodaan reittejä..."
+                        textSize = 18f
+                        setPadding(0, 0, 0, 20)
+                    }
+
+                    progressLayout.addView(progressText)
+                    progressLayout.addView(progressBar)
+
+                    val progressDialog = AlertDialog.Builder(activity)
+                        .setTitle("Tuodaan reittejä")
+                        .setView(progressLayout)
+                        .setCancelable(false)
+                        .create()
+
+                    progressDialog.show()
+
+                    Thread {
+                        try {
+                            var currentSessionId = -1L
+                            var currentSessionOriginalStart = -1L
+                            var importedSessionsCount = 0
+                            
+                            jsonService.importRoutesStream(activity.contentResolver, uri) { session, points ->
+                                // If it's a new session or the first one
+                                if (session.startedAt != currentSessionOriginalStart) {
+                                    currentSessionId = db.fishingSessionDao().insert(session)
+                                    currentSessionOriginalStart = session.startedAt
+                                    importedSessionsCount++
+                                    
+                                    activity.runOnUiThread {
+                                        progressText.text = "Tuodaan reittejä: $importedSessionsCount istuntoa"
+                                    }
+                                }
+                                
+                                if (points.isNotEmpty()) {
+                                    val pointsToInsert = points.map { it.copy(fishingSessionId = currentSessionId) }
+                                    db.trackPointDao().insertAll(pointsToInsert)
+                                }
+                            }
+
+                            activity.runOnUiThread {
+                                progressDialog.dismiss()
+                                onImportDone(false)
+                                if (importedSessionsCount > 0) {
+                                    showConfirmationDialog("Reittien tuonti valmis ($importedSessionsCount reittiä).")
+                                } else {
+                                    showConfirmationDialog("Tiedostosta ei löytynyt tuotavia reittejä.")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ImportExportManager", "Routes import processing failed", e)
+                            activity.runOnUiThread {
+                                progressDialog.dismiss()
+                                showConfirmationDialog("Reittien tuonti epäonnistui: ${e.message}")
+                            }
+                        }
+                    }.start()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Routes import failed", e)
