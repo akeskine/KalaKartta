@@ -1323,6 +1323,45 @@ class SettingsManager(
                 }
             }))
 
+            val resetDefaultsLink = TextView(activity).apply {
+                text = activity.getString(R.string.reset_defaults)
+                textSize = 14f
+                setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.link_color))
+                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                val outValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+                isClickable = true
+                isFocusable = true
+                setPadding(0, 10, 0, 10)
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                params.setMargins(0, 10, 0, 10)
+                layoutParams = params
+                setOnClickListener {
+                    currentLocationInterval = "10"
+                    currentMinInterval = "30"
+                    currentMaxInterval = "300"
+                    currentMinDistance = "20"
+                    
+                    locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
+                    minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
+                    maxIntervalSpinner.setSelection(maxIntervals.indexOf(currentMaxInterval))
+                    minDistanceSpinner.setSelection(minDistances.indexOf(currentMinDistance))
+                }
+            }
+            layout.addView(resetDefaultsLink)
+
+            val spacer = View(activity).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (activity.resources.displayMetrics.density * 18).toInt() // Noin yhden rivin korkeus
+                )
+            }
+            layout.addView(spacer)
+
             val statusText = TextView(activity).apply {
                 textSize = 14f
                 setTextColor(Color.RED)

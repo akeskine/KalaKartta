@@ -134,4 +134,5 @@
     <string name="color_green">Vihreä</string>
     <string name="heatmap_grid_size">Ruudun koko (m)</string>
     <string name="heatmap_filter_enabled">Suodata myös kalastetut alueet suodatusehtojen mukaisesti</string>
+    <string name="reset_defaults">Palauta oletukset</string>
 </resources>
