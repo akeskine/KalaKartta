@@ -5,7 +5,7 @@ KalaKartta on sovellus kalastajille, jotka haluavat pitää tarkkaa kirjaa saali
 KalaKartan keskeisiä periaatteita ovat:
 - **Helppous:** Kalapisteiden lisäys onnistuu parilla klikkauksella suoraan kartalta. Puhelimen näytön ollessa pois päältä sovelluksen saa auki ilman lukituksen avaamista.
 - **Suodatus:** Voit analysoida saaliitasi monipuolisesti, esimerkiksi vuodenaikojen, kellonajan tai sääolosuhteiden (kuten tuulen suunnan) mukaan.
-- **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä takeltelematta.
+- **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä ja tuhansia tallennettuja kalastussessioita/reittejä takeltelematta.
 - **Yksityisyys:** Kaikki tiedot tallennetaan vain laitteeseesi. Niitä ei lähetetä palvelimille. Pisteiden jakaminen on aina käyttäjän omassa kontrollissa.
 - **Automaatio:** Sovellus hakee säätiedot automaattisesti kalapisteisiin Ilmatieteen laitoksen (FMI) avoimesta datasta.
 - **Monipuoliset kartat:** Voit käyttää OpenStreetMapin lisäksi Maanmittauslaitoksen (MML) tarkkoja maasto- ja ilmakuvia sekä Traficomin merikartta-aineistoja.
