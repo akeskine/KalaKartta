@@ -1226,6 +1226,7 @@ class SettingsManager(
                 if (maxVal < minVal) {
                     currentMinInterval = currentMaxInterval
                     minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
+                    prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
                     changed = true
                 }
                 
@@ -1233,6 +1234,7 @@ class SettingsManager(
                 if (newMinVal < locVal) {
                     currentLocationInterval = currentMinInterval
                     locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
+                    prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
                     changed = true
                 }
             }
@@ -1276,6 +1278,7 @@ class SettingsManager(
                 onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                         currentLocationInterval = locationIntervals[pos]
+                        prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
                         updateSpinners()
                     }
                     override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -1290,6 +1293,7 @@ class SettingsManager(
                 onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                         currentMinInterval = minIntervals[pos]
+                        prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
                         updateSpinners()
                     }
                     override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -1304,6 +1308,7 @@ class SettingsManager(
                 onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                         currentMaxInterval = maxIntervals[pos]
+                        prefs.edit().putInt("max_track_point_interval", currentMaxInterval.toInt()).apply()
                         updateSpinners()
                     }
                     override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -1318,6 +1323,7 @@ class SettingsManager(
                 onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                         currentMinDistance = minDistances[pos]
+                        prefs.edit().putInt("min_track_point_distance", currentMinDistance.toInt()).apply()
                     }
                     override fun onNothingSelected(p0: AdapterView<*>?) {}
                 }
@@ -1346,6 +1352,13 @@ class SettingsManager(
                     currentMaxInterval = "300"
                     currentMinDistance = "20"
                     
+                    prefs.edit()
+                        .putInt("location_check_interval", 10)
+                        .putInt("min_track_point_interval", 30)
+                        .putInt("max_track_point_interval", 300)
+                        .putInt("min_track_point_distance", 20)
+                        .apply()
+
                     locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
                     minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
                     maxIntervalSpinner.setSelection(maxIntervals.indexOf(currentMaxInterval))
@@ -1392,13 +1405,6 @@ class SettingsManager(
                     val maxInt = currentMaxInterval.toInt()
                     val minDist = currentMinDistance.toInt()
                     
-                    prefs.edit()
-                        .putInt("location_check_interval", locInt)
-                        .putInt("min_track_point_interval", minInt)
-                        .putInt("max_track_point_interval", maxInt)
-                        .putInt("min_track_point_distance", minDist)
-                        .commit()
-                        
                     mainActivity?.startFishingSession(locInt, minInt, maxInt, minDist)
                     dialog?.dismiss()
                     closeSettings()
