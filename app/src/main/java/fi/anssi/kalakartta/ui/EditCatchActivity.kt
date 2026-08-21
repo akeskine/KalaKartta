@@ -806,9 +806,14 @@ class EditCatchActivity : AppCompatActivity() {
     private fun hasUnsavedChanges(): Boolean {
         if (isPlace) {
             val poi = placeOfInterest ?: return false
-            if (placeTypeList.getOrNull(speciesSpinner.selectedItemPosition)?.id != poi.typeId) return true
-            if (placeNameEditText.text.toString() != poi.name) return true
-            if (additionalInfoEditText.text.toString() != poi.additionalInfo) return true
+            val selectedTypeId = placeTypeList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
+            if (selectedTypeId != poi.typeId) {
+                // Jos alkuperäinen tyyppi oli tyhjä, ja nyt on valittu listan ensimmäinen, se ei ole muutos
+                val isInitialDefault = poi.typeId.isEmpty() && speciesSpinner.selectedItemPosition == 0
+                if (!isInitialDefault) return true
+            }
+            if (placeNameEditText.text.toString() != (poi.name ?: "")) return true
+            if (additionalInfoEditText.text.toString() != (poi.additionalInfo ?: "")) return true
             return Math.abs(latEditText.text.toString().toDoubleSafe() - poi.latitude) > 0.0001 ||
                    Math.abs(lonEditText.text.toString().toDoubleSafe() - poi.longitude) > 0.0001
         }
