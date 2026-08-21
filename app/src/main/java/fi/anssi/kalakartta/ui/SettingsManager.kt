@@ -949,8 +949,72 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setCustomTitle(layout)
-            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Vie media", "Tuo media", "Poista kaikki pisteet", "Poista kaikki reitit", "Poista kaikki media")) { _, which ->
-                when (which) {
+            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .create()
+
+        val contentLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = (16 * activity.resources.displayMetrics.density).toInt()
+            setPadding(p, 0, p, p)
+        }
+
+        val options = listOf(
+            "Vie kaikki tiedot",
+            "Tuo kaikki tiedot",
+            "Poista kaikki tiedot"
+        )
+
+        options.forEach { option ->
+            val textView = TextView(activity).apply {
+                text = option
+                textSize = 18f
+                setPadding(0, 32, 0, 32)
+                setTextColor(Color.BLACK)
+                isClickable = true
+                val outValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+            }
+            textView.setOnClickListener {
+                dialog.dismiss()
+                // Älä toteuta toimintoja vielä
+                Toast.makeText(activity, "Toimintoa $option ei ole vielä toteutettu", Toast.LENGTH_SHORT).show()
+            }
+            contentLayout.addView(textView)
+        }
+
+        val moreLink = TextView(activity).apply {
+            text = "Lisää..."
+            textSize = 18f
+            setPadding(0, 32, 0, 32)
+            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            isClickable = true
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+        }
+        contentLayout.addView(moreLink)
+
+        val extraOptionsLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+        }
+
+        val oldOptions = arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Vie media", "Tuo media", "Poista kaikki pisteet", "Poista kaikki reitit", "Poista kaikki media")
+        oldOptions.forEachIndexed { index, option ->
+            val textView = TextView(activity).apply {
+                text = option
+                textSize = 18f
+                setPadding(0, 32, 0, 32)
+                setTextColor(Color.BLACK)
+                isClickable = true
+                val outValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+            }
+            textView.setOnClickListener {
+                dialog.dismiss()
+                when (index) {
                     0 -> {
                         if (isFiltered) {
                             val exportDialog = AlertDialog.Builder(activity)
@@ -981,8 +1045,39 @@ class SettingsManager(
                     8 -> importExportManager.launchDeleteAllMedia()
                 }
             }
-            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .show()
+            extraOptionsLayout.addView(textView)
+        }
+
+        val lessLink = TextView(activity).apply {
+            text = "Vähemmän..."
+            textSize = 18f
+            setPadding(0, 32, 0, 32)
+            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            isClickable = true
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+        }
+        extraOptionsLayout.addView(lessLink)
+
+        contentLayout.addView(extraOptionsLayout)
+
+        moreLink.setOnClickListener {
+            moreLink.visibility = View.GONE
+            extraOptionsLayout.visibility = View.VISIBLE
+        }
+
+        lessLink.setOnClickListener {
+            extraOptionsLayout.visibility = View.GONE
+            moreLink.visibility = View.VISIBLE
+        }
+
+        val scrollView = ScrollView(activity).apply {
+            addView(contentLayout)
+        }
+
+        dialog.setView(scrollView)
+        dialog.show()
         dialog.enlargeButtons()
     }
 
