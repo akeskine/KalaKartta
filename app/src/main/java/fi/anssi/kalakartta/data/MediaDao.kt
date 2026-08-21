@@ -29,4 +29,7 @@ interface MediaDao {
 
     @Query("SELECT * FROM Media WHERE externalId = :externalId")
     fun getByExternalId(externalId: String): Media?
+
+    @Query("SELECT COUNT(*) FROM Media")
+    fun getCount(): Int
 }

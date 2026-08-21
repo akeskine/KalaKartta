@@ -27,4 +27,7 @@ interface FishingSessionDao {
 
     @Query("DELETE FROM FishingSession")
     fun deleteAll()
+
+    @Query("SELECT COUNT(*) FROM FishingSession")
+    fun getCount(): Int
 }

@@ -57,6 +57,9 @@ class SettingsManager(
         activity.lifecycleScope.launch(Dispatchers.IO) {
             val count = db.fishCatchDao().getCount()
             val placeCount = db.placeOfInterestDao().getCount()
+            val sessionCount = db.fishingSessionDao().getCount()
+            val routePointCount = db.trackPointDao().getCount()
+            val mediaCount = db.mediaDao().getCount()
             withContext(Dispatchers.Main) {
                 val inflater = activity.layoutInflater
                 val titleView = inflater.inflate(fi.anssi.kalakartta.R.layout.dialog_settings_title, null)
@@ -111,6 +114,9 @@ class SettingsManager(
                             5 -> openDataTransferSettings(
                                 count,
                                 placeCount,
+                                sessionCount,
+                                routePointCount,
+                                mediaCount,
                                 isFiltered,
                                 filteredCatches?.size ?: 0,
                                 filteredPlaces?.size ?: 0,
@@ -911,6 +917,9 @@ class SettingsManager(
     private fun openDataTransferSettings(
         count: Int, 
         placeCount: Int, 
+        sessionCount: Int,
+        routePointCount: Int,
+        mediaCount: Int,
         isFiltered: Boolean = false, 
         filteredCount: Int = 0, 
         filteredPlaceCount: Int = 0,
@@ -931,7 +940,7 @@ class SettingsManager(
         layout.addView(titleView)
 
         val subtitleView = TextView(activity).apply {
-            text = "($count kalapistettä, $placeCount muuta pistettä)"
+            text = "($count kalapistettä, $placeCount muuta pistettä, $sessionCount kalastussessiota, $routePointCount reittipistettä, $mediaCount mediatiedostoa)"
             textSize = 14f
             setTextColor(activity.resources.getColor(android.R.color.darker_gray))
             setPadding(0, 4, 0, 0)

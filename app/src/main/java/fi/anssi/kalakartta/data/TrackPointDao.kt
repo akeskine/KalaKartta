@@ -91,6 +91,9 @@ interface TrackPointDao {
 
     @Query("DELETE FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun deleteForSession(sessionId: Long)
+
+    @Query("SELECT COUNT(*) FROM TrackPoint")
+    fun getCount(): Int
 }
 
 data class TrackPointHeatmapData(
