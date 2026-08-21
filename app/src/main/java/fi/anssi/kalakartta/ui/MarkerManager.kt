@@ -15,6 +15,8 @@ import android.text.style.ClickableSpan
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.PopupMenu
 import android.content.Intent
 import androidx.appcompat.app.AlertDialog
@@ -25,6 +27,7 @@ import androidx.core.graphics.createBitmap
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.Media
 import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
@@ -886,6 +889,26 @@ class MarkerManager(
         return marker
     }
 
+    private fun openMedia(media: Media) {
+        val file = File(context.filesDir, "media/${media.fileName}")
+        if (!file.exists()) return
+        
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, media.mimeType)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        if (context !is android.app.Activity) {
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+
     private fun showPlaceDetailsDialog(marker: Marker) {
         val place = marker.relatedObject as? PlaceOfInterest ?: return
         val type = placeTypeCache[place.typeId]
@@ -893,6 +916,16 @@ class MarkerManager(
         val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
         val titleText = if (place.name.isEmpty()) type?.name ?: place.typeId else place.name
         titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = titleText
+
+        val dialogView = android.view.LayoutInflater.from(context).inflate(android.R.layout.select_dialog_item, null)
+        // AlertDialog.Builder(context).setMessage(...) käyttää sisäisesti TextViewiä.
+        // Meidän pitää lisätä media TextViewin jälkeen.
+        
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            val padding = (16 * context.resources.displayMetrics.density).toInt()
+            setPadding(padding, padding / 2, padding, padding)
+        }
 
         val message = StringBuilder()
         if (place.name.isEmpty()) {
@@ -906,9 +939,69 @@ class MarkerManager(
             message.append("Alkuperäinen viite: ${place.originalRef}")
         }
 
+        if (message.trim().isNotEmpty()) {
+            val tv = TextView(context).apply {
+                text = message.toString().trim()
+                setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                setTextColor(android.graphics.Color.BLACK)
+            }
+            container.addView(tv)
+        }
+
+        // Median haku ja lisäys
+        val mediaService = MediaService(context)
+        val mediaList = mediaService.getMediaForPoint(place.latitude, place.longitude, null)
+        if (mediaList.isNotEmpty()) {
+            val mediaTitle = TextView(context).apply {
+                text = "\nMedia"
+                setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(android.graphics.Color.BLACK)
+            }
+            container.addView(mediaTitle)
+
+            val imageMedia = mediaList.filter { it.mimeType.startsWith("image/") }
+            val otherMedia = mediaList.filter { !it.mimeType.startsWith("image/") }
+
+            imageMedia.forEach { media ->
+                val imageView = ImageView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = (8 * context.resources.displayMetrics.density).toInt()
+                    }
+                    adjustViewBounds = true
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    val file = File(context.filesDir, "media/${media.fileName}")
+                    if (file.exists()) {
+                        setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                    }
+                    setOnClickListener { openMedia(media) }
+                }
+                container.addView(imageView)
+            }
+
+            otherMedia.forEach { media ->
+                val linkView = TextView(context).apply {
+                    text = media.originalFileName
+                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                    setTextColor(android.graphics.Color.BLUE)
+                    val paddingVertical = (8 * context.resources.displayMetrics.density).toInt()
+                    setPadding(0, paddingVertical, 0, paddingVertical)
+                    setOnClickListener { openMedia(media) }
+                }
+                container.addView(linkView)
+            }
+        }
+
+        val scrollView = ScrollView(context).apply {
+            addView(container)
+        }
+
         val dialog = AlertDialog.Builder(context)
             .setCustomTitle(titleView)
-            .setMessage(message.toString().trim())
+            .setView(scrollView)
             .setPositiveButton(R.string.ok, null)
             .create()
 
@@ -1400,9 +1493,78 @@ class MarkerManager(
             spannableMessage
         }
 
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            val padding = (16 * context.resources.displayMetrics.density).toInt()
+            setPadding(padding, padding / 2, padding, padding)
+        }
+
+        if (finalMessage.trim().isNotEmpty()) {
+            val tv = TextView(context).apply {
+                text = finalMessage
+                setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                setTextColor(android.graphics.Color.BLACK)
+                movementMethod = android.text.method.LinkMovementMethod.getInstance()
+            }
+            container.addView(tv)
+        }
+
+        // Median haku ja lisäys
+        fish?.let { fc ->
+            val mediaService = MediaService(context)
+            val mediaList = mediaService.getMediaForPoint(fc.latitude, fc.longitude, fc.caughtAt)
+            if (mediaList.isNotEmpty()) {
+                val mediaTitle = TextView(context).apply {
+                    text = "\nMedia"
+                    setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setTextColor(android.graphics.Color.BLACK)
+                }
+                container.addView(mediaTitle)
+
+                val imageMedia = mediaList.filter { it.mimeType.startsWith("image/") }
+                val otherMedia = mediaList.filter { !it.mimeType.startsWith("image/") }
+
+                imageMedia.forEach { media ->
+                    val imageView = ImageView(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            topMargin = (8 * context.resources.displayMetrics.density).toInt()
+                        }
+                        adjustViewBounds = true
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        val file = File(context.filesDir, "media/${media.fileName}")
+                        if (file.exists()) {
+                            setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                        }
+                        setOnClickListener { openMedia(media) }
+                    }
+                    container.addView(imageView)
+                }
+
+                otherMedia.forEach { media ->
+                    val linkView = TextView(context).apply {
+                        text = media.originalFileName
+                        paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                        setTextColor(android.graphics.Color.BLUE)
+                        val paddingVertical = (8 * context.resources.displayMetrics.density).toInt()
+                        setPadding(0, paddingVertical, 0, paddingVertical)
+                        setOnClickListener { openMedia(media) }
+                    }
+                    container.addView(linkView)
+                }
+            }
+        }
+
+        val scrollView = ScrollView(context).apply {
+            addView(container)
+        }
+
         val dialog = AlertDialog.Builder(context)
             .setCustomTitle(titleView)
-            .setMessage(finalMessage)
+            .setView(scrollView)
             .setPositiveButton("OK", null)
             .create()
 
