@@ -72,6 +72,16 @@ class MediaService(private val context: Context) {
         }
     }
 
+    fun getTotalSize(): Long {
+        var totalSize = 0L
+        mediaDir.listFiles()?.forEach { file ->
+            if (file.isFile) {
+                totalSize += file.length()
+            }
+        }
+        return totalSize
+    }
+
     fun deleteAllMedia() {
         val allMedia = mediaDao.getAll()
         mediaDao.deleteAll()

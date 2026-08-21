@@ -926,29 +926,32 @@ class SettingsManager(
         filteredCatches: List<fi.anssi.kalakartta.data.FishCatch>? = null,
         filteredPlaces: List<fi.anssi.kalakartta.data.PlaceOfInterest>? = null
     ) {
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 10)
+        val inflater = activity.layoutInflater
+        val titleView = inflater.inflate(R.layout.dialog_settings_title, null)
+        titleView.findViewById<TextView>(R.id.dialogTitle).text = "Tiedonsiirto"
+        
+        val infoButton = titleView.findViewById<ImageButton>(R.id.infoButton)
+        infoButton.setOnClickListener {
+            val mediaService = fi.anssi.kalakartta.data.MediaService(activity)
+            val totalSizeBytes = mediaService.getTotalSize()
+            val totalSizeMb = totalSizeBytes.toDouble() / (1024 * 1024)
+            
+            val infoMessage = "Kalapisteitä: $count\n" +
+                    "Muita pisteitä: $placeCount\n" +
+                    "Kalastussessioita: $sessionCount\n" +
+                    "Reittipisteitä: $routePointCount\n" +
+                    "Mediatiedostoja: $mediaCount\n\n" +
+                    "Käytetty tallennustila ${String.format(Locale.US, "%.2f", totalSizeMb)} Mt."
+            
+            AlertDialog.Builder(activity)
+                .setTitle("Tiedot")
+                .setMessage(infoMessage)
+                .setPositiveButton("OK", null)
+                .show()
         }
-
-        val titleView = TextView(activity).apply {
-            text = "Tiedonsiirto"
-            textSize = 20f
-            setTextColor(activity.resources.getColor(android.R.color.primary_text_light))
-            setTypeface(null, android.graphics.Typeface.BOLD)
-        }
-        layout.addView(titleView)
-
-        val subtitleView = TextView(activity).apply {
-            text = "($count kalapistettä, $placeCount muuta pistettä, $sessionCount kalastussessiota, $routePointCount reittipistettä, $mediaCount mediatiedostoa)"
-            textSize = 14f
-            setTextColor(activity.resources.getColor(android.R.color.darker_gray))
-            setPadding(0, 4, 0, 0)
-        }
-        layout.addView(subtitleView)
 
         val dialog = AlertDialog.Builder(activity)
-            .setCustomTitle(layout)
+            .setCustomTitle(titleView)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .create()
 
