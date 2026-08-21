@@ -22,10 +22,17 @@ class MediaService(private val context: Context) {
         val originalFileName = getFileName(uri) ?: "unknown"
         val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
         
-        // Luodaan uniikki tiedostonimi: <uuid>_<alkuperäinen>
+        // Luodaan uniikki tiedostonimi: <alkuperäinen_alku>-<uuid>.<pääte>
         val uuid = UUID.randomUUID().toString()
+        val nameWithoutExtension = originalFileName.substringBeforeLast('.')
         val extension = originalFileName.substringAfterLast('.', "")
-        val safeFileName = if (extension.isNotEmpty()) "$uuid.$extension" else uuid
+        
+        val sanitizedName = nameWithoutExtension.take(30).replace(Regex("[^a-zA-Z0-9_-]"), "_")
+        val safeFileName = if (extension.isNotEmpty()) {
+            "$sanitizedName-$uuid.$extension"
+        } else {
+            "$sanitizedName-$uuid"
+        }
         
         val destFile = File(mediaDir, safeFileName)
         
