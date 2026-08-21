@@ -340,12 +340,19 @@ class FilterManager(private val context: Context) {
                                 f.annualEndDay != null && f.annualEndMonth != null
         val hasTimeFilter = f.startTimeMinutes != null && f.endTimeMinutes != null
         val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
+        val hasAreaFilter = f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null
         
-        if (!hasDateFilter && !hasAnnualDateFilter && !hasTimeFilter && !hasAnnualTimeFilter) return points
+        if (!hasDateFilter && !hasAnnualDateFilter && !hasTimeFilter && !hasAnnualTimeFilter && !hasAreaFilter) return points
         
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
 
         return points.filter { p ->
+            // Area selection (Bounding Box)
+            if (hasAreaFilter) {
+                if (p.latitude < f.latSouth!! || p.latitude > f.latNorth!! ||
+                    p.longitude < f.lonWest!! || p.longitude > f.lonEast!!) return@filter false
+            }
+
             val timestamp = p.timestamp
             calendar.timeInMillis = timestamp
             

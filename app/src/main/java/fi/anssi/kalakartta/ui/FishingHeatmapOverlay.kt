@@ -80,19 +80,39 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                         f.annualEndDay != null && f.annualEndMonth != null
                 val hasTimeFilter = f.startTimeMinutes != null && f.endTimeMinutes != null
                 val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
+                val hasAreaFilter = f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null
                 
                 // Jos meillä on monimutkaisempia filttereitä joita ei voi helposti tehdä SQL:llä,
                 // joudutaan edelleen lataamaan pisteet. Mutta useimmiten näin ei ole.
                 if (filterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
-                    val rawPoints = if (f.startDate != null || f.endDate != null) {
-                        db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
-                    } else {
-                        db.trackPointDao().getAllForHeatmap()
+                    val rawPoints = when {
+                        !filterEnabled -> db.trackPointDao().getAllForHeatmap()
+                        (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
+                            db.trackPointDao().getPointsForHeatmapRangeAndArea(
+                                f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE,
+                                f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
+                            )
+                        }
+                        f.startDate != null || f.endDate != null -> {
+                            db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
+                        }
+                        hasAreaFilter -> {
+                            db.trackPointDao().getPointsForHeatmapArea(
+                                f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
+                            )
+                        }
+                        else -> db.trackPointDao().getAllForHeatmap()
                     }
 
                     val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
                     val filteredPoints = rawPoints.filter { p ->
                         calendar.timeInMillis = p.timestamp
+                        
+                        // Koordinaattisuodatus (jos ei tehty jo SQL-tasolla tai varmuuden vuoksi)
+                        if (hasAreaFilter) {
+                            if (p.latitude < f.latSouth!! || p.latitude > f.latNorth!! ||
+                                p.longitude < f.lonWest!! || p.longitude > f.lonEast!!) return@filter false
+                        }
                         
                         if (hasAnnualDateFilter) {
                             val month = calendar.get(java.util.Calendar.MONTH)
@@ -133,20 +153,48 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                     processPoints(filteredPoints)
                 } else {
                     // Käytetään SQL-tason aggregointia
-                    val aggregated = if (filterEnabled && (f.startDate != null || f.endDate != null)) {
-                        db.trackPointDao().getAggregatedHeatmapRange(
-                            f.startDate ?: 0L, 
-                            f.endDate ?: Long.MAX_VALUE,
-                            latDegreeMeters,
-                            lonDegreeMeters,
-                            gridSizeMeters
-                        )
-                    } else {
-                        db.trackPointDao().getAggregatedHeatmap(
-                            latDegreeMeters,
-                            lonDegreeMeters,
-                            gridSizeMeters
-                        )
+                    val aggregated = when {
+                        !filterEnabled -> {
+                            db.trackPointDao().getAggregatedHeatmap(
+                                latDegreeMeters,
+                                lonDegreeMeters,
+                                gridSizeMeters
+                            )
+                        }
+                        (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
+                            db.trackPointDao().getAggregatedHeatmapRangeAndArea(
+                                f.startDate ?: 0L,
+                                f.endDate ?: Long.MAX_VALUE,
+                                f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                latDegreeMeters,
+                                lonDegreeMeters,
+                                gridSizeMeters
+                            )
+                        }
+                        f.startDate != null || f.endDate != null -> {
+                            db.trackPointDao().getAggregatedHeatmapRange(
+                                f.startDate ?: 0L,
+                                f.endDate ?: Long.MAX_VALUE,
+                                latDegreeMeters,
+                                lonDegreeMeters,
+                                gridSizeMeters
+                            )
+                        }
+                        hasAreaFilter -> {
+                            db.trackPointDao().getAggregatedHeatmapArea(
+                                f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                latDegreeMeters,
+                                lonDegreeMeters,
+                                gridSizeMeters
+                            )
+                        }
+                        else -> {
+                            db.trackPointDao().getAggregatedHeatmap(
+                                latDegreeMeters,
+                                lonDegreeMeters,
+                                gridSizeMeters
+                            )
+                        }
                     }
                     aggregated.associate { Pair(it.x, it.y) to it.sessionCount }
                 }
