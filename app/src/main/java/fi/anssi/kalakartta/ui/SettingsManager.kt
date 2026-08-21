@@ -933,15 +933,29 @@ class SettingsManager(
         val infoButton = titleView.findViewById<ImageButton>(R.id.infoButton)
         infoButton.setOnClickListener {
             val mediaService = fi.anssi.kalakartta.data.MediaService(activity)
-            val totalSizeBytes = mediaService.getTotalSize()
-            val totalSizeMb = totalSizeBytes.toDouble() / (1024 * 1024)
+            val mediaSizeBytes = mediaService.getTotalSize()
+            val dbFile = activity.getDatabasePath("kalakartta-db")
+            val dbSizeBytes = if (dbFile.exists()) dbFile.length() else 0L
+            
+            // Lasketaan mukaan myös WAL ja SHM tiedostot jos ne ovat olemassa
+            val walFile = activity.getDatabasePath("kalakartta-db-wal")
+            val walSizeBytes = if (walFile.exists()) walFile.length() else 0L
+            val shmFile = activity.getDatabasePath("kalakartta-db-shm")
+            val shmSizeBytes = if (shmFile.exists()) shmFile.length() else 0L
+
+            val databaseSizeBytes = dbSizeBytes + walSizeBytes + shmSizeBytes
+            val mediaSizeMb = mediaSizeBytes.toDouble() / (1024 * 1024)
+            val databaseSizeMb = databaseSizeBytes.toDouble() / (1024 * 1024)
+            val totalSizeMb = (mediaSizeBytes + databaseSizeBytes).toDouble() / (1024 * 1024)
             
             val infoMessage = "Kalapisteitä: $count\n" +
                     "Muita pisteitä: $placeCount\n" +
                     "Kalastussessioita: $sessionCount\n" +
                     "Reittipisteitä: $routePointCount\n" +
                     "Mediatiedostoja: $mediaCount\n\n" +
-                    "Käytetty tallennustila ${String.format(Locale.US, "%.2f", totalSizeMb)} Mt."
+                    "Mediatiedostot: ${String.format(Locale.US, "%.2f", mediaSizeMb)} Mt\n" +
+                    "Tietokanta: ${String.format(Locale.US, "%.2f", databaseSizeMb)} Mt\n" +
+                    "Yhteensä: ${String.format(Locale.US, "%.2f", totalSizeMb)} Mt"
             
             AlertDialog.Builder(activity)
                 .setTitle("Tiedot")
