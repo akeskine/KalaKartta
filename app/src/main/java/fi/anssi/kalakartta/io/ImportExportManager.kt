@@ -149,7 +149,10 @@ class ImportExportManager(
                         db.clearAllTables()
                         db.weatherErrorDao().deleteAll() 
                         
-                        // 3. Pienenteen tietokantatiedostoa (VACUUM)
+                        // 3. Palautetaan oletusasetukset
+                        db.initializeDefaults()
+                        
+                        // 4. Pienenteen tietokantatiedostoa (VACUUM)
                         try {
                             db.openHelper.writableDatabase.execSQL("VACUUM")
                         } catch (e: Exception) {

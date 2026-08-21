@@ -21,6 +21,76 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fishingSessionDao(): FishingSessionDao
     abstract fun trackPointDao(): TrackPointDao
     abstract fun mediaDao(): MediaDao
+    
+    fun initializeDefaults() {
+        // Esitäyttö
+        val speciesDao = fishSpeciesDao()
+        val defaults = FishSpecies.getDefaultList()
+
+        defaults.forEach { species ->
+            val existing = speciesDao.getById(species.id)
+            if (existing == null) {
+                speciesDao.insert(species)
+            } else {
+                var updated = false
+                var toUpdate = existing
+
+                // Päivitetään oletusikonit jos ne puuttuvat
+                if (existing.icon_default.isEmpty() && species.icon_default.isNotEmpty()) {
+                    toUpdate = toUpdate.copy(icon_default = species.icon_default)
+                    updated = true
+                }
+
+                // Päivitetään paino- ja pituusrajat jos ne ovat 0 (eli ei vielä asetettu)
+                if (existing.small_weight == 0L && species.small_weight != 0L) {
+                    toUpdate = toUpdate.copy(
+                        small_weight = species.small_weight,
+                        small_length = species.small_length,
+                        large_weight = species.large_weight,
+                        large_length = species.large_length,
+                        giant_weight = species.giant_weight,
+                        giant_length = species.giant_length
+                    )
+                    updated = true
+                }
+
+                // Päivitetään järjestys jos se on 0 (eli uusi kenttä tai ei asetettu)
+                if (existing.sortOrder == 0 && species.sortOrder != 0) {
+                    toUpdate = toUpdate.copy(sortOrder = species.sortOrder)
+                    updated = true
+                }
+
+                if (updated) {
+                    speciesDao.insert(toUpdate)
+                }
+            }
+        }
+
+        // Muut paikat (PlaceOfInterestType) esitäyttö
+        val placeTypeDao = placeOfInterestTypeDao()
+        val placeDefaults = PlaceOfInterestType.getDefaultList()
+
+        placeDefaults.forEach { type ->
+            val existing = placeTypeDao.getById(type.id)
+            if (existing == null) {
+                placeTypeDao.insert(type)
+            } else {
+                var updated = false
+                var toUpdate = existing
+                if (existing.icon.isEmpty() && type.icon.isNotEmpty()) {
+                    toUpdate = toUpdate.copy(icon = type.icon)
+                    updated = true
+                }
+                if (existing.sortOrder != type.sortOrder) {
+                    toUpdate = toUpdate.copy(sortOrder = type.sortOrder)
+                    updated = true
+                }
+                if (updated) {
+                    placeTypeDao.insert(toUpdate)
+                }
+            }
+        }
+    }
 
     companion object {
         @Volatile
