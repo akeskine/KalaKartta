@@ -17,6 +17,44 @@ class JsonService {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
+    fun writeRoutesToWriter(
+        writer: android.util.JsonWriter,
+        sessions: List<FishingSession>,
+        onGetPoints: (Long) -> List<TrackPoint>
+    ) {
+        writer.beginObject()
+        writer.name("sessions")
+        writer.beginArray()
+        
+        sessions.forEach { session ->
+            writer.beginObject()
+            writer.name("startedAt").value(isoFormat.format(java.util.Date(session.startedAt)))
+            if (session.endedAt != null) {
+                writer.name("endedAt").value(isoFormat.format(java.util.Date(session.endedAt)))
+            }
+            writer.name("notes").value(session.notes)
+            
+            writer.name("points")
+            writer.beginArray()
+            val points = onGetPoints(session.id)
+            points.forEach { pt ->
+                writer.beginObject()
+                writer.name("timestamp").value(isoFormat.format(java.util.Date(pt.timestamp)))
+                writer.name("latitude").value(pt.latitude)
+                writer.name("longitude").value(pt.longitude)
+                writer.name("speed").value(pt.speed.toDouble())
+                writer.name("accuracy").value(pt.accuracy.toDouble())
+                writer.endObject()
+            }
+            writer.endArray()
+            
+            writer.endObject()
+        }
+        
+        writer.endArray()
+        writer.endObject()
+    }
+
     fun exportRoutes(
         contentResolver: ContentResolver,
         uri: Uri,
@@ -27,37 +65,7 @@ class JsonService {
             contentResolver.openOutputStream(uri)?.use { outputStream ->
                 val writer = android.util.JsonWriter(outputStream.bufferedWriter())
                 writer.setIndent("    ")
-                writer.beginObject()
-                writer.name("sessions")
-                writer.beginArray()
-                
-                sessions.forEach { session ->
-                    writer.beginObject()
-                    writer.name("startedAt").value(isoFormat.format(java.util.Date(session.startedAt)))
-                    if (session.endedAt != null) {
-                        writer.name("endedAt").value(isoFormat.format(java.util.Date(session.endedAt)))
-                    }
-                    writer.name("notes").value(session.notes)
-                    
-                    writer.name("points")
-                    writer.beginArray()
-                    val points = onGetPoints(session.id)
-                    points.forEach { pt ->
-                        writer.beginObject()
-                        writer.name("timestamp").value(isoFormat.format(java.util.Date(pt.timestamp)))
-                        writer.name("latitude").value(pt.latitude)
-                        writer.name("longitude").value(pt.longitude)
-                        writer.name("speed").value(pt.speed.toDouble())
-                        writer.name("accuracy").value(pt.accuracy.toDouble())
-                        writer.endObject()
-                    }
-                    writer.endArray()
-                    
-                    writer.endObject()
-                }
-                
-                writer.endArray()
-                writer.endObject()
+                writeRoutesToWriter(writer, sessions, onGetPoints)
                 writer.close()
             }
         } catch (e: Exception) {
@@ -66,32 +74,42 @@ class JsonService {
     }
 
 
+    fun importRoutesFromStream(
+        inputStream: java.io.InputStream,
+        onSessionParsed: (FishingSession, List<TrackPoint>) -> Unit
+    ) {
+        val reader = inputStream.bufferedReader()
+        val jsonReader = JsonReader(reader)
+        try {
+            jsonReader.beginObject()
+            while (jsonReader.hasNext()) {
+                val name = jsonReader.nextName()
+                if (name == "sessions") {
+                    jsonReader.beginArray()
+                    while (jsonReader.hasNext()) {
+                        parseSessionStream(jsonReader, onSessionParsed)
+                    }
+                    jsonReader.endArray()
+                } else {
+                    jsonReader.skipValue()
+                }
+            }
+            jsonReader.endObject()
+        } catch (e: Exception) {
+            android.util.Log.e("JsonService", "Error parsing routes JSON stream", e)
+            throw e
+        }
+        // Note: we don't close the reader here to avoid closing the underlying stream
+        // which might be part of a larger ZipInputStream.
+    }
+
     fun importRoutesStream(
         contentResolver: ContentResolver,
         uri: Uri,
         onSessionParsed: (FishingSession, List<TrackPoint>) -> Unit
     ) {
-        contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
-            val jsonReader = JsonReader(reader)
-            try {
-                jsonReader.beginObject()
-                while (jsonReader.hasNext()) {
-                    val name = jsonReader.nextName()
-                    if (name == "sessions") {
-                        jsonReader.beginArray()
-                        while (jsonReader.hasNext()) {
-                            parseSessionStream(jsonReader, onSessionParsed)
-                        }
-                        jsonReader.endArray()
-                    } else {
-                        jsonReader.skipValue()
-                    }
-                }
-                jsonReader.endObject()
-            } catch (e: Exception) {
-                android.util.Log.e("JsonService", "Error parsing routes JSON stream", e)
-                throw e
-            }
+        contentResolver.openInputStream(uri)?.use { inputStream ->
+            importRoutesFromStream(inputStream, onSessionParsed)
         }
     }
 
@@ -214,17 +232,22 @@ class JsonService {
         return results
     }
 
-    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
+    fun exportCatchesAndPlaces(catches: List<FishCatch>, places: List<PlaceOfInterest>): JSONObject {
         val root = JSONObject()
         root.put("catches", catchesToJson(catches))
         root.put("places", placesToJson(places))
+        return root
+    }
+
+    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
+        val root = exportCatchesAndPlaces(catches, places)
 
         contentResolver.openOutputStream(uri)?.use { out ->
             out.write(root.toString(4).toByteArray())
         }
     }
 
-    fun exportSpecies(contentResolver: ContentResolver, uri: Uri, speciesList: List<FishSpecies>, filesDir: File) {
+    fun exportSpeciesToJsonObject(speciesList: List<FishSpecies>, filesDir: File): JSONObject {
         val root = JSONObject()
         val speciesArray = JSONArray()
 
@@ -270,6 +293,11 @@ class JsonService {
             speciesArray.put(obj)
         }
         root.put("species", speciesArray)
+        return root
+    }
+
+    fun exportSpecies(contentResolver: ContentResolver, uri: Uri, speciesList: List<FishSpecies>, filesDir: File) {
+        val root = exportSpeciesToJsonObject(speciesList, filesDir)
 
         contentResolver.openOutputStream(uri)?.use { out ->
             out.write(root.toString(4).toByteArray())
@@ -376,12 +404,7 @@ class JsonService {
         return array
     }
 
-    fun import(contentResolver: ContentResolver, uri: Uri): Pair<List<FishCatch>, List<PlaceOfInterest>> {
-        val text = contentResolver.openInputStream(uri)
-            ?.bufferedReader()
-            ?.use { it.readText() }
-            ?: return Pair(emptyList(), emptyList())
-
+    fun parseCatchesAndPlaces(text: String): Pair<List<FishCatch>, List<PlaceOfInterest>> {
         val catches = mutableListOf<FishCatch>()
         val places = mutableListOf<PlaceOfInterest>()
 
@@ -407,12 +430,16 @@ class JsonService {
         return Pair(catches, places)
     }
 
-    fun importSpecies(contentResolver: ContentResolver, uri: Uri, filesDir: File): List<FishSpecies> {
+    fun import(contentResolver: ContentResolver, uri: Uri): Pair<List<FishCatch>, List<PlaceOfInterest>> {
         val text = contentResolver.openInputStream(uri)
             ?.bufferedReader()
             ?.use { it.readText() }
-            ?: return emptyList()
+            ?: return Pair(emptyList(), emptyList())
 
+        return parseCatchesAndPlaces(text)
+    }
+
+    fun parseSpecies(text: String, filesDir: File): List<FishSpecies> {
         val speciesList = mutableListOf<FishSpecies>()
 
         try {
@@ -482,6 +509,15 @@ class JsonService {
             android.util.Log.e("JsonService", "Error parsing species JSON", e)
         }
         return speciesList
+    }
+
+    fun importSpecies(contentResolver: ContentResolver, uri: Uri, filesDir: File): List<FishSpecies> {
+        val text = contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?: return emptyList()
+
+        return parseSpecies(text, filesDir)
     }
 
     private fun parseCatches(jsonArray: JSONArray): List<FishCatch> {

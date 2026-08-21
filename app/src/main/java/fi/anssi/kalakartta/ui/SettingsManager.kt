@@ -994,8 +994,11 @@ class SettingsManager(
             }
             textView.setOnClickListener {
                 dialog.dismiss()
-                // Älä toteuta toimintoja vielä
-                Toast.makeText(activity, "Toimintoa $option ei ole vielä toteutettu", Toast.LENGTH_SHORT).show()
+                when (option) {
+                    "Vie kaikki tiedot" -> importExportManager.launchExportAll()
+                    "Tuo kaikki tiedot" -> importExportManager.launchImportAll()
+                    "Poista kaikki tiedot" -> importExportManager.launchDeleteAllData()
+                }
             }
             contentLayout.addView(textView)
         }
@@ -1059,7 +1062,7 @@ class SettingsManager(
                     5 -> importExportManager.launchImportMedia()
                     6 -> confirmDeleteAllCatches()
                     7 -> confirmDeleteAllRoutes()
-                    8 -> importExportManager.launchDeleteAllMedia()
+                    8 -> importExportManager.launchDeleteAllData()
                 }
             }
             extraOptionsLayout.addView(textView)

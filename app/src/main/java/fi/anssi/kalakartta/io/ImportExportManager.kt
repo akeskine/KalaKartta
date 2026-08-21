@@ -115,18 +115,218 @@ class ImportExportManager(
         importMediaLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
     }
 
-    fun launchDeleteAllMedia() {
+    private val exportAllLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri?.let { exportAllToZip(it) }
+    }
+
+    private val importAllLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { importAllFromZip(it) }
+    }
+
+    fun launchExportAll() {
+        exportAllLauncher.launch("kalakartta-kaikki-${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())}.zip")
+    }
+
+    fun launchImportAll() {
+        importAllLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+    }
+
+    fun launchDeleteAllData() {
         AlertDialog.Builder(activity)
-            .setTitle("Poista kaikki media")
-            .setMessage("Haluatko varmasti poistaa KAIKKI mediatiedostot ja niiden metatiedot? Tätä toimintoa ei voi peruuttaa.")
+            .setTitle("Poista kaikki tiedot")
+            .setMessage("Haluatko varmasti poistaa KAIKKI tiedot (pisteet, reitit, mediat ja asetukset)? Tätä toimintoa ei voi peruuttaa.")
             .setPositiveButton("Poista kaikki") { _, _ ->
                 Thread {
-                    mediaService.deleteAllMedia()
-                    showConfirmationDialog("Kaikki mediatiedostot poistettu.")
+                    try {
+                        // 1. Poistetaan mediatiedostot levyltä
+                        mediaService.deleteAllMedia()
+                        
+                        // 2. Tyhjennetään kaikki tietokantataulut
+                        db.clearAllTables()
+                        db.weatherErrorDao().deleteAll() 
+                        
+                        // 3. Pienenteen tietokantatiedostoa (VACUUM)
+                        try {
+                            db.openHelper.writableDatabase.execSQL("VACUUM")
+                        } catch (e: Exception) {
+                            android.util.Log.e("ImportExportManager", "VACUUM failed", e)
+                        }
+                        
+                        activity.runOnUiThread {
+                            onImportDone(true) // Päivittää UI:n
+                            showConfirmationDialog("Kaikki tiedot poistettu.")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImportExportManager", "Delete all failed", e)
+                        activity.runOnUiThread {
+                            showConfirmationDialog("Poisto epäonnistui: ${e.message}")
+                        }
+                    }
                 }.start()
             }
             .setNegativeButton("Peruuta", null)
             .show()
+    }
+
+    private fun exportAllToZip(uri: Uri) {
+        Thread {
+            try {
+                activity.contentResolver.openOutputStream(uri)?.use { output ->
+                    val zipOut = java.util.zip.ZipOutputStream(output)
+
+                    // 1. pisteet.json
+                    val catches = db.fishCatchDao().getAll()
+                    val places = db.placeOfInterestDao().getAll()
+                    val catchesAndPlacesJson = jsonService.exportCatchesAndPlaces(catches, places)
+                    zipOut.putNextEntry(java.util.zip.ZipEntry("pisteet.json"))
+                    zipOut.write(catchesAndPlacesJson.toString(4).toByteArray())
+                    zipOut.closeEntry()
+
+                    // 2. sessiot.json (reitit)
+                    val sessions = db.fishingSessionDao().getAll()
+                    zipOut.putNextEntry(java.util.zip.ZipEntry("sessiot.json"))
+                    val writer = android.util.JsonWriter(zipOut.bufferedWriter())
+                    jsonService.writeRoutesToWriter(writer, sessions) { sessionId ->
+                        db.trackPointDao().getPointsForSession(sessionId)
+                    }
+                    writer.flush()
+                    zipOut.closeEntry()
+
+                    // 3. kalalajit.json
+                    val species = db.fishSpeciesDao().getAll()
+                    val speciesJson = jsonService.exportSpeciesToJsonObject(species, activity.filesDir)
+                    zipOut.putNextEntry(java.util.zip.ZipEntry("kalalajit.json"))
+                    zipOut.write(speciesJson.toString(4).toByteArray())
+                    zipOut.closeEntry()
+
+                    // 4. media.json ja media/ kansio
+                    mediaService.exportMediaToZip(zipOut)
+
+                    zipOut.close()
+                }
+                showConfirmationDialog("Kaikkien tietojen vienti valmis.")
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Export all failed", e)
+                activity.runOnUiThread {
+                    showConfirmationDialog("Vienti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
+    }
+
+    private fun importAllFromZip(uri: Uri) {
+        val progressLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+        
+        val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            isIndeterminate = true
+        }
+        
+        val progressText = TextView(activity).apply {
+            text = "Tuodaan kaikkia tietoja..."
+            setPadding(0, 0, 0, 20)
+        }
+        
+        progressLayout.addView(progressText)
+        progressLayout.addView(progressBar)
+        
+        val progressDialog = AlertDialog.Builder(activity)
+            .setTitle("Tuodaan kaikkia tietoja")
+            .setView(progressLayout)
+            .setCancelable(false)
+            .create()
+            
+        progressDialog.show()
+
+        Thread {
+            try {
+                activity.contentResolver.openInputStream(uri)?.use { input ->
+                    val zipIn = java.util.zip.ZipInputStream(input)
+                    var entry = zipIn.nextEntry
+                    
+                    var importedCatches = 0
+                    var importedPlaces = 0
+                    var importedSessions = 0
+                    var importedSpecies = 0
+                    
+                    val tempMediaFiles = mutableMapOf<String, ByteArray>()
+                    var mediaJsonStr: String? = null
+
+                    while (entry != null) {
+                        when (entry.name) {
+                            "pisteet.json" -> {
+                                val text = zipIn.readBytes().toString(Charsets.UTF_8)
+                                val (catches, places) = jsonService.parseCatchesAndPlaces(text)
+                                // Yksinkertaisuuden vuoksi tässä lisätään kaikki ilman duplikaattitarkistusta
+                                // jos käyttäjä tuo "kaikki tiedot", oletetaan että hän haluaa palauttaa backupin.
+                                catches.forEach { db.fishCatchDao().insertAll(listOf(it.copy(id = 0))) }
+                                places.forEach { db.placeOfInterestDao().insertAll(listOf(it.copy(id = 0))) }
+                                importedCatches = catches.size
+                                importedPlaces = places.size
+                            }
+                            "sessiot.json" -> {
+                                // Koska JsonReader lukee streamin, meidän pitää käsitellä se varovasti
+                                // Emme voi sulkea zipIn:iä tässä.
+                                // Mutta importRoutesFromStream lukee koko streamin loppuun.
+                                // ZipInputStreamin tapauksessa se lukee vain tämän entryn.
+                                jsonService.importRoutesFromStream(zipIn) { session, points ->
+                                    val sid = db.fishingSessionDao().insert(session)
+                                    val pts = points.map { it.copy(fishingSessionId = sid) }
+                                    db.trackPointDao().insertAll(pts)
+                                    importedSessions++
+                                }
+                            }
+                            "kalalajit.json" -> {
+                                val text = zipIn.readBytes().toString(Charsets.UTF_8)
+                                val species = jsonService.parseSpecies(text, activity.filesDir)
+                                if (species.isNotEmpty()) {
+                                    db.fishSpeciesDao().deleteAll()
+                                    db.fishSpeciesDao().insertAll(species)
+                                    importedSpecies = species.size
+                                }
+                            }
+                            "media.json" -> {
+                                mediaJsonStr = zipIn.readBytes().toString(Charsets.UTF_8)
+                            }
+                            else -> {
+                                if (entry.name.startsWith("media/")) {
+                                    val fileName = entry.name.substringAfter("media/")
+                                    if (fileName.isNotEmpty()) {
+                                        tempMediaFiles[fileName] = zipIn.readBytes()
+                                    }
+                                }
+                            }
+                        }
+                        zipIn.closeEntry()
+                        entry = zipIn.nextEntry
+                    }
+                    
+                    // Lopuksi media jos löytyi
+                    if (mediaJsonStr != null) {
+                        mediaService.processMediaImport(mediaJsonStr, tempMediaFiles) { _, _ -> }
+                    }
+                    
+                    activity.runOnUiThread {
+                        progressDialog.dismiss()
+                        onImportDone(importedSpecies > 0)
+                        showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalaa\n- $importedPlaces paikkaa\n- $importedSessions reittiä\n- $importedSpecies kalalajia")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Import all failed", e)
+                activity.runOnUiThread {
+                    progressDialog.dismiss()
+                    showConfirmationDialog("Tuonti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
     }
 
     private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {

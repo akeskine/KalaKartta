@@ -83,11 +83,11 @@ class MediaService(private val context: Context) {
     }
 
     fun deleteAllMedia() {
-        val allMedia = mediaDao.getAll()
         mediaDao.deleteAll()
-        allMedia.forEach {
-            val file = File(mediaDir, it.fileName)
-            if (file.exists()) file.delete()
+        mediaDir.listFiles()?.forEach { file ->
+            if (file.isFile) {
+                file.delete()
+            }
         }
     }
 
@@ -103,8 +103,13 @@ class MediaService(private val context: Context) {
     }
 
     fun exportMedia(outputStream: OutputStream) {
-        val allMedia = mediaDao.getAll()
         val zipOut = ZipOutputStream(outputStream)
+        exportMediaToZip(zipOut)
+        zipOut.close()
+    }
+
+    fun exportMediaToZip(zipOut: ZipOutputStream) {
+        val allMedia = mediaDao.getAll()
         
         // media.json
         val root = JSONObject()
@@ -138,12 +143,15 @@ class MediaService(private val context: Context) {
                 zipOut.closeEntry()
             }
         }
-        
-        zipOut.close()
     }
 
     fun importMedia(inputStream: InputStream, onProgress: (Int, Int) -> Unit) {
         val zipIn = ZipInputStream(inputStream)
+        importMediaFromZip(zipIn, onProgress)
+        // Note: we don't close the stream here as it might be part of a larger ZIP
+    }
+
+    fun importMediaFromZip(zipIn: ZipInputStream, onProgress: (Int, Int) -> Unit) {
         var entry = zipIn.nextEntry
         var mediaJsonStr: String? = null
         val tempFiles = mutableMapOf<String, ByteArray>()
@@ -157,12 +165,18 @@ class MediaService(private val context: Context) {
                     tempFiles[fileName] = zipIn.readBytes()
                 }
             }
-            zipIn.closeEntry()
+            // If we are part of a larger ZIP, we might not want to close entry here 
+            // if nextEntry is handled by the caller. But ZipInputStream.nextEntry 
+            // closes the previous entry.
             entry = zipIn.nextEntry
         }
         
-        if (mediaJsonStr == null) throw Exception("Invalid ZIP: media.json missing")
+        if (mediaJsonStr == null) return // or throw
         
+        processMediaImport(mediaJsonStr, tempFiles, onProgress)
+    }
+
+    fun processMediaImport(mediaJsonStr: String, tempFiles: Map<String, ByteArray>, onProgress: (Int, Int) -> Unit) {
         val root = JSONObject(mediaJsonStr)
         val mediaArray = root.getJSONArray("media")
         val total = mediaArray.length()
@@ -181,9 +195,6 @@ class MediaService(private val context: Context) {
             
             // Tallennetaan tiedosto
             val destFile = File(mediaDir, fileName)
-            // Jos tiedostonimi on jo käytössä mutta eri media, pitäisi ehkä nimetä uudelleen,
-            // mutta tässä oletetaan että UUID takaa uniikkiuden ZIP:in sisällä ja kohteessa.
-            // Jos destFile on jo olemassa, se ylikirjoitetaan.
             FileOutputStream(destFile).use { it.write(content) }
             
             val media = Media(
