@@ -13,9 +13,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.JsonService
 import fi.anssi.kalakartta.utils.enlargeButtons
+import java.text.SimpleDateFormat
+import java.util.*
 
 class ImportExportManager(
     private val activity: ComponentActivity,
@@ -23,6 +26,7 @@ class ImportExportManager(
     private val onImportDone: (forceRefreshSpecies: Boolean) -> Unit
 ) {
     private val jsonService = JsonService()
+    private val mediaService = MediaService(activity)
 
     private var pendingExportCatches: List<FishCatch>? = null
     private var pendingExportPlaces: List<PlaceOfInterest>? = null
@@ -65,6 +69,18 @@ class ImportExportManager(
         uri?.let { importRoutesFromJson(it) }
     }
 
+    private val exportMediaLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri?.let { exportMediaToZip(it) }
+    }
+
+    private val importMediaLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { importMediaFromZip(it) }
+    }
+
     fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null) {
         pendingExportCatches = catches
         pendingExportPlaces = places
@@ -89,6 +105,28 @@ class ImportExportManager(
 
     fun launchImportRoutes() {
         importRoutesLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+    }
+
+    fun launchExportMedia() {
+        exportMediaLauncher.launch("kalakartta-media-${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())}.zip")
+    }
+
+    fun launchImportMedia() {
+        importMediaLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+    }
+
+    fun launchDeleteAllMedia() {
+        AlertDialog.Builder(activity)
+            .setTitle("Poista kaikki media")
+            .setMessage("Haluatko varmasti poistaa KAIKKI mediatiedostot ja niiden metatiedot? Tätä toimintoa ei voi peruuttaa.")
+            .setPositiveButton("Poista kaikki") { _, _ ->
+                Thread {
+                    mediaService.deleteAllMedia()
+                    showConfirmationDialog("Kaikki mediatiedostot poistettu.")
+                }.start()
+            }
+            .setNegativeButton("Peruuta", null)
+            .show()
     }
 
     private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {
@@ -535,6 +573,76 @@ class ImportExportManager(
                 android.util.Log.e("ImportExportManager", "Species import failed", e)
                 activity.runOnUiThread {
                     showConfirmationDialog("Kalalajien asetusten tuonti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
+    }
+
+    private fun exportMediaToZip(uri: Uri) {
+        Thread {
+            try {
+                activity.contentResolver.openOutputStream(uri)?.use { output ->
+                    mediaService.exportMedia(output)
+                }
+                showConfirmationDialog("Median vienti valmis.")
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Media export failed", e)
+                activity.runOnUiThread {
+                    showConfirmationDialog("Median vienti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
+    }
+
+    private fun importMediaFromZip(uri: Uri) {
+        val progressLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+        
+        val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            isIndeterminate = false
+            max = 100
+        }
+        
+        val progressText = TextView(activity).apply {
+            text = "Tuodaan mediaa..."
+            setPadding(0, 0, 0, 20)
+        }
+        
+        progressLayout.addView(progressText)
+        progressLayout.addView(progressBar)
+        
+        val progressDialog = AlertDialog.Builder(activity)
+            .setTitle("Tuodaan mediaa")
+            .setView(progressLayout)
+            .setCancelable(false)
+            .create()
+            
+        progressDialog.show()
+
+        Thread {
+            try {
+                activity.contentResolver.openInputStream(uri)?.use { input ->
+                    mediaService.importMedia(input) { current, total ->
+                        activity.runOnUiThread {
+                            val progressValue = (current * 100) / total
+                            progressBar.progress = progressValue
+                            progressText.text = "Tuodaan mediaa: $progressValue% ($current/$total)"
+                        }
+                    }
+                }
+                activity.runOnUiThread {
+                    progressDialog.dismiss()
+                    onImportDone(false)
+                    showConfirmationDialog("Median tuonti valmis.")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Media import failed", e)
+                activity.runOnUiThread {
+                    progressDialog.dismiss()
+                    showConfirmationDialog("Median tuonti epäonnistui: ${e.message}")
                 }
             }
         }.start()

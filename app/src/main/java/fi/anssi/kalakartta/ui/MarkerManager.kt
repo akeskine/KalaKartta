@@ -13,6 +13,7 @@ import android.text.Spanned
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.PopupMenu
 import android.content.Intent
@@ -24,6 +25,7 @@ import androidx.core.graphics.createBitmap
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.enlargeButtons
@@ -79,6 +81,8 @@ class MarkerManager(
     private val deletedFishIds = mutableSetOf<Long>()
     private val deletedPlaceIds = mutableSetOf<Long>()
     
+    private val mediaService = MediaService(context)
+    
     private var lastZoom = -1.0
     private var lastBBox: BoundingBox? = null
     
@@ -87,12 +91,36 @@ class MarkerManager(
             override fun onOpen(item: Any?) {
                 val marker = item as? Marker
                 val title = mView.findViewById<TextView>(R.id.bubble_title)
+                val image = mView.findViewById<ImageView>(R.id.bubble_image)
                 title.text = marker?.title
+                
+                val related = marker?.relatedObject
+                val mediaList = when (related) {
+                    is FishCatch -> mediaService.getMediaForPoint(related.latitude, related.longitude, related.caughtAt)
+                    is PlaceOfInterest -> mediaService.getMediaForPoint(related.latitude, related.longitude, null)
+                    else -> emptyList()
+                }
+                
+                val firstImage = mediaList.firstOrNull { it.mimeType.startsWith("image/") }
+                if (firstImage != null) {
+                    val file = File(context.filesDir, "media/${firstImage.fileName}")
+                    if (file.exists()) {
+                        image.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                        image.visibility = View.VISIBLE
+                    } else {
+                        image.visibility = View.GONE
+                    }
+                } else {
+                    image.visibility = View.GONE
+                }
                 
                 // Sulje infowindow klikattaessa tekstiä, jotta se ei estä merkin klikkausta
                 mView.setOnClickListener {
                     close()
-                    marker?.let { showPlaceDetailsDialog(it) }
+                    marker?.let { 
+                        if (related is FishCatch) showCatchDetailsDialog(it)
+                        else showPlaceDetailsDialog(it)
+                    }
                 }
             }
         }
@@ -783,6 +811,7 @@ class MarkerManager(
             iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, finalIconSize) }
         }
         marker.relatedObject = fish
+        marker.infoWindow = placeInfoWindow
 
         marker.setOnMarkerClickListener { clickedMarker, _ ->
             map.controller.animateTo(clickedMarker.position)

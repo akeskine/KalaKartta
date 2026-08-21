@@ -940,7 +940,7 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setCustomTitle(layout)
-            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Poista kaikki pisteet", "Poista kaikki reitit")) { _, which ->
+            .setItems(arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Vie media", "Tuo media", "Poista kaikki pisteet", "Poista kaikki reitit", "Poista kaikki media")) { _, which ->
                 when (which) {
                     0 -> {
                         if (isFiltered) {
@@ -965,8 +965,11 @@ class SettingsManager(
                     1 -> importExportManager.launchImport()
                     2 -> importExportManager.launchExportRoutes()
                     3 -> importExportManager.launchImportRoutes()
-                    4 -> confirmDeleteAllCatches()
-                    5 -> confirmDeleteAllRoutes()
+                    4 -> importExportManager.launchExportMedia()
+                    5 -> importExportManager.launchImportMedia()
+                    6 -> confirmDeleteAllCatches()
+                    7 -> confirmDeleteAllRoutes()
+                    8 -> importExportManager.launchDeleteAllMedia()
                 }
             }
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }

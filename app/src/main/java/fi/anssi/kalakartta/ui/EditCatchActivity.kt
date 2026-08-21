@@ -16,6 +16,8 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.FishSpecies
+import fi.anssi.kalakartta.data.Media
+import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.WeatherService
@@ -80,6 +82,10 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var placeNameEditText: EditText
     private lateinit var placeNameContainer: View
     
+    private lateinit var mediaListLayout: LinearLayout
+    private lateinit var addMediaButton: Button
+    private lateinit var mediaService: MediaService
+    
     private lateinit var autoWeatherCheckBox: CheckBox
     private lateinit var nearestStationText: TextView
     private lateinit var weatherService: WeatherService
@@ -104,6 +110,23 @@ class EditCatchActivity : AppCompatActivity() {
     private var selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
     private var isUpdatingFromCode = false
     private var isTimeSetManually = false
+
+    private val selectMediaLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val lat = latEditText.text.toString().toDoubleSafe()
+            val lon = lonEditText.text.toString().toDoubleSafe()
+            val time = if (isPlace) null else {
+                if (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L) selectedCalendar.timeInMillis else null
+            }
+            
+            val media = mediaService.addMedia(it, lat, lon, time)
+            if (media != null) {
+                refreshMediaList()
+            } else {
+                Toast.makeText(this, "Median lisääminen epäonnistui", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -174,6 +197,10 @@ class EditCatchActivity : AppCompatActivity() {
         clearTimeButton = findViewById(R.id.clearTimeButton)
         timeLabel = findViewById(R.id.timeLabel)
         dateTimeContainer = findViewById(R.id.dateTimeContainer)
+        
+        mediaListLayout = findViewById(R.id.mediaListLayout)
+        addMediaButton = findViewById(R.id.addMediaButton)
+        mediaService = MediaService(this)
         
         autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
         nearestStationText = findViewById(R.id.nearestStationText)
@@ -538,6 +565,73 @@ class EditCatchActivity : AppCompatActivity() {
             }
         }
         isUpdatingFromCode = false
+        refreshMediaList()
+    }
+
+    private fun refreshMediaList() {
+        mediaListLayout.removeAllViews()
+        val lat = fishCatch?.latitude ?: placeOfInterest?.latitude ?: return
+        val lon = fishCatch?.longitude ?: placeOfInterest?.longitude ?: return
+        val time = if (isPlace) null else fishCatch?.caughtAt
+        
+        val mediaList = mediaService.getMediaForPoint(lat, lon, time)
+        mediaList.forEach { media ->
+            val mediaView = LayoutInflater.from(this).inflate(R.layout.item_media, mediaListLayout, false)
+            val fileNameText = mediaView.findViewById<TextView>(R.id.mediaFileName)
+            val removeButton = mediaView.findViewById<ImageButton>(R.id.removeMediaButton)
+            val thumbnail = mediaView.findViewById<ImageView>(R.id.mediaThumbnail)
+            
+            fileNameText.text = media.originalFileName
+            
+            if (media.mimeType.startsWith("image/")) {
+                val file = File(filesDir, "media/${media.fileName}")
+                if (file.exists()) {
+                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    thumbnail.setImageBitmap(bitmap)
+                    thumbnail.visibility = View.VISIBLE
+                }
+            } else {
+                thumbnail.visibility = View.GONE
+            }
+            
+            fileNameText.setOnClickListener {
+                openMedia(media)
+            }
+            thumbnail.setOnClickListener {
+                openMedia(media)
+            }
+            
+            removeButton.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Poista media")
+                    .setMessage("Haluatko varmasti poistaa tämän median?")
+                    .setPositiveButton("Poista") { _, _ ->
+                        mediaService.deleteMedia(media)
+                        refreshMediaList()
+                    }
+                    .setNegativeButton("Peruuta", null)
+                    .show()
+            }
+            
+            mediaListLayout.addView(mediaView)
+        }
+    }
+
+    private fun openMedia(media: fi.anssi.kalakartta.data.Media) {
+        val file = File(filesDir, "media/${media.fileName}")
+        if (!file.exists()) return
+        
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            file
+        )
+        
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, media.mimeType)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(intent)
     }
 
     private fun updateWindArrow(directionStr: String?) {
@@ -609,6 +703,9 @@ class EditCatchActivity : AppCompatActivity() {
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveChanges() }
         findViewById<Button>(R.id.cancelButton).setOnClickListener {
             if (hasUnsavedChanges()) showUnsavedChangesDialog() else finish()
+        }
+        addMediaButton.setOnClickListener {
+            selectMediaLauncher.launch("*/*")
         }
         windDirectionEditText.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
