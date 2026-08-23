@@ -1313,13 +1313,22 @@ class SettingsManager(
             }
             layout.addView(fetchButton)
 
+            val trackingSettingsContainer = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            layout.addView(trackingSettingsContainer)
+
             val sectionTitle = TextView(activity).apply {
                 text = "Reittipisteiden tallennusvälit"
                 textSize = 18f
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 setPadding(0, 30, 0, 20)
             }
-            layout.addView(sectionTitle)
+            trackingSettingsContainer.addView(sectionTitle)
 
             val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
             
@@ -1397,7 +1406,7 @@ class SettingsManager(
                 return row
             }
 
-            layout.addView(createRow("Sijainnin tarkastuksen aikaväli (s)", locationSpinner.apply {
+            trackingSettingsContainer.addView(createRow("Sijainnin tarkastuksen aikaväli (s)", locationSpinner.apply {
                 val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, locationIntervals)
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 this.adapter = adapter
@@ -1412,7 +1421,7 @@ class SettingsManager(
                 }
             }))
 
-            layout.addView(createRow("Tallennusaikaväli min (s)", minIntervalSpinner.apply {
+            trackingSettingsContainer.addView(createRow("Tallennusaikaväli min (s)", minIntervalSpinner.apply {
                 val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minIntervals)
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 this.adapter = adapter
@@ -1427,7 +1436,7 @@ class SettingsManager(
                 }
             }))
 
-            layout.addView(createRow("Tallennusaikaväli max (s)", maxIntervalSpinner.apply {
+            trackingSettingsContainer.addView(createRow("Tallennusaikaväli max (s)", maxIntervalSpinner.apply {
                 val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, maxIntervals)
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 this.adapter = adapter
@@ -1442,7 +1451,7 @@ class SettingsManager(
                 }
             }))
 
-            layout.addView(createRow("Pisteiden minimietäisyys (m)", minDistanceSpinner.apply {
+            trackingSettingsContainer.addView(createRow("Pisteiden minimietäisyys (m)", minDistanceSpinner.apply {
                 val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minDistances)
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 this.adapter = adapter
@@ -1492,7 +1501,7 @@ class SettingsManager(
                     minDistanceSpinner.setSelection(minDistances.indexOf(currentMinDistance))
                 }
             }
-            layout.addView(resetDefaultsLink)
+            trackingSettingsContainer.addView(resetDefaultsLink)
 
             val spacer = View(activity).apply {
                 layoutParams = LinearLayout.LayoutParams(
@@ -1500,7 +1509,7 @@ class SettingsManager(
                     (activity.resources.displayMetrics.density * 18).toInt() // Noin yhden rivin korkeus
                 )
             }
-            layout.addView(spacer)
+            trackingSettingsContainer.addView(spacer)
 
             val statusText = TextView(activity).apply {
                 textSize = 14f
@@ -1555,6 +1564,9 @@ class SettingsManager(
                     
                     val locationEnabled = isGpsEnabled || isNetworkEnabled
                     startButton.isEnabled = locationEnabled
+                    startButton.visibility = if (locationEnabled) View.VISIBLE else View.GONE
+                    trackingSettingsContainer.visibility = if (locationEnabled) View.VISIBLE else View.GONE
+                    
                     if (locationEnabled) {
                         statusText.visibility = View.GONE
                     } else {
