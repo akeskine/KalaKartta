@@ -18,6 +18,8 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.Overlay
+import org.osmdroid.views.overlay.FolderOverlay
 import android.graphics.Color
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -80,6 +82,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
+    
+    private fun addOverlayBelowMarkers(overlay: Overlay) {
+        var index = -1
+        for (i in 0 until map.overlays.size) {
+            if (map.overlays[i] is FolderOverlay) {
+                index = i
+                break
+            }
+        }
+        if (index != -1) {
+            map.overlays.add(index, overlay)
+        } else {
+            map.overlays.add(overlay)
+        }
+    }
 
     // Kalastussessio
     private var fishingService: FishingSessionService? = null
@@ -140,8 +157,9 @@ class MainActivity : AppCompatActivity() {
                             sessionPolyline = Polyline(map).apply {
                                 outlinePaint.color = Color.GREEN
                                 outlinePaint.strokeWidth = 8f
+                                setOnClickListener { _, _, _ -> true }
                             }
-                            map.overlays.add(sessionPolyline)
+                            addOverlayBelowMarkers(sessionPolyline!!)
                         }
                         val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
                         sessionPolyline?.setPoints(geoPoints)
@@ -183,8 +201,9 @@ class MainActivity : AppCompatActivity() {
                 archivedSessionPolyline = Polyline(map).apply {
                     outlinePaint.color = Color.BLUE
                     outlinePaint.strokeWidth = 8f
+                    setOnClickListener { _, _, _ -> true }
                 }
-                map.overlays.add(archivedSessionPolyline)
+                addOverlayBelowMarkers(archivedSessionPolyline!!)
                 visibleArchivedSessionId = sessionId
                 
                 map.controller.animateTo(GeoPoint(points[0].latitude, points[0].longitude), 15.0, 500L)
@@ -227,8 +246,9 @@ class MainActivity : AppCompatActivity() {
                 archivedSessionPolyline = Polyline(map).apply {
                     outlinePaint.color = Color.BLUE
                     outlinePaint.strokeWidth = 8f
+                    setOnClickListener { _, _, _ -> true }
                 }
-                map.overlays.add(archivedSessionPolyline)
+                addOverlayBelowMarkers(archivedSessionPolyline!!)
                 visibleArchivedSessionId = sessionId
                 
                 // Päivitetään frame nykyisen ajan mukaan
@@ -373,10 +393,11 @@ class MainActivity : AppCompatActivity() {
                     archivedSessionPolyline = Polyline(map).apply {
                         outlinePaint.color = Color.BLUE
                         outlinePaint.strokeWidth = 8f
+                        setOnClickListener { _, _, _ -> true }
                     }
                     val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
                     archivedSessionPolyline?.setPoints(geoPoints)
-                    map.overlays.add(archivedSessionPolyline)
+                    addOverlayBelowMarkers(archivedSessionPolyline!!)
                     visibleArchivedSessionId = sessionId
                     
                     // Zoomataan session alkuun
@@ -402,8 +423,9 @@ class MainActivity : AppCompatActivity() {
                 archivedSessionPolyline = Polyline(map).apply {
                     outlinePaint.color = Color.BLUE
                     outlinePaint.strokeWidth = 8f
+                    setOnClickListener { _, _, _ -> true }
                 }
-                map.overlays.add(archivedSessionPolyline)
+                addOverlayBelowMarkers(archivedSessionPolyline!!)
                 visibleArchivedSessionId = sessionId
                 
                 // Zoomataan session alkuun
@@ -868,8 +890,9 @@ class MainActivity : AppCompatActivity() {
                                 outlinePaint.color = Color.RED
                                 outlinePaint.strokeWidth = 3f
                                 outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                setOnClickListener { _, _, _ -> true }
                             }
-                            map.overlays.add(measurementCursorLine)
+                            addOverlayBelowMarkers(measurementCursorLine!!)
                         }
                         measurementCursorLine?.setPoints(listOf(measurementPoints.last(), center))
 
@@ -1647,8 +1670,9 @@ class MainActivity : AppCompatActivity() {
                 measurementPolyline = Polyline(map).apply {
                     outlinePaint.color = Color.RED
                     outlinePaint.strokeWidth = 5f
+                    setOnClickListener { _, _, _ -> true }
                 }
-                map.overlays.add(measurementPolyline)
+                addOverlayBelowMarkers(measurementPolyline!!)
             }
             measurementPolyline?.setPoints(measurementPoints)
         }
