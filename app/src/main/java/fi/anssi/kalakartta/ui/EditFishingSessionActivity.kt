@@ -6,11 +6,14 @@ import android.view.WindowManager
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishingSession
+import fi.anssi.kalakartta.utils.enlargeButtons
 import fi.anssi.kalakartta.utils.formatFishermanName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -53,9 +56,44 @@ class EditFishingSessionActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.saveLink).setOnClickListener { saveAndFinish() }
-        findViewById<TextView>(R.id.backLink).setOnClickListener { finish() }
+        findViewById<TextView>(R.id.backLink).setOnClickListener {
+            if (hasUnsavedChanges()) {
+                showUnsavedChangesDialog()
+            } else {
+                finish()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (hasUnsavedChanges()) {
+                    showUnsavedChangesDialog()
+                } else {
+                    finish()
+                }
+            }
+        })
 
         loadSessionData()
+    }
+
+    private fun hasUnsavedChanges(): Boolean {
+        val s = session ?: return false
+        val currentFisherman = findViewById<EditText>(R.id.fishermanInput).text.toString().trim()
+        val currentNotes = findViewById<EditText>(R.id.notesInput).text.toString()
+
+        // Huom: session.fisherman on tallennettu UPPERCASE, mutta näytetään formatFishermanName-muodossa.
+        // Verrataan kuitenkin trimmatusti ja case-insensitive, kuten EditCatchActivityssa.
+        if (!currentFisherman.equals(s.fisherman.trim(), ignoreCase = true)) return true
+        if (currentNotes != s.notes) return true
+
+        return false
+    }
+
+    private fun showUnsavedChangesDialog() {
+        AlertDialog.Builder(this).setMessage(R.string.unsaved_changes_warning)
+            .setPositiveButton(R.string.discard) { _, _ -> finish() }
+            .setNegativeButton(R.string.cancel, null).show().enlargeButtons()
     }
 
     private fun loadSessionData() {
