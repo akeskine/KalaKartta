@@ -262,6 +262,13 @@ class FishingSessionActivity : AppCompatActivity() {
             val editIcon = ImageView(this@FishingSessionActivity).apply {
                 setImageResource(R.drawable.ic_edit)
                 setPadding(20, 20, 20, 20)
+                val safeMargin = resources.getDimensionPixelSize(R.dimen.landscape_safe_margin)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = safeMargin
+                }
                 isClickable = true
                 isFocusable = true
                 val outValue = android.util.TypedValue()
@@ -344,7 +351,7 @@ class FishingSessionActivity : AppCompatActivity() {
                     text = "Toista"
                     setTextColor(androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.link_color))
                     paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setPadding(0, 10, 20, 10)
+                    setPadding(0, 10, 0, 10)
                     isClickable = true
                     setOnClickListener {
                         val intent = Intent()
@@ -355,18 +362,6 @@ class FishingSessionActivity : AppCompatActivity() {
                     }
                 }
                 replayRow.addView(replayLink)
-
-                val notesLink = TextView(this@FishingSessionActivity).apply {
-                    text = "Näytä muistiinpanot"
-                    setTextColor(androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.link_color))
-                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setPadding(0, 10, 0, 10)
-                    isClickable = true
-                    setOnClickListener {
-                        showNotesDialog(session, durationStr, distanceStr, points.size)
-                    }
-                }
-                replayRow.addView(notesLink)
 
                 container.addView(replayRow)
             }
@@ -407,33 +402,6 @@ class FishingSessionActivity : AppCompatActivity() {
                 }
             }
             .setNegativeButton("Peruuta", null)
-            .show()
-    }
-
-    private fun showNotesDialog(session: FishingSession, durationStr: String, distanceStr: String, pointsCount: Int) {
-        val scroll = ScrollView(this)
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 20, 40, 20)
-        }
-
-        val detailsText = TextView(this).apply {
-            text = "Kesto: $durationStr\nMatka: $distanceStr\nReittipisteitä: $pointsCount kpl"
-            setPadding(0, 0, 0, 20)
-        }
-        container.addView(detailsText)
-
-        val notesText = TextView(this).apply {
-            text = session.notes
-        }
-        container.addView(notesText)
-
-        scroll.addView(container)
-
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Session muistiinpanot")
-            .setView(scroll)
-            .setPositiveButton("OK", null)
             .show()
     }
 }

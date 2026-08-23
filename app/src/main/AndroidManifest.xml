@@ -42,7 +42,11 @@
         <activity android:name=".ui.EditSpeciesActivity" />
         <activity android:name=".ui.EditSpeciesDetailActivity" />
         <activity android:name=".ui.FishingSessionActivity" />
-        <activity android:name=".ui.EditFishingSessionActivity" />
+        <activity 
+            android:name=".ui.EditFishingSessionActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
         <service
             android:name=".service.FishingSessionService"
