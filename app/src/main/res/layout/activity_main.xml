@@ -30,7 +30,6 @@
         android:layout_gravity="top|start"
         android:layout_marginTop="32dp"
         android:layout_marginStart="8dp"
-        android:background="#80000000"
         android:paddingHorizontal="8dp"
         android:paddingVertical="4dp"
         android:orientation="horizontal"

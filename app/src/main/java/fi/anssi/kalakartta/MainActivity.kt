@@ -115,33 +115,17 @@ class MainActivity : AppCompatActivity() {
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
     private var recordingIntervalSeconds = 0
+    private var isBlinking = false
     private val recordingBlinkRunnable = object : Runnable {
         override fun run() {
             val dot = findViewById<android.view.View>(R.id.recordingDot)
-            val serviceInterval = if (fishingService?.isRecording() == true) fishingService?.getMinIntervalSeconds() ?: 0 else 0
-            val interval = if (serviceInterval > 0) serviceInterval else recordingIntervalSeconds
             
-            val (onMs, offMs) = when {
-                interval <= 0 -> 500L to 500L
-                interval <= 1 -> 500L to 500L
-                else -> (interval - 1) * 1000L to 1000L
-            }
-
             if (dot != null) {
                 recordingDotVisible = !recordingDotVisible
                 dot.visibility = if (recordingDotVisible) android.view.View.VISIBLE else android.view.View.INVISIBLE
-                
-                val nextDelay = if (recordingDotVisible) onMs else offMs
-                recordingHandler.postDelayed(this, nextDelay)
-            } else {
-                recordingHandler.postDelayed(this, 1000)
             }
             
-            if (FishingSessionService.KALASTUSSESSIOT_DEBUG) {
-                android.util.Log.d("MainActivity", "Päivitetään tallennustilan UI")
-            }
-            
-            updateRecordingStatusUI()
+            recordingHandler.postDelayed(this, 1000)
             updateSessionLine()
         }
     }
@@ -1571,21 +1555,18 @@ class MainActivity : AppCompatActivity() {
         
         if (isRecording) {
             recordingLayout.visibility = android.view.View.VISIBLE
-            recordingHandler.removeCallbacks(recordingBlinkRunnable)
-            recordingDotVisible = true
-            dot?.visibility = android.view.View.VISIBLE
+            statusText?.text = "REC"
             
-            // Käytetään palvelun arvoa jos mahdollista, muuten paikallista (joka vastaa asetuksia)
-            val isServiceRecording = fishingService?.isRecording() ?: false
-            val serviceInterval = if (isServiceRecording) fishingService?.getMinIntervalSeconds() ?: 0 else 0
-            val interval = if (serviceInterval > 0) serviceInterval else recordingIntervalSeconds
-            statusText?.text = if (interval > 0) "REC $interval" else "REC"
-            
-            val onMs = if (interval <= 1) 500L else (interval - 1) * 1000L
-            
-            recordingHandler.postDelayed(recordingBlinkRunnable, onMs)
+            if (!isBlinking) {
+                isBlinking = true
+                recordingHandler.removeCallbacks(recordingBlinkRunnable)
+                recordingDotVisible = true
+                dot?.visibility = android.view.View.VISIBLE
+                recordingHandler.postDelayed(recordingBlinkRunnable, 1000)
+            }
         } else {
             recordingLayout.visibility = android.view.View.GONE
+            isBlinking = false
             recordingHandler.removeCallbacks(recordingBlinkRunnable)
             dot?.visibility = android.view.View.GONE
             updateSessionLine()
