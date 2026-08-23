@@ -17,6 +17,7 @@ import com.google.android.material.button.MaterialButton
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.FolderOverlay
@@ -190,7 +191,42 @@ class MainActivity : AppCompatActivity() {
                 addOverlayBelowMarkers(archivedSessionPolyline!!)
                 visibleArchivedSessionId = sessionId
                 
-                map.controller.animateTo(GeoPoint(points[0].latitude, points[0].longitude), 15.0, 500L)
+                if (points.isNotEmpty()) {
+                    var minLat = Double.MAX_VALUE
+                    var maxLat = -Double.MAX_VALUE
+                    var minLon = Double.MAX_VALUE
+                    var maxLon = -Double.MAX_VALUE
+
+                    for (p in points) {
+                        if (p.latitude < minLat) minLat = p.latitude
+                        if (p.latitude > maxLat) maxLat = p.latitude
+                        if (p.longitude < minLon) minLon = p.longitude
+                        if (p.longitude > maxLon) maxLon = p.longitude
+                    }
+
+                    val box = BoundingBox(maxLat, maxLon, minLat, minLon)
+                    
+                    // Varmistetaan vähintään 400 metrin leveys
+                    val centerLat = (maxLat + minLat) / 2.0
+                    val centerLon = (maxLon + minLon) / 2.0
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(centerLat, minLon, centerLat, maxLon, results)
+                    val currentWidth = results[0]
+                    
+                    val finalBox = if (currentWidth < 400.0) {
+                        // Lasketaan tarvittava pituuskaste-ero (longitude delta) 400 metrille
+                        // 1 aste pituuskastetta metreinä on noin 111320 * cos(lat)
+                        val latRad = Math.toRadians(centerLat)
+                        val metersPerDegreeLon = 111320.0 * Math.cos(latRad)
+                        val degreeDelta = (400.0 / metersPerDegreeLon) / 2.0
+                        BoundingBox(maxLat, centerLon + degreeDelta, minLat, centerLon - degreeDelta)
+                    } else {
+                        box
+                    }
+                    
+                    map.zoomToBoundingBox(finalBox, true, 100)
+                }
+                
                 markerManager.setMaxTimestamp(replayStartTime)
                 
                 updateReplayUI()
