@@ -32,6 +32,10 @@ class FishingSessionActivity : AppCompatActivity() {
     private var currentCalendar = Calendar.getInstance()
     private var selectedCalendar = Calendar.getInstance()
     private var openSessionId: Long = -1L
+    
+    companion object {
+        const val EDIT_SESSION_REQUEST = 1001
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -75,6 +79,13 @@ class FishingSessionActivity : AppCompatActivity() {
         }
 
         loadSessions()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == EDIT_SESSION_REQUEST && resultCode == RESULT_OK) {
+            loadSessions()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -240,8 +251,29 @@ class FishingSessionActivity : AppCompatActivity() {
         val titleText = TextView(this).apply {
             text = "Sessio: $startTime - $endTime"
             textSize = 18f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        sessionView.addView(titleText)
+        
+        val headerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(titleText)
+            
+            val editIcon = ImageView(this@FishingSessionActivity).apply {
+                setImageResource(R.drawable.ic_edit)
+                setPadding(20, 20, 20, 20)
+                isClickable = true
+                isFocusable = true
+                val outValue = android.util.TypedValue()
+                context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+                setOnClickListener {
+                    showSessionMenu(it, session)
+                }
+            }
+            addView(editIcon)
+        }
+        sessionView.addView(headerRow)
 
         val detailsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -289,11 +321,15 @@ class FishingSessionActivity : AppCompatActivity() {
                 android.location.Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
                 totalDistance += results[0]
             }
-            val distanceStr = String.format("%.4f km", totalDistance / 1000.0).replace(".", ",")
+            val distanceStr = String.format("%.3f km", totalDistance / 1000.0).replace(".", ",")
 
             withContext(Dispatchers.Main) {
                 val infoText = TextView(this@FishingSessionActivity).apply {
-                    text = "Kesto: $durationStr\nMatka: $distanceStr\nReittipisteitä: ${points.size} kpl"
+                    var textContent = "Kesto: $durationStr\nMatka: $distanceStr\nReittipisteitä: ${points.size} kpl"
+                    if (session.fisherman.isNotBlank()) {
+                        textContent += "\nKalastaja: ${session.fisherman}"
+                    }
+                    text = textContent
                     setPadding(0, 0, 0, 10)
                 }
                 container.addView(infoText)
@@ -335,6 +371,43 @@ class FishingSessionActivity : AppCompatActivity() {
                 container.addView(replayRow)
             }
         }
+    }
+
+    private fun showSessionMenu(view: View, session: FishingSession) {
+        val popup = PopupMenu(this, view)
+        popup.menu.add("Muokkaa")
+        popup.menu.add("Poista")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.title) {
+                "Muokkaa" -> {
+                    val intent = Intent(this, EditFishingSessionActivity::class.java)
+                    intent.putExtra("SESSION_ID", session.id)
+                    startActivityForResult(intent, EDIT_SESSION_REQUEST)
+                    true
+                }
+                "Poista" -> {
+                    confirmDeleteSession(session)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun confirmDeleteSession(session: FishingSession) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Poista sessio")
+            .setMessage("Haluatko varmasti poistaa tämän kalastussession ja sen kaikki reittipisteet?")
+            .setPositiveButton("Poista") { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    db.fishingSessionDao().deleteById(session.id)
+                    db.trackPointDao().deleteForSession(session.id)
+                    loadSessions()
+                }
+            }
+            .setNegativeButton("Peruuta", null)
+            .show()
     }
 
     private fun showNotesDialog(session: FishingSession, durationStr: String, distanceStr: String, pointsCount: Int) {

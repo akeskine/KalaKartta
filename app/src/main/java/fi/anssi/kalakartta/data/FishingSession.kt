@@ -8,5 +8,6 @@ data class FishingSession(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val startedAt: Long,
     val endedAt: Long? = null,
-    val notes: String = ""
+    val notes: String = "",
+    val fisherman: String = ""
 )

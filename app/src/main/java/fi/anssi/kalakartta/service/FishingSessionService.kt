@@ -180,7 +180,9 @@ class FishingSessionService : Service() {
         lastSavedTimestamp = 0L
 
         serviceScope.launch {
-            val session = FishingSession(startedAt = startedAt)
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val defaultFisherman = prefs.getString("default_fisherman", "") ?: ""
+            val session = FishingSession(startedAt = startedAt, fisherman = defaultFisherman)
             currentSessionId = db.fishingSessionDao().insert(session)
             
             launch(Dispatchers.Main) {

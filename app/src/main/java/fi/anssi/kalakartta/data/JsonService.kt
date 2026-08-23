@@ -33,6 +33,7 @@ class JsonService {
                 writer.name("endedAt").value(isoFormat.format(java.util.Date(session.endedAt)))
             }
             writer.name("notes").value(session.notes)
+            writer.name("fisherman").value(session.fisherman)
             
             writer.name("points")
             writer.beginArray()
@@ -120,6 +121,7 @@ class JsonService {
         var startedAtMs = 0L
         var endedAtMs: Long? = null
         var notes = ""
+        var fisherman = ""
         var pointsFound = false
 
         reader.beginObject()
@@ -144,9 +146,10 @@ class JsonService {
                     } else null
                 }
                 "notes" -> notes = reader.nextString()
+                "fisherman" -> fisherman = reader.nextString()
                 "points" -> {
                     pointsFound = true
-                    val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes)
+                    val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes, fisherman = fisherman)
                     val pointsBatch = mutableListOf<TrackPoint>()
                     
                     reader.beginArray()
@@ -171,7 +174,7 @@ class JsonService {
         reader.endObject()
         
         if (!pointsFound) {
-            val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes)
+            val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes, fisherman = fisherman)
             onSessionParsed(session, emptyList())
         }
     }

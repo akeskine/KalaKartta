@@ -42,6 +42,7 @@
         <activity android:name=".ui.EditSpeciesActivity" />
         <activity android:name=".ui.EditSpeciesDetailActivity" />
         <activity android:name=".ui.FishingSessionActivity" />
+        <activity android:name=".ui.EditFishingSessionActivity" />
 
         <service
             android:name=".service.FishingSessionService"
