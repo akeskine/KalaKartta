@@ -625,9 +625,13 @@ class SettingsManager(
             prefs.getBoolean("quick_select_$id", default)
         }.toMutableMap()
 
-        val layout = LinearLayout(activity).apply {
+        val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
+        }
+
+        val scrollView = ScrollView(activity).apply {
+            addView(contentLayout)
         }
 
         // Otsikkorivi
@@ -652,7 +656,7 @@ class SettingsManager(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.3f)
         })
         
-        layout.addView(headerLayout)
+        contentLayout.addView(headerLayout)
 
         val radioButtons = mutableListOf<RadioButton>()
         val checkBoxes = mutableMapOf<String, CheckBox>()
@@ -690,7 +694,7 @@ class SettingsManager(
             checkBoxes[id] = cb
             row.addView(cb)
 
-            layout.addView(row)
+            contentLayout.addView(row)
         }
 
         val quickMapCheckbox = CheckBox(activity).apply {
@@ -711,7 +715,7 @@ class SettingsManager(
             val initialSelectedId = internalIds.indexOf(currentSource)
             visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
         }
-        layout.addView(apiKeyLabel)
+        contentLayout.addView(apiKeyLabel)
 
         val apiKeyInput = EditText(activity).apply {
             setText(currentApiKey)
@@ -719,14 +723,14 @@ class SettingsManager(
             val initialSelectedId = internalIds.indexOf(currentSource)
             visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
         }
-        layout.addView(apiKeyInput)
+        contentLayout.addView(apiKeyInput)
 
         val setApiKeyButton = Button(activity).apply {
             text = activity.getString(R.string.set_api_key)
             val initialSelectedId = internalIds.indexOf(currentSource)
             visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
         }
-        layout.addView(setApiKeyButton)
+        contentLayout.addView(setApiKeyButton)
 
         fun getSelectedId(): Int {
             return radioButtons.indexOfFirst { it.isChecked }
@@ -796,8 +800,8 @@ class SettingsManager(
             setPadding(0, 40, 0, 0)
             alpha = 0.7f
         }
-        layout.addView(attributionText)
-        layout.addView(quickMapCheckbox)
+        contentLayout.addView(attributionText)
+        contentLayout.addView(quickMapCheckbox)
 
         radioButtons.forEachIndexed { index, radioButton ->
             radioButton.setOnCheckedChangeListener { _, isChecked ->
@@ -823,7 +827,7 @@ class SettingsManager(
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Taustakartta")
-            .setView(layout)
+            .setView(scrollView)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .setNegativeButton("Tallenna") { _, _ ->
                 val selectedId = getSelectedId()
@@ -855,9 +859,13 @@ class SettingsManager(
         val isEnabledInitial = prefs.getBoolean("weather_enabled", true)
         var isEnabledCurrent = isEnabledInitial
         
-        val layout = LinearLayout(activity).apply {
+        val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 10)
+        }
+
+        val scrollView = ScrollView(activity).apply {
+            addView(contentLayout)
         }
 
         val checkBox = CheckBox(activity).apply {
@@ -868,7 +876,7 @@ class SettingsManager(
                 isEnabledCurrent = isChecked
             }
         }
-        layout.addView(checkBox)
+        contentLayout.addView(checkBox)
 
         val textView = TextView(activity).apply {
             text = "Päivitä puuttuvat säätiedot"
@@ -880,11 +888,11 @@ class SettingsManager(
                 activity.startActivityForResult(intent, 1003)
             }
         }
-        layout.addView(textView)
+        contentLayout.addView(textView)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Sääasetukset")
-            .setView(layout)
+            .setView(scrollView)
             .setPositiveButton("Takaisin") { _, _ ->
                 openSettings()
             }
