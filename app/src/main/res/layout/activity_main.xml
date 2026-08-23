@@ -100,7 +100,7 @@
 
                 <Spinner
                     android:id="@+id/replaySpeedSpinner"
-                    android:layout_width="48dp"
+                    android:layout_width="60dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="0dp"
                     android:padding="0dp"

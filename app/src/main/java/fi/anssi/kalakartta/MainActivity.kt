@@ -210,7 +210,7 @@ class MainActivity : AppCompatActivity() {
                 
                 initReplayUI()
                 
-                val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x")
+                val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
                 val speedIndex = speedOptions.indexOf("${replaySpeed}x")
                 if (speedIndex != -1) {
                     findViewById<android.widget.Spinner>(R.id.replaySpeedSpinner).setSelection(speedIndex)
@@ -280,11 +280,11 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
         })
 
-        val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x")
+        val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
         val adapter = android.widget.ArrayAdapter(this, R.layout.spinner_item_narrow, speedOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         speedSpinner.adapter = adapter
-        speedSpinner.setSelection(2) // 60x
+        speedSpinner.setSelection(4) // 360x
         
         // Asetetaan valkoiset värit spinnerin tekstille
         speedSpinner.post {
