@@ -21,6 +21,7 @@ import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.WeatherService
+import fi.anssi.kalakartta.utils.formatFishermanName
 import fi.anssi.kalakartta.utils.WeatherStation
 import fi.anssi.kalakartta.utils.enlargeButtons
 import android.graphics.BitmapFactory
@@ -549,13 +550,7 @@ class EditCatchActivity : AppCompatActivity() {
                 }
                 additionalInfoEditText.setText(fc.additionalInfo ?: "")
                 tripNotesEditText.setText(fc.tripNotes ?: "")
-                fun formatName(name: String): String {
-                    return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
-                        part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                    }
-                }
-
-                fishermanEditText.setText(if (!fc.fisherman.isNullOrEmpty()) formatName(fc.fisherman) else "")
+                fishermanEditText.setText(formatFishermanName(fc.fisherman))
                 val updatedFc = fishCatch ?: fc
                 val otherSpeciesDisplay = updatedFc.otherSpecies?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""
                 otherSpeciesEditText.setText(otherSpeciesDisplay)

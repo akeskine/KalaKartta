@@ -14,6 +14,7 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishingSession
 import fi.anssi.kalakartta.data.TrackPoint
+import fi.anssi.kalakartta.utils.formatFishermanName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -334,7 +335,7 @@ class FishingSessionActivity : AppCompatActivity() {
                 val infoText = TextView(this@FishingSessionActivity).apply {
                     var textContent = "Kesto: $durationStr\nMatka: $distanceStr\nReittipisteitä: ${points.size} kpl"
                     if (session.fisherman.isNotBlank()) {
-                        textContent += "\nKalastaja: ${session.fisherman}"
+                        textContent += "\nKalastaja: ${formatFishermanName(session.fisherman)}"
                     }
                     text = textContent
                     setPadding(0, 0, 0, 10)

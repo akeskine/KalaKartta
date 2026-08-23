@@ -33,7 +33,7 @@ class JsonService {
                 writer.name("endedAt").value(isoFormat.format(java.util.Date(session.endedAt)))
             }
             writer.name("notes").value(session.notes)
-            writer.name("fisherman").value(session.fisherman)
+            writer.name("fisherman").value(session.fisherman.uppercase())
             
             writer.name("points")
             writer.beginArray()

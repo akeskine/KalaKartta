@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishingSession
+import fi.anssi.kalakartta.utils.formatFishermanName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -111,7 +112,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                 findViewById<TextView>(R.id.trackPointsText).text = "Reittipisteitä: ${points.size} kpl"
                 
                 // Edit kentät
-                findViewById<EditText>(R.id.fishermanInput).setText(s.fisherman)
+                findViewById<EditText>(R.id.fishermanInput).setText(formatFishermanName(s.fisherman))
                 findViewById<EditText>(R.id.notesInput).setText(s.notes)
             }
         }
@@ -123,7 +124,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
     }
 
     private fun saveAndFinish() {
-        val newFisherman = findViewById<EditText>(R.id.fishermanInput).text.toString()
+        val newFisherman = findViewById<EditText>(R.id.fishermanInput).text.toString().trim().uppercase()
         val newNotes = findViewById<EditText>(R.id.notesInput).text.toString()
         
         val s = session ?: return
