@@ -67,20 +67,26 @@
         android:layout_weight="1">
 
         <LinearLayout
-            android:id="@+id/sessionsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
+            android:orientation="vertical">
 
-    <Button
-        android:id="@+id/backButton"
-        style="@style/Widget.Material3.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:text="Takaisin"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="48dp" />
+            <LinearLayout
+                android:id="@+id/sessionsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/backButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:text="Takaisin"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp" />
+        </LinearLayout>
+    </ScrollView>
 
 </LinearLayout>

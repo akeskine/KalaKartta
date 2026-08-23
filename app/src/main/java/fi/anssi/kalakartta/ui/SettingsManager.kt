@@ -1234,9 +1234,13 @@ class SettingsManager(
         val fishingService = mainActivity?.getFishingService()
         val isRecording = fishingService?.isRecording() ?: false
 
-        val layout = LinearLayout(activity).apply {
+        val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
+        }
+
+        val scrollView = ScrollView(activity).apply {
+            addView(contentLayout)
         }
 
         if (!isRecording) {
@@ -1248,10 +1252,18 @@ class SettingsManager(
                     textSize = 14f
                     setPadding(0, 0, 0, 10)
                 }
-                layout.addView(visibleInfoLabel)
+                contentLayout.addView(visibleInfoLabel)
 
-                val hideSessionButton = MaterialButton(activity).apply {
+                val hideSessionButton = TextView(activity).apply {
                     text = "Piilota näkyvä sessio"
+                    textSize = 18f
+                    setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                    val outValue = android.util.TypedValue()
+                    activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                    setBackgroundResource(outValue.resourceId)
+                    isClickable = true
+                    isFocusable = true
+                    setPadding(0, 20, 0, 20)
                     val params = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1264,7 +1276,7 @@ class SettingsManager(
                         openFishingSessionSettings()
                     }
                 }
-                layout.addView(hideSessionButton)
+                contentLayout.addView(hideSessionButton)
 
                 activity.lifecycleScope.launch(Dispatchers.IO) {
                     val session = db.fishingSessionDao().getById(visibleSessionId)
@@ -1311,7 +1323,7 @@ class SettingsManager(
                     activity.startActivityForResult(intent, 3001)
                 }
             }
-            layout.addView(fetchButton)
+            contentLayout.addView(fetchButton)
 
             val trackingSettingsContainer = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1320,7 +1332,7 @@ class SettingsManager(
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             }
-            layout.addView(trackingSettingsContainer)
+            contentLayout.addView(trackingSettingsContainer)
 
             val sectionTitle = TextView(activity).apply {
                 text = "Reittipisteiden tallennusvälit"
@@ -1517,7 +1529,7 @@ class SettingsManager(
                 setPadding(0, 10, 0, 10)
                 visibility = View.GONE
             }
-            layout.addView(statusText)
+            contentLayout.addView(statusText)
 
             val startButton = TextView(activity).apply {
                 text = "Aloita tallennus"
@@ -1546,7 +1558,7 @@ class SettingsManager(
                     closeSettings()
                 }
             }
-            layout.addView(startButton)
+            contentLayout.addView(startButton)
 
             val updateJob = activity.lifecycleScope.launch {
                 val locationManager = activity.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
@@ -1580,7 +1592,7 @@ class SettingsManager(
 
             dialog = AlertDialog.Builder(activity)
                 .setTitle("Kalastussessiot")
-                .setView(layout)
+                .setView(scrollView)
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                 .setOnDismissListener {
                     updateJob.cancel()
@@ -1596,7 +1608,7 @@ class SettingsManager(
                 textSize = 16f
                 setPadding(0, 0, 0, 40)
             }
-            layout.addView(infoText)
+            contentLayout.addView(infoText)
 
             val updateJob = activity.lifecycleScope.launch {
                 while (isActive) {
@@ -1643,24 +1655,32 @@ class SettingsManager(
                 }
             }
             
-            val stopButton = MaterialButton(activity).apply {
+            val stopButton = TextView(activity).apply {
                 text = "Lopeta tallennus"
+                textSize = 18f
+                setTextColor(activity.getColor(android.R.color.holo_red_dark))
+                val outValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+                isClickable = true
+                isFocusable = true
+                setPadding(0, 20, 0, 20)
                 val params = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                params.setMargins(0, 20, 0, 10)
+                params.setMargins(0, 10, 0, 10)
                 layoutParams = params
                 setOnClickListener {
                     (activity as? fi.anssi.kalakartta.MainActivity)?.stopFishingSession()
                     dialog?.dismiss()
                 }
             }
-            layout.addView(stopButton)
+            contentLayout.addView(stopButton)
 
             dialog = AlertDialog.Builder(activity)
                 .setTitle("Kalastussessiot")
-                .setView(layout)
+                .setView(scrollView)
                 .setPositiveButton("Takaisin") { _, _ -> openSettings() }
                 .setOnDismissListener {
                     updateJob.cancel()
