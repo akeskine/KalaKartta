@@ -1648,13 +1648,16 @@ class SettingsManager(
                             val now = System.currentTimeMillis()
                             
                             val distanceToLast = currentService.getDistanceSinceLastSave()?.let { String.format("%.1f m", it) } ?: "-"
+                            val lastLoc = currentService.getLastLocation()
+                            val speedStr = lastLoc?.let { String.format("%.2f km/h", it.speed * 3.6).replace(".", ",") } ?: "-"
+                            val accuracyStr = lastLoc?.let { String.format("%.0f m", it.accuracy) } ?: "-"
                             val timeStr = if (lastTimestamp > 0) "${(now - lastTimestamp) / 1000} s" else "-"
-                            val savedStr = if (currentService.getShouldSaveStatus()) "kyllä" else "ei"
                             
                             text += "\n\nSijainnin tarkastus nro: $checkCount"
                             text += "\nEtäisyys edellisestä pisteestä: $distanceToLast"
+                            text += "\nNopeus: $speedStr"
+                            text += "\nTarkkuus: $accuracyStr"
                             text += "\nAika edellisen pisteen tallennuksesta: $timeStr"
-                            text += "\nTallennettiinko uusi piste: $savedStr"
                         }
                         
                         infoText.text = text

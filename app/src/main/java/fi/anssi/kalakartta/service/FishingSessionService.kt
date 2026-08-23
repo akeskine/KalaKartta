@@ -303,12 +303,14 @@ class FishingSessionService : Service() {
             if (KALASTUSSESSIOT_DEBUG) {
                 val distanceStr = lastSavedLocation?.let { String.format("%.1f m", distanceSinceLastSave) } ?: "-"
                 val timeStr = if (lastSavedTimestamp > 0) "${(now - lastSavedTimestamp) / 1000} s" else "-"
-                val savedStr = if (shouldSave) "kyllä" else "ei"
+                val speedStr = String.format("%.2f km/h", location.speed * 3.6).replace(".", ",")
+                val accuracyStr = String.format("%.0f m", location.accuracy)
                 
                 android.util.Log.d("FishingSessionService", "Sijainnin tarkastus nro: $locationCheckCount")
                 android.util.Log.d("FishingSessionService", "Etäisyys edellisestä pisteestä: $distanceStr")
+                android.util.Log.d("FishingSessionService", "Nopeus: $speedStr")
+                android.util.Log.d("FishingSessionService", "Tarkkuus: $accuracyStr")
                 android.util.Log.d("FishingSessionService", "Aika edellisen pisteen tallennuksesta: $timeStr")
-                android.util.Log.d("FishingSessionService", "Tallennettiinko uusi piste: $savedStr")
             }
 
             if (shouldSave) {
