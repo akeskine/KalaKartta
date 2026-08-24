@@ -362,6 +362,7 @@ class SettingsManager(
 
         val minMaxLayout = RelativeLayout(activity).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding(0, 10, 0, 10)
         }
 
         val midText = TextView(activity).apply {
@@ -370,16 +371,6 @@ class SettingsManager(
             textSize = 14f
         }
 
-        val minLabel = TextView(activity).apply {
-            id = View.generateViewId()
-            text = "Min"
-            textSize = 14f
-        }
-        val minLabelParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
-            addRule(RelativeLayout.ALIGN_PARENT_LEFT)
-        }
-        minMaxLayout.addView(minLabel, minLabelParams)
-
         val minEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
@@ -387,8 +378,7 @@ class SettingsManager(
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
-                addRule(RelativeLayout.BELOW, minLabel.id)
-                addRule(RelativeLayout.ALIGN_LEFT, minLabel.id)
+                addRule(RelativeLayout.ALIGN_PARENT_LEFT)
             }
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -402,16 +392,6 @@ class SettingsManager(
         }
         minMaxLayout.addView(minEdit)
 
-        val maxLabel = TextView(activity).apply {
-            id = View.generateViewId()
-            text = "Max"
-            textSize = 14f
-        }
-        val maxLabelParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
-            addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
-        }
-        minMaxLayout.addView(maxLabel, maxLabelParams)
-
         val maxEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
@@ -419,8 +399,7 @@ class SettingsManager(
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
-                addRule(RelativeLayout.BELOW, maxLabel.id)
-                addRule(RelativeLayout.ALIGN_RIGHT, maxLabel.id)
+                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
             }
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -445,12 +424,17 @@ class SettingsManager(
 
 
         // Ruudun koko
+        val gridSizeRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 10, 0, 10)
+        }
+
         val gridSizeLabel = TextView(activity).apply {
             text = activity.getString(R.string.heatmap_grid_size)
             textSize = 16f
-            setPadding(0, 20, 0, 10)
         }
-        layout.addView(gridSizeLabel)
+        gridSizeRow.addView(gridSizeLabel)
 
         val gridSizes = arrayOf("100", "300", "1000")
         val gridSizeSpinner = Spinner(activity)
@@ -470,7 +454,8 @@ class SettingsManager(
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        layout.addView(gridSizeSpinner)
+        gridSizeRow.addView(gridSizeSpinner)
+        layout.addView(gridSizeRow)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))
