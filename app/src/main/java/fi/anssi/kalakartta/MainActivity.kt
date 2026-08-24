@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
                 replayStartTime = session.startedAt
                 replayEndTime = session.endedAt ?: points.last().timestamp
                 currentReplayTime = replayStartTime
-                isReplayPlaying = true
+                isReplayPlaying = false
                 
                 initReplayUI()
                 
@@ -190,6 +190,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 addOverlayBelowMarkers(archivedSessionPolyline!!)
                 visibleArchivedSessionId = sessionId
+                
+                updateReplayFrame()
                 
                 if (points.isNotEmpty()) {
                     var minLat = Double.MAX_VALUE
@@ -230,7 +232,6 @@ class MainActivity : AppCompatActivity() {
                 markerManager.setMaxTimestamp(replayStartTime)
                 
                 updateReplayUI()
-                startReplayLoop()
             }
         }
     }
