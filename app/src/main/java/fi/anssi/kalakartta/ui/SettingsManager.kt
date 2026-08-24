@@ -391,6 +391,15 @@ class SettingsManager(
                 override fun afterTextChanged(s: android.text.Editable?) {
                     val value = s.toString().toIntOrNull() ?: 1
                     prefs.edit().putInt("heatmap_min_points", value).apply()
+                    
+                    // Päivitetään myös metodikohtainen muisti
+                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                    if (method == activity.getString(R.string.heatmap_method_points)) {
+                        prefs.edit().putInt("heatmap_min_points_by_points", value).apply()
+                    } else {
+                        prefs.edit().putInt("heatmap_min_points_by_sessions", value).apply()
+                    }
+                    
                     onMapSettingsChanged()
                 }
             })
@@ -412,6 +421,15 @@ class SettingsManager(
                 override fun afterTextChanged(s: android.text.Editable?) {
                     val value = s.toString().toIntOrNull() ?: 5
                     prefs.edit().putInt("heatmap_max_points", value).apply()
+                    
+                    // Päivitetään myös metodikohtainen muisti
+                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                    if (method == activity.getString(R.string.heatmap_method_points)) {
+                        prefs.edit().putInt("heatmap_max_points_by_points", value).apply()
+                    } else {
+                        prefs.edit().putInt("heatmap_max_points_by_sessions", value).apply()
+                    }
+                    
                     onMapSettingsChanged()
                 }
             })
@@ -492,8 +510,30 @@ class SettingsManager(
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedMethod = methods[position]
                 val oldMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                
                 if (selectedMethod != oldMethod) {
+                    // Tallennetaan nykyiset arvot SharedPreferencesiin uuden metodin valinnan yhteydessä
+                    // jotta ne varmasti säilyvät vaihdon jälkeen.
+                    // Metodikohtainen tallennus on jo hoidettu TextWatcherissa, mutta varmistetaan se tässä.
+                    
                     prefs.edit().putString("heatmap_calculation_method", selectedMethod).apply()
+                    
+                    // Haetaan uuden metodin arvot tai käytetään oletuksia
+                    val newMin: Int
+                    val newMax: Int
+                    
+                    if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
+                        newMin = prefs.getInt("heatmap_min_points_by_points", 1)
+                        newMax = prefs.getInt("heatmap_max_points_by_points", 50)
+                    } else {
+                        newMin = prefs.getInt("heatmap_min_points_by_sessions", 1)
+                        newMax = prefs.getInt("heatmap_max_points_by_sessions", 5)
+                    }
+                    
+                    minEdit.setText(newMin.toString())
+                    maxEdit.setText(newMax.toString())
+                    prefs.edit().putInt("heatmap_min_points", newMin).apply()
+                    prefs.edit().putInt("heatmap_max_points", newMax).apply()
                     
                     // Päivitetään seliteteksti
                     midText.text = if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
