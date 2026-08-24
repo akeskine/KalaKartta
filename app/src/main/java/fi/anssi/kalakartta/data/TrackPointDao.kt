@@ -57,6 +57,16 @@ interface TrackPointDao {
         SELECT 
             CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
             CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
+            COUNT(*) as sessionCount
+        FROM TrackPoint
+        GROUP BY x, y
+    """)
+    fun getAggregatedHeatmapPoints(latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
+
+    @Query("""
+        SELECT 
+            CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+            CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
             COUNT(DISTINCT fishingSessionId) as sessionCount
         FROM TrackPoint 
         WHERE latitude BETWEEN :latSouth AND :latNorth 
@@ -64,6 +74,18 @@ interface TrackPointDao {
         GROUP BY x, y
     """)
     fun getAggregatedHeatmapArea(latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
+
+    @Query("""
+        SELECT 
+            CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+            CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
+            COUNT(*) as sessionCount
+        FROM TrackPoint 
+        WHERE latitude BETWEEN :latSouth AND :latNorth 
+          AND longitude BETWEEN :lonWest AND :lonEast
+        GROUP BY x, y
+    """)
+    fun getAggregatedHeatmapAreaPoints(latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
 
     @Query("""
         SELECT 
@@ -80,6 +102,17 @@ interface TrackPointDao {
         SELECT 
             CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
             CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
+            COUNT(*) as sessionCount
+        FROM TrackPoint 
+        WHERE timestamp >= :startDate AND timestamp <= :endDate
+        GROUP BY x, y
+    """)
+    fun getAggregatedHeatmapRangePoints(startDate: Long, endDate: Long, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
+
+    @Query("""
+        SELECT 
+            CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+            CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
             COUNT(DISTINCT fishingSessionId) as sessionCount
         FROM TrackPoint 
         WHERE timestamp >= :startDate AND timestamp <= :endDate
@@ -88,6 +121,19 @@ interface TrackPointDao {
         GROUP BY x, y
     """)
     fun getAggregatedHeatmapRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
+
+    @Query("""
+        SELECT 
+            CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+            CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
+            COUNT(*) as sessionCount
+        FROM TrackPoint 
+        WHERE timestamp >= :startDate AND timestamp <= :endDate
+          AND latitude BETWEEN :latSouth AND :latNorth 
+          AND longitude BETWEEN :lonWest AND :lonEast
+        GROUP BY x, y
+    """)
+    fun getAggregatedHeatmapRangeAndAreaPoints(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
 
     @Query("DELETE FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun deleteForSession(sessionId: Long)

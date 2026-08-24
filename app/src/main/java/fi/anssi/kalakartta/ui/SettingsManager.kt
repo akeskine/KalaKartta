@@ -367,7 +367,12 @@ class SettingsManager(
 
         val midText = TextView(activity).apply {
             id = View.generateViewId()
-            text = "Käyntikerrat ruudussa"
+            val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+            text = if (method == activity.getString(R.string.heatmap_method_points)) {
+                activity.getString(R.string.heatmap_points_in_grid)
+            } else {
+                activity.getString(R.string.heatmap_sessions_in_grid)
+            }
             textSize = 14f
         }
 
@@ -456,6 +461,54 @@ class SettingsManager(
         }
         gridSizeRow.addView(gridSizeSpinner)
         layout.addView(gridSizeRow)
+
+        // Laskentatapa
+        val methodRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 10, 0, 10)
+        }
+
+        val methodLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_calculation_method)
+            textSize = 16f
+            setPadding(0, 10, 0, 5)
+        }
+        methodRow.addView(methodLabel)
+
+        val methods = arrayOf(
+            activity.getString(R.string.heatmap_method_sessions),
+            activity.getString(R.string.heatmap_method_points)
+        )
+        val methodSpinner = Spinner(activity)
+        val methodAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, methods)
+        methodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        methodSpinner.adapter = methodAdapter
+
+        val currentMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+        val methodIndex = methods.indexOf(currentMethod).coerceAtLeast(0)
+        methodSpinner.setSelection(methodIndex)
+
+        methodSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedMethod = methods[position]
+                val oldMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                if (selectedMethod != oldMethod) {
+                    prefs.edit().putString("heatmap_calculation_method", selectedMethod).apply()
+                    
+                    // Päivitetään seliteteksti
+                    midText.text = if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
+                        activity.getString(R.string.heatmap_points_in_grid)
+                    } else {
+                        activity.getString(R.string.heatmap_sessions_in_grid)
+                    }
+                    
+                    onMapSettingsChanged()
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        methodRow.addView(methodSpinner)
+        layout.addView(methodRow)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))

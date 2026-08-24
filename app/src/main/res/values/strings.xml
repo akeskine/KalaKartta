@@ -134,5 +134,10 @@
     <string name="color_green">Vihreä</string>
     <string name="heatmap_grid_size">Ruudun koko (m)</string>
     <string name="heatmap_filter_enabled">Suodata myös kalastetut alueet suodatusehtojen mukaisesti</string>
+    <string name="heatmap_calculation_method">Ruudun käyntikertojen laskentatapa</string>
+    <string name="heatmap_method_sessions">Kalastussessioiden määrä</string>
+    <string name="heatmap_method_points">Reittipisteiden määrä</string>
+    <string name="heatmap_sessions_in_grid">Kalastussessioita ruudussa</string>
+    <string name="heatmap_points_in_grid">Reittipisteitä ruudussa</string>
     <string name="reset_defaults">Palauta oletukset</string>
 </resources>
