@@ -550,6 +550,67 @@ class SettingsManager(
         methodRow.addView(methodSpinner)
         layout.addView(methodRow)
 
+        // Poista siirtymäpisteet
+        val speedLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 10, 0, 10)
+        }
+
+        val removeTransitionsCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.heatmap_remove_transitions)
+            isChecked = prefs.getBoolean("heatmap_remove_transitions", false)
+            textSize = 18f
+        }
+
+        val speedInputLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(40, 0, 0, 0)
+            visibility = if (removeTransitionsCb.isChecked) View.VISIBLE else View.GONE
+        }
+
+        val speedLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_max_speed)
+            textSize = 16f
+        }
+        speedInputLayout.addView(speedLabel)
+
+        val speedEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(prefs.getFloat("heatmap_max_speed", 10.0f).toString())
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(200, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                leftMargin = 20
+            }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s.toString().replace(",", ".").toFloatOrNull() ?: 10.0f
+                    prefs.edit().putFloat("heatmap_max_speed", value).apply()
+                    onMapSettingsChanged()
+                }
+            })
+        }
+        speedInputLayout.addView(speedEdit)
+
+        val kmhLabel = TextView(activity).apply {
+            text = activity.getString(R.string.unit_kmh)
+            textSize = 16f
+            setPadding(10, 0, 0, 0)
+        }
+        speedInputLayout.addView(kmhLabel)
+
+        removeTransitionsCb.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("heatmap_remove_transitions", isChecked).apply()
+            speedInputLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            onMapSettingsChanged()
+        }
+
+        speedLayout.addView(removeTransitionsCb)
+        speedLayout.addView(speedInputLayout)
+        layout.addView(speedLayout)
+
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))
             .setView(ScrollView(activity).apply { addView(layout) })

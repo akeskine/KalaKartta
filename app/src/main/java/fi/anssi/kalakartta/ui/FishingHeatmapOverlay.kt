@@ -42,6 +42,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var baseColor = Color.RED
     private var filterEnabled = false
     private var calculationMethod = ""
+    private var removeTransitions = false
+    private var maxSpeed = 10.0f
     
     init {
         refreshSettings()
@@ -56,6 +58,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         maxPoints = prefs.getInt("heatmap_max_points", 5).coerceAtLeast(minPoints + 1)
         filterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
         calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_sessions)) ?: context.getString(R.string.heatmap_method_sessions)
+        removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
+        maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
         
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
@@ -64,6 +68,26 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             else -> Color.RED
         }
         return oldGridSize != gridSizeMeters
+    }
+
+    private fun getPoints(f: fi.anssi.kalakartta.ui.FilterManager.Filters, hasAreaFilter: Boolean): List<TrackPointHeatmapData> {
+        return when {
+            (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
+                db.trackPointDao().getPointsForHeatmapRangeAndArea(
+                    f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE,
+                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
+                )
+            }
+            f.startDate != null || f.endDate != null -> {
+                db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
+            }
+            hasAreaFilter -> {
+                db.trackPointDao().getPointsForHeatmapArea(
+                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
+                )
+            }
+            else -> db.trackPointDao().getAllForHeatmap()
+        }
     }
 
     fun refreshData() {
@@ -85,27 +109,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
                 val hasAreaFilter = f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null
                 
-                // Jos meillä on monimutkaisempia filttereitä joita ei voi helposti tehdä SQL:llä,
-                // joudutaan edelleen lataamaan pisteet. Mutta useimmiten näin ei ole.
-                if (filterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
-                    val rawPoints = when {
-                        !filterEnabled -> db.trackPointDao().getAllForHeatmap()
-                        (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
-                            db.trackPointDao().getPointsForHeatmapRangeAndArea(
-                                f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE,
-                                f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
-                            )
-                        }
-                        f.startDate != null || f.endDate != null -> {
-                            db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
-                        }
-                        hasAreaFilter -> {
-                            db.trackPointDao().getPointsForHeatmapArea(
-                                f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
-                            )
-                        }
-                        else -> db.trackPointDao().getAllForHeatmap()
-                    }
+                val resultData: Map<Pair<Int, Int>, Int> = if (filterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
+                    val rawPoints = getPoints(f, hasAreaFilter)
 
                     val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
                     val filteredPoints = rawPoints.filter { p ->
@@ -151,103 +156,118 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                 if (currentMinutes < f.startTimeMinutes && currentMinutes > f.endTimeMinutes) return@filter false
                             }
                         }
+
+                        if (removeTransitions && p.speed > maxSpeed) return@filter false
+                        
                         true
                     }
                     processPoints(filteredPoints)
                 } else {
                     // Käytetään SQL-tason aggregointia
-                    val isPointCalculation = calculationMethod == context.getString(R.string.heatmap_method_points)
-                    val aggregated = when {
-                        !filterEnabled -> {
-                            if (isPointCalculation) {
-                                db.trackPointDao().getAggregatedHeatmapPoints(
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            } else {
-                                db.trackPointDao().getAggregatedHeatmap(
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
+                    // Jos removeTransitions on päällä, emme voi käyttää nykyisiä aggregointikyselyitä,
+                    // koska ne eivät sisällä nopeussuodatusta. 
+                    // Tässä tapauksessa haemme kaikki pisteet ja suodatamme Kotlinissa.
+                    
+                    if (removeTransitions) {
+                        val rawPoints = getPoints(f, hasAreaFilter)
+                        
+                        val filteredPoints = rawPoints.filter { it.speed <= maxSpeed }
+                        processPoints(filteredPoints)
+                    } else {
+                        val isPointCalculation = calculationMethod == context.getString(R.string.heatmap_method_points)
+                        val aggregated = when {
+                            !filterEnabled -> {
+                                if (isPointCalculation) {
+                                    db.trackPointDao().getAggregatedHeatmapPoints(
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                } else {
+                                    db.trackPointDao().getAggregatedHeatmap(
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                }
+                            }
+                            (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
+                                if (isPointCalculation) {
+                                    db.trackPointDao().getAggregatedHeatmapRangeAndAreaPoints(
+                                        f.startDate ?: 0L,
+                                        f.endDate ?: Long.MAX_VALUE,
+                                        f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                } else {
+                                    db.trackPointDao().getAggregatedHeatmapRangeAndArea(
+                                        f.startDate ?: 0L,
+                                        f.endDate ?: Long.MAX_VALUE,
+                                        f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                }
+                            }
+                            f.startDate != null || f.endDate != null -> {
+                                if (isPointCalculation) {
+                                    db.trackPointDao().getAggregatedHeatmapRangePoints(
+                                        f.startDate ?: 0L,
+                                        f.endDate ?: Long.MAX_VALUE,
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                } else {
+                                    db.trackPointDao().getAggregatedHeatmapRange(
+                                        f.startDate ?: 0L,
+                                        f.endDate ?: Long.MAX_VALUE,
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                }
+                            }
+                            hasAreaFilter -> {
+                                if (isPointCalculation) {
+                                    db.trackPointDao().getAggregatedHeatmapAreaPoints(
+                                        f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                } else {
+                                    db.trackPointDao().getAggregatedHeatmapArea(
+                                        f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                }
+                            }
+                            else -> {
+                                if (isPointCalculation) {
+                                    db.trackPointDao().getAggregatedHeatmapPoints(
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                } else {
+                                    db.trackPointDao().getAggregatedHeatmap(
+                                        latDegreeMeters,
+                                        lonDegreeMeters,
+                                        gridSizeMeters
+                                    )
+                                }
                             }
                         }
-                        (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
-                            if (isPointCalculation) {
-                                db.trackPointDao().getAggregatedHeatmapRangeAndAreaPoints(
-                                    f.startDate ?: 0L,
-                                    f.endDate ?: Long.MAX_VALUE,
-                                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            } else {
-                                db.trackPointDao().getAggregatedHeatmapRangeAndArea(
-                                    f.startDate ?: 0L,
-                                    f.endDate ?: Long.MAX_VALUE,
-                                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            }
-                        }
-                        f.startDate != null || f.endDate != null -> {
-                            if (isPointCalculation) {
-                                db.trackPointDao().getAggregatedHeatmapRangePoints(
-                                    f.startDate ?: 0L,
-                                    f.endDate ?: Long.MAX_VALUE,
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            } else {
-                                db.trackPointDao().getAggregatedHeatmapRange(
-                                    f.startDate ?: 0L,
-                                    f.endDate ?: Long.MAX_VALUE,
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            }
-                        }
-                        hasAreaFilter -> {
-                            if (isPointCalculation) {
-                                db.trackPointDao().getAggregatedHeatmapAreaPoints(
-                                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            } else {
-                                db.trackPointDao().getAggregatedHeatmapArea(
-                                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            }
-                        }
-                        else -> {
-                            if (isPointCalculation) {
-                                db.trackPointDao().getAggregatedHeatmapPoints(
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            } else {
-                                db.trackPointDao().getAggregatedHeatmap(
-                                    latDegreeMeters,
-                                    lonDegreeMeters,
-                                    gridSizeMeters
-                                )
-                            }
-                        }
+                        aggregated.associate { Pair(it.x, it.y) to it.sessionCount }
                     }
-                    aggregated.associate { Pair(it.x, it.y) to it.sessionCount }
                 }
+                resultData
             }
             
             heatmapData = newData
@@ -317,7 +337,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 if (count < minPoints) continue
                 
                 // Lasketaan alfa (max peittävyys 60% = 153/255)
-                val ratio = (count.toFloat() - minPoints) / (maxPoints - minPoints)
+                val ratio = (count.toFloat() - minPoints) / (maxPoints - minPoints).coerceAtLeast(1)
                 val clampedRatio = ratio.coerceIn(0f, 1f)
                 val alpha = (40 + (113 * clampedRatio)).toInt() // 40-153 (15%-60%)
                 

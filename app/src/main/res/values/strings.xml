@@ -139,5 +139,8 @@
     <string name="heatmap_method_points">Reittipisteiden määrä</string>
     <string name="heatmap_sessions_in_grid">Kalastussessioita ruudussa</string>
     <string name="heatmap_points_in_grid">Reittipisteitä ruudussa</string>
+    <string name="heatmap_remove_transitions">Poista siirtymäpisteet</string>
+    <string name="heatmap_max_speed">Reittipisteen maksiminopeus</string>
+    <string name="unit_kmh">km/h</string>
     <string name="reset_defaults">Palauta oletukset</string>
 </resources>
