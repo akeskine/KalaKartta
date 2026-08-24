@@ -406,11 +406,11 @@ class MarkerManager(
             }
         }
         
-        var baseIconSize = if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) 24 else 40
-        var visibleSize = if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) 8 else baseIconSize
+        var baseIconSize = if (drawableId == R.drawable.default_point) 24 else 40
+        var visibleSize = if (drawableId == R.drawable.default_point) 8 else 40
 
-        // Punaiset oletuspisteet (default_point) tai fallback-kuvakkeet pidetään vakioina ja pieninä
-        if (drawableId == R.drawable.default_point || drawableId == R.drawable.muukala) {
+        // Punaiset oletuspisteet (default_point) pidetään vakioina ja pieninä
+        if (drawableId == R.drawable.default_point) {
             scaleFactor = 0.8
         }
         
