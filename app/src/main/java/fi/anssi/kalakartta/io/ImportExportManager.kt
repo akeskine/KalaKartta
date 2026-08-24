@@ -257,6 +257,8 @@ class ImportExportManager(
                     var importedCatches = 0
                     var importedPlaces = 0
                     var importedSessions = 0
+                    var importedTrackPoints = 0
+                    var importedMedia = 0
                     var importedSpecies = 0
                     
                     val tempMediaFiles = mutableMapOf<String, ByteArray>()
@@ -284,6 +286,7 @@ class ImportExportManager(
                                     val pts = points.map { it.copy(fishingSessionId = sid) }
                                     db.trackPointDao().insertAll(pts)
                                     importedSessions++
+                                    importedTrackPoints += pts.size
                                 }
                             }
                             "kalalajit.json" -> {
@@ -313,13 +316,15 @@ class ImportExportManager(
                     
                     // Lopuksi media jos löytyi
                     if (mediaJsonStr != null) {
-                        mediaService.processMediaImport(mediaJsonStr, tempMediaFiles) { _, _ -> }
+                        mediaService.processMediaImport(mediaJsonStr, tempMediaFiles) { current, total ->
+                            importedMedia = total
+                        }
                     }
                     
                     activity.runOnUiThread {
                         progressDialog.dismiss()
                         onImportDone(importedSpecies > 0)
-                        showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalaa\n- $importedPlaces paikkaa\n- $importedSessions reittiä\n- $importedSpecies kalalajia")
+                        showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia")
                     }
                 }
             } catch (e: Exception) {
@@ -433,7 +438,7 @@ class ImportExportManager(
                                 progressDialog.dismiss()
                                 onImportDone(false)
                                 if (importedSessionsCount > 0) {
-                                    showConfirmationDialog("Reittien tuonti valmis ($importedSessionsCount reittiä).")
+                showConfirmationDialog("Reittien tuonti valmis ($importedSessionsCount kalastussessiota).")
                                 } else {
                                     showConfirmationDialog("Tiedostosta ei löytynyt tuotavia reittejä.")
                                 }
@@ -741,7 +746,7 @@ class ImportExportManager(
                     activity.runOnUiThread {
                         progressDialog.dismiss()
                         onImportDone(false)
-                        showConfirmationDialog("Tietojen tuonti valmis (${catchesToInsert.size} kalaa, ${placesToInsert.size} muuta paikkaa).")
+                        showConfirmationDialog("Tietojen tuonti valmis (${catchesToInsert.size} kalapistettä, ${placesToInsert.size} muun paikan pistettä).")
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("ImportExportManager", "Import processing failed", e)
