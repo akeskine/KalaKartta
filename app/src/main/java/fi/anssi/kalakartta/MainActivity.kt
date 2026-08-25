@@ -1056,6 +1056,7 @@ class MainActivity : AppCompatActivity() {
             }
             
             checkUnfinishedSessions()
+            settingsManager.checkShowUserManual()
         } catch (t: Throwable) {
             crashFile.writeText(t.stackTraceToString())
             throw t

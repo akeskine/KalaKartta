@@ -136,7 +136,7 @@ class SettingsManager(
         }
     }
 
-    private fun showUserManual() {
+    fun showUserManual(isStartup: Boolean = false) {
         try {
             val inputStream = activity.assets.open("kayttoohje.md")
             val size = inputStream.available()
@@ -193,12 +193,33 @@ class SettingsManager(
                 addView(textView)
             }
 
-            AlertDialog.Builder(activity)
+            val dialog = AlertDialog.Builder(activity)
                 .setView(scrollView)
-                .setPositiveButton("Sulje", null)
-                .show()
+                .setPositiveButton("Sulje") { _, _ ->
+                    if (isStartup) {
+                        closeSettings()
+                    }
+                }
+            
+            val shownDialog = dialog.show()
+            shownDialog.enlargeButtons()
+            
+            if (isStartup) {
+                currentDialog = shownDialog
+            }
         } catch (e: Exception) {
             Toast.makeText(activity, "Käyttöohjetta ei voitu ladata", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun checkShowUserManual() {
+        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val lastVersionCode = prefs.getInt("last_version_code", -1)
+        val currentVersionCode = BuildConfig.VERSION_CODE
+
+        if (lastVersionCode < currentVersionCode) {
+            showUserManual(isStartup = true)
+            prefs.edit().putInt("last_version_code", currentVersionCode).apply()
         }
     }
 
