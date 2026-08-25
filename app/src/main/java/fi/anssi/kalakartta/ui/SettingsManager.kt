@@ -490,7 +490,7 @@ class SettingsManager(
         }
         gridSizeRow.addView(gridSizeLabel)
 
-        val gridSizes = arrayOf("100", "300", "1000")
+        val gridSizes = arrayOf("50", "100", "300", "1000")
         val gridSizeSpinner = Spinner(activity)
         val gridAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, gridSizes)
         gridAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
