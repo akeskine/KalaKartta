@@ -143,4 +143,15 @@
     <string name="heatmap_max_speed">Reittipisteen maksiminopeus</string>
     <string name="unit_kmh">km/h</string>
     <string name="reset_defaults">Palauta oletukset</string>
+    <string name="talking_clock">Puhuva kello</string>
+    <string name="talking_clock_start">Käynnistä</string>
+    <string name="talking_clock_stop">Pysäytä</string>
+    <string name="talking_clock_only_fishing">Päällä kun kalastussessio käynnissä</string>
+    <string name="talking_clock_interval_prefix">Kellonaika </string>
+    <string name="talking_clock_interval_suffix"> min välein</string>
+    <string name="talking_clock_sunset">Kerro auringonlasku</string>
+    <string name="talking_clock_sunset_limit">jos alle </string>
+    <string name="talking_clock_sunrise">Kerro auringonnousu</string>
+    <string name="talking_clock_sunrise_limit">jos alle </string>
+    <string name="hours_suffix"> h päästä</string>
 </resources>

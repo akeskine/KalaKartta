@@ -692,11 +692,186 @@ class SettingsManager(
             }
         }
         layout.addView(autoCenterLink)
+        
+        // Puhuva kello -linkki
+        val talkingClockLink = TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock)
+            textSize = 18f
+            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            setOnClickListener {
+                openTalkingClockSettings()
+            }
+        }
+        layout.addView(talkingClockLink)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .show()
+        currentDialog = dialog
+        dialog.enlargeButtons()
+    }
+
+    private fun openTalkingClockSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val clockControlLink = TextView(activity).apply {
+            val isEnabled = prefs.getBoolean("talking_clock_enabled", false)
+            text = activity.getString(if (isEnabled) R.string.talking_clock_stop else R.string.talking_clock_start)
+            textSize = 18f
+            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            
+            setOnClickListener {
+                val newState = !prefs.getBoolean("talking_clock_enabled", false)
+                prefs.edit().putBoolean("talking_clock_enabled", newState).apply()
+                text = activity.getString(if (newState) R.string.talking_clock_stop else R.string.talking_clock_start)
+            }
+        }
+        layout.addView(clockControlLink)
+
+        val onlyFishingCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.talking_clock_only_fishing)
+            isChecked = prefs.getBoolean("talking_clock_only_fishing", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("talking_clock_only_fishing", isChecked).apply()
+            }
+        }
+        layout.addView(onlyFishingCheckbox)
+
+        // Kerro kellonaika X minuutin välein
+        val intervalLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 20, 0, 20)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        intervalLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock_interval_prefix)
+            textSize = 18f
+        })
+
+        val intervals = arrayOf("5", "10", "15", "20", "30", "60")
+        val currentInterval = prefs.getInt("talking_clock_interval", 30).toString()
+        val intervalSpinner = Spinner(activity).apply {
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, intervals)
+            setSelection(intervals.indexOf(currentInterval).let { if (it == -1) 4 else it }) // Oletus 30 min
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    prefs.edit().putInt("talking_clock_interval", intervals[position].toInt()).apply()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        intervalLayout.addView(intervalSpinner)
+        intervalLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock_interval_suffix)
+            textSize = 18f
+        })
+        layout.addView(intervalLayout)
+
+        // Auringonlasku
+        val sunsetLimitLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(80, 0, 0, 10)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            visibility = if (prefs.getBoolean("talking_clock_sunset", false)) View.VISIBLE else View.GONE
+        }
+        sunsetLimitLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock_sunset_limit)
+            textSize = 18f
+        })
+        val sunsetHours = arrayOf("1", "2", "3", "4", "5", "6")
+        val currentSunsetLimit = prefs.getInt("talking_clock_sunset_limit", 2).toString()
+        val sunsetSpinner = Spinner(activity).apply {
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunsetHours)
+            setSelection(sunsetHours.indexOf(currentSunsetLimit).let { if (it == -1) 1 else it })
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    prefs.edit().putInt("talking_clock_sunset_limit", sunsetHours[position].toInt()).apply()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        sunsetLimitLayout.addView(sunsetSpinner)
+        sunsetLimitLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.hours_suffix)
+            textSize = 18f
+        })
+
+        val sunsetCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.talking_clock_sunset)
+            isChecked = prefs.getBoolean("talking_clock_sunset", false)
+            textSize = 18f
+            setPadding(paddingLeft, 10, paddingRight, 0)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("talking_clock_sunset", isChecked).apply()
+                sunsetLimitLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            }
+        }
+        layout.addView(sunsetCheckbox)
+        layout.addView(sunsetLimitLayout)
+
+        // Auringonnousu
+        val sunriseLimitLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(80, 0, 0, 10)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            visibility = if (prefs.getBoolean("talking_clock_sunrise", false)) View.VISIBLE else View.GONE
+        }
+        sunriseLimitLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock_sunrise_limit)
+            textSize = 18f
+        })
+        val sunriseHours = arrayOf("1", "2", "3", "4", "6")
+        val currentSunriseLimit = prefs.getInt("talking_clock_sunrise_limit", 2).toString()
+        val sunriseSpinner = Spinner(activity).apply {
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunriseHours)
+            setSelection(sunriseHours.indexOf(currentSunriseLimit).let { if (it == -1) 1 else it })
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    prefs.edit().putInt("talking_clock_sunrise_limit", sunriseHours[position].toInt()).apply()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        sunriseLimitLayout.addView(sunriseSpinner)
+        sunriseLimitLayout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.hours_suffix)
+            textSize = 18f
+        })
+
+        val sunriseCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.talking_clock_sunrise)
+            isChecked = prefs.getBoolean("talking_clock_sunrise", false)
+            textSize = 18f
+            setPadding(paddingLeft, 10, paddingRight, 0)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("talking_clock_sunrise", isChecked).apply()
+                sunriseLimitLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            }
+        }
+        layout.addView(sunriseCheckbox)
+        layout.addView(sunriseLimitLayout)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.talking_clock))
+            .setView(ScrollView(activity).apply { addView(layout) })
+            .setNegativeButton("Tallenna", null)
+            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .show()
         currentDialog = dialog
         dialog.enlargeButtons()
