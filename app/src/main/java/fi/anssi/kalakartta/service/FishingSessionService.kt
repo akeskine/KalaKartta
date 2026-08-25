@@ -40,6 +40,7 @@ class FishingSessionService : Service() {
     private var minTrackPointDistanceMeters: Int = 20
     private var lastSavedTimestamp: Long = 0L
     private var lastSavedLocation: Location? = null
+    private var currentStationaryIntervalSeconds: Int = 30
     private var locationProviderReceiver: BroadcastReceiver? = null
     private var locationCheckCount = 0
 
@@ -178,6 +179,7 @@ class FishingSessionService : Service() {
         lastLocation = null
         lastSavedLocation = null
         lastSavedTimestamp = 0L
+        currentStationaryIntervalSeconds = minInt
 
         serviceScope.launch {
             val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -225,6 +227,7 @@ class FishingSessionService : Service() {
             lastLocation = prevLoc
             lastSavedLocation = prevLoc
             lastSavedTimestamp = points.lastOrNull()?.timestamp ?: 0L
+            currentStationaryIntervalSeconds = minInt
 
             launch(Dispatchers.Main) {
                 startForeground(NOTIFICATION_ID, createNotification())
@@ -299,8 +302,16 @@ class FishingSessionService : Service() {
             val timeSinceLastSave = now - lastSavedTimestamp
             val distanceSinceLastSave = lastSavedLocation?.distanceTo(location) ?: Float.MAX_VALUE
             
-            val shouldSave = (timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L && distanceSinceLastSave >= minTrackPointDistanceMeters) ||
-                             (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
+            val isStationary = distanceSinceLastSave < minTrackPointDistanceMeters
+            val shouldSave: Boolean
+            
+            if (!isStationary) {
+                // Liikkeellä
+                shouldSave = timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L
+            } else {
+                // Paikallaan tai lähes paikallaan
+                shouldSave = timeSinceLastSave >= currentStationaryIntervalSeconds * 1000L
+            }
 
             if (KALASTUSSESSIOT_DEBUG) {
                 val distanceStr = lastSavedLocation?.let { String.format("%.1f m", distanceSinceLastSave) } ?: "-"
@@ -319,6 +330,14 @@ class FishingSessionService : Service() {
                 saveTrackPoint(location)
                 lastSavedTimestamp = now
                 lastSavedLocation = location
+                
+                if (!isStationary) {
+                    // Onnistunut minimietäisyyden saavuttanut tallennus nollaa porrastuksen
+                    currentStationaryIntervalSeconds = minTrackPointIntervalSeconds
+                } else {
+                    // Onnistunut paikallaanolon tallennus kaksinkertaistaa välin (maxTrackPointIntervalSeconds asti)
+                    currentStationaryIntervalSeconds = Math.min(currentStationaryIntervalSeconds * 2, maxTrackPointIntervalSeconds)
+                }
             }
             
             // Päivitetään ilmoitus
@@ -408,14 +427,19 @@ class FishingSessionService : Service() {
         val saved = lastSavedLocation ?: return null
         return last.distanceTo(saved)
     }
+    fun getCurrentStationaryIntervalSeconds() = currentStationaryIntervalSeconds
     fun getShouldSaveStatus(): Boolean {
         val now = System.currentTimeMillis()
         val timeSinceLastSave = now - lastSavedTimestamp
         val last = lastLocation ?: return (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
         val distanceSinceLastSave = lastSavedLocation?.distanceTo(last) ?: Float.MAX_VALUE
         
-        return (timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L && distanceSinceLastSave >= minTrackPointDistanceMeters) ||
-                         (timeSinceLastSave >= maxTrackPointIntervalSeconds * 1000L)
+        val isStationary = distanceSinceLastSave < minTrackPointDistanceMeters
+        return if (!isStationary) {
+            timeSinceLastSave >= minTrackPointIntervalSeconds * 1000L
+        } else {
+            timeSinceLastSave >= currentStationaryIntervalSeconds * 1000L
+        }
     }
 
     override fun onDestroy() {
