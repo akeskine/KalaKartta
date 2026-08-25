@@ -49,6 +49,13 @@ class SettingsManager(
         currentDialog = null
     }
 
+    private fun showDialog(dialog: AlertDialog) {
+        currentDialog?.dismiss()
+        currentDialog = dialog
+        dialog.show()
+        dialog.enlargeButtons()
+    }
+
     fun openSettings(
         isFiltered: Boolean = false,
         filteredCatches: List<fi.anssi.kalakartta.data.FishCatch>? = null,
@@ -95,11 +102,12 @@ class SettingsManager(
                     }
                     contentLayout.addView(helpLink)
 
-                    AlertDialog.Builder(activity)
+                    val manualDialog = AlertDialog.Builder(activity)
                         .setCustomTitle(titleViewVersion)
                         .setView(contentLayout)
                         .setPositiveButton("OK", null)
-                        .show()
+                        .create()
+                    showDialog(manualDialog)
                 }
 
                 val dialog = AlertDialog.Builder(activity)
@@ -119,9 +127,9 @@ class SettingsManager(
                                 mediaCount,
                                 isFiltered,
                                 filteredCatches?.size ?: 0,
-                                filteredPlaces?.size ?: 0,
-                                filteredCatches,
-                                filteredPlaces
+                                filteredPlaceCount = filteredPlaces?.size ?: 0,
+                                filteredCatches = filteredCatches,
+                                filteredPlaces = filteredPlaces
                             )
                             6 -> openWeatherSettings()
                             7 -> openSpeciesSettings()
@@ -129,9 +137,8 @@ class SettingsManager(
                         }
                     }
                     .setPositiveButton("Takaisin", null)
-                    .show()
-                currentDialog = dialog
-                dialog.enlargeButtons()
+                    .create()
+                showDialog(dialog)
             }
         }
     }
@@ -637,9 +644,8 @@ class SettingsManager(
             .setView(ScrollView(activity).apply { addView(layout) })
             .setNegativeButton("Tallenna", null)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun openGeneralSettings() {
@@ -712,9 +718,8 @@ class SettingsManager(
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun openTalkingClockSettings() {
@@ -872,9 +877,8 @@ class SettingsManager(
             .setView(ScrollView(activity).apply { addView(layout) })
             .setNegativeButton("Tallenna", null)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun openScaleSettings() {
@@ -911,9 +915,8 @@ class SettingsManager(
             .setTitle(activity.getString(R.string.scale_bar))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun openAutoCenterSettings() {
@@ -938,9 +941,8 @@ class SettingsManager(
             .setTitle(activity.getString(R.string.auto_center))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
 
@@ -1184,9 +1186,8 @@ class SettingsManager(
                 }
                 onMapSettingsChanged()
             }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun openWeatherSettings() {
@@ -1240,9 +1241,8 @@ class SettingsManager(
                     onWeatherSettingsChanged(isEnabledCurrent)
                 }
             }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     // Poistettu updateMissingWeatherData metodit ja siirretty WeatherUpdateActivityyn
@@ -1307,23 +1307,25 @@ class SettingsManager(
                 .show()
         }
 
-        val dialog = AlertDialog.Builder(activity)
+        val dialogBuilder = AlertDialog.Builder(activity)
             .setCustomTitle(titleView)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .create()
 
         val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             val p = (16 * activity.resources.displayMetrics.density).toInt()
             setPadding(p, 0, p, p)
         }
+        
+        val dialog = dialogBuilder.setView(contentLayout).create()
+        showDialog(dialog)
 
         val options = listOf(
             "Vie kaikki tiedot",
             "Tuo kaikki tiedot",
             "Poista kaikki tiedot"
         )
-
+        
         options.forEach { option ->
             val textView = TextView(activity).apply {
                 text = option
@@ -1439,9 +1441,8 @@ class SettingsManager(
             addView(contentLayout)
         }
 
-        dialog.setView(scrollView)
-        dialog.show()
-        dialog.enlargeButtons()
+        dialogBuilder.setView(scrollView)
+        showDialog(dialog)
     }
 
     private fun confirmDeleteAllCatches() {
@@ -1452,9 +1453,9 @@ class SettingsManager(
             .setNegativeButton("Poista") { _, _ ->
                 deleteAllCatches()
             }
-            .show()
+            .create()
 
-        dialog.enlargeButtons()
+        showDialog(dialog)
     }
 
     private fun deleteAllCatches() {
@@ -1465,8 +1466,8 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setMessage("Kaikki pisteet poistettu.")
             .setPositiveButton("OK", null)
-            .show()
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun confirmDeleteAllRoutes() {
@@ -1477,9 +1478,9 @@ class SettingsManager(
             .setNegativeButton("Poista") { _, _ ->
                 deleteAllRoutes()
             }
-            .show()
+            .create()
 
-        dialog.enlargeButtons()
+        showDialog(dialog)
     }
 
     private fun deleteAllRoutes() {
@@ -1489,8 +1490,8 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setMessage("Kaikki reitit poistettu.")
             .setPositiveButton("OK", null)
-            .show()
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 
     private fun openSpeciesSettings() {
@@ -1537,9 +1538,8 @@ class SettingsManager(
                             .setNegativeButton("Tuo") { _, _ ->
                                 importExportManager.launchImportSpecies()
                             }
-                            .show()
-                        currentDialog = d
-                        d.enlargeButtons()
+                            .create()
+                        showDialog(d)
                     }
                     activity.getString(R.string.reset_default_species) -> {
                         val d = AlertDialog.Builder(activity)
@@ -1558,16 +1558,14 @@ class SettingsManager(
                                     }
                                 }
                             }
-                            .show()
-                        currentDialog = d
-                        d.enlargeButtons()
+                            .create()
+                        showDialog(d)
                     }
                 }
             }
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
             }
         }
     }
@@ -1941,9 +1939,8 @@ class SettingsManager(
                     updateJob.cancel()
                     if (currentDialog == dialog) currentDialog = null
                 }
-                .show()
-            currentDialog = dialog
-            dialog.enlargeButtons()
+                .create()
+            showDialog(dialog!!)
         } else {
             var dialog: AlertDialog? = null
             
@@ -2032,9 +2029,8 @@ class SettingsManager(
                     updateJob.cancel()
                     if (currentDialog == dialog) currentDialog = null
                 }
-                .show()
-            currentDialog = dialog
-            dialog.enlargeButtons()
+                .create()
+            showDialog(dialog!!)
         }
     }
 
@@ -2084,8 +2080,7 @@ class SettingsManager(
                 }
                 onMapSettingsChanged() // Käytetään tätä päivittämään UI
             }
-            .show()
-        currentDialog = dialog
-        dialog.enlargeButtons()
+            .create()
+        showDialog(dialog)
     }
 }
