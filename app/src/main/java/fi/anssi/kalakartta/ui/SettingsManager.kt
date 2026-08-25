@@ -1366,7 +1366,11 @@ class SettingsManager(
             setPadding(p, 0, p, p)
         }
         
-        val dialog = dialogBuilder.setView(contentLayout).create()
+        val scrollView = ScrollView(activity).apply {
+            addView(contentLayout)
+        }
+        
+        val dialog = dialogBuilder.setView(scrollView).create()
         showDialog(dialog)
 
         val options = listOf(
@@ -1485,13 +1489,6 @@ class SettingsManager(
             extraOptionsLayout.visibility = View.GONE
             moreLink.visibility = View.VISIBLE
         }
-
-        val scrollView = ScrollView(activity).apply {
-            addView(contentLayout)
-        }
-
-        dialogBuilder.setView(scrollView)
-        showDialog(dialog)
     }
 
     private fun confirmDeleteAllCatches() {
