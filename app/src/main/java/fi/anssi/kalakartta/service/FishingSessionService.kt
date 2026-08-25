@@ -18,6 +18,7 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishingSession
 import fi.anssi.kalakartta.data.TrackPoint
+import fi.anssi.kalakartta.service.TalkingClockService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -191,6 +192,21 @@ class FishingSessionService : Service() {
                 startForeground(NOTIFICATION_ID, createNotification())
                 requestLocationUpdates()
                 
+                // Käynnistetään kello jos asetus päällä
+                if (prefs.getBoolean("talking_clock_only_fishing", false)) {
+                    prefs.edit().putBoolean("talking_clock_enabled", true).apply()
+                    val interval = prefs.getInt("talking_clock_interval", 30)
+                    val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
+                        putExtra("interval", interval)
+                        action = "START_IMMEDIATELY"
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(clockIntent)
+                    } else {
+                        startService(clockIntent)
+                    }
+                }
+
                 // Ilmoitetaan MainActivitylle että sessio on alkanut (ja interval on asetettu)
                 val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
                 intent.setPackage(packageName)
@@ -232,6 +248,23 @@ class FishingSessionService : Service() {
             launch(Dispatchers.Main) {
                 startForeground(NOTIFICATION_ID, createNotification())
                 requestLocationUpdates()
+
+                // Käynnistetään kello jos asetus päällä
+                val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+                if (prefs.getBoolean("talking_clock_only_fishing", false)) {
+                    prefs.edit().putBoolean("talking_clock_enabled", true).apply()
+                    val interval = prefs.getInt("talking_clock_interval", 30)
+                    val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
+                        putExtra("interval", interval)
+                        action = "START_IMMEDIATELY"
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(clockIntent)
+                    } else {
+                        startService(clockIntent)
+                    }
+                }
+
                 val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
                 intent.setPackage(packageName)
                 sendBroadcast(intent)
@@ -262,6 +295,13 @@ class FishingSessionService : Service() {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.cancel(NOTIFICATION_ID)
+                
+                // Pysäytetään kello jos asetus päällä
+                val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+                if (prefs.getBoolean("talking_clock_only_fishing", false)) {
+                    prefs.edit().putBoolean("talking_clock_enabled", false).apply()
+                    stopService(Intent(this@FishingSessionService, TalkingClockService::class.java))
+                }
                 
                 // Ilmoitetaan MainActivitylle että sessio loppui, jotta se voi avata dialogin
                 val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED")

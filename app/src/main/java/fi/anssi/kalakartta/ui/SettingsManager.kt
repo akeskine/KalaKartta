@@ -3,6 +3,7 @@ package fi.anssi.kalakartta.ui
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.view.View
 import android.view.MotionEvent
 import android.text.Spannable
@@ -22,6 +23,8 @@ import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.utils.enlargeButtons
 import fi.anssi.kalakartta.utils.WeatherService
+import fi.anssi.kalakartta.service.TalkingClockService
+import fi.anssi.kalakartta.service.FishingSessionService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -744,6 +747,21 @@ class SettingsManager(
                 val newState = !prefs.getBoolean("talking_clock_enabled", false)
                 prefs.edit().putBoolean("talking_clock_enabled", newState).apply()
                 text = activity.getString(if (newState) R.string.talking_clock_stop else R.string.talking_clock_start)
+                
+                if (newState) {
+                    val interval = prefs.getInt("talking_clock_interval", 30)
+                    val intent = Intent(activity, TalkingClockService::class.java).apply {
+                        putExtra("interval", interval)
+                        action = "START_IMMEDIATELY"
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        activity.startForegroundService(intent)
+                    } else {
+                        activity.startService(intent)
+                    }
+                } else {
+                    activity.stopService(Intent(activity, TalkingClockService::class.java))
+                }
             }
         }
         layout.addView(clockControlLink)
@@ -769,14 +787,26 @@ class SettingsManager(
             textSize = 18f
         })
 
-        val intervals = arrayOf("5", "10", "15", "20", "30", "60")
+        val intervals = arrayOf("1", "5", "10", "15", "20", "30", "60")
         val currentInterval = prefs.getInt("talking_clock_interval", 30).toString()
         val intervalSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, intervals)
             setSelection(intervals.indexOf(currentInterval).let { if (it == -1) 4 else it }) // Oletus 30 min
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    prefs.edit().putInt("talking_clock_interval", intervals[position].toInt()).apply()
+                    val interval = intervals[position].toInt()
+                    prefs.edit().putInt("talking_clock_interval", interval).apply()
+                    
+                    if (prefs.getBoolean("talking_clock_enabled", false)) {
+                        val intent = Intent(activity, TalkingClockService::class.java).apply {
+                            putExtra("interval", interval)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            activity.startForegroundService(intent)
+                        } else {
+                            activity.startService(intent)
+                        }
+                    }
                 }
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
@@ -787,6 +817,25 @@ class SettingsManager(
             textSize = 18f
         })
         layout.addView(intervalLayout)
+        
+        // Puhuttelu
+        layout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock_salutation)
+            textSize = 18f
+            setPadding(0, 10, 0, 0)
+        })
+        val salutationEdit = EditText(activity).apply {
+            setText(prefs.getString("talking_clock_salutation", ""))
+            textSize = 18f
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    prefs.edit().putString("talking_clock_salutation", s?.toString() ?: "").apply()
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }
+        layout.addView(salutationEdit)
 
         // Auringonlasku
         val sunsetLimitLayout = LinearLayout(activity).apply {
