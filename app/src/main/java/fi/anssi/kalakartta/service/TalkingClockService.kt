@@ -16,6 +16,10 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import fi.anssi.kalakartta.MainActivity
@@ -36,6 +40,9 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private var lastCalculationLocation: Location? = null
     private var locationManager: LocationManager? = null
     private var lastKnownLocation: Location? = null
+    
+    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    private var focusRequest: AudioFocusRequest? = null
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
@@ -137,6 +144,12 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) { abandonAudioFocus() }
+                override fun onError(utteranceId: String?) { abandonAudioFocus() }
+            })
+
             val result = tts?.setLanguage(Locale("fi", "FI"))
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 Log.e("TalkingClockService", "Finnish language not supported")
@@ -194,7 +207,9 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             text = "$text $sunText"
         }
         
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
+        if (requestAudioFocus()) {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
+        }
     }
 
     private fun getSunTimeSpeech(location: Location?, prefs: android.content.SharedPreferences): String {
@@ -423,7 +438,39 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         locationManager?.removeUpdates(locationListener)
         tts?.stop()
         tts?.shutdown()
+        abandonAudioFocus()
         super.onDestroy()
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(playbackAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener { }
+                .build()
+            audioManager.requestAudioFocus(focusRequest!!) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                { },
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus { }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
