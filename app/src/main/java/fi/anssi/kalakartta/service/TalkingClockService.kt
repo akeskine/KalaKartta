@@ -7,7 +7,11 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -16,6 +20,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
+import fi.anssi.kalakartta.utils.SunService
 import java.util.*
 
 class TalkingClockService : Service(), TextToSpeech.OnInitListener {
@@ -24,6 +29,22 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private val handler by lazy { Handler(Looper.getMainLooper()) }
     private var intervalMinutes = 10
     private var isTtsInitialized = false
+    
+    private val sunService = SunService()
+    private var cachedSunTimes: Pair<Calendar, Calendar>? = null
+    private var lastCalculationDate: String = ""
+    private var lastCalculationLocation: Location? = null
+    private var locationManager: LocationManager? = null
+    private var lastKnownLocation: Location? = null
+
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            lastKnownLocation = location
+        }
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+    }
     
     private val talkRunnable = object : Runnable {
         override fun run() {
@@ -45,6 +66,26 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             startForeground(NOTIFICATION_ID, createNotification())
         }
         tts = TextToSpeech(this, this)
+        
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        try {
+            locationManager?.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                60000L, // 1 minuutti
+                100f,   // 100 metriä
+                locationListener
+            )
+            locationManager?.requestLocationUpdates(
+                LocationManager.NETWORK_PROVIDER,
+                60000L,
+                100f,
+                locationListener
+            )
+            lastKnownLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        } catch (e: SecurityException) {
+            Log.e("TalkingClockService", "Sijaintilupia ei ole annettu", e)
+        }
     }
 
     private fun createNotification(): Notification {
@@ -147,8 +188,133 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         if (salutation.isNotEmpty()) {
             text = "$salutation $text"
         }
+
+        val sunText = getSunTimeSpeech(lastKnownLocation, prefs)
+        if (sunText.isNotEmpty()) {
+            text = "$text $sunText"
+        }
         
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
+    }
+
+    private fun getSunTimeSpeech(location: Location?, prefs: android.content.SharedPreferences): String {
+        if (location == null) return ""
+        
+        val now = Calendar.getInstance()
+        val tellSunrise = prefs.getBoolean("talking_clock_sunrise", false)
+        val tellSunset = prefs.getBoolean("talking_clock_sunset", false)
+        
+        if (!tellSunrise && !tellSunset) return ""
+
+        val sunriseLimitMs = prefs.getInt("talking_clock_sunrise_limit", 2) * 3600000L
+        val sunsetLimitMs = prefs.getInt("talking_clock_sunset_limit", 2) * 3600000L
+        
+        val validEvents = mutableListOf<Pair<Long, String>>()
+        
+        // Tarkistetaan tämän päivän ja huomisen ajat
+        for (i in 0..1) {
+            val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, i) }
+            val sunTimes = getOrUpdateSunTimes(location, date) ?: continue
+            val (sunrise, sunset) = sunTimes
+            
+            val diffSunrise = sunrise.timeInMillis - now.timeInMillis
+            val diffSunset = sunset.timeInMillis - now.timeInMillis
+            
+            if (tellSunrise && diffSunrise > 0 && diffSunrise <= sunriseLimitMs) {
+                validEvents.add(diffSunrise to formatRemainingTime("nousuun", diffSunrise))
+            }
+            
+            if (tellSunset && diffSunset > 0 && diffSunset <= sunsetLimitMs) {
+                validEvents.add(diffSunset to formatRemainingTime("laskuun", diffSunset))
+            }
+        }
+
+        return validEvents.minByOrNull { it.first }?.second ?: ""
+    }
+
+    private fun getOrUpdateSunTimes(currentLocation: Location, date: Calendar): Pair<Calendar, Calendar>? {
+        val dateKey = "${date.get(Calendar.YEAR)}-${date.get(Calendar.DAY_OF_YEAR)}"
+        
+        // Välimuistitus on nyt päiväkohtainen. Jos pyydetty päivä on eri kuin viimeksi laskettu, lasketaan uudestaan.
+        // Huom: Tämä tukee nyt vain yhtä päivää kerrallaan välimuistissa, mutta getSunTimeSpeech kutsuu tätä
+        // peräkkäin tänään ja huomenna.
+        val needsUpdate = cachedSunTimes == null || 
+                          dateKey != lastCalculationDate || 
+                          (lastCalculationLocation?.distanceTo(currentLocation) ?: Float.MAX_VALUE) > 50000
+
+        if (needsUpdate) {
+            cachedSunTimes = sunService.getSunriseSunset(
+                currentLocation.latitude, 
+                currentLocation.longitude, 
+                date
+            )
+            lastCalculationDate = dateKey
+            lastCalculationLocation = currentLocation
+        }
+        
+        return cachedSunTimes
+    }
+
+    private fun formatRemainingTime(event: String, diffMs: Long): String {
+        val totalMinutes = diffMs / 60000
+        val hours = (totalMinutes / 60).toInt()
+        val minutes = (totalMinutes % 60).toInt()
+
+        val hoursStr = when (hours) {
+            0 -> ""
+            1 -> "yksi tunti"
+            else -> {
+                val hStr = when (hours) {
+                    2 -> "kaksi"; 3 -> "kolme"; 4 -> "neljä"; 5 -> "viisi"; 6 -> "kuusi"
+                    7 -> "seitsemän"; 8 -> "kahdeksan"; 9 -> "yhdeksän"; 10 -> "kymmenen"
+                    11 -> "yksitoista"; 12 -> "kaksitoista"
+                    13 -> "kolmetoista"; 14 -> "neljätoista"; 15 -> "viisitoista"
+                    16 -> "kuusitoista"; 17 -> "seitsemäntoista"; 18 -> "kahdeksantoista"
+                    19 -> "yhdeksäntoista"; 20 -> "kaksikymmentä"; 21 -> "kaksikymmentäyksi"
+                    22 -> "kaksikymmentäkaksi"; 23 -> "kaksikymmentäkolme"; 24 -> "kaksikymmentäneljä"
+                    else -> hours.toString()
+                }
+                "$hStr tuntia"
+            }
+        }
+
+        val minutesStr = when (minutes) {
+            0 -> if (hours == 0) "nolla minuuttia" else ""
+            1 -> "yksi minuutti"
+            else -> {
+                val mStr = when (minutes) {
+                    2 -> "kaksi"; 3 -> "kolme"; 4 -> "neljä"; 5 -> "viisi"; 6 -> "kuusi"
+                    7 -> "seitsemän"; 8 -> "kahdeksan"; 9 -> "yhdeksän"; 10 -> "kymmenen"
+                    11 -> "yksitoista"; 12 -> "kaksitoista"; 13 -> "kolmetoista"; 14 -> "neljätoista"
+                    15 -> "viisitoista"; 16 -> "kuusitoista"; 17 -> "seitsemäntoista"; 18 -> "kahdeksantoista"
+                    19 -> "yhdeksäntoista"; 20 -> "kaksikymmentä"; 30 -> "kolmekymmentä"; 40 -> "neljäkymmentä"
+                    50 -> "viisikymmentä"
+                    else -> {
+                        val tens = minutes / 10
+                        val ones = minutes % 10
+                        val tensStr = when (tens) {
+                            2 -> "kaksikymmentä"; 3 -> "kolmekymmentä"; 4 -> "neljäkymmentä"
+                            5 -> "viisikymmentä"; else -> ""
+                        }
+                        val onesStr = when (ones) {
+                            1 -> "yksi"; 2 -> "kaksi"; 3 -> "kolme"; 4 -> "neljä"; 5 -> "viisi"
+                            6 -> "kuusi"; 7 -> "seitsemän"; 8 -> "kahdeksan"; 9 -> "yhdeksän"
+                            else -> ""
+                        }
+                        tensStr + onesStr
+                    }
+                }
+                "$mStr minuuttia"
+            }
+        }
+
+        val timePart = if (hoursStr.isNotEmpty() && minutesStr.isNotEmpty()) {
+            "$hoursStr $minutesStr"
+        } else {
+            hoursStr + minutesStr
+        }
+
+        return "Auringon $event on $timePart."
     }
 
     private fun formatTimeFinnish(hour: Int, minute: Int): String {
@@ -254,6 +420,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         handler.removeCallbacks(talkRunnable)
+        locationManager?.removeUpdates(locationListener)
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()

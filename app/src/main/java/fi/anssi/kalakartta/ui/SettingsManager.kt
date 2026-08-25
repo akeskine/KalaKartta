@@ -848,7 +848,7 @@ class SettingsManager(
             text = activity.getString(R.string.talking_clock_sunset_limit)
             textSize = 18f
         })
-        val sunsetHours = arrayOf("1", "2", "3", "4", "5", "6")
+        val sunsetHours = arrayOf("1", "2", "3", "4", "5", "6", "12", "24")
         val currentSunsetLimit = prefs.getInt("talking_clock_sunset_limit", 2).toString()
         val sunsetSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunsetHours)
@@ -890,7 +890,7 @@ class SettingsManager(
             text = activity.getString(R.string.talking_clock_sunrise_limit)
             textSize = 18f
         })
-        val sunriseHours = arrayOf("1", "2", "3", "4", "6")
+        val sunriseHours = arrayOf("1", "2", "3", "4", "6", "12", "24")
         val currentSunriseLimit = prefs.getInt("talking_clock_sunrise_limit", 2).toString()
         val sunriseSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunriseHours)
