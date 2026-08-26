@@ -142,7 +142,7 @@
     <string name="heatmap_sessions_in_grid">Kalastussessioita ruudussa</string>
     <string name="heatmap_points_in_grid">Reittipisteitä ruudussa</string>
     <string name="heatmap_remove_transitions">Poista siirtymäpisteet</string>
-    <string name="heatmap_max_speed">Reittipisteen max. nopeus (km/h)</string>
+    <string name="heatmap_max_speed">Pisteen max nop. (km/h)</string>
     <string name="unit_kmh">km/h</string>
     <string name="reset_defaults">Palauta oletukset</string>
     <string name="talking_clock">Puhuva kello</string>
