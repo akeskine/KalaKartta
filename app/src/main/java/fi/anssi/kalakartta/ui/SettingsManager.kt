@@ -340,6 +340,15 @@ class SettingsManager(
         return html
     }
 
+    private fun disableHeatmapAndRoutes() {
+        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("heatmap_enabled", false)
+            .putBoolean("fishing_routes_enabled", false)
+            .apply()
+        onMapSettingsChanged()
+    }
+
     private fun openFishingHeatmapSettings() {
         val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
         
@@ -1601,7 +1610,10 @@ class SettingsManager(
                 dialog.dismiss()
                 when (option) {
                     "Vie kaikki tiedot" -> importExportManager.launchExportAll()
-                    "Tuo kaikki tiedot" -> importExportManager.launchImportAll()
+                    "Tuo kaikki tiedot" -> {
+                        disableHeatmapAndRoutes()
+                        importExportManager.launchImportAll()
+                    }
                     "Poista kaikki tiedot" -> importExportManager.launchDeleteAllData()
                 }
             }
@@ -1660,9 +1672,15 @@ class SettingsManager(
                             importExportManager.launchExport()
                         }
                     }
-                    1 -> importExportManager.launchImport()
+                    1 -> {
+                        disableHeatmapAndRoutes()
+                        importExportManager.launchImport()
+                    }
                     2 -> importExportManager.launchExportRoutes()
-                    3 -> importExportManager.launchImportRoutes()
+                    3 -> {
+                        disableHeatmapAndRoutes()
+                        importExportManager.launchImportRoutes()
+                    }
                     4 -> importExportManager.launchExportMedia()
                     5 -> importExportManager.launchImportMedia()
                     6 -> confirmDeleteAllCatches()
