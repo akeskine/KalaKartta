@@ -392,9 +392,30 @@ class FishingSessionActivity : AppCompatActivity() {
     }
 
     private fun confirmDeleteSession(session: FishingSession) {
+        val dateFmt = SimpleDateFormat("d.M.yyyy", Locale.getDefault())
+        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+        val startCal = Calendar.getInstance().apply { timeInMillis = session.startedAt }
+        val endCal = session.endedAt?.let { Calendar.getInstance().apply { timeInMillis = it } }
+
+        val sessionDetails = if (endCal == null || isSameDay(startCal, endCal)) {
+            val dateStr = dateFmt.format(Date(session.startedAt))
+            val startTimeStr = timeFmt.format(Date(session.startedAt))
+            val endTimeStr = session.endedAt?.let { timeFmt.format(Date(it)) } ?: "?"
+            "Kalastussessio $dateStr: $startTimeStr - $endTimeStr"
+        } else {
+            val startDateStr = dateFmt.format(Date(session.startedAt))
+            val startTimeStr = timeFmt.format(Date(session.startedAt))
+            val endDateStr = dateFmt.format(Date(session.endedAt!!))
+            val endTimeStr = timeFmt.format(Date(session.endedAt))
+            "Kalastussessio: $startDateStr $startTimeStr - $endDateStr $endTimeStr"
+        }
+
+        val message = "$sessionDetails\n\nHaluatko varmasti poistaa tämän kalastussession ja sen kaikki reittipisteet?"
+
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Poista sessio")
-            .setMessage("Haluatko varmasti poistaa tämän kalastussession ja sen kaikki reittipisteet?")
+            .setTitle("Poistetaanko kalastussessio?")
+            .setMessage(message)
             .setPositiveButton("Poista") { _, _ ->
                 lifecycleScope.launch(Dispatchers.IO) {
                     db.fishingSessionDao().deleteById(session.id)
@@ -404,5 +425,10 @@ class FishingSessionActivity : AppCompatActivity() {
             }
             .setNegativeButton("Peruuta", null)
             .show()
+    }
+
+    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 }
