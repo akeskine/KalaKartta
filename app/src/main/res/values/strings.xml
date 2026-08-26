@@ -174,4 +174,7 @@
     <string name="invalid_format">Virheellinen ajan muotoilu. Käytä dd.mm.yyyy HH:mm:ss</string>
     <string name="yes">Kyllä</string>
     <string name="no">Ei</string>
+    <string name="too_many_track_points">Liikaa reittipisteitä (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nRajaathan näytettävää dataa suodattimien avulla.</string>
+    <string name="too_many_heatmap_cells">Liikaa heatmap-ruutuja (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nSuurenna ruudun kokoa tai rajaa näytettävää dataa suodattimien avulla.</string>
+    <string name="warning">Huomio</string>
 </resources>

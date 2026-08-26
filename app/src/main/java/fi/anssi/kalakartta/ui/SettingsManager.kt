@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.BuildConfig
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -362,8 +363,19 @@ class SettingsManager(
             isChecked = prefs.getBoolean("heatmap_enabled", false)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("heatmap_enabled", isChecked).apply()
-                onMapSettingsChanged()
+                if (isChecked) {
+                    checkLimits(true, false) { success ->
+                        if (success) {
+                            prefs.edit().putBoolean("heatmap_enabled", true).apply()
+                            onMapSettingsChanged()
+                        } else {
+                            this.isChecked = false
+                        }
+                    }
+                } else {
+                    prefs.edit().putBoolean("heatmap_enabled", false).apply()
+                    onMapSettingsChanged()
+                }
             }
         }
         layout.addView(heatmapEnabledCb)
@@ -373,8 +385,19 @@ class SettingsManager(
             isChecked = prefs.getBoolean("fishing_routes_enabled", false)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("fishing_routes_enabled", isChecked).apply()
-                onMapSettingsChanged()
+                if (isChecked) {
+                    checkLimits(false, true) { success ->
+                        if (success) {
+                            prefs.edit().putBoolean("fishing_routes_enabled", true).apply()
+                            onMapSettingsChanged()
+                        } else {
+                            this.isChecked = false
+                        }
+                    }
+                } else {
+                    prefs.edit().putBoolean("fishing_routes_enabled", false).apply()
+                    onMapSettingsChanged()
+                }
             }
         }
         layout.addView(routesEnabledCb)
@@ -395,8 +418,21 @@ class SettingsManager(
             isChecked = prefs.getBoolean("heatmap_filter_enabled", false)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("heatmap_filter_enabled", isChecked).apply()
-                onMapSettingsChanged()
+                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                if (!isChecked && heatmapEnabled) {
+                    // Jos kytketään suodatus pois ja heatmap on päällä, tarkistetaan rajat (kaikki pisteet)
+                    checkLimits(true, false) { success ->
+                        if (success) {
+                            prefs.edit().putBoolean("heatmap_filter_enabled", false).apply()
+                            onMapSettingsChanged()
+                        } else {
+                            this.isChecked = true
+                        }
+                    }
+                } else {
+                    prefs.edit().putBoolean("heatmap_filter_enabled", isChecked).apply()
+                    onMapSettingsChanged()
+                }
             }
         }
         layout.addView(heatmapFilterEnabledCb)
@@ -406,8 +442,21 @@ class SettingsManager(
             isChecked = prefs.getBoolean("routes_filter_enabled", false)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("routes_filter_enabled", isChecked).apply()
-                onMapSettingsChanged()
+                val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                if (!isChecked && routesEnabled) {
+                    // Jos kytketään suodatus pois ja reitit on päällä, tarkistetaan rajat (kaikki pisteet)
+                    checkLimits(false, true) { success ->
+                        if (success) {
+                            prefs.edit().putBoolean("routes_filter_enabled", false).apply()
+                            onMapSettingsChanged()
+                        } else {
+                            this.isChecked = true
+                        }
+                    }
+                } else {
+                    prefs.edit().putBoolean("routes_filter_enabled", isChecked).apply()
+                    onMapSettingsChanged()
+                }
             }
         }
         layout.addView(routesFilterEnabledCb)
@@ -570,10 +619,36 @@ class SettingsManager(
         gridSizeSpinner.setSelection(gridIndex)
 
         gridSizeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            private var isInitialSelection = true
+
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val value = gridSizes[position].toFloatOrNull() ?: 300.0f
-                prefs.edit().putFloat("heatmap_grid_size", value).apply()
-                onMapSettingsChanged()
+                val newValue = gridSizes[position].toFloatOrNull() ?: 300.0f
+                val oldValue = prefs.getFloat("heatmap_grid_size", 300.0f)
+
+                if (isInitialSelection) {
+                    isInitialSelection = false
+                    return
+                }
+
+                if (newValue == oldValue) return
+
+                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                if (heatmapEnabled) {
+                    checkLimits(true, false, newValue.toDouble()) { success ->
+                        if (success) {
+                            prefs.edit().putFloat("heatmap_grid_size", newValue).apply()
+                            onMapSettingsChanged()
+                        } else {
+                            // Palautetaan vanha arvo spinneriin
+                            val oldGridSizeStr = oldValue.toInt().toString()
+                            val oldIndex = gridSizes.indexOf(oldGridSizeStr).coerceAtLeast(0)
+                            gridSizeSpinner.setSelection(oldIndex)
+                        }
+                    }
+                } else {
+                    prefs.edit().putFloat("heatmap_grid_size", newValue).apply()
+                    onMapSettingsChanged()
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -809,7 +884,106 @@ class SettingsManager(
         showDialog(dialog)
     }
 
+    companion object {
+        fun checkLimits(
+            context: Context,
+            db: AppDatabase,
+            lifecycleScope: LifecycleCoroutineScope,
+            checkHeatmap: Boolean,
+            checkRoutes: Boolean,
+            newGridSize: Double? = null,
+            providedFilters: FilterManager.Filters? = null,
+            onResult: (success: Boolean) -> Unit
+        ) {
+            val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val maxPoints = prefs.getInt("max_track_points", 50000)
+            val maxCells = prefs.getInt("max_heatmap_cells", 10000)
+            
+            val filters = providedFilters ?: FilterManager(context).getFilters()
+            
+            // Selvitä käytetäänkö suodatusta heatmapille/reiteille
+            // Jos providedFilters on annettu, oletetaan että testataan suodatuksen vaikutusta
+            val heatmapFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("heatmap_filter_enabled", false)
+            val routesFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("routes_filter_enabled", false)
+            
+            lifecycleScope.launch(Dispatchers.IO) {
+                var error: String? = null
+                
+                if (checkRoutes) {
+                    val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
+                    val count = if (routesFilterEnabled) {
+                        when {
+                            (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
+                                db.trackPointDao().getCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
+                            filters.startDate != null || filters.endDate != null ->
+                                db.trackPointDao().getCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE)
+                            hasAreaFilter ->
+                                db.trackPointDao().getCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
+                            else -> db.trackPointDao().getCount()
+                        }
+                    } else {
+                        db.trackPointDao().getCount()
+                    }
+                    
+                    if (count > maxPoints) {
+                        error = context.getString(R.string.too_many_track_points, count, maxPoints)
+                    }
+                }
+                
+                if (error == null && checkHeatmap) {
+                    val gridSize = newGridSize ?: prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
+                    val latDegreeMeters = 111320.0
+                    val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
+                    
+                    val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
+                    val count = if (heatmapFilterEnabled) {
+                        when {
+                            (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
+                                db.trackPointDao().getHeatmapCellCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
+                            filters.startDate != null || filters.endDate != null ->
+                                db.trackPointDao().getHeatmapCellCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, latDegreeMeters, lonDegreeMeters, gridSize)
+                            hasAreaFilter ->
+                                db.trackPointDao().getHeatmapCellCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
+                            else -> db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
+                        }
+                    } else {
+                        db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
+                    }
+                    
+                    if (count > maxCells) {
+                        error = context.getString(R.string.too_many_heatmap_cells, count, maxCells)
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    if (error != null) {
+                        AlertDialog.Builder(context)
+                            .setTitle(context.getString(R.string.warning))
+                            .setMessage(error)
+                            .setPositiveButton("OK", null)
+                            .show()
+                        onResult(false)
+                    } else {
+                        onResult(true)
+                    }
+                }
+            }
+        }
+    }
+
+    fun checkLimits(
+        checkHeatmap: Boolean,
+        checkRoutes: Boolean,
+        newGridSize: Double? = null,
+        providedFilters: FilterManager.Filters? = null,
+        onResult: (success: Boolean) -> Unit
+    ) {
+        checkLimits(activity, db, activity.lifecycleScope, checkHeatmap, checkRoutes, newGridSize, providedFilters, onResult)
+    }
+
     private fun openDeveloperTools() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -824,10 +998,47 @@ class SettingsManager(
         }
         layout.addView(debugCheckbox)
 
+        // Lisää tyhjää väliä
+        layout.addView(View(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(1, 40)
+        })
+
+        val maxPointsLabel = TextView(activity).apply {
+            text = "Reittipisteiden enimmäismäärä"
+        }
+        layout.addView(maxPointsLabel)
+
+        val maxPointsEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("max_track_points", 50000).toString())
+        }
+        layout.addView(maxPointsEdit)
+
+        val maxCellsLabel = TextView(activity).apply {
+            text = "Heat map -ruutujen enimmäismäärä"
+        }
+        layout.addView(maxCellsLabel)
+
+        val maxCellsEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("max_heatmap_cells", 10000).toString())
+        }
+        layout.addView(maxCellsEdit)
+
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Kehittäjätyökalut")
             .setView(layout)
-            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
+            .setPositiveButton("Tallenna") { _, _ ->
+                val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: 50000
+                val maxCells = maxCellsEdit.text.toString().toIntOrNull() ?: 10000
+                prefs.edit().apply {
+                    putInt("max_track_points", maxPoints)
+                    putInt("max_heatmap_cells", maxCells)
+                    apply()
+                }
+                openGeneralSettings()
+            }
+            .setNegativeButton("Takaisin") { _, _ -> openGeneralSettings() }
             .create()
         showDialog(dialog)
     }

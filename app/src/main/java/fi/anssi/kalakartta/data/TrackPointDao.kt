@@ -143,6 +143,65 @@ interface TrackPointDao {
 
     @Query("SELECT COUNT(*) FROM TrackPoint")
     fun getCount(): Int
+
+    @Query("SELECT COUNT(*) FROM TrackPoint WHERE latitude BETWEEN :latSouth AND :latNorth AND longitude BETWEEN :lonWest AND :lonEast")
+    fun getCountArea(latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): Int
+
+    @Query("SELECT COUNT(*) FROM TrackPoint WHERE timestamp >= :startDate AND timestamp <= :endDate")
+    fun getCountRange(startDate: Long, endDate: Long): Int
+
+    @Query("SELECT COUNT(*) FROM TrackPoint WHERE timestamp >= :startDate AND timestamp <= :endDate AND latitude BETWEEN :latSouth AND :latNorth AND longitude BETWEEN :lonWest AND :lonEast")
+    fun getCountRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM (
+            SELECT 
+                CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+                CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y
+            FROM TrackPoint
+            GROUP BY x, y
+        )
+    """)
+    fun getHeatmapCellCount(latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM (
+            SELECT 
+                CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+                CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y
+            FROM TrackPoint
+            WHERE latitude BETWEEN :latSouth AND :latNorth 
+              AND longitude BETWEEN :lonWest AND :lonEast
+            GROUP BY x, y
+        )
+    """)
+    fun getHeatmapCellCountArea(latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM (
+            SELECT 
+                CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+                CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y
+            FROM TrackPoint
+            WHERE timestamp >= :startDate AND timestamp <= :endDate
+            GROUP BY x, y
+        )
+    """)
+    fun getHeatmapCellCountRange(startDate: Long, endDate: Long, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM (
+            SELECT 
+                CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+                CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y
+            FROM TrackPoint
+            WHERE timestamp >= :startDate AND timestamp <= :endDate
+              AND latitude BETWEEN :latSouth AND :latNorth 
+              AND longitude BETWEEN :lonWest AND :lonEast
+            GROUP BY x, y
+        )
+    """)
+    fun getHeatmapCellCountRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): Int
 }
 
 data class TrackPointHeatmapData(

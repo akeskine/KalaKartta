@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
@@ -558,7 +559,8 @@ class FilterActivity : AppCompatActivity() {
 
         selectAreaButton.setOnClickListener {
             // Tallennetaan suodattimet ennen siirtymistä MainActivityyn, jotta ne säilyvät
-            saveFiltersToManager()
+            val newFilters = saveFiltersToManager()
+            filterManager.saveFilters(newFilters)
             
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra("EXTRA_SELECTION_MODE", true)
@@ -683,7 +685,7 @@ class FilterActivity : AppCompatActivity() {
         }, h, m, true).show()
     }
 
-    private fun saveFiltersToManager() {
+    private fun saveFiltersToManager(): FilterManager.Filters {
         val selectedSpecies = speciesList[speciesSpinner.selectedItemPosition]
         val selectedPlaceType = placeTypeList[placeTypeSpinner.selectedItemPosition]
         val selectedFisherman = fishermanList[fishermanSpinner.selectedItemPosition]
@@ -736,7 +738,7 @@ class FilterActivity : AppCompatActivity() {
             endTs = cal.timeInMillis
         }
 
-        currentFilters = currentFilters.copy(
+        val newFilters = currentFilters.copy(
             startDate = startTs,
             endDate = endTs,
             speciesId = if (selectedSpecies.id.isEmpty()) null else selectedSpecies.id,
@@ -759,19 +761,38 @@ class FilterActivity : AppCompatActivity() {
             lengthMax = lengthMax,
             weightLengthOperator = weightLengthOperator
         )
-        filterManager.saveFilters(currentFilters)
+        return newFilters
     }
 
     private fun saveAndFinish() {
-        saveFiltersToManager()
-        setResult(RESULT_OK)
-        finish()
+        val newFilters = saveFiltersToManager()
+        
+        val settingsPrefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val heatmapEnabled = settingsPrefs.getBoolean("heatmap_enabled", false)
+        val routesEnabled = settingsPrefs.getBoolean("fishing_routes_enabled", false)
+        val heatmapFilterEnabled = settingsPrefs.getBoolean("heatmap_filter_enabled", false)
+        val routesFilterEnabled = settingsPrefs.getBoolean("routes_filter_enabled", false)
+        
+        val checkHeatmap = heatmapEnabled && heatmapFilterEnabled
+        val checkRoutes = routesEnabled && routesFilterEnabled
+
+        if (checkHeatmap || checkRoutes) {
+            SettingsManager.checkLimits(this, db, lifecycleScope, checkHeatmap, checkRoutes, providedFilters = newFilters) { success ->
+                if (success) {
+                    filterManager.saveFilters(newFilters)
+                    setResult(RESULT_OK)
+                    finish()
+                }
+            }
+        } else {
+            filterManager.saveFilters(newFilters)
+            setResult(RESULT_OK)
+            finish()
+        }
     }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         saveAndFinish()
-        @Suppress("DEPRECATION")
-        super.onBackPressed()
     }
 }

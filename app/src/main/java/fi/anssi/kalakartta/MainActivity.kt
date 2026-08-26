@@ -795,12 +795,27 @@ class MainActivity : AppCompatActivity() {
                     else -> Pair(false, false)
                 }
 
-                prefs.edit().apply {
-                    putBoolean("heatmap_enabled", newHeatmap)
-                    putBoolean("fishing_routes_enabled", newRoutes)
-                }.apply()
+                // Tarkista rajat ennen päälle kytkemistä
+                val checkingHeatmap = newHeatmap && !heatmapEnabled
+                val checkingRoutes = newRoutes && !routesEnabled
                 
-                updateFishingHeatmap()
+                if (checkingHeatmap || checkingRoutes) {
+                    settingsManager.checkLimits(checkingHeatmap, checkingRoutes) { success ->
+                        if (success) {
+                            prefs.edit().apply {
+                                putBoolean("heatmap_enabled", newHeatmap)
+                                putBoolean("fishing_routes_enabled", newRoutes)
+                            }.apply()
+                            updateFishingHeatmap()
+                        }
+                    }
+                } else {
+                    prefs.edit().apply {
+                        putBoolean("heatmap_enabled", newHeatmap)
+                        putBoolean("fishing_routes_enabled", newRoutes)
+                    }.apply()
+                    updateFishingHeatmap()
+                }
             }
 
             findViewById<MaterialButton>(R.id.myLocationButton).setOnClickListener {
