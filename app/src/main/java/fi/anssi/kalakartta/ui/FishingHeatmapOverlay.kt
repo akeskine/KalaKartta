@@ -185,7 +185,11 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                         // Tässä tapauksessa haemme kaikki pisteet ja suodatamme Kotlinissa.
                         
                         if (removeTransitions) {
-                            val rawPoints = getPoints(f, hasAreaFilter)
+                            val rawPoints = if (heatmapFilterEnabled) {
+                                getPoints(f, hasAreaFilter)
+                            } else {
+                                db.trackPointDao().getAllForHeatmap()
+                            }
                             
                             val filteredPoints = rawPoints.filter { it.speed <= maxSpeed }
                             processPoints(filteredPoints)
