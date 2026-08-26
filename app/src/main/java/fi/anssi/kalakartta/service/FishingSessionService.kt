@@ -49,7 +49,7 @@ class FishingSessionService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
 
     companion object {
-        const val KALASTUSSESSIOT_DEBUG = true
+        var KALASTUSSESSIOT_DEBUG = false
         const val CHANNEL_ID = "FishingSessionChannel"
         const val NOTIFICATION_ID = 101
         const val ACTION_STOP = "STOP_SESSION"

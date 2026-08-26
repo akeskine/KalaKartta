@@ -776,11 +776,49 @@ class SettingsManager(
             }
         }
         layout.addView(talkingClockLink)
+        
+        // Kehittäjätyökalut -linkki
+        val developerToolsLink = TextView(activity).apply {
+            text = "Kehittäjätyökalut"
+            textSize = 16f
+            setTextColor(primaryTextColor)
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            setOnClickListener {
+                openDeveloperTools()
+            }
+        }
+        layout.addView(developerToolsLink)
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .create()
+        showDialog(dialog)
+    }
+
+    private fun openDeveloperTools() {
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val debugCheckbox = CheckBox(activity).apply {
+            text = "Kalastussessioiden debug"
+            isChecked = FishingSessionService.KALASTUSSESSIOT_DEBUG
+            setOnCheckedChangeListener { _, isChecked ->
+                FishingSessionService.KALASTUSSESSIOT_DEBUG = isChecked
+            }
+        }
+        layout.addView(debugCheckbox)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Kehittäjätyökalut")
+            .setView(layout)
+            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .create()
         showDialog(dialog)
     }
