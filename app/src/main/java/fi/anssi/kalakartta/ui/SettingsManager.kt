@@ -1805,6 +1805,14 @@ class SettingsManager(
         val fishingService = mainActivity?.getFishingService()
         val isRecording = fishingService?.isRecording() ?: false
 
+        val typedValue = android.util.TypedValue()
+        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+        val primaryTextColor = if (typedValue.resourceId != 0) {
+            activity.getColor(typedValue.resourceId)
+        } else {
+            typedValue.data
+        }
+
         val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -1827,7 +1835,7 @@ class SettingsManager(
 
                 val hideSessionButton = TextView(activity).apply {
                     text = "Piilota näkyvä sessio"
-                    textSize = 18f
+                    textSize = 16f
                     setTextColor(activity.getColor(android.R.color.holo_blue_dark))
                     val outValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -1875,8 +1883,9 @@ class SettingsManager(
 
             val fetchButton = TextView(activity).apply {
                 text = "Hae kalastussessiot"
-                textSize = 18f
-                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                textSize = 16f
+                setTextColor(primaryTextColor)
+
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -1898,8 +1907,8 @@ class SettingsManager(
 
             val trackingSettingsLink = TextView(activity).apply {
                 text = "Reittipisteiden tallennusvälit"
-                textSize = 18f
-                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                textSize = 16f
+                setTextColor(primaryTextColor)
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -1928,7 +1937,7 @@ class SettingsManager(
 
             val startButton = TextView(activity).apply {
                 text = "Aloita tallennus"
-                textSize = 18f
+                textSize = 16f
                 setTextColor(activity.getColor(android.R.color.holo_blue_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -2055,7 +2064,7 @@ class SettingsManager(
             
             val stopButton = TextView(activity).apply {
                 text = "Lopeta tallennus"
-                textSize = 18f
+                textSize = 16f
                 setTextColor(activity.getColor(android.R.color.holo_red_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
