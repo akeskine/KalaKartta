@@ -823,34 +823,42 @@ class SettingsManager(
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
 
         var dialog: AlertDialog? = null
-        fun getTitle(): CharSequence {
+        var statusTextView: TextView? = null
+
+        fun getTitle(): String {
+            return activity.getString(R.string.talking_clock)
+        }
+
+        fun getStatusText(): String {
             val isEnabled = prefs.getBoolean("talking_clock_enabled", false)
-            val baseTitle = activity.getString(R.string.talking_clock)
-            
-            if (!isEnabled) return baseTitle
+            if (!isEnabled) return ""
 
             val interval = prefs.getInt("talking_clock_interval", 30)
             val status = activity.getString(R.string.talking_clock_running)
-            val info = " ($status, ${activity.getString(R.string.talking_clock_interval_info)} $interval ${activity.getString(R.string.unit_min)})"
-            
-            val spannable = SpannableString(baseTitle + info)
-            val start = baseTitle.length
-            val end = spannable.length
-            
-            spannable.setSpan(ForegroundColorSpan(Color.GRAY), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            spannable.setSpan(RelativeSizeSpan(0.8f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            
-            return spannable
+            return "$status, ${activity.getString(R.string.talking_clock_interval_info)} $interval ${activity.getString(R.string.unit_min)}"
         }
 
         fun updateTitle() {
             dialog?.setTitle(getTitle())
+            statusTextView?.apply {
+                text = getStatusText()
+                visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+            }
         }
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
         }
+
+        statusTextView = TextView(activity).apply {
+            textSize = 14f
+            setTextColor(Color.GRAY)
+            setPadding(0, 0, 0, 20)
+            text = getStatusText()
+            visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+        }
+        layout.addView(statusTextView)
 
         val clockControlLink = TextView(activity).apply {
             val isEnabled = prefs.getBoolean("talking_clock_enabled", false)
