@@ -65,7 +65,7 @@ class FishingSessionActivity : AppCompatActivity() {
         sessionsContainer = findViewById(R.id.sessionsContainer)
         sessionsLabel = findViewById(R.id.sessionsLabel)
 
-        findViewById<Button>(R.id.backButton).setOnClickListener {
+        findViewById<TextView>(R.id.backButton).setOnClickListener {
             finish()
         }
 

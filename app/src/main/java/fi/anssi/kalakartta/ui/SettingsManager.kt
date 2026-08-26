@@ -54,6 +54,34 @@ class SettingsManager(
         currentDialog = null
     }
 
+    private fun createBackLink(onClick: () -> Unit): View {
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.END
+            setPadding(0, 40, 40, 40)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val backLink = TextView(activity).apply {
+            text = "Takaisin"
+            textSize = 18f
+            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                onClick()
+            }
+        }
+        container.addView(backLink)
+        return container
+    }
+
     private fun showDialog(dialog: AlertDialog) {
         currentDialog?.dismiss()
         currentDialog = dialog
@@ -662,7 +690,6 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))
             .setView(ScrollView(activity).apply { addView(layout) })
-            .setNegativeButton("Tallenna", null)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .create()
         showDialog(dialog)
@@ -1053,7 +1080,6 @@ class SettingsManager(
         dialog = AlertDialog.Builder(activity)
             .setTitle(getTitle())
             .setView(ScrollView(activity).apply { addView(layout) })
-            .setNegativeButton("Tallenna", null)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .create()
         showDialog(dialog!!)
@@ -1193,6 +1219,8 @@ class SettingsManager(
                 setOnClickListener {
                     radioButtons.forEach { it.isChecked = false }
                     isChecked = true
+                    prefs.edit().putString("map_source", id).apply()
+                    onMapSettingsChanged()
                 }
             }
             radioButtons.add(rb)
@@ -1204,6 +1232,7 @@ class SettingsManager(
                 gravity = android.view.Gravity.CENTER
                 setOnCheckedChangeListener { _, isChecked ->
                     quickSelectEnabled[id] = isChecked
+                    prefs.edit().putBoolean("quick_select_$id", isChecked).apply()
                 }
             }
             checkBoxes[id] = cb
@@ -1220,6 +1249,7 @@ class SettingsManager(
             visibility = android.view.View.VISIBLE
             setOnCheckedChangeListener { _, isChecked ->
                 showQuickMapCurrent = isChecked
+                prefs.edit().putBoolean("show_quick_map_source", isChecked).apply()
             }
         }
 
@@ -1237,6 +1267,13 @@ class SettingsManager(
             hint = "Syötä API-avain"
             val initialSelectedId = internalIds.indexOf(currentSource)
             visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    prefs.edit().putString("mml_api_key", s.toString()).apply()
+                }
+            })
         }
         contentLayout.addView(apiKeyInput)
 
@@ -1297,7 +1334,7 @@ class SettingsManager(
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                // Automaattinen validointi poistettu
+                // Tallennus tapahtuu jo ylempänä lisätyssä listenerissä
             }
         })
 
@@ -1344,26 +1381,6 @@ class SettingsManager(
             .setTitle("Taustakartta")
             .setView(scrollView)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .setNegativeButton("Tallenna") { _, _ ->
-                val selectedId = getSelectedId()
-                val newSource = internalIds[selectedId]
-                val newApiKey = apiKeyInput.text.toString()
-                val finalShowQuickMap = showQuickMapCurrent
-
-                prefs.edit().apply {
-                    putString("map_source", newSource)
-                    putString("mml_api_key", newApiKey)
-                    putBoolean("show_quick_map_source", finalShowQuickMap)
-                    
-                    // Tallennetaan jokaisen karttapohjan pikavalinta-asetus
-                    internalIds.forEach { id ->
-                        putBoolean("quick_select_$id", quickSelectEnabled[id] ?: true)
-                    }
-                    
-                    apply()
-                }
-                onMapSettingsChanged()
-            }
             .create()
         showDialog(dialog)
     }
@@ -1388,6 +1405,13 @@ class SettingsManager(
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
                 isEnabledCurrent = isChecked
+                if (isEnabledCurrent != prefs.getBoolean("weather_enabled", true)) {
+                    prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
+                    if (isEnabledCurrent) {
+                        WeatherService(activity).fetchAllStations()
+                    }
+                    onWeatherSettingsChanged(isEnabledCurrent)
+                }
             }
         }
         contentLayout.addView(checkBox)
@@ -1409,15 +1433,6 @@ class SettingsManager(
             .setView(scrollView)
             .setPositiveButton("Takaisin") { _, _ ->
                 openSettings()
-            }
-            .setNegativeButton("Tallenna") { _, _ ->
-                if (isEnabledCurrent != isEnabledInitial) {
-                    prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
-                    if (isEnabledCurrent) {
-                        WeatherService(activity).fetchAllStations()
-                    }
-                    onWeatherSettingsChanged(isEnabledCurrent)
-                }
             }
             .create()
         showDialog(dialog)
@@ -1513,7 +1528,7 @@ class SettingsManager(
                 text = option
                 textSize = 18f
                 setPadding(0, 32, 0, 32)
-                setTextColor(Color.BLACK)
+                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
                 isClickable = true
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -1553,7 +1568,7 @@ class SettingsManager(
                 text = option
                 textSize = 18f
                 setPadding(0, 32, 0, 32)
-                setTextColor(Color.BLACK)
+                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
                 isClickable = true
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -1685,28 +1700,51 @@ class SettingsManager(
             }
 
             withContext(Dispatchers.Main) {
-                val options = mutableListOf<String>()
-                options.add(activity.getString(R.string.edit_species))
-                if (isModified) {
-                    options.add(activity.getString(R.string.export_species_settings))
-                }
-                options.add(activity.getString(R.string.import_species_settings))
-                if (isModified) {
-                    options.add(activity.getString(R.string.reset_default_species))
+                val layout = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(60, 40, 60, 40)
                 }
 
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.fish_species_settings))
-            .setItems(options.toTypedArray()) { _, which ->
-                when (options[which]) {
-                    activity.getString(R.string.edit_species) -> {
+                val editSpeciesLink = TextView(activity).apply {
+                    text = activity.getString(R.string.edit_species)
+                    textSize = 18f
+                    setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                    setPadding(0, 20, 0, 40)
+                    val outValue = android.util.TypedValue()
+                    activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                    setBackgroundResource(outValue.resourceId)
+                    setOnClickListener {
                         val intent = Intent(activity, EditSpeciesActivity::class.java)
                         activity.startActivityForResult(intent, 1002)
                     }
-                    activity.getString(R.string.export_species_settings) -> {
-                        importExportManager.launchExportSpecies()
+                }
+                layout.addView(editSpeciesLink)
+
+                if (isModified) {
+                    val exportSpeciesLink = TextView(activity).apply {
+                        text = activity.getString(R.string.export_species_settings)
+                        textSize = 18f
+                        setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                        setPadding(0, 20, 0, 40)
+                        val outValue = android.util.TypedValue()
+                        activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                        setBackgroundResource(outValue.resourceId)
+                        setOnClickListener {
+                            importExportManager.launchExportSpecies()
+                        }
                     }
-                    activity.getString(R.string.import_species_settings) -> {
+                    layout.addView(exportSpeciesLink)
+                }
+
+                val importSpeciesLink = TextView(activity).apply {
+                    text = activity.getString(R.string.import_species_settings)
+                    textSize = 18f
+                    setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                    setPadding(0, 20, 0, 40)
+                    val outValue = android.util.TypedValue()
+                    activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                    setBackgroundResource(outValue.resourceId)
+                    setOnClickListener {
                         val d = AlertDialog.Builder(activity)
                             .setMessage(R.string.import_species_confirm)
                             .setPositiveButton("Takaisin", null)
@@ -1716,31 +1754,47 @@ class SettingsManager(
                             .create()
                         showDialog(d)
                     }
-                    activity.getString(R.string.reset_default_species) -> {
-                        val d = AlertDialog.Builder(activity)
-                            .setMessage(R.string.reset_species_confirm)
-                            .setPositiveButton("Takaisin", null)
-                            .setNegativeButton("Palauta") { _, _ ->
-                                activity.lifecycleScope.launch(Dispatchers.IO) {
-                                    db.fishSpeciesDao().deleteAll()
-                                    // MainActivityn esitäyttö hoitaa loput, mutta voimme myös täyttää tässä heti
-                                    fi.anssi.kalakartta.data.FishSpecies.getDefaultList().forEach {
-                                        db.fishSpeciesDao().insert(it)
-                                    }
-                                    withContext(Dispatchers.Main) {
-                                        onDataChanged(true)
-                                        Toast.makeText(activity, "Oletukset palautettu", Toast.LENGTH_SHORT).show()
+                }
+                layout.addView(importSpeciesLink)
+
+                if (isModified) {
+                    val resetSpeciesLink = TextView(activity).apply {
+                        text = activity.getString(R.string.reset_default_species)
+                        textSize = 18f
+                        setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                        setPadding(0, 20, 0, 40)
+                        val outValue = android.util.TypedValue()
+                        activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                        setBackgroundResource(outValue.resourceId)
+                        setOnClickListener {
+                            val d = AlertDialog.Builder(activity)
+                                .setMessage(R.string.reset_species_confirm)
+                                .setPositiveButton("Takaisin", null)
+                                .setNegativeButton("Palauta") { _, _ ->
+                                    activity.lifecycleScope.launch(Dispatchers.IO) {
+                                        db.fishSpeciesDao().deleteAll()
+                                        fi.anssi.kalakartta.data.FishSpecies.getDefaultList().forEach {
+                                            db.fishSpeciesDao().insert(it)
+                                        }
+                                        withContext(Dispatchers.Main) {
+                                            onDataChanged(true)
+                                            Toast.makeText(activity, "Oletukset palautettu", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
-                            }
-                            .create()
-                        showDialog(d)
+                                .create()
+                            showDialog(d)
+                        }
                     }
+                    layout.addView(resetSpeciesLink)
                 }
-            }
-            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .create()
-        showDialog(dialog)
+
+                val dialog = AlertDialog.Builder(activity)
+                    .setTitle(activity.getString(R.string.fish_species_settings))
+                    .setView(layout)
+                    .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+                    .create()
+                showDialog(dialog)
             }
         }
     }
@@ -2247,6 +2301,14 @@ class SettingsManager(
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
             }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    prefs.edit().putString("default_fisherman", s?.toString()?.trim() ?: "").apply()
+                    onMapSettingsChanged()
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
         }
         layout.addView(input)
 
@@ -2254,6 +2316,10 @@ class SettingsManager(
             text = "Näytä oletuskalastajan nimi kartalla"
             isChecked = showOnMap
             setPadding(0, 20, 0, 0)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("show_fisherman_on_map", isChecked).apply()
+                onMapSettingsChanged()
+            }
         }
         layout.addView(checkBox)
 
@@ -2261,15 +2327,6 @@ class SettingsManager(
             .setTitle("Oletuskalastaja")
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .setNegativeButton("Tallenna") { _, _ ->
-                val newFisherman = input.text.toString().trim()
-                prefs.edit().apply {
-                    putString("default_fisherman", newFisherman)
-                    putBoolean("show_fisherman_on_map", checkBox.isChecked)
-                    apply()
-                }
-                onMapSettingsChanged() // Käytetään tätä päivittämään UI
-            }
             .create()
         showDialog(dialog)
     }

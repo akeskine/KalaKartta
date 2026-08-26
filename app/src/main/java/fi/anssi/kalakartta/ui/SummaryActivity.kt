@@ -136,7 +136,7 @@ class SummaryActivity : AppCompatActivity() {
             generateRangeSummary()
         }
 
-        findViewById<View>(R.id.backButton).setOnClickListener {
+        findViewById<TextView>(R.id.backButton).setOnClickListener {
             setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
             finish()
         }

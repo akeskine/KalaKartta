@@ -610,13 +610,8 @@ class FilterActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.filters_cleared, Toast.LENGTH_SHORT).show()
         }
 
-        findViewById<Button>(R.id.okButton).setOnClickListener {
+        findViewById<TextView>(R.id.backButton).setOnClickListener {
             saveAndFinish()
-        }
-
-        findViewById<Button>(R.id.backButton).setOnClickListener {
-            setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
-            finish()
         }
 
         val windWatcher = object : android.text.TextWatcher {
