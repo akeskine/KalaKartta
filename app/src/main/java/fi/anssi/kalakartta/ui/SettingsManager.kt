@@ -121,10 +121,18 @@ class SettingsManager(
                         setPadding(60, 20, 60, 20)
                     }
 
+                    val typedValue = android.util.TypedValue()
+                    activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+                    val primaryTextColor = if (typedValue.resourceId != 0) {
+                        activity.getColor(typedValue.resourceId)
+                    } else {
+                        typedValue.data
+                    }
+
                     val helpLink = TextView(activity).apply {
                         text = "Käyttöohje"
-                        textSize = 18f
-                        setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                        textSize = 16f
+                        setTextColor(primaryTextColor)
                         setPadding(0, 10, 0, 10)
                         val outValue = android.util.TypedValue()
                         activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -696,6 +704,14 @@ class SettingsManager(
     }
 
     private fun openGeneralSettings() {
+        val typedValue = android.util.TypedValue()
+        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+        val primaryTextColor = if (typedValue.resourceId != 0) {
+            activity.getColor(typedValue.resourceId)
+        } else {
+            typedValue.data
+        }
+
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -704,8 +720,8 @@ class SettingsManager(
         // Oletuskalastaja -linkki
         val fishermanLink = TextView(activity).apply {
             text = "Oletuskalastaja"
-            textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            textSize = 16f
+            setTextColor(primaryTextColor)
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -719,8 +735,8 @@ class SettingsManager(
         // Mittakaava -linkki
         val scaleLink = TextView(activity).apply {
             text = activity.getString(R.string.scale_bar)
-            textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            textSize = 16f
+            setTextColor(primaryTextColor)
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -734,8 +750,8 @@ class SettingsManager(
         // Automaattinen kohdistus -linkki
         val autoCenterLink = TextView(activity).apply {
             text = activity.getString(R.string.auto_center)
-            textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            textSize = 16f
+            setTextColor(primaryTextColor)
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -749,8 +765,8 @@ class SettingsManager(
         // Puhuva kello -linkki
         val talkingClockLink = TextView(activity).apply {
             text = activity.getString(R.string.talking_clock)
-            textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            textSize = 16f
+            setTextColor(primaryTextColor)
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -1417,10 +1433,18 @@ class SettingsManager(
         }
         contentLayout.addView(checkBox)
 
+        val typedValue = android.util.TypedValue()
+        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+        val primaryTextColor = if (typedValue.resourceId != 0) {
+            activity.getColor(typedValue.resourceId)
+        } else {
+            typedValue.data
+        }
+
         val textView = TextView(activity).apply {
             text = "Päivitä puuttuvat säätiedot"
-            textSize = 18f
-            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            textSize = 16f
+            setTextColor(primaryTextColor)
             setPadding(0, 30, 0, 0)
             setOnClickListener {
                 val intent = android.content.Intent(activity, WeatherUpdateActivity::class.java)
@@ -1701,6 +1725,14 @@ class SettingsManager(
             }
 
             withContext(Dispatchers.Main) {
+                val typedValue = android.util.TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+                val primaryTextColor = if (typedValue.resourceId != 0) {
+                    activity.getColor(typedValue.resourceId)
+                } else {
+                    typedValue.data
+                }
+
                 val layout = LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(60, 40, 60, 40)
@@ -1708,8 +1740,8 @@ class SettingsManager(
 
                 val editSpeciesLink = TextView(activity).apply {
                     text = activity.getString(R.string.edit_species)
-                    textSize = 18f
-                    setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                    textSize = 16f
+                    setTextColor(primaryTextColor)
                     setPadding(0, 20, 0, 40)
                     val outValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
