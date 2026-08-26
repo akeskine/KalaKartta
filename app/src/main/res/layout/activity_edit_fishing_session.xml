@@ -20,12 +20,33 @@
             android:textStyle="bold"
             android:layout_marginBottom="16dp" />
 
-        <TextView
-            android:id="@+id/durationText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Kesto: -"
-            android:textSize="16sp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/durationText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Kesto: -"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/trimLink"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/trim"
+                android:textColor="@color/link_color"
+                android:textSize="16sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/distanceText"

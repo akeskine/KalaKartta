@@ -135,6 +135,9 @@ interface TrackPointDao {
     """)
     fun getAggregatedHeatmapRangeAndAreaPoints(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): List<HeatmapGridCell>
 
+    @Query("DELETE FROM TrackPoint WHERE fishingSessionId = :sessionId AND (timestamp < :startTime OR timestamp > :endTime)")
+    fun deletePointsOutsideRange(sessionId: Long, startTime: Long, endTime: Long)
+
     @Query("DELETE FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun deleteForSession(sessionId: Long)
 

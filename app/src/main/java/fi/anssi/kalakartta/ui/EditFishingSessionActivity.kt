@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -18,6 +19,8 @@ import fi.anssi.kalakartta.utils.formatFishermanName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.widget.SeekBar
+import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -56,6 +59,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.saveLink).setOnClickListener { saveAndFinish() }
+        findViewById<TextView>(R.id.trimLink).setOnClickListener { showTrimDialog() }
         findViewById<TextView>(R.id.backLink).setOnClickListener {
             if (hasUnsavedChanges()) {
                 showUnsavedChangesDialog()
@@ -174,6 +178,205 @@ class EditFishingSessionActivity : AppCompatActivity() {
                 setResult(RESULT_OK)
                 finish()
             }
+        }
+    }
+
+    private fun showTrimDialog() {
+        val s = session ?: return
+        val startTime = s.startedAt
+        val endTime = s.endedAt ?: System.currentTimeMillis()
+        val totalDuration = endTime - startTime
+        if (totalDuration <= 0) return
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_trim_session, null)
+        val startSeekBar = dialogView.findViewById<SeekBar>(R.id.startSeekBar)
+        val endSeekBar = dialogView.findViewById<SeekBar>(R.id.endSeekBar)
+        val newStartInput = dialogView.findViewById<EditText>(R.id.newStartInput)
+        val newEndInput = dialogView.findViewById<EditText>(R.id.newEndInput)
+        val trimSessionLink = dialogView.findViewById<TextView>(R.id.trimSessionLink)
+        val dialogBackLink = dialogView.findViewById<TextView>(R.id.dialogBackLink)
+
+        val fullDateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault())
+
+        startSeekBar.max = 1000
+        startSeekBar.progress = 0
+        endSeekBar.max = 1000
+        endSeekBar.progress = 1000
+
+        newStartInput.setText(fullDateFormat.format(Date(startTime)))
+        newEndInput.setText(fullDateFormat.format(Date(endTime)))
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        var isUpdatingFromSeekBar = false
+
+        startSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    isUpdatingFromSeekBar = true
+                    val newTime = startTime + (totalDuration * progress / 1000)
+                    newStartInput.setText(fullDateFormat.format(Date(newTime)))
+                    isUpdatingFromSeekBar = false
+                    updateTrimLinkVisibility(
+                        newStartInput, newEndInput, trimSessionLink,
+                        startTime, endTime, fullDateFormat
+                    )
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        endSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    isUpdatingFromSeekBar = true
+                    val newTime = startTime + (totalDuration * progress / 1000)
+                    newEndInput.setText(fullDateFormat.format(Date(newTime)))
+                    isUpdatingFromSeekBar = false
+                    updateTrimLinkVisibility(
+                        newStartInput, newEndInput, trimSessionLink,
+                        startTime, endTime, fullDateFormat
+                    )
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        newStartInput.addTextChangedListener {
+            if (!isUpdatingFromSeekBar) {
+                try {
+                    val date = fullDateFormat.parse(it.toString())
+                    if (date != null) {
+                        val progress = if (totalDuration > 0) ((date.time - startTime) * 1000 / totalDuration).toInt() else 0
+                        startSeekBar.progress = progress.coerceIn(0, 1000)
+                    }
+                } catch (e: ParseException) {
+                    // Invalid format, ignore
+                }
+            }
+            updateTrimLinkVisibility(
+                newStartInput, newEndInput, trimSessionLink,
+                startTime, endTime, fullDateFormat
+            )
+        }
+
+        newEndInput.addTextChangedListener {
+            if (!isUpdatingFromSeekBar) {
+                try {
+                    val date = fullDateFormat.parse(it.toString())
+                    if (date != null) {
+                        val progress = if (totalDuration > 0) ((date.time - startTime) * 1000 / totalDuration).toInt() else 0
+                        endSeekBar.progress = progress.coerceIn(0, 1000)
+                    }
+                } catch (e: ParseException) {
+                    // Invalid format, ignore
+                }
+            }
+            updateTrimLinkVisibility(
+                newStartInput, newEndInput, trimSessionLink,
+                startTime, endTime, fullDateFormat
+            )
+        }
+
+        // Alkutilan tarkistus
+        updateTrimLinkVisibility(
+            newStartInput, newEndInput, trimSessionLink,
+            startTime, endTime, fullDateFormat
+        )
+
+        trimSessionLink.setOnClickListener {
+            val newStartStr = newStartInput.text.toString()
+            val newEndStr = newEndInput.text.toString()
+
+            val newStart: Date
+            val newEnd: Date
+            try {
+                newStart = fullDateFormat.parse(newStartStr)!!
+                newEnd = fullDateFormat.parse(newEndStr)!!
+            } catch (e: ParseException) {
+                Toast.makeText(this, R.string.invalid_format, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (newStart.time >= newEnd.time || newStart.time < startTime || newEnd.time > endTime) {
+                Toast.makeText(this, R.string.invalid_times, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val startDiff = newStart.time - startTime
+            val endDiff = endTime - newEnd.time
+
+            val startDiffStr = formatDuration(startDiff)
+            val endDiffStr = formatDuration(endDiff)
+
+            AlertDialog.Builder(this)
+                .setMessage(getString(R.string.trim_confirm, startDiffStr, endDiffStr))
+                .setPositiveButton(R.string.yes) { _, _ ->
+                    performTrim(newStart.time, newEnd.time)
+                    dialog.dismiss()
+                }
+                .setNegativeButton(R.string.no, null)
+                .show()
+                .enlargeButtons()
+        }
+
+        dialogBackLink.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun formatDuration(durationMs: Long): String {
+        val days = TimeUnit.MILLISECONDS.toDays(durationMs)
+        val hours = TimeUnit.MILLISECONDS.toHours(durationMs) % 24
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMs) % 60
+        val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMs) % 60
+
+        val sb = StringBuilder()
+        if (days > 0) sb.append("${days} vrk ")
+        if (hours > 0 || days > 0) sb.append("${hours} h ")
+        sb.append("${minutes} min ${seconds} s")
+        return sb.toString().trim()
+    }
+
+    private fun performTrim(newStartTime: Long, newEndTime: Long) {
+        val s = session ?: return
+        lifecycleScope.launch(Dispatchers.IO) {
+            db.trackPointDao().deletePointsOutsideRange(s.id, newStartTime, newEndTime)
+            db.fishingSessionDao().update(s.copy(startedAt = newStartTime, endedAt = newEndTime))
+            loadSessionData()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@EditFishingSessionActivity, R.string.trim_success, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun updateTrimLinkVisibility(
+        startInput: EditText,
+        endInput: EditText,
+        trimLink: TextView,
+        origStart: Long,
+        origEnd: Long,
+        df: SimpleDateFormat
+    ) {
+        try {
+            val newStart = df.parse(startInput.text.toString()) ?: return
+            val newEnd = df.parse(endInput.text.toString()) ?: return
+
+            val isValid = newStart.time < newEnd.time &&
+                    newStart.time >= origStart &&
+                    newEnd.time <= origEnd
+
+            val hasChanges = newStart.time != origStart || newEnd.time != origEnd
+
+            trimLink.visibility = if (isValid && hasChanges) android.view.View.VISIBLE else android.view.View.GONE
+        } catch (e: ParseException) {
+            trimLink.visibility = android.view.View.GONE
         }
     }
 }
