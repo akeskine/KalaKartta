@@ -1833,203 +1833,27 @@ class SettingsManager(
             }
             contentLayout.addView(fetchButton)
 
-            val trackingSettingsContainer = LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
-            contentLayout.addView(trackingSettingsContainer)
-
-            val sectionTitle = TextView(activity).apply {
+            val trackingSettingsLink = TextView(activity).apply {
                 text = "Reittipisteiden tallennusvälit"
                 textSize = 18f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setPadding(0, 30, 0, 20)
-            }
-            trackingSettingsContainer.addView(sectionTitle)
-
-            val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-            
-            val locationIntervals = arrayOf("10", "30", "60", "120")
-            val minIntervals = arrayOf("10", "30", "60", "120")
-            val maxIntervals = arrayOf("60", "120", "300", "600")
-            val minDistances = arrayOf("10", "20", "50", "100", "200")
-
-            var currentLocationInterval = prefs.getInt("location_check_interval", 10).toString()
-            var currentMinInterval = prefs.getInt("min_track_point_interval", 30).toString()
-            var currentMaxInterval = prefs.getInt("max_track_point_interval", 300).toString()
-            var currentMinDistance = prefs.getInt("min_track_point_distance", 20).toString()
-
-            // Varmistetaan että asetukset ovat valittavissa olevia arvoja
-            if (currentLocationInterval !in locationIntervals) currentLocationInterval = "10"
-            if (currentMinInterval !in minIntervals) currentMinInterval = "30"
-            if (currentMaxInterval !in maxIntervals) currentMaxInterval = "300"
-            if (currentMinDistance !in minDistances) currentMinDistance = "20"
-
-            val locationSpinner = Spinner(activity)
-            val minIntervalSpinner = Spinner(activity)
-            val maxIntervalSpinner = Spinner(activity)
-            val minDistanceSpinner = Spinner(activity)
-
-            fun updateSpinners() {
-                val locVal = currentLocationInterval.toInt()
-                val minVal = currentMinInterval.toInt()
-                val maxVal = currentMaxInterval.toInt()
-
-                var changed = false
-                if (maxVal < minVal) {
-                    currentMinInterval = currentMaxInterval
-                    minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
-                    prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
-                    changed = true
-                }
-                
-                val newMinVal = currentMinInterval.toInt()
-                if (newMinVal < locVal) {
-                    currentLocationInterval = currentMinInterval
-                    locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
-                    prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
-                    changed = true
-                }
-            }
-
-            fun createRow(labelText: String, spinner: Spinner): LinearLayout {
-                val row = LinearLayout(activity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    )
-                    gravity = android.view.Gravity.CENTER_VERTICAL
-                    setPadding(0, 10, 0, 10)
-                }
-                
-                val label = TextView(activity).apply {
-                    text = labelText
-                    textSize = 16f
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        1f
-                    )
-                }
-                
-                spinner.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                
-                row.addView(label)
-                row.addView(spinner)
-                return row
-            }
-
-            trackingSettingsContainer.addView(createRow("Sijainnin tarkastuksen aikaväli (s)", locationSpinner.apply {
-                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, locationIntervals)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                this.adapter = adapter
-                setSelection(locationIntervals.indexOf(currentLocationInterval))
-                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                        currentLocationInterval = locationIntervals[pos]
-                        prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
-                        updateSpinners()
-                    }
-                    override fun onNothingSelected(p0: AdapterView<*>?) {}
-                }
-            }))
-
-            trackingSettingsContainer.addView(createRow("Tallennusaikaväli min (s)", minIntervalSpinner.apply {
-                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minIntervals)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                this.adapter = adapter
-                setSelection(minIntervals.indexOf(currentMinInterval))
-                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                        currentMinInterval = minIntervals[pos]
-                        prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
-                        updateSpinners()
-                    }
-                    override fun onNothingSelected(p0: AdapterView<*>?) {}
-                }
-            }))
-
-            trackingSettingsContainer.addView(createRow("Tallennusaikaväli max (s)", maxIntervalSpinner.apply {
-                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, maxIntervals)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                this.adapter = adapter
-                setSelection(maxIntervals.indexOf(currentMaxInterval))
-                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                        currentMaxInterval = maxIntervals[pos]
-                        prefs.edit().putInt("max_track_point_interval", currentMaxInterval.toInt()).apply()
-                        updateSpinners()
-                    }
-                    override fun onNothingSelected(p0: AdapterView<*>?) {}
-                }
-            }))
-
-            trackingSettingsContainer.addView(createRow("Pisteiden minimietäisyys (m)", minDistanceSpinner.apply {
-                val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minDistances)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                this.adapter = adapter
-                setSelection(minDistances.indexOf(currentMinDistance))
-                onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                        currentMinDistance = minDistances[pos]
-                        prefs.edit().putInt("min_track_point_distance", currentMinDistance.toInt()).apply()
-                    }
-                    override fun onNothingSelected(p0: AdapterView<*>?) {}
-                }
-            }))
-
-            val resetDefaultsLink = TextView(activity).apply {
-                text = activity.getString(R.string.reset_defaults)
-                textSize = 14f
-                setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.link_color))
-                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
                 isClickable = true
                 isFocusable = true
-                setPadding(0, 10, 0, 10)
+                setPadding(0, 20, 0, 20)
                 val params = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                params.setMargins(0, 10, 0, 10)
+                params.setMargins(0, 0, 0, 20)
                 layoutParams = params
                 setOnClickListener {
-                    currentLocationInterval = "10"
-                    currentMinInterval = "30"
-                    currentMaxInterval = "300"
-                    currentMinDistance = "20"
-                    
-                    prefs.edit()
-                        .putInt("location_check_interval", 10)
-                        .putInt("min_track_point_interval", 30)
-                        .putInt("max_track_point_interval", 300)
-                        .putInt("min_track_point_distance", 20)
-                        .apply()
-
-                    locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
-                    minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
-                    maxIntervalSpinner.setSelection(maxIntervals.indexOf(currentMaxInterval))
-                    minDistanceSpinner.setSelection(minDistances.indexOf(currentMinDistance))
+                    openTrackingIntervalSettings()
                 }
             }
-            trackingSettingsContainer.addView(resetDefaultsLink)
-
-            val spacer = View(activity).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    (activity.resources.displayMetrics.density * 18).toInt() // Noin yhden rivin korkeus
-                )
-            }
-            trackingSettingsContainer.addView(spacer)
+            contentLayout.addView(trackingSettingsLink)
 
             val statusText = TextView(activity).apply {
                 textSize = 14f
@@ -2056,10 +1880,11 @@ class SettingsManager(
                 params.setMargins(0, 10, 0, 10)
                 layoutParams = params
                 setOnClickListener {
-                    val locInt = currentLocationInterval.toInt()
-                    val minInt = currentMinInterval.toInt()
-                    val maxInt = currentMaxInterval.toInt()
-                    val minDist = currentMinDistance.toInt()
+                    val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+                    val locInt = prefs.getInt("location_check_interval", 10)
+                    val minInt = prefs.getInt("min_track_point_interval", 30)
+                    val maxInt = prefs.getInt("max_track_point_interval", 300)
+                    val minDist = prefs.getInt("min_track_point_distance", 20)
                     
                     mainActivity?.startFishingSession(locInt, minInt, maxInt, minDist)
                     dialog?.dismiss()
@@ -2085,7 +1910,7 @@ class SettingsManager(
                     val locationEnabled = isGpsEnabled || isNetworkEnabled
                     startButton.isEnabled = locationEnabled
                     startButton.visibility = if (locationEnabled) View.VISIBLE else View.GONE
-                    trackingSettingsContainer.visibility = if (locationEnabled) View.VISIBLE else View.GONE
+                    trackingSettingsLink.visibility = if (locationEnabled) View.VISIBLE else View.GONE
                     
                     if (locationEnabled) {
                         statusText.visibility = View.GONE
@@ -2199,6 +2024,196 @@ class SettingsManager(
                 .create()
             showDialog(dialog!!)
         }
+    }
+
+    private fun openTrackingIntervalSettings() {
+        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+        
+        val contentLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        val scrollView = ScrollView(activity).apply {
+            addView(contentLayout)
+        }
+
+        val sectionTitle = TextView(activity).apply {
+            text = "Reittipisteiden tallennusvälit"
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 20)
+        }
+        contentLayout.addView(sectionTitle)
+
+        val locationIntervals = arrayOf("10", "30", "60", "120")
+        val minIntervals = arrayOf("10", "30", "60", "120")
+        val maxIntervals = arrayOf("60", "120", "300", "600")
+        val minDistances = arrayOf("10", "20", "50", "100", "200")
+
+        var currentLocationInterval = prefs.getInt("location_check_interval", 10).toString()
+        var currentMinInterval = prefs.getInt("min_track_point_interval", 30).toString()
+        var currentMaxInterval = prefs.getInt("max_track_point_interval", 300).toString()
+        var currentMinDistance = prefs.getInt("min_track_point_distance", 20).toString()
+
+        if (currentLocationInterval !in locationIntervals) currentLocationInterval = "10"
+        if (currentMinInterval !in minIntervals) currentMinInterval = "30"
+        if (currentMaxInterval !in maxIntervals) currentMaxInterval = "300"
+        if (currentMinDistance !in minDistances) currentMinDistance = "20"
+
+        val locationSpinner = Spinner(activity)
+        val minIntervalSpinner = Spinner(activity)
+        val maxIntervalSpinner = Spinner(activity)
+        val minDistanceSpinner = Spinner(activity)
+
+        fun updateSpinners() {
+            val locVal = currentLocationInterval.toInt()
+            val minVal = currentMinInterval.toInt()
+            val maxVal = currentMaxInterval.toInt()
+
+            if (maxVal < minVal) {
+                currentMinInterval = currentMaxInterval
+                minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
+                prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
+            }
+            
+            val newMinVal = currentMinInterval.toInt()
+            if (newMinVal < locVal) {
+                currentLocationInterval = currentMinInterval
+                locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
+                prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
+            }
+        }
+
+        fun createRow(labelText: String, spinner: Spinner): LinearLayout {
+            val row = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, 10, 0, 10)
+            }
+            
+            val label = TextView(activity).apply {
+                text = labelText
+                textSize = 16f
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            
+            spinner.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            
+            row.addView(label)
+            row.addView(spinner)
+            return row
+        }
+
+        contentLayout.addView(createRow("Sijainnin tarkastuksen aikaväli (s)", locationSpinner.apply {
+            val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, locationIntervals)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            this.adapter = adapter
+            setSelection(locationIntervals.indexOf(currentLocationInterval))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                    currentLocationInterval = locationIntervals[pos]
+                    prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
+                    updateSpinners()
+                }
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+        }))
+
+        contentLayout.addView(createRow("Tallennusaikaväli min (s)", minIntervalSpinner.apply {
+            val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minIntervals)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            this.adapter = adapter
+            setSelection(minIntervals.indexOf(currentMinInterval))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                    currentMinInterval = minIntervals[pos]
+                    prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
+                    updateSpinners()
+                }
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+        }))
+
+        contentLayout.addView(createRow("Tallennusaikaväli max (s)", maxIntervalSpinner.apply {
+            val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, maxIntervals)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            this.adapter = adapter
+            setSelection(maxIntervals.indexOf(currentMaxInterval))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                    currentMaxInterval = maxIntervals[pos]
+                    prefs.edit().putInt("max_track_point_interval", currentMaxInterval.toInt()).apply()
+                    updateSpinners()
+                }
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+        }))
+
+        contentLayout.addView(createRow("Pisteiden minimietäisyys (m)", minDistanceSpinner.apply {
+            val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, minDistances)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            this.adapter = adapter
+            setSelection(minDistances.indexOf(currentMinDistance))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                    currentMinDistance = minDistances[pos]
+                    prefs.edit().putInt("min_track_point_distance", currentMinDistance.toInt()).apply()
+                }
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+        }))
+
+        val resetDefaultsLink = TextView(activity).apply {
+            text = activity.getString(R.string.reset_defaults)
+            textSize = 14f
+            setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.link_color))
+            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            isClickable = true
+            isFocusable = true
+            setPadding(0, 10, 0, 10)
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(0, 10, 0, 10)
+            layoutParams = params
+            setOnClickListener {
+                currentLocationInterval = "10"
+                currentMinInterval = "30"
+                currentMaxInterval = "300"
+                currentMinDistance = "20"
+                
+                prefs.edit()
+                    .putInt("location_check_interval", 10)
+                    .putInt("min_track_point_interval", 30)
+                    .putInt("max_track_point_interval", 300)
+                    .putInt("min_track_point_distance", 20)
+                    .apply()
+
+                locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
+                minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
+                maxIntervalSpinner.setSelection(maxIntervals.indexOf(currentMaxInterval))
+                minDistanceSpinner.setSelection(minDistances.indexOf(currentMinDistance))
+            }
+        }
+        contentLayout.addView(resetDefaultsLink)
+
+        val dialog = AlertDialog.Builder(activity)
+            .setView(scrollView)
+            .setPositiveButton("Takaisin") { _, _ -> openFishingSessionSettings() }
+            .create()
+        showDialog(dialog)
     }
 
     private fun openDefaultFishermanSettings() {
