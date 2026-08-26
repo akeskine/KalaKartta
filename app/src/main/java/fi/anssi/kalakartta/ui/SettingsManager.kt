@@ -998,32 +998,95 @@ class SettingsManager(
         }
         layout.addView(debugCheckbox)
 
-        // Lisää tyhjää väliä
-        layout.addView(View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(1, 40)
-        })
-
-        val maxPointsLabel = TextView(activity).apply {
-            text = "Reittipisteiden enimmäismäärä"
+        // Rivi 1: Reittipisteitä max
+        val row1 = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
         }
-        layout.addView(maxPointsLabel)
-
+        val maxPointsLabel = TextView(activity).apply {
+            text = "Reittipisteitä max:"
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.5f)
+        }
         val maxPointsEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setText(prefs.getInt("max_track_points", 50000).toString())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        layout.addView(maxPointsEdit)
+        row1.addView(maxPointsLabel)
+        row1.addView(maxPointsEdit)
+        layout.addView(row1)
 
+        // Rivi 2: Heat map ruutuja max
+        val row2 = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
         val maxCellsLabel = TextView(activity).apply {
-            text = "Heat map -ruutujen enimmäismäärä"
+            text = "Heat map ruutuja max:"
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.5f)
         }
-        layout.addView(maxCellsLabel)
-
         val maxCellsEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setText(prefs.getInt("max_heatmap_cells", 10000).toString())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        layout.addView(maxCellsEdit)
+        row2.addView(maxCellsLabel)
+        row2.addView(maxCellsEdit)
+        layout.addView(row2)
+
+        // Tulostus: Näkyvät määrät
+        val statusText = TextView(activity).apply {
+            text = "Lasketaan..."
+            setPadding(0, 20, 0, 0)
+        }
+        layout.addView(statusText)
+
+        // Laskenta taustalla
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            val filters = FilterManager(activity).getFilters()
+            val heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
+            val routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
+            
+            val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
+            
+            // Reittipisteet
+            val pointCount = if (routesFilterEnabled) {
+                when {
+                    (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
+                        db.trackPointDao().getCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
+                    filters.startDate != null || filters.endDate != null ->
+                        db.trackPointDao().getCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE)
+                    hasAreaFilter ->
+                        db.trackPointDao().getCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
+                    else -> db.trackPointDao().getCount()
+                }
+            } else {
+                db.trackPointDao().getCount()
+            }
+
+            // Heatmap ruudut
+            val gridSize = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
+            val latDegreeMeters = 111320.0
+            val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
+            
+            val cellCount = if (heatmapFilterEnabled) {
+                when {
+                    (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
+                        db.trackPointDao().getHeatmapCellCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
+                    filters.startDate != null || filters.endDate != null ->
+                        db.trackPointDao().getHeatmapCellCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, latDegreeMeters, lonDegreeMeters, gridSize)
+                    hasAreaFilter ->
+                        db.trackPointDao().getHeatmapCellCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
+                    else -> db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
+                }
+            } else {
+                db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
+            }
+
+            withContext(Dispatchers.Main) {
+                statusText.text = "Näkyvät reittpisteet $pointCount, \nNäkyvät heat map-ruudut $cellCount"
+            }
+        }
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Kehittäjätyökalut")
