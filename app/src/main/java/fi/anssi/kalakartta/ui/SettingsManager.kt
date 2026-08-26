@@ -1250,6 +1250,7 @@ class SettingsManager(
             setOnCheckedChangeListener { _, isChecked ->
                 showQuickMapCurrent = isChecked
                 prefs.edit().putBoolean("show_quick_map_source", isChecked).apply()
+                onMapSettingsChanged()
             }
         }
 

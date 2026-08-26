@@ -683,6 +683,7 @@ class MainActivity : AppCompatActivity() {
             }, onMapSettingsChanged = {
                 updateMapTileSource()
                 updateFishingHeatmap()
+                updateScaleBar()
             }) { forceRefreshSpecies ->
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
@@ -1825,7 +1826,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateMyLocationButtonVisibility()
-
+        updateScaleBar()
+        
         // Rekisteröidään sijaintipalveluiden seuranta
         val filter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
