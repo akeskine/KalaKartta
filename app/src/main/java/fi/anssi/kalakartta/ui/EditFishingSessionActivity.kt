@@ -352,6 +352,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
             loadSessionData()
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@EditFishingSessionActivity, R.string.trim_success, Toast.LENGTH_SHORT).show()
+                setResult(RESULT_OK)
             }
         }
     }

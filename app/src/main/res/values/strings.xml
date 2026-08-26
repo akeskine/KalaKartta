@@ -165,7 +165,7 @@
     <string name="talking_clock_permission_alarms">Puhuva kello vaatii "Tarkat hälytykset" -luvan toimiakseen täsmällisesti. Sinut ohjataan nyt järjestelmän asetuksiin, josta voit sallia tämän sovellukselle.</string>
     <string name="unit_min">min</string>
     <string name="trim">Rajaa</string>
-    <string name="trim_session">Rajaa</string>
+    <string name="trim_session">Rajaa sessiota</string>
     <string name="new_start_time">Uusi alkuaika</string>
     <string name="new_end_time">Uusi loppuaika</string>
     <string name="trim_confirm">Oletko varma, että haluat lyhentää kalastussessiota alkupäästä %1$s ja loppupäästä %2$s?</string>
