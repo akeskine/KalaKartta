@@ -784,9 +784,21 @@ class MainActivity : AppCompatActivity() {
 
             findViewById<MaterialButton>(R.id.heatmapShortcutButton).setOnClickListener {
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val currentState = prefs.getBoolean("heatmap_enabled", false)
-                val newState = !currentState
-                prefs.edit().putBoolean("heatmap_enabled", newState).apply()
+                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+
+                val (newHeatmap, newRoutes) = when {
+                    !heatmapEnabled && !routesEnabled -> Pair(true, false)
+                    heatmapEnabled && !routesEnabled -> Pair(true, true)
+                    heatmapEnabled && routesEnabled -> Pair(false, true)
+                    else -> Pair(false, false)
+                }
+
+                prefs.edit().apply {
+                    putBoolean("heatmap_enabled", newHeatmap)
+                    putBoolean("fishing_routes_enabled", newRoutes)
+                }.apply()
+                
                 updateFishingHeatmap()
             }
 
@@ -1393,9 +1405,10 @@ class MainActivity : AppCompatActivity() {
     private fun updateFishingHeatmap() {
         if (!::db.isInitialized) return
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val enabled = prefs.getBoolean("heatmap_enabled", false)
+        val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+        val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
 
-        if (enabled) {
+        if (heatmapEnabled || routesEnabled) {
             if (heatmapOverlay == null) {
                 heatmapOverlay = FishingHeatmapOverlay(this, db, map)
                 map.overlays.add(0, heatmapOverlay) // Lisätään pohjalle
@@ -1410,7 +1423,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         val shortcutButton = findViewById<MaterialButton>(R.id.heatmapShortcutButton)
-        if (enabled) {
+        if (heatmapEnabled || routesEnabled) {
             val colorStr = prefs.getString("heatmap_color", "Punainen")
             val baseColor = when (colorStr) {
                 "Violetti" -> Color.rgb(128, 0, 128)
@@ -1418,10 +1431,11 @@ class MainActivity : AppCompatActivity() {
                 else -> Color.RED
             }
             // Alfa 80 (n. 31%) kuten aiemmin, mutta valitulla värillä
-            val shortcutColor = Color.argb(80, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+            val alpha = if (heatmapEnabled && routesEnabled) 160 else 80
+            val shortcutColor = Color.argb(alpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
             shortcutButton.backgroundTintList = ColorStateList.valueOf(shortcutColor)
             
-            // Muutetaan myös reunus painikkeen väriseksi jos heatmap on päällä, 
+            // Muutetaan myös reunus painikkeen väriseksi jos heatmap tai reitit on päällä, 
             // jotta se erottuu pikanäppäimenä mutta osoittaa tilan
             shortcutButton.strokeColor = ColorStateList.valueOf(baseColor)
         } else {

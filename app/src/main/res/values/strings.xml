@@ -126,6 +126,7 @@
     <string name="map_background">Karttapohja</string>
     <string name="action_fishing_heatmap">Kalastetut alueet</string>
     <string name="show_fishing_heatmap">Näytä kalastetut alueet</string>
+    <string name="show_fishing_routes">Näytä kalastussessioiden reitit</string>
     <string name="show_heatmap_shortcut">Näytä kalastettujen alueiden pikavalinta</string>
     <string name="heatmap_min_points">Minimi vierailukerrat ruudussa</string>
     <string name="heatmap_max_points">Maksimi vierailukerrat ruudussa</string>
@@ -133,14 +134,15 @@
     <string name="color_purple">Violetti</string>
     <string name="color_green">Vihreä</string>
     <string name="heatmap_grid_size">Ruudun koko (m)</string>
-    <string name="heatmap_filter_enabled">Suodata myös kalastetut alueet suodatusehtojen mukaisesti</string>
+    <string name="heatmap_filter_enabled">Suodata myös kalastetut alueet</string>
+    <string name="routes_filter_enabled">Suodata myös reitit</string>
     <string name="heatmap_calculation_method">Ruudun käyntikertojen laskentatapa</string>
     <string name="heatmap_method_sessions">Kalastussessioiden määrä</string>
     <string name="heatmap_method_points">Reittipisteiden määrä</string>
     <string name="heatmap_sessions_in_grid">Kalastussessioita ruudussa</string>
     <string name="heatmap_points_in_grid">Reittipisteitä ruudussa</string>
     <string name="heatmap_remove_transitions">Poista siirtymäpisteet</string>
-    <string name="heatmap_max_speed">Reittipisteen maksiminopeus</string>
+    <string name="heatmap_max_speed">Reittipisteen max. nopeus (km/h)</string>
     <string name="unit_kmh">km/h</string>
     <string name="reset_defaults">Palauta oletukset</string>
     <string name="talking_clock">Puhuva kello</string>

@@ -323,6 +323,17 @@ class SettingsManager(
         }
         layout.addView(heatmapEnabledCb)
 
+        val routesEnabledCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.show_fishing_routes)
+            isChecked = prefs.getBoolean("fishing_routes_enabled", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("fishing_routes_enabled", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(routesEnabledCb)
+
         val showShortcutCb = CheckBox(activity).apply {
             text = activity.getString(R.string.show_heatmap_shortcut)
             isChecked = prefs.getBoolean("show_heatmap_shortcut", false)
@@ -344,6 +355,17 @@ class SettingsManager(
             }
         }
         layout.addView(heatmapFilterEnabledCb)
+
+        val routesFilterEnabledCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.routes_filter_enabled)
+            isChecked = prefs.getBoolean("routes_filter_enabled", false)
+            textSize = 18f
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("routes_filter_enabled", isChecked).apply()
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(routesFilterEnabledCb)
 
         val colors = arrayOf(
             activity.getString(R.string.color_red),
@@ -586,7 +608,7 @@ class SettingsManager(
         // Poista siirtymäpisteet
         val speedLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 10, 0, 10)
+            setPadding(0, 0, 0, 10)
         }
 
         val removeTransitionsCb = CheckBox(activity).apply {
@@ -598,7 +620,7 @@ class SettingsManager(
         val speedInputLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(40, 0, 0, 0)
+            setPadding(40, 0, 40, 0)
             visibility = if (removeTransitionsCb.isChecked) View.VISIBLE else View.GONE
         }
 
@@ -612,7 +634,7 @@ class SettingsManager(
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             setText(prefs.getFloat("heatmap_max_speed", 10.0f).toString())
             textSize = 16f
-            layoutParams = LinearLayout.LayoutParams(200, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            layoutParams = LinearLayout.LayoutParams(150, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 leftMargin = 20
             }
             addTextChangedListener(object : android.text.TextWatcher {
@@ -626,13 +648,6 @@ class SettingsManager(
             })
         }
         speedInputLayout.addView(speedEdit)
-
-        val kmhLabel = TextView(activity).apply {
-            text = activity.getString(R.string.unit_kmh)
-            textSize = 16f
-            setPadding(10, 0, 0, 0)
-        }
-        speedInputLayout.addView(kmhLabel)
 
         removeTransitionsCb.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("heatmap_remove_transitions", isChecked).apply()
