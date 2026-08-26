@@ -421,7 +421,7 @@ class SettingsManager(
                 val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
                 if (!isChecked && heatmapEnabled) {
                     // Jos kytketään suodatus pois ja heatmap on päällä, tarkistetaan rajat (kaikki pisteet)
-                    checkLimits(true, false) { success ->
+                    checkLimits(true, false, providedFilters = FilterManager.Filters()) { success ->
                         if (success) {
                             prefs.edit().putBoolean("heatmap_filter_enabled", false).apply()
                             onMapSettingsChanged()
@@ -445,7 +445,7 @@ class SettingsManager(
                 val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
                 if (!isChecked && routesEnabled) {
                     // Jos kytketään suodatus pois ja reitit on päällä, tarkistetaan rajat (kaikki pisteet)
-                    checkLimits(false, true) { success ->
+                    checkLimits(false, true, providedFilters = FilterManager.Filters()) { success ->
                         if (success) {
                             prefs.edit().putBoolean("routes_filter_enabled", false).apply()
                             onMapSettingsChanged()
