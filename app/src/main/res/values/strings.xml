@@ -155,4 +155,11 @@
     <string name="talking_clock_sunrise">Kerro auringonnousu</string>
     <string name="talking_clock_sunrise_limit">jos alle </string>
     <string name="hours_suffix"> h päästä</string>
+    <string name="talking_clock_running">käynnissä</string>
+    <string name="talking_clock_stopped">pysäytetty</string>
+    <string name="talking_clock_interval_info">väli</string>
+    <string name="talking_clock_permissions_needed">Puhuva kello vaatii lupia toimiakseen oikein (ilmoitukset ja tarkat hälytykset). Haluatko antaa ne nyt?</string>
+    <string name="talking_clock_permission_notifications">Sovellus tarvitsee luvan ilmoitusten lähettämiseen.</string>
+    <string name="talking_clock_permission_alarms">Puhuva kello vaatii "Tarkat hälytykset" -luvan toimiakseen täsmällisesti. Sinut ohjataan nyt järjestelmän asetuksiin, josta voit sallia tämän sovellukselle.</string>
+    <string name="unit_min">min</string>
 </resources>

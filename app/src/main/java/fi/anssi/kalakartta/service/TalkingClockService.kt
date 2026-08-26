@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.service
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,6 +16,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.media.AudioAttributes
@@ -30,9 +32,9 @@ import java.util.*
 class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
-    private val handler by lazy { Handler(Looper.getMainLooper()) }
     private var intervalMinutes = 10
     private var isTtsInitialized = false
+    private var wakeLock: PowerManager.WakeLock? = null
     
     private val sunService = SunService()
     private var cachedSunTimes: Pair<Calendar, Calendar>? = null
@@ -51,13 +53,6 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
         override fun onProviderEnabled(provider: String) {}
         override fun onProviderDisabled(provider: String) {}
-    }
-    
-    private val talkRunnable = object : Runnable {
-        override fun run() {
-            speakCurrentTime()
-            scheduleNext()
-        }
     }
 
     override fun onCreate() {
@@ -127,16 +122,29 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val newInterval = intent?.getIntExtra("interval", 10) ?: 10
-        if (newInterval != intervalMinutes) {
+        val newInterval = intent?.getIntExtra("interval", -1) ?: -1
+        val intervalChanged = newInterval != -1 && newInterval != intervalMinutes
+        if (intervalChanged) {
             intervalMinutes = newInterval
-            if (isTtsInitialized) {
-                handler.removeCallbacks(talkRunnable)
-                scheduleNext()
+        }
+        
+        if (isTtsInitialized) {
+            when (intent?.action) {
+                "START_IMMEDIATELY" -> {
+                    // Ei puhuta heti, vaan ajoitetaan seuraava tasaväli
+                    scheduleNext()
+                }
+                "TALK" -> {
+                    acquireWakeLock()
+                    speakCurrentTime()
+                    scheduleNext()
+                }
+                else -> {
+                    if (intervalChanged) {
+                        scheduleNext()
+                    }
+                }
             }
-        } else if (intent?.action == "START_IMMEDIATELY") {
-            handler.removeCallbacks(talkRunnable)
-            scheduleNext()
         }
         
         return START_STICKY
@@ -146,8 +154,14 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
-                override fun onDone(utteranceId: String?) { abandonAudioFocus() }
-                override fun onError(utteranceId: String?) { abandonAudioFocus() }
+                override fun onDone(utteranceId: String?) { 
+                    abandonAudioFocus()
+                    releaseWakeLock()
+                }
+                override fun onError(utteranceId: String?) { 
+                    abandonAudioFocus()
+                    releaseWakeLock()
+                }
             })
 
             val result = tts?.setLanguage(Locale("fi", "FI"))
@@ -155,6 +169,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 Log.e("TalkingClockService", "Finnish language not supported")
             } else {
                 isTtsInitialized = true
+                // Ajoitetaan seuraava tasaväli ilman välitöntä puhetta
                 scheduleNext()
             }
         } else {
@@ -163,34 +178,102 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun scheduleNext() {
-        val now = Calendar.getInstance()
-        val minutesSinceHour = now.get(Calendar.MINUTE)
+        val now = System.currentTimeMillis()
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = now
         
-        // Lasketaan seuraava kerta tasatunneista lähtien
-        // Esim. jos nyt on 20:47 ja väli 10 min, seuraava on 20:50.
-        // Laskukaava: interval - (min % interval)
-        val minutesToNext = intervalMinutes - (minutesSinceHour % intervalMinutes)
+        // Lasketaan seuraava tasaväli keskiyöstä alkaen, jotta vältetään siirtymät
+        val minutesSinceMidnight = (calendar.get(Calendar.HOUR_OF_DAY) * 60) + calendar.get(Calendar.MINUTE)
+        val minutesToNext = intervalMinutes - (minutesSinceMidnight % intervalMinutes)
         
         val nextTime = Calendar.getInstance()
+        nextTime.timeInMillis = now
         nextTime.add(Calendar.MINUTE, minutesToNext)
         nextTime.set(Calendar.SECOND, 0)
         nextTime.set(Calendar.MILLISECOND, 0)
         
-        val delayMs = nextTime.timeInMillis - System.currentTimeMillis()
+        // Varmistetaan, että seuraava aika on vähintään 2 sekunnin päässä (lisätty marginaalia)
+        if (nextTime.timeInMillis <= now + 2000) {
+            nextTime.add(Calendar.MINUTE, intervalMinutes)
+        }
         
-        // Varmistetaan että viive on vähintään sekunti, jos nyt sattui olemaan juuri tasaminuutti
-        val finalDelay = if (delayMs < 1000) intervalMinutes * 60 * 1000L else delayMs
+        val triggerAtMillis = nextTime.timeInMillis
         
-        handler.removeCallbacks(talkRunnable)
-        handler.postDelayed(talkRunnable, finalDelay)
+        val intent = Intent(this, TalkingClockService::class.java).apply {
+            action = "TALK"
+        }
+        val pendingIntent = PendingIntent.getService(
+            this, 0, intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         
-        Log.d("TalkingClockService", "Scheduled next talk in $minutesToNext minutes (at ${nextTime.get(Calendar.HOUR_OF_DAY)}:${nextTime.get(Calendar.MINUTE)})")
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Käytetään setAlarmClockia jos mahdollista, muuten setExactAndAllowWhileIdle.
+                // Molemmat ovat tarkkoja, mutta setAlarmClock on kaikkein "tärkein".
+                val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    alarmManager.canScheduleExactAlarms()
+                } else {
+                    true
+                }
+
+                if (canScheduleExact) {
+                    val showIntent = Intent(this, MainActivity::class.java)
+                    val showPendingIntent = PendingIntent.getActivity(
+                        this, 0, showIntent, 
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
+                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                } else {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                }
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("TalkingClockService", "Hälytyksen asetus epäonnistui: ${e.message}", e)
+            // Viimeinen oljenkorsi
+            alarmManager.set(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtMillis,
+                pendingIntent
+            )
+        }
+        
+        Log.d("TalkingClockService", "Seuraava puhe ajoitettu: ${nextTime.time} (väli $intervalMinutes min)")
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock == null) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KalaKartta:TalkingClockWakeLock")
+        }
+        wakeLock?.acquire(10 * 1000L) // 10s timeout turvallisuuden vuoksi
+    }
+
+    private fun releaseWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
     }
 
     private fun speakCurrentTime() {
         if (!isTtsInitialized) return
         
         val now = Calendar.getInstance()
+        // Pieni pyöristys ylöspäin jos ollaan aivan sekunnin rajalla (esim. 15:44:59.950)
+        now.add(Calendar.MILLISECOND, 500)
+        
         val hour = now.get(Calendar.HOUR_OF_DAY)
         val minute = now.get(Calendar.MINUTE)
         
@@ -208,7 +291,13 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         }
         
         if (requestAudioFocus()) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
+            val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
+            if (result == TextToSpeech.ERROR) {
+                releaseWakeLock()
+                abandonAudioFocus()
+            }
+        } else {
+            releaseWakeLock()
         }
     }
 
@@ -434,11 +523,23 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
-        handler.removeCallbacks(talkRunnable)
+        val intent = Intent(this, TalkingClockService::class.java).apply {
+            action = "TALK"
+        }
+        val pendingIntent = PendingIntent.getService(
+            this, 0, intent, 
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.cancel(pendingIntent)
+        }
+
         locationManager?.removeUpdates(locationListener)
         tts?.stop()
         tts?.shutdown()
         abandonAudioFocus()
+        releaseWakeLock()
         super.onDestroy()
     }
 

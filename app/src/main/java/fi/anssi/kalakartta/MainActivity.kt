@@ -68,8 +68,24 @@ import kotlinx.coroutines.*
 import fi.anssi.kalakartta.service.FishingSessionService
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : AppCompatActivity() {
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Jos lupa annettiin, kokeillaan avata asetukset uudelleen
+            // Mutta tarkistetaan vielä Alarm-lupa jos tarpeen
+            settingsManager.openTalkingClockSettingsIfPermissionsOk()
+        } else {
+            Toast.makeText(this, R.string.talking_clock_permission_notifications, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun getNotificationPermissionLauncher() = requestNotificationPermissionLauncher
 
     private lateinit var db: AppDatabase
     private lateinit var importExportManager: ImportExportManager

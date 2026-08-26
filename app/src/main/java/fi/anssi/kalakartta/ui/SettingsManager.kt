@@ -12,6 +12,7 @@ import android.text.SpannableString
 import android.text.style.URLSpan
 import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
 import android.widget.*
 import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.BuildConfig
@@ -23,6 +24,7 @@ import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.utils.enlargeButtons
 import fi.anssi.kalakartta.utils.WeatherService
+import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.service.TalkingClockService
 import fi.anssi.kalakartta.service.FishingSessionService
 import kotlinx.coroutines.Dispatchers
@@ -712,7 +714,7 @@ class SettingsManager(
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
             setOnClickListener {
-                openTalkingClockSettings()
+                openTalkingClockSettingsIfPermissionsOk()
             }
         }
         layout.addView(talkingClockLink)
@@ -725,8 +727,110 @@ class SettingsManager(
         showDialog(dialog)
     }
 
+    fun openTalkingClockSettingsIfPermissionsOk() {
+        if (hasTalkingClockPermissions()) {
+            openTalkingClockSettings()
+            return
+        }
+
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.talking_clock)
+            .setMessage(R.string.talking_clock_permissions_needed)
+            .setPositiveButton("Kyllä") { _, _ ->
+                requestTalkingClockPermissions()
+            }
+            .setNegativeButton("Ei", null)
+            .show()
+    }
+
+    private fun requestTalkingClockPermissions() {
+        // 1. Ilmoituslupa Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                val launcher = (activity as? MainActivity)?.getNotificationPermissionLauncher()
+                if (launcher != null) {
+                    launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+                }
+                return
+            }
+        }
+
+        // 2. Tarkka hälytys Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                AlertDialog.Builder(activity)
+                    .setTitle(R.string.talking_clock)
+                    .setMessage(R.string.talking_clock_permission_alarms)
+                    .setPositiveButton("OK") { _, _ ->
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                data = android.net.Uri.fromParts("package", activity.packageName, null)
+                            }
+                            activity.startActivity(intent)
+                        } catch (e: Exception) {
+                            val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
+                            activity.startActivity(intent)
+                        }
+                    }
+                    .setNegativeButton("Peruuta", null)
+                    .show()
+                return
+            }
+        }
+        
+        // Jos päästään tänne, kaikki luvat on jo annettu (esim. juuri myönnetty)
+        openTalkingClockSettings()
+    }
+
+    private fun hasTalkingClockPermissions(): Boolean {
+        // Ilmoituslupa Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                return false
+            }
+        }
+        
+        // Tarkka hälytys Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                return false
+            }
+        }
+        
+        return true
+    }
+
     private fun openTalkingClockSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
+
+        var dialog: AlertDialog? = null
+        fun getTitle(): CharSequence {
+            val isEnabled = prefs.getBoolean("talking_clock_enabled", false)
+            val baseTitle = activity.getString(R.string.talking_clock)
+            
+            if (!isEnabled) return baseTitle
+
+            val interval = prefs.getInt("talking_clock_interval", 30)
+            val status = activity.getString(R.string.talking_clock_running)
+            val info = " ($status, ${activity.getString(R.string.talking_clock_interval_info)} $interval ${activity.getString(R.string.unit_min)})"
+            
+            val spannable = SpannableString(baseTitle + info)
+            val start = baseTitle.length
+            val end = spannable.length
+            
+            spannable.setSpan(ForegroundColorSpan(Color.GRAY), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            spannable.setSpan(RelativeSizeSpan(0.8f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            
+            return spannable
+        }
+
+        fun updateTitle() {
+            dialog?.setTitle(getTitle())
+        }
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -747,6 +851,7 @@ class SettingsManager(
                 val newState = !prefs.getBoolean("talking_clock_enabled", false)
                 prefs.edit().putBoolean("talking_clock_enabled", newState).apply()
                 text = activity.getString(if (newState) R.string.talking_clock_stop else R.string.talking_clock_start)
+                updateTitle()
                 
                 if (newState) {
                     val interval = prefs.getInt("talking_clock_interval", 30)
@@ -787,7 +892,7 @@ class SettingsManager(
             textSize = 18f
         })
 
-        val intervals = arrayOf("1", "5", "10", "15", "20", "30", "60")
+        val intervals = arrayOf("1", "2", "5", "10", "15", "20", "30", "60")
         val currentInterval = prefs.getInt("talking_clock_interval", 30).toString()
         val intervalSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, intervals)
@@ -796,6 +901,7 @@ class SettingsManager(
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     val interval = intervals[position].toInt()
                     prefs.edit().putInt("talking_clock_interval", interval).apply()
+                    updateTitle()
                     
                     if (prefs.getBoolean("talking_clock_enabled", false)) {
                         val intent = Intent(activity, TalkingClockService::class.java).apply {
@@ -921,13 +1027,13 @@ class SettingsManager(
         layout.addView(sunriseCheckbox)
         layout.addView(sunriseLimitLayout)
 
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.talking_clock))
+        dialog = AlertDialog.Builder(activity)
+            .setTitle(getTitle())
             .setView(ScrollView(activity).apply { addView(layout) })
             .setNegativeButton("Tallenna", null)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
             .create()
-        showDialog(dialog)
+        showDialog(dialog!!)
     }
 
     private fun openScaleSettings() {
