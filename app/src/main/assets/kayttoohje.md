@@ -22,7 +22,7 @@ KalaKartassa on käytettävissä seuraavat karttapohjat:
 - **OpenStreetMap:** Maailmanlaajuinen avoin kartta-aineisto.
 - **MML Maastokartta ja Ilmakuva:** Maanmittauslaitoksen tarkat aineistot Suomesta. Käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
 - **Traficom merikartta:** Traficomin virallinen merikartta-aineisto (Merikarttasarjat). *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
-- **Traficom veneilykartta:** Traficomin virallinen veneilykartta-aineistoa eräiltä järvialueilta, mm. Puula ja Inari. *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
+- **Traficom veneilykartta:** Traficomin virallinen veneilykartta-aineisto eräiltä järvialueilta, mm. Puula ja Inari. *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
 
 Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet kytkenyt **Karttapohjan pikavalinnan** päälle asetuksista.
 
@@ -72,7 +72,7 @@ Suodatus on voimassa, kunnes se nollataan (Poista suodattimet). Aktiivinen suoda
 
 ## 6. Sääasetukset ja automaattinen haku
 
-Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdolista kytkeä pois päältä **Valikko -> Sää -> Sääasetukset** -valikosta.
+Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdollista kytkeä pois päältä **Valikko -> Sää -> Sääasetukset** -valikosta.
 - **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta (max. 300 km säteeltä kalapisteestä) parhaan tarkkuuden saavuttamiseksi.
 - **Automaattinen päivitys:** Voit kytkeä automaattihaun pois päältä sääasetuksista.
 - **Puuttuvien tietojen haku:** Voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla.
@@ -102,7 +102,7 @@ Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedo
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 
-- **Yhteenveto:** **Valikko -> Yhteenveto** näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esa ja Vesan saaliit viikonlopun ajalta. Voit kopioida yhteenvedon tekstimuodossa leikepöydälle (Kopioi teksti -painike) jaettavaksi eteenpäin.
+- **Yhteenveto:** **Valikko -> Yhteenveto** näyttää tilastot saaliistasi valitulta ajalta (esim. kpl-määrät ja suurimmat kalat). Tietoa voidaan suodattaa myös kalastajan mukaan, esim. jos halutaan nähdä erikseen Esan ja Vesan saaliit viikonlopun ajalta. Voit kopioida yhteenvedon tekstimuodossa leikepöydälle (Kopioi teksti -painike) jaettavaksi eteenpäin.
 - **Näytä kartalla:** Voit tarkastella yhteenvedon sisältämiä pisteitä suoraan kartalla painamalla karttakuvaketta.
 - **Kopioi:** Voit kopioida yhteenvedon tekstin leikepöydälle painamalla kopiointikuvaketta.
 
@@ -152,8 +152,8 @@ Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa ole
 - **Käyttöönotto:** Voit kytkeä ominaisuuden päälle kohdasta **Valikko -> Kalastetut alueet -> Näytä kalastetut alueet**.
 - **Näytä kalastetut alueet**: Tällä valinnalla tehdään kalastettujen alueiden heat map kartalla näkyväksi. 
 - **Näytä kalastussessioiden reitit**: Tällä valinnalla tehdään kalastussessioiden reitit kartalla näkyväksi. 
-- **Suodatus:** Voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin ja / tai reittipisteisiin.
-- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.  - 
+- **Suodatus:** Voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin ja/tai reittipisteisiin.
+- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.
 - **Konfigurointi:**
     - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).
     - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 50, 100, 300 ja 1000 metriä). Oletus on 300 metriä.
