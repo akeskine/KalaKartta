@@ -402,16 +402,52 @@ class SettingsManager(
         }
         layout.addView(routesEnabledCb)
 
-        val showShortcutCb = CheckBox(activity).apply {
+        val shortcutModeLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 10, 0, 10)
+        }
+        val shortcutLabel = TextView(activity).apply {
             text = activity.getString(R.string.show_heatmap_shortcut)
-            isChecked = prefs.getBoolean("show_heatmap_shortcut", false)
             textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("show_heatmap_shortcut", isChecked).apply()
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        shortcutModeLayout.addView(shortcutLabel)
+
+        val shortcutSpinner = Spinner(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val shortcutOptions = activity.resources.getStringArray(R.array.heatmap_shortcut_options)
+        val shortcutAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, shortcutOptions)
+        shortcutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        shortcutSpinner.adapter = shortcutAdapter
+
+        if (!prefs.contains("heatmap_shortcut_mode")) {
+            val oldVal = prefs.getBoolean("show_heatmap_shortcut", false)
+            val newVal = if (oldVal) 3 else 0
+            prefs.edit().putInt("heatmap_shortcut_mode", newVal).apply()
+        }
+        
+        shortcutSpinner.setSelection(prefs.getInt("heatmap_shortcut_mode", 0))
+        shortcutSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            private var isInitialSelection = true
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (isInitialSelection) {
+                    isInitialSelection = false
+                    return
+                }
+                prefs.edit().putInt("heatmap_shortcut_mode", position).apply()
                 onMapSettingsChanged()
             }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        layout.addView(showShortcutCb)
+        shortcutModeLayout.addView(shortcutSpinner)
+        layout.addView(shortcutModeLayout)
 
         val heatmapFilterEnabledCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_filter_enabled)
@@ -762,6 +798,27 @@ class SettingsManager(
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
                     val value = s.toString().replace(",", ".").toFloatOrNull() ?: 10.0f
+                    val oldSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
+                    
+                    if (value == oldSpeed) return
+                    
+                    val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                    val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                    
+                    // Tarkistetaan rajat jos heatmap/reitit on päällä ja nopeusraja pienenee
+                    if ((heatmapEnabled || routesEnabled) && value < oldSpeed) {
+                        checkLimits(heatmapEnabled, routesEnabled, providedMaxSpeed = value) { success ->
+                            if (success) {
+                                prefs.edit().putFloat("heatmap_max_speed", value).apply()
+                                onMapSettingsChanged()
+                            } else {
+                                // Palautetaan vanha arvo
+                                setText(oldSpeed.toString())
+                            }
+                        }
+                        return
+                    }
+
                     prefs.edit().putFloat("heatmap_max_speed", value).apply()
                     onMapSettingsChanged()
                 }
@@ -770,6 +827,27 @@ class SettingsManager(
         speedInputLayout.addView(speedEdit)
 
         removeTransitionsCb.setOnCheckedChangeListener { _, isChecked ->
+            val wasChecked = prefs.getBoolean("heatmap_remove_transitions", false)
+            if (wasChecked && !isChecked) {
+                // Otettiin ruksi pois -> pisteitä voi tulla lisää
+                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                
+                if (heatmapEnabled || routesEnabled) {
+                    checkLimits(heatmapEnabled, routesEnabled, providedRemoveTransitions = false) { success ->
+                        if (success) {
+                            prefs.edit().putBoolean("heatmap_remove_transitions", false).apply()
+                            speedInputLayout.visibility = View.GONE
+                            onMapSettingsChanged()
+                        } else {
+                            // Palauta ruksi jos tarkastus epäonnistui
+                            removeTransitionsCb.isChecked = true
+                        }
+                    }
+                    return@setOnCheckedChangeListener
+                }
+            }
+            
             prefs.edit().putBoolean("heatmap_remove_transitions", isChecked).apply()
             speedInputLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             onMapSettingsChanged()
@@ -893,6 +971,8 @@ class SettingsManager(
             checkRoutes: Boolean,
             newGridSize: Double? = null,
             providedFilters: FilterManager.Filters? = null,
+            providedRemoveTransitions: Boolean? = null,
+            providedMaxSpeed: Float? = null,
             onResult: (success: Boolean) -> Unit
         ) {
             val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -906,23 +986,28 @@ class SettingsManager(
             val heatmapFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("heatmap_filter_enabled", false)
             val routesFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("routes_filter_enabled", false)
             
+            val removeTransitions = providedRemoveTransitions ?: prefs.getBoolean("heatmap_remove_transitions", false)
+            val maxSpeed = providedMaxSpeed ?: prefs.getFloat("heatmap_max_speed", 10.0f)
+
             lifecycleScope.launch(Dispatchers.IO) {
                 var error: String? = null
                 
                 if (checkRoutes) {
                     val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
+                    val hasRangeFilter = filters.startDate != null || filters.endDate != null
+                    
                     val count = if (routesFilterEnabled) {
-                        when {
-                            (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
-                                db.trackPointDao().getCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
-                            filters.startDate != null || filters.endDate != null ->
-                                db.trackPointDao().getCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE)
-                            hasAreaFilter ->
-                                db.trackPointDao().getCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
-                            else -> db.trackPointDao().getCount()
-                        }
+                        db.trackPointDao().getCountFiltered(
+                            hasRangeFilter, filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE,
+                            hasAreaFilter, filters.latSouth ?: 0.0, filters.latNorth ?: 0.0, filters.lonWest ?: 0.0, filters.lonEast ?: 0.0,
+                            removeTransitions, maxSpeed
+                        )
                     } else {
-                        db.trackPointDao().getCount()
+                        db.trackPointDao().getCountFiltered(
+                            false, 0L, Long.MAX_VALUE,
+                            false, 0.0, 0.0, 0.0, 0.0,
+                            removeTransitions, maxSpeed
+                        )
                     }
                     
                     if (count > maxPoints) {
@@ -936,18 +1021,22 @@ class SettingsManager(
                     val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
                     
                     val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
+                    val hasRangeFilter = filters.startDate != null || filters.endDate != null
+
                     val count = if (heatmapFilterEnabled) {
-                        when {
-                            (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
-                                db.trackPointDao().getHeatmapCellCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
-                            filters.startDate != null || filters.endDate != null ->
-                                db.trackPointDao().getHeatmapCellCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, latDegreeMeters, lonDegreeMeters, gridSize)
-                            hasAreaFilter ->
-                                db.trackPointDao().getHeatmapCellCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
-                            else -> db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
-                        }
+                        db.trackPointDao().getHeatmapCellCountFiltered(
+                            hasRangeFilter, filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE,
+                            hasAreaFilter, filters.latSouth ?: 0.0, filters.latNorth ?: 0.0, filters.lonWest ?: 0.0, filters.lonEast ?: 0.0,
+                            removeTransitions, maxSpeed,
+                            latDegreeMeters, lonDegreeMeters, gridSize
+                        )
                     } else {
-                        db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
+                        db.trackPointDao().getHeatmapCellCountFiltered(
+                            false, 0L, Long.MAX_VALUE,
+                            false, 0.0, 0.0, 0.0, 0.0,
+                            removeTransitions, maxSpeed,
+                            latDegreeMeters, lonDegreeMeters, gridSize
+                        )
                     }
                     
                     if (count > maxCells) {
@@ -976,9 +1065,11 @@ class SettingsManager(
         checkRoutes: Boolean,
         newGridSize: Double? = null,
         providedFilters: FilterManager.Filters? = null,
+        providedRemoveTransitions: Boolean? = null,
+        providedMaxSpeed: Float? = null,
         onResult: (success: Boolean) -> Unit
     ) {
-        checkLimits(activity, db, activity.lifecycleScope, checkHeatmap, checkRoutes, newGridSize, providedFilters, onResult)
+        checkLimits(activity, db, activity.lifecycleScope, checkHeatmap, checkRoutes, newGridSize, providedFilters, providedRemoveTransitions, providedMaxSpeed, onResult)
     }
 
     private fun openDeveloperTools() {

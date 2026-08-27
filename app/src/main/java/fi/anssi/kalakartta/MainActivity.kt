@@ -689,11 +689,19 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Tehtävä 1: Sovelluksen käynnistyessä aseta aina heat map-ruutujen ja reittien näyttäminen pois päältä.
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
             if (savedInstanceState == null) {
-                getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
+                prefs.edit()
                     .putBoolean("heatmap_enabled", false)
                     .putBoolean("fishing_routes_enabled", false)
                     .apply()
+            }
+
+            // Migraatio vanhasta pikanäppäin-asetuksesta
+            if (!prefs.contains("heatmap_shortcut_mode")) {
+                val oldVal = prefs.getBoolean("show_heatmap_shortcut", false)
+                val newVal = if (oldVal) 3 else 0
+                prefs.edit().putInt("heatmap_shortcut_mode", newVal).apply()
             }
 
             markerManager = MarkerManager(this, map, db) { marker ->
@@ -741,10 +749,10 @@ class MainActivity : AppCompatActivity() {
             isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
 
             if (isSelectionMode) {
-                val prefs = getSharedPreferences("map_state", MODE_PRIVATE)
-                val lat = prefs.getFloat("lat", 60.1695f).toDouble()
-                val lon = prefs.getFloat("lon", 24.9354f).toDouble()
-                val zoom = prefs.getFloat("zoom", 15.0f).toDouble()
+                val statePrefs = getSharedPreferences("map_state", MODE_PRIVATE)
+                val lat = statePrefs.getFloat("lat", 60.1695f).toDouble()
+                val lon = statePrefs.getFloat("lon", 24.9354f).toDouble()
+                val zoom = statePrefs.getFloat("zoom", 15.0f).toDouble()
                 map.controller.setZoom(zoom)
                 map.controller.setCenter(org.osmdroid.util.GeoPoint(lat, lon))
             } else {
@@ -793,14 +801,20 @@ class MainActivity : AppCompatActivity() {
 
             findViewById<MaterialButton>(R.id.heatmapShortcutButton).setOnClickListener {
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                val shortcutMode = prefs.getInt("heatmap_shortcut_mode", 0)
                 val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
                 val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
 
-                val (newHeatmap, newRoutes) = when {
-                    !heatmapEnabled && !routesEnabled -> Pair(true, false)
-                    heatmapEnabled && !routesEnabled -> Pair(true, true)
-                    heatmapEnabled && routesEnabled -> Pair(false, true)
-                    else -> Pair(false, false)
+                val (newHeatmap, newRoutes) = when (shortcutMode) {
+                    1 -> Pair(!heatmapEnabled, routesEnabled) // Kalastetut alueet: kytkee heat mapin päälle/pois
+                    2 -> Pair(heatmapEnabled, !routesEnabled) // Reitit: kytkee reitit päälle/pois
+                    3 -> when { // Kalastetut alueet ja reitit: sykli
+                        !heatmapEnabled && !routesEnabled -> Pair(true, false)
+                        heatmapEnabled && !routesEnabled -> Pair(true, true)
+                        heatmapEnabled && routesEnabled -> Pair(false, true)
+                        else -> Pair(false, false)
+                    }
+                    else -> Pair(heatmapEnabled, routesEnabled)
                 }
 
                 // Tarkista rajat ennen päälle kytkemistä
@@ -1072,7 +1086,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Automaattinen kohdistus sovelluksen avauksessa
-            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
             val autoCenter = prefs.getBoolean("auto_center_on_start", true)
 
             // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
@@ -1240,9 +1253,9 @@ class MainActivity : AppCompatActivity() {
         myLocationButton.requestLayout()
         addCatchButton.requestLayout()
         updateDefaultFishermanUI()
-        val showShortcut = prefs.getBoolean("show_heatmap_shortcut", false)
+        val shortcutMode = prefs.getInt("heatmap_shortcut_mode", 0)
         findViewById<MaterialButton>(R.id.heatmapShortcutButton).visibility = 
-            if (showShortcut) android.view.View.VISIBLE else android.view.View.GONE
+            if (shortcutMode > 0) android.view.View.VISIBLE else android.view.View.GONE
 
         updateFishingHeatmap()
         

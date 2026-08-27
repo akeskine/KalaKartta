@@ -154,6 +154,18 @@ interface TrackPointDao {
     fun getCountRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): Int
 
     @Query("""
+        SELECT COUNT(*) FROM TrackPoint 
+        WHERE (:checkRange = 0 OR (timestamp >= :startDate AND timestamp <= :endDate))
+          AND (:checkArea = 0 OR (latitude BETWEEN :latSouth AND :latNorth AND longitude BETWEEN :lonWest AND :lonEast))
+          AND (:removeTransitions = 0 OR speed <= :maxSpeed)
+    """)
+    fun getCountFiltered(
+        checkRange: Boolean, startDate: Long, endDate: Long,
+        checkArea: Boolean, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double,
+        removeTransitions: Boolean, maxSpeed: Float
+    ): Int
+
+    @Query("""
         SELECT COUNT(*) FROM (
             SELECT 
                 CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
@@ -163,6 +175,25 @@ interface TrackPointDao {
         )
     """)
     fun getHeatmapCellCount(latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM (
+            SELECT 
+                CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
+                CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y
+            FROM TrackPoint
+            WHERE (:checkRange = 0 OR (timestamp >= :startDate AND timestamp <= :endDate))
+              AND (:checkArea = 0 OR (latitude BETWEEN :latSouth AND :latNorth AND longitude BETWEEN :lonWest AND :lonEast))
+              AND (:removeTransitions = 0 OR speed <= :maxSpeed)
+            GROUP BY x, y
+        )
+    """)
+    fun getHeatmapCellCountFiltered(
+        checkRange: Boolean, startDate: Long, endDate: Long,
+        checkArea: Boolean, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double,
+        removeTransitions: Boolean, maxSpeed: Float,
+        latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double
+    ): Int
 
     @Query("""
         SELECT COUNT(*) FROM (

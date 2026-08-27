@@ -127,7 +127,13 @@
     <string name="action_fishing_heatmap">Kalastetut alueet</string>
     <string name="show_fishing_heatmap">Näytä kalastetut alueet</string>
     <string name="show_fishing_routes">Näytä kalastussessioiden reitit</string>
-    <string name="show_heatmap_shortcut">Näytä kalastettujen alueiden pikavalinta</string>
+    <string name="show_heatmap_shortcut">Kalastettujen alueiden pikavalinta</string>
+    <string-array name="heatmap_shortcut_options">
+        <item>Pois</item>
+        <item>Kalastetut alueet</item>
+        <item>Reitit</item>
+        <item>Kalastetut alueet ja reitit</item>
+    </string-array>
     <string name="heatmap_min_points">Minimi vierailukerrat ruudussa</string>
     <string name="heatmap_max_points">Maksimi vierailukerrat ruudussa</string>
     <string name="color_red">Punainen</string>
