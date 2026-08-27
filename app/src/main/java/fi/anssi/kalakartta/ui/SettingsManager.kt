@@ -805,8 +805,8 @@ class SettingsManager(
                     val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
                     val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
                     
-                    // Tarkistetaan rajat jos heatmap/reitit on päällä ja nopeusraja pienenee
-                    if ((heatmapEnabled || routesEnabled) && value < oldSpeed) {
+                    // Tarkistetaan rajat jos heatmap/reitit on päällä ja nopeusraja kasvaa
+                    if ((heatmapEnabled || routesEnabled) && value > oldSpeed) {
                         checkLimits(heatmapEnabled, routesEnabled, providedMaxSpeed = value) { success ->
                             if (success) {
                                 prefs.edit().putFloat("heatmap_max_speed", value).apply()
@@ -1134,45 +1134,49 @@ class SettingsManager(
 
         // Laskenta taustalla
         activity.lifecycleScope.launch(Dispatchers.IO) {
+            if (!isActive) return@launch
             val filters = FilterManager(activity).getFilters()
             val heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
             val routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
+            val removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
+            val maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
             
             val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
             
             // Reittipisteet
-            val pointCount = if (routesFilterEnabled) {
-                when {
-                    (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
-                        db.trackPointDao().getCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
-                    filters.startDate != null || filters.endDate != null ->
-                        db.trackPointDao().getCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE)
-                    hasAreaFilter ->
-                        db.trackPointDao().getCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!)
-                    else -> db.trackPointDao().getCount()
-                }
-            } else {
-                db.trackPointDao().getCount()
-            }
+            val pointCount = db.trackPointDao().getCountFiltered(
+                checkRange = routesFilterEnabled && (filters.startDate != null || filters.endDate != null),
+                startDate = filters.startDate ?: 0L,
+                endDate = filters.endDate ?: Long.MAX_VALUE,
+                checkArea = routesFilterEnabled && hasAreaFilter,
+                latSouth = filters.latSouth ?: 0.0,
+                latNorth = filters.latNorth ?: 0.0,
+                lonWest = filters.lonWest ?: 0.0,
+                lonEast = filters.lonEast ?: 0.0,
+                removeTransitions = removeTransitions,
+                maxSpeed = maxSpeed
+            )
 
             // Heatmap ruudut
             val gridSize = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
             val latDegreeMeters = 111320.0
             val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
             
-            val cellCount = if (heatmapFilterEnabled) {
-                when {
-                    (filters.startDate != null || filters.endDate != null) && hasAreaFilter ->
-                        db.trackPointDao().getHeatmapCellCountRangeAndArea(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
-                    filters.startDate != null || filters.endDate != null ->
-                        db.trackPointDao().getHeatmapCellCountRange(filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE, latDegreeMeters, lonDegreeMeters, gridSize)
-                    hasAreaFilter ->
-                        db.trackPointDao().getHeatmapCellCountArea(filters.latSouth!!, filters.latNorth!!, filters.lonWest!!, filters.lonEast!!, latDegreeMeters, lonDegreeMeters, gridSize)
-                    else -> db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
-                }
-            } else {
-                db.trackPointDao().getHeatmapCellCount(latDegreeMeters, lonDegreeMeters, gridSize)
-            }
+            val cellCount = db.trackPointDao().getHeatmapCellCountFiltered(
+                checkRange = heatmapFilterEnabled && (filters.startDate != null || filters.endDate != null),
+                startDate = filters.startDate ?: 0L,
+                endDate = filters.endDate ?: Long.MAX_VALUE,
+                checkArea = heatmapFilterEnabled && hasAreaFilter,
+                latSouth = filters.latSouth ?: 0.0,
+                latNorth = filters.latNorth ?: 0.0,
+                lonWest = filters.lonWest ?: 0.0,
+                lonEast = filters.lonEast ?: 0.0,
+                removeTransitions = removeTransitions,
+                maxSpeed = maxSpeed,
+                latDegreeMeters = latDegreeMeters,
+                lonDegreeMeters = lonDegreeMeters,
+                gridSizeMeters = gridSize
+            )
 
             withContext(Dispatchers.Main) {
                 statusText.text = "Näkyvät reittpisteet $pointCount, \nNäkyvät heat map-ruudut $cellCount"

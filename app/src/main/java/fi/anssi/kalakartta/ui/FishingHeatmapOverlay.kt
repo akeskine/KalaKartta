@@ -300,8 +300,10 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                     }
 
                     val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
-                    val filteredPoints = if (routesFilterEnabled) {
-                        rawPoints.filter { p ->
+                    val filteredPoints = rawPoints.filter { p ->
+                        if (removeTransitions && p.speed > maxSpeed) return@filter false
+                        
+                        if (routesFilterEnabled) {
                             calendar.timeInMillis = p.timestamp
 
                             if (hasAreaFilter) {
@@ -343,11 +345,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                     if (currentMinutes < f.startTimeMinutes && currentMinutes > f.endTimeMinutes) return@filter false
                                 }
                             }
-
-                            true
                         }
-                    } else {
-                        rawPoints
+                        true
                     }
 
                     filteredPoints.groupBy { it.fishingSessionId }
