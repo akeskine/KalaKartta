@@ -402,53 +402,6 @@ class SettingsManager(
         }
         layout.addView(routesEnabledCb)
 
-        val shortcutModeLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, 10, 0, 10)
-        }
-        val shortcutLabel = TextView(activity).apply {
-            text = activity.getString(R.string.show_heatmap_shortcut)
-            textSize = 18f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        shortcutModeLayout.addView(shortcutLabel)
-
-        val shortcutSpinner = Spinner(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        val shortcutOptions = activity.resources.getStringArray(R.array.heatmap_shortcut_options)
-        val shortcutAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, shortcutOptions)
-        shortcutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        shortcutSpinner.adapter = shortcutAdapter
-
-        if (!prefs.contains("heatmap_shortcut_mode")) {
-            val oldVal = prefs.getBoolean("show_heatmap_shortcut", false)
-            val newVal = if (oldVal) 3 else 0
-            prefs.edit().putInt("heatmap_shortcut_mode", newVal).apply()
-        }
-        
-        shortcutSpinner.setSelection(prefs.getInt("heatmap_shortcut_mode", 0))
-        shortcutSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            private var isInitialSelection = true
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (isInitialSelection) {
-                    isInitialSelection = false
-                    return
-                }
-                prefs.edit().putInt("heatmap_shortcut_mode", position).apply()
-                onMapSettingsChanged()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-        shortcutModeLayout.addView(shortcutSpinner)
-        layout.addView(shortcutModeLayout)
-
         val heatmapFilterEnabledCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_filter_enabled)
             isChecked = prefs.getBoolean("heatmap_filter_enabled", false)
@@ -496,6 +449,53 @@ class SettingsManager(
             }
         }
         layout.addView(routesFilterEnabledCb)
+
+        val shortcutModeLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 10, 0, 10)
+        }
+        val shortcutLabel = TextView(activity).apply {
+            text = activity.getString(R.string.show_heatmap_shortcut)
+            textSize = 18f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        shortcutModeLayout.addView(shortcutLabel)
+
+        val shortcutSpinner = Spinner(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val shortcutOptions = activity.resources.getStringArray(R.array.heatmap_shortcut_options)
+        val shortcutAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, shortcutOptions)
+        shortcutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        shortcutSpinner.adapter = shortcutAdapter
+
+        if (!prefs.contains("heatmap_shortcut_mode")) {
+            val oldVal = prefs.getBoolean("show_heatmap_shortcut", false)
+            val newVal = if (oldVal) 3 else 0
+            prefs.edit().putInt("heatmap_shortcut_mode", newVal).apply()
+        }
+        
+        shortcutSpinner.setSelection(prefs.getInt("heatmap_shortcut_mode", 0))
+        shortcutSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            private var isInitialSelection = true
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (isInitialSelection) {
+                    isInitialSelection = false
+                    return
+                }
+                prefs.edit().putInt("heatmap_shortcut_mode", position).apply()
+                onMapSettingsChanged()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        shortcutModeLayout.addView(shortcutSpinner)
+        layout.addView(shortcutModeLayout)
 
         val colors = arrayOf(
             activity.getString(R.string.color_red),

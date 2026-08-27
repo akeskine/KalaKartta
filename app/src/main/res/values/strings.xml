@@ -140,7 +140,7 @@
     <string name="color_purple">Violetti</string>
     <string name="color_green">Vihreä</string>
     <string name="heatmap_grid_size">Ruudun koko (m)</string>
-    <string name="heatmap_filter_enabled">Suodata myös kalastetut alueet</string>
+    <string name="heatmap_filter_enabled">Suodata kalastetut alueet</string>
     <string name="routes_filter_enabled">Suodata myös reitit</string>
     <string name="heatmap_calculation_method">Ruudun käyntikertojen laskentatapa</string>
     <string name="heatmap_method_sessions">Kalastussessioiden määrä</string>
