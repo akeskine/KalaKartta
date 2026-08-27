@@ -28,7 +28,7 @@ Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet kytkenyt
 
 ## 2. Kalapisteen lisääminen
 
-Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa **+**-painiketta. Tämä avaa Lisää merkintä-ikkunan:
+Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa **+**-painiketta. Tämä avaa Lisää merkintä -ikkunan:
 - **Laji:** Valitse kalalaji kuvakkeesta. Jos lajia ei ole listalla, voit valita "Muu kalalaji" tai lisätä uusia lajeja **Valikko -> Kalalajit -> Muokkaa kalalajeja** -valikosta.
 - **Tapahtuma:** Valitse oliko kyseessä saatu kala, karkuutus, varma tärppi, epävarma tärppi vai seurio.
 - **Paino ja pituus:** Voit syöttää ne suoraan pikalistaan tai jättää tyhjäksi.
@@ -64,7 +64,7 @@ Suodatusmahdollisuuksia ovat mm.:
 - **Kellonaika:** Esim. vain iltasyönnin saaliit.
 - **Kalalaji tai paikan tyyppi.**
 - **Sääolosuhteet:** Ilmanpaine, veden lämpötila ja tuulen suunta.
-- **Tuulen suunta:** Voit määrittää sektorin (min-max), jolta tuulleesssa saaliit on saatu.
+- **Tuulen suunta:** Voit määrittää sektorin (asteet min-max) 
 - **Vapaa teksti:** Etsii tekstiä lisätiedoista tai muistiinpanoista.
 - **Aluerajaus:** Voit rajata suodatuksen vain tietylle kartta-alueelle. Paina "Rajaa alue kartalta", rajaa haluamasi alue ja vahvista valinta.
 
@@ -145,24 +145,26 @@ Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti tau
 - **Tallennusvälit:** Voit säätää reittipisteiden tallennusvälejä omassa dialogissaan. Sovellus pidentää tallennusväliä automaattisesti, jos pysyt paikallaan (etäisyys < 20 m) akun säästämiseksi.
 - **Vienti ja tuonti:** Sessiot reitteineen voidaan viedä ja tuoda JSON-muodossa **Tiedonsiirto**-asetuksista.
 
-## 14. Kalastetut alueet (Heatmap)
+## 14. Kalastetut alueet (Heat map)
 
 Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa olet viettänyt eniten aikaa kalastussessioiden aikana. Tämän toiminnon avulla voit verrata saamiasi saaliita alueella viettämääsi aikaan tai nähdä helposti, mitkä osat vesistöä ansaitsisivat vielä lisää tutkimista.
 
 - **Käyttöönotto:** Voit kytkeä ominaisuuden päälle kohdasta **Valikko -> Kalastetut alueet -> Näytä kalastetut alueet**.
-- **Suodatus:** Tästä voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin ja / tai reittipisteisiin.
+- **Näytä kalastetut alueet**: Tällä valinnalla tehdään kalastettujen alueiden heat map kartalla näkyväksi. 
+- **Näytä kalastussessioiden reitit**: Tällä valinnalla tehdään kalastussessioiden reitit kartalla näkyväksi. 
+- **Suodatus:** Voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin ja / tai reittipisteisiin.
 - **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.  - 
 - **Konfigurointi:**
     - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).
     - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 50, 100, 300 ja 1000 metriä). Oletus on 300 metriä.
-    - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Reittipisteitä ruudussa min/max-arvoja säätämällä voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.
-    - **Nopeussuodatus:** Voit suodattaa heatmapia reittipisteen nopeuden perusteella.
-    - **Siirtymien poisto:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heatmap-ruudut vai myös reittipisteet kartalta.
-- **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heatmap-ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Rajoitusarvoja on mahdollista muuttaa **Kehittäjätyökalut**-valikosta.
+    - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Säätämällä reittipisteiden määrän minimi- ja maksimiarvoja ruutua kohden voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.
+    - **Nopeussuodatus:** Voit suodattaa heat mapia reittipisteen nopeuden perusteella.
+    - **Siirtymäpisteet:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heat map -ruudut vai myös reittipisteet kartalta. Voit myös valita, kuinka suuri nopeus reittipisteessä tekee reittipisteestä siirtymäpisteeksi tulkittavan.
+- **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heat map -ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Rajoitusarvoja on mahdollista muuttaa **Kehittäjätyökalut**-valikosta.
 
 ## 15. Puhuva kello
 
-Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana.
+Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana. Toiminto vaatii käyttäjältä luvan lähettää ilmoituksia.
 
 - **Käyttöönotto:** Pääset puhuvan kellon asetuksiin ja statussivulle päävalikosta.
 - **Toiminnot:** Sovellus voi ilmoittaa kellonajan lisäksi auringon nousu- ja laskuajat.
