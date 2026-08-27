@@ -552,7 +552,7 @@ class SettingsManager(
 
         val midText = TextView(activity).apply {
             id = View.generateViewId()
-            val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+            val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
             text = if (method == activity.getString(R.string.heatmap_method_points)) {
                 activity.getString(R.string.heatmap_points_in_grid)
             } else {
@@ -578,7 +578,7 @@ class SettingsManager(
                     prefs.edit().putInt("heatmap_min_points", value).apply()
                     
                     // Päivitetään myös metodikohtainen muisti
-                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
                     if (method == activity.getString(R.string.heatmap_method_points)) {
                         prefs.edit().putInt("heatmap_min_points_by_points", value).apply()
                     } else {
@@ -594,7 +594,7 @@ class SettingsManager(
         val maxEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("heatmap_max_points", 5).toString())
+            setText(prefs.getInt("heatmap_max_points", 50).toString())
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -604,11 +604,11 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().toIntOrNull() ?: 5
+                    val value = s.toString().toIntOrNull() ?: 50
                     prefs.edit().putInt("heatmap_max_points", value).apply()
                     
                     // Päivitetään myös metodikohtainen muisti
-                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
                     if (method == activity.getString(R.string.heatmap_method_points)) {
                         prefs.edit().putInt("heatmap_max_points_by_points", value).apply()
                     } else {
@@ -713,14 +713,14 @@ class SettingsManager(
         methodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         methodSpinner.adapter = methodAdapter
 
-        val currentMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+        val currentMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
         val methodIndex = methods.indexOf(currentMethod).coerceAtLeast(0)
         methodSpinner.setSelection(methodIndex)
 
         methodSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedMethod = methods[position]
-                val oldMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_sessions))
+                val oldMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
                 
                 if (selectedMethod != oldMethod) {
                     // Tallennetaan nykyiset arvot SharedPreferencesiin uuden metodin valinnan yhteydessä
@@ -772,6 +772,58 @@ class SettingsManager(
             isChecked = prefs.getBoolean("heatmap_remove_transitions", false)
             textSize = 18f
         }
+
+        val removalModeLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(40, 0, 40, 10)
+            visibility = if (removeTransitionsCb.isChecked) View.VISIBLE else View.GONE
+        }
+
+        val removalModeLabel = TextView(activity).apply {
+            text = activity.getString(R.string.heatmap_transition_removal_mode)
+            textSize = 16f
+        }
+        removalModeLayout.addView(removalModeLabel)
+
+        val removalModeSpinner = Spinner(activity).apply {
+            val modes = listOf(
+                activity.getString(R.string.heatmap_transition_removal_only_heatmap),
+                activity.getString(R.string.heatmap_transition_removal_all)
+            )
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, modes)
+            setSelection(prefs.getInt("heatmap_remove_transitions_mode", 0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (prefs.getInt("heatmap_remove_transitions_mode", 0) == position) return
+                    
+                    val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                    val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+
+                    // Jos valitaan "Vain kalastetut alueet" -> "Kalastetut alueet ja reitit", 
+                    // reitteihin voi tulla lisää pisteitä (siirtymät poistetaan). Eiku hetkinen.
+                    // Jos valitaan "Kalastetut alueet ja reitit" -> "Vain kalastetut alueet", 
+                    // reitteihin TULEE lisää pisteitä (siirtymät NÄYTETÄÄN).
+                    // checkLimits tarkistaa onko pisteitä liikaa.
+                    
+                    if (position == 0 && routesEnabled) { // Vain kalastetut alueet (reitteihin tulee siirtymät takaisin)
+                         checkLimits(false, routesEnabled, providedRemoveTransitions = false) { success ->
+                            if (success) {
+                                prefs.edit().putInt("heatmap_remove_transitions_mode", position).apply()
+                                onMapSettingsChanged()
+                            } else {
+                                setSelection(1)
+                            }
+                        }
+                    } else {
+                        prefs.edit().putInt("heatmap_remove_transitions_mode", position).apply()
+                        onMapSettingsChanged()
+                    }
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        removalModeLayout.addView(removalModeSpinner)
 
         val speedInputLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -838,6 +890,7 @@ class SettingsManager(
                         if (success) {
                             prefs.edit().putBoolean("heatmap_remove_transitions", false).apply()
                             speedInputLayout.visibility = View.GONE
+                            removalModeLayout.visibility = View.GONE
                             onMapSettingsChanged()
                         } else {
                             // Palauta ruksi jos tarkastus epäonnistui
@@ -850,10 +903,12 @@ class SettingsManager(
             
             prefs.edit().putBoolean("heatmap_remove_transitions", isChecked).apply()
             speedInputLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            removalModeLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             onMapSettingsChanged()
         }
 
         speedLayout.addView(removeTransitionsCb)
+        speedLayout.addView(removalModeLayout)
         speedLayout.addView(speedInputLayout)
         layout.addView(speedLayout)
 
@@ -986,7 +1041,8 @@ class SettingsManager(
             val heatmapFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("heatmap_filter_enabled", false)
             val routesFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("routes_filter_enabled", false)
             
-            val removeTransitions = providedRemoveTransitions ?: prefs.getBoolean("heatmap_remove_transitions", false)
+            val removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
+            val baseRemoveTransitions = providedRemoveTransitions ?: prefs.getBoolean("heatmap_remove_transitions", false)
             val maxSpeed = providedMaxSpeed ?: prefs.getFloat("heatmap_max_speed", 10.0f)
 
             lifecycleScope.launch(Dispatchers.IO) {
@@ -996,17 +1052,19 @@ class SettingsManager(
                     val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
                     val hasRangeFilter = filters.startDate != null || filters.endDate != null
                     
+                    val removeTransitionsRoutes = if (removeTransitionsMode == 1) baseRemoveTransitions else false
+                    
                     val count = if (routesFilterEnabled) {
                         db.trackPointDao().getCountFiltered(
                             hasRangeFilter, filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE,
                             hasAreaFilter, filters.latSouth ?: 0.0, filters.latNorth ?: 0.0, filters.lonWest ?: 0.0, filters.lonEast ?: 0.0,
-                            removeTransitions, maxSpeed
+                            removeTransitionsRoutes, maxSpeed
                         )
                     } else {
                         db.trackPointDao().getCountFiltered(
                             false, 0L, Long.MAX_VALUE,
                             false, 0.0, 0.0, 0.0, 0.0,
-                            removeTransitions, maxSpeed
+                            removeTransitionsRoutes, maxSpeed
                         )
                     }
                     
@@ -1027,14 +1085,14 @@ class SettingsManager(
                         db.trackPointDao().getHeatmapCellCountFiltered(
                             hasRangeFilter, filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE,
                             hasAreaFilter, filters.latSouth ?: 0.0, filters.latNorth ?: 0.0, filters.lonWest ?: 0.0, filters.lonEast ?: 0.0,
-                            removeTransitions, maxSpeed,
+                            baseRemoveTransitions, maxSpeed,
                             latDegreeMeters, lonDegreeMeters, gridSize
                         )
                     } else {
                         db.trackPointDao().getHeatmapCellCountFiltered(
                             false, 0L, Long.MAX_VALUE,
                             false, 0.0, 0.0, 0.0, 0.0,
-                            removeTransitions, maxSpeed,
+                            baseRemoveTransitions, maxSpeed,
                             latDegreeMeters, lonDegreeMeters, gridSize
                         )
                     }

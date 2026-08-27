@@ -46,6 +46,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var routesFilterEnabled = false
     private var calculationMethod = ""
     private var removeTransitions = false
+    private var removeTransitionsMode = 0
     private var maxSpeed = 10.0f
 
     private var routeData = listOf<List<TrackPointHeatmapData>>()
@@ -65,13 +66,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
 
         gridSizeMeters = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
         minPoints = prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
-        maxPoints = prefs.getInt("heatmap_max_points", 5).coerceAtLeast(minPoints + 1)
+        maxPoints = prefs.getInt("heatmap_max_points", 50).coerceAtLeast(minPoints + 1)
         heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
         routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
         heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
         routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
-        calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_sessions)) ?: context.getString(R.string.heatmap_method_sessions)
+        calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_points)) ?: context.getString(R.string.heatmap_method_points)
         removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
+        removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
         maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
 
         val colorStr = prefs.getString("heatmap_color", "Punainen")
@@ -301,7 +303,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
 
                     val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
                     val filteredPoints = rawPoints.filter { p ->
-                        if (removeTransitions && p.speed > maxSpeed) return@filter false
+                        if (removeTransitions && removeTransitionsMode == 1 && p.speed > maxSpeed) return@filter false
                         
                         if (routesFilterEnabled) {
                             calendar.timeInMillis = p.timestamp
