@@ -53,6 +53,7 @@ Klikkaa kartalla olevaa kuvaketta nähdäksesi sen tiedot.
 Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
 - Muuttaa kaikkia tallennettuja tietoja.
 - Poistaa pisteen.
+- **Media:** Voit liittää pisteeseen kuvia, äänitteitä ja videoita. Media voidaan myös yhdistää automaattisesti, jos se on tallennettu 5 metrin etäisyydellä ja 1 sekunnin aikaikkunalla pisteen tallennushetkestä. Liitetyt mediatiedostot näkyvät pisteen tiedot -dialogissa.
 
 ## 5. Tiedon suodatus
 
@@ -87,6 +88,9 @@ Voit muokata kalalajeja kohdasta **Valikko -> Kalalajit**.
 ## 8. Pisteiden tuonti ja vienti (Export/Import)
 
 Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedonsiirto**).
+- **Vie kaikki tiedot:** Tallentaa sovelluksen kaiken datan (pisteet, reitit, mediatiedostojen linkitykset ja asetukset) yhteen tiedostoon.
+- **Tuo kaikki tiedot:** Palauttaa kaikki sovelluksen tiedot tiedostosta.
+- **Poista kaikki tiedot:** Tyhjentää kaikki sovelluksen tiedot (pisteet ja reitit).
 - **Vie pisteet:** Tallentaa kaikki kalapisteet ja muut merkit tiedostoon.
 - **Vie suodatetut pisteet:** Jos suodatus on päällä, voit halutessasi viedä vain ne pisteet, jotka näkyvät parhaillaan kartalla.
 - **Tuo pisteet:** Lukee pisteet tiedostosta.
@@ -94,6 +98,7 @@ Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedo
 - **Tuo reitit:** Lukee sessiot ja reitit tiedostosta.
 - **Poista kaikki reitit:** Tyhjentää kaikki tallennetut reittitiedot sovelluksesta.
 - **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki. Reittien osalta tuodaan toistaiseksi kaikki sessiot uusina.
+- **Infopallura (i):** Tiedonsiirto-valikon yläreunassa on infopainike, josta näet yksityiskohtaiset tilastot sovelluksen sisältämästä datasta (sessiot, pisteet, mediatiedostot) ja käytetystä tallennustilasta.
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 
@@ -131,11 +136,13 @@ Mittaustyökalulla voit mitata etäisyyksiä ja reittien pituuksia suoraan karta
 
 Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti taustalla.
 
-- **Tallennuksen aloitus:** **Valikko -> Kalastussessiot -> Aloita tallennus**. Kun tallennus on käynnissä, kartan vasemmassa yläkulmassa vilkkuu punainen REC-pallo. Tallennuksen aloitus on mahdollista vain, jos sijaintipalvelu on puhelmiessa päällä.
-- **Tallennuksen lopetus:** **Valikko -> Kalastussessiot -> Aloita tallennus**.
-- **Sessioiden tarkastelu:** Pääset selaamaan tallennettuja sessioita kohdasta **Valikko -> Kalastussessiot -> Hae kalastussessiot **.
+- **Tallennuksen aloitus:** **Valikko -> Kalastussessiot -> Aloita tallennus**. Kun tallennus on käynnissä, kartan vasemmassa yläkulmassa näkyy REC-teksti. Tallennuksen aloitus on mahdollista vain, jos sijaintipalvelu on puhelimessa päällä.
+- **Tallennuksen lopetus:** **Valikko -> Kalastussessiot -> Lopeta tallennus**.
+- **Sessioiden tarkastelu:** Pääset selaamaan tallennettuja sessioita kohdasta **Valikko -> Kalastussessiot -> Hae kalastussessiot**.
 - **Kalenteri:** Sessiot on järjestetty kalenteriin. Valitse päivä nähdäksesi kyseisen päivän sessiot.
-- **Toistaminen:** Klikkaamalla sessiota näet sen keston, pituuden ja reittipisteiden määrän. Voit toistaa session kartalla painamalla **"Toista"**. Toiston aikana voit säätää nopeutta ja kelata reittiä eteen ja taaksepäin tai pysäyttää toiston haluamaasi kohtaan.
+- **Toistaminen:** Klikkaamalla sessiota näet sen keston, pituuden ja reittipisteiden määrän. Voit toistaa session kartalla painamalla **"Toista"**. Toiston käynnistys on manuaalinen. Toiston aikana voit säätää nopeutta (jopa 2880x), kelata reittiä eteen ja taaksepäin tai pysäyttää toiston haluamaasi kohtaan.
+- **Muokkaus ja trimmaus:** Voit muokata session tietoja, kuten **kalastajan nimeä**, session editorissa. Trimmaustoiminnolla voit poistaa session alusta tai lopusta turhia siirtymiä (esim. siirtymä rannasta kalapaikalle).
+- **Tallennusvälit:** Voit säätää reittipisteiden tallennusvälejä omassa dialogissaan. Sovellus pidentää tallennusväliä automaattisesti, jos pysyt paikallaan (etäisyys < 20 m) akun säästämiseksi.
 - **Vienti ja tuonti:** Sessiot reitteineen voidaan viedä ja tuoda JSON-muodossa **Tiedonsiirto**-asetuksista.
 
 ## 14. Kalastetut alueet (Heatmap)
@@ -143,9 +150,22 @@ Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti tau
 Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa olet viettänyt eniten aikaa kalastussessioiden aikana. Tämän toiminnon avulla voit verrata saamiasi saaliita alueella viettämääsi aikaan tai nähdä helposti, mitkä osat vesistöä ansaitsisivat vielä lisää tutkimista.
 
 - **Käyttöönotto:** Voit kytkeä ominaisuuden päälle kohdasta **Valikko -> Kalastetut alueet -> Näytä kalastetut alueet**.
-- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.
-  - **Suodatus:** Tästä voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin.
+- **Suodatus:** Tästä voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin ja / tai reittipisteisiin.
+- **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.  - 
 - **Konfigurointi:**
     - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).
-    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 100, 300 ja 1000 metriä). Oletus on 300 metriä.
-    - **Min/Max vierailukerrat:** Voit säätää, kuinka monta kertaa ruudussa on täytynyt käydä, jotta se näkyy kartalla ja milloin se saavuttaa maksimivärin.
+    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 50, 100, 300 ja 1000 metriä). Oletus on 300 metriä.
+    - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Reittipisteitä ruudussa min/max-arvoja säätämällä voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.
+    - **Nopeussuodatus:** Voit suodattaa heatmapia reittipisteen nopeuden perusteella.
+    - **Siirtymien poisto:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heatmap-ruudut vai myös reittipisteet kartalta.
+- **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heatmap-ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Rajoitusarvoja on mahdollista muuttaa **Kehittäjätyökalut**-valikosta.
+
+## 15. Puhuva kello
+
+Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana.
+
+- **Käyttöönotto:** Pääset puhuvan kellon asetuksiin ja statussivulle päävalikosta.
+- **Toiminnot:** Sovellus voi ilmoittaa kellonajan lisäksi auringon nousu- ja laskuajat.
+- **Asetukset:** Voit määrittää ilmoitusvälit ja varmistaa tarvittavat oikeudet.
+- **Äänenhallinta:** Sovellus vaimentaa automaattisesti muun musiikin tai puheen ilmoituksen ajaksi.
+- **Status:** Dialogin otsikon alla näet kellon nykyisen tilan ja seuraavan ilmoitusajan.
