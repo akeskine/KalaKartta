@@ -12,11 +12,11 @@ KalaKartan keskeisiä periaatteita ovat:
 
 ## 1. Kartan käyttö
 
-Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata nipistämällä.
+Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata nipistämällä.<br><br>
 
-Oma sijaintisi näytetään kartalla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta.
+Oma sijaintisi näytetään kartalla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta.<br><br>
 
-Kartan taustakartan voit vaihtaa valikosta (**Valikko -> Taustakartta**). 
+Kartan taustakartan voit vaihtaa valikosta (**Valikko -> Taustakartta**).<br><br> 
 
 KalaKartassa on käytettävissä seuraavat karttapohjat:
 - **OpenStreetMap:** Maailmanlaajuinen avoin kartta-aineisto.
@@ -38,11 +38,12 @@ Piste tallentuu aina kartan keskipisteen (tähtäimen) kohdalle.
 
 ## 3. Muun paikan lisääminen
 
-Voit tallentaa myös muita kiinnostavia kohteita kuten kiviä, matalikkoja, veneenlaskupaikkoja tai laavuja:
-1. Paina **+**-painiketta.
-2. Valitse alhaalta **"Muu paikka"**.
-3. Valitse haluamasi kohdetyyppi (esim. Kivi tai Veneramppi).
-4. Voit antaa kohteelle nimen.
+Voit tallentaa myös muita kiinnostavia kohteita kuten kiviä, matalikkoja, veneenlaskupaikkoja tai laavuja:<br><br>
+
+1. Paina **+**-painiketta.<br><br>
+2. Valitse alhaalta **"Muu paikka"**.<br><br>
+3. Valitse haluamasi kohdetyyppi (esim. Kivi tai Veneramppi).<br><br>
+4. Voit antaa kohteelle nimen.<br><br>
 
 ## 4. Pisteiden tarkastelu ja muokkaus
 
@@ -57,7 +58,7 @@ Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
 
 ## 5. Tiedon suodatus
 
-Voit suodattaa kartalla näkyviä pisteitä **Valikko -> Tiedon suodatus** -valikosta.
+Voit suodattaa kartalla näkyviä pisteitä **Valikko -> Tiedon suodatus** -valikosta.<br><br>
 
 Suodatusmahdollisuuksia ovat mm.:
 - **Aika:** Kiinteä aikaväli tai vuosittain toistuva jakso (esim. "kaikki toukokuun saaliit eri vuosilta").
@@ -113,6 +114,7 @@ Yleisistä asetuksista voit:
 - Kytkeä päälle/pois **mittaustyökalut**. Tämän valinnan alta voit valita näytetäänkö kartalla mittakaavajana ja/tai mittaustyökalu-painike.
 - Kytkeä päälle/pois **oletuskalastaja** kartan oikeassa alareunassa.
 - Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi. Tämä on testatusti kätevää vesillä, jos halutaan lisätä kala puhelimen ollessa taskussa näyttö pois päältä.
+- Määrittää puhuvan kellon asetukset sekä käynnistää ja pysäyttää sen.
 
 ## 11. Karttapohjan pikavalinta
 
@@ -134,7 +136,7 @@ Mittaustyökalulla voit mitata etäisyyksiä ja reittien pituuksia suoraan karta
 
 ## 13. Kalastussessiot
 
-Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti taustalla.
+Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti taustalla ja reittitiedon keräämisen.
 
 - **Tallennuksen aloitus:** **Valikko -> Kalastussessiot -> Aloita tallennus**. Kun tallennus on käynnissä, kartan vasemmassa yläkulmassa näkyy REC-teksti. Tallennuksen aloitus on mahdollista vain, jos sijaintipalvelu on puhelimessa päällä.
 - **Tallennuksen lopetus:** **Valikko -> Kalastussessiot -> Lopeta tallennus**.
@@ -155,19 +157,19 @@ Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa ole
 - **Suodatus:** Voit valita, että kartalle valitut suodatusehdot pätevät myös heat mapiin ja/tai reittipisteisiin.
 - **Pikavalinta:** Voit lisätä kartan yläreunaan painikkeen heat mapin nopeaa kytkemistä varten valitsemalla **"Näytä kalastettujen alueiden pikavalinta"**.
 - **Konfigurointi:**
-    - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).
-    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 50, 100, 300 ja 1000 metriä). Oletus on 300 metriä.
-    - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Säätämällä reittipisteiden määrän minimi- ja maksimiarvoja ruutua kohden voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.
-    - **Nopeussuodatus:** Voit suodattaa heat mapia reittipisteen nopeuden perusteella.
-    - **Siirtymäpisteet:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heat map -ruudut vai myös reittipisteet kartalta. Voit myös valita, kuinka suuri nopeus reittipisteessä tekee reittipisteestä siirtymäpisteeksi tulkittavan.
+    - **Väri:** Voit vaihtaa heat mapin värin klikkaamalla väripalkkia (vaihtoehdot punainen, violetti, vihreä).<br><br>
+    - **Ruudun koko:** Määrittää kuinka tarkasti alueet jaetaan (vaihtoehdot 50, 100, 300 ja 1000 metriä). Oletus on 300 metriä.<br><br>
+    - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Säätämällä reittipisteiden määrän minimi- ja maksimiarvoja ruutua kohden voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.<br><br>
+    - **Nopeussuodatus:** Voit suodattaa heat mapia reittipisteen nopeuden perusteella.<br><br>
+    - **Siirtymäpisteet:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heat map -ruudut vai myös reittipisteet kartalta. Voit myös valita, kuinka suuri nopeus reittipisteessä tekee reittipisteestä siirtymäpisteeksi tulkittavan.<br><br>
 - **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heat map -ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Rajoitusarvoja on mahdollista muuttaa **Kehittäjätyökalut**-valikosta.
 
 ## 15. Puhuva kello
 
-Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana. Toiminto vaatii käyttäjältä luvan lähettää ilmoituksia.
+Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana. Toiminto vaatii käyttäjältä luvan lähettää ilmoituksia.<br<br>
 
-- **Käyttöönotto:** Pääset puhuvan kellon asetuksiin ja statussivulle päävalikosta.
+- **Käyttöönotto:** Pääset puhuvan kellon asetuksiin ja statussivulle **Valikko -> Kalastussessiot -> Aloita tallennus**..
 - **Toiminnot:** Sovellus voi ilmoittaa kellonajan lisäksi auringon nousu- ja laskuajat.
-- **Asetukset:** Voit määrittää ilmoitusvälit ja varmistaa tarvittavat oikeudet.
+- **Asetukset:** Voit määrittää kellonajan ilmoitusvälin, auringon nousu- ja laskuajoista ilmoittamisen sekä vakiopuhuttelun. Voit myös valita, onko kello automaattisesti päällä kalastussession ollessa käynnissä.
 - **Äänenhallinta:** Sovellus vaimentaa automaattisesti muun musiikin tai puheen ilmoituksen ajaksi.
 - **Status:** Dialogin otsikon alla näet kellon nykyisen tilan ja seuraavan ilmoitusajan.
