@@ -19,6 +19,7 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
 import fi.anssi.kalakartta.data.PlaceOfInterestType
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import java.io.File
@@ -558,6 +559,12 @@ class FilterActivity : AppCompatActivity() {
         annualEndTimeButton.setOnClickListener { showTimePicker(false, isAnnual = true) }
 
         selectAreaButton.setOnClickListener {
+            // Tehtävä 2: aseta tarvittaessa heat map-ruutujen ja reittien näyttäminen pois päältä ennen rajauskartan näyttämistä.
+            getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
+                .putBoolean("heatmap_enabled", false)
+                .putBoolean("fishing_routes_enabled", false)
+                .apply()
+
             // Tallennetaan suodattimet ennen siirtymistä MainActivityyn, jotta ne säilyvät
             val newFilters = saveFiltersToManager()
             filterManager.saveFilters(newFilters)

@@ -688,6 +688,14 @@ class MainActivity : AppCompatActivity() {
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
 
+            // Tehtävä 1: Sovelluksen käynnistyessä aseta aina heat map-ruutujen ja reittien näyttäminen pois päältä.
+            if (savedInstanceState == null) {
+                getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
+                    .putBoolean("heatmap_enabled", false)
+                    .putBoolean("fishing_routes_enabled", false)
+                    .apply()
+            }
+
             markerManager = MarkerManager(this, map, db) { marker ->
                 val fish = marker.relatedObject as? FishCatch
                 val place = marker.relatedObject as? PlaceOfInterest
