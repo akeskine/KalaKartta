@@ -774,8 +774,7 @@ class SettingsManager(
         }
 
         val removalModeLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
             setPadding(40, 0, 40, 10)
             visibility = if (removeTransitionsCb.isChecked) View.VISIBLE else View.GONE
         }
@@ -783,6 +782,7 @@ class SettingsManager(
         val removalModeLabel = TextView(activity).apply {
             text = activity.getString(R.string.heatmap_transition_removal_mode)
             textSize = 16f
+            setPadding(0, 10, 0, 5)
         }
         removalModeLayout.addView(removalModeLabel)
 
@@ -791,7 +791,9 @@ class SettingsManager(
                 activity.getString(R.string.heatmap_transition_removal_only_heatmap),
                 activity.getString(R.string.heatmap_transition_removal_all)
             )
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, modes)
+            val removalModeAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, modes)
+            removalModeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            adapter = removalModeAdapter
             setSelection(prefs.getInt("heatmap_remove_transitions_mode", 0))
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
