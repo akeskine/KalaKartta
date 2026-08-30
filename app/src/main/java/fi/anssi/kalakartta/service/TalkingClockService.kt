@@ -35,6 +35,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var intervalMinutes = 10
     private var isTtsInitialized = false
+    private var pendingAction: String? = null
     private var wakeLock: PowerManager.WakeLock? = null
     
     private val sunService = SunService()
@@ -130,25 +131,39 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         }
         
         if (isTtsInitialized) {
-            when (intent?.action) {
-                "START_IMMEDIATELY" -> {
-                    // Ei puhuta heti, vaan ajoitetaan seuraava tasaväli
-                    scheduleNext()
-                }
-                "TALK" -> {
-                    acquireWakeLock()
-                    speakCurrentTime()
-                    scheduleNext()
-                }
-                else -> {
-                    if (intervalChanged) {
-                        scheduleNext()
-                    }
-                }
-            }
+            handleAction(intent?.action)
+        } else {
+            pendingAction = intent?.action
         }
         
         return START_STICKY
+    }
+
+    private fun handleAction(action: String?) {
+        when (action) {
+            "START_IMMEDIATELY" -> {
+                // Ei puhuta heti, vaan ajoitetaan seuraava tasaväli
+                scheduleNext()
+            }
+            "SESSION_STARTED" -> {
+                acquireWakeLock()
+                speakSessionStarted()
+                scheduleNext()
+            }
+            "SESSION_ENDED" -> {
+                acquireWakeLock()
+                speakSessionEnded()
+            }
+            "TALK" -> {
+                acquireWakeLock()
+                speakCurrentTime()
+                scheduleNext()
+            }
+            else -> {
+                // Oletuksena ajoitetaan vain seuraava, jos intervalli muuttui mutta ei erityistä actionia
+                scheduleNext()
+            }
+        }
     }
 
     override fun onInit(status: Int) {
@@ -158,10 +173,16 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 override fun onDone(utteranceId: String?) { 
                     abandonAudioFocus()
                     releaseWakeLock()
+                    if (utteranceId == "SessionEnded") {
+                        stopSelf()
+                    }
                 }
                 override fun onError(utteranceId: String?) { 
                     abandonAudioFocus()
                     releaseWakeLock()
+                    if (utteranceId == "SessionEnded") {
+                        stopSelf()
+                    }
                 }
             })
 
@@ -170,8 +191,13 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 Log.e("TalkingClockService", "Finnish language not supported")
             } else {
                 isTtsInitialized = true
-                // Ajoitetaan seuraava tasaväli ilman välitöntä puhetta
-                scheduleNext()
+                if (pendingAction != null) {
+                    handleAction(pendingAction)
+                    pendingAction = null
+                } else {
+                    // Ajoitetaan seuraava tasaväli ilman välitöntä puhetta
+                    scheduleNext()
+                }
             }
         } else {
             Log.e("TalkingClockService", "TTS Initialization failed")
@@ -298,8 +324,35 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             }
         }
         
+        speakText(text)
+    }
+
+    private fun speakSessionStarted() {
+        if (!isTtsInitialized) return
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val salutation = prefs.getString("talking_clock_salutation", "") ?: ""
+        var text = getString(R.string.talking_clock_session_started, intervalMinutes)
+        if (salutation.isNotEmpty()) {
+            text = "$salutation, $text"
+        }
+        speakText(text)
+    }
+
+    private fun speakSessionEnded() {
+        if (!isTtsInitialized) return
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val salutation = prefs.getString("talking_clock_salutation", "") ?: ""
+        var text = getString(R.string.talking_clock_session_ended)
+        if (salutation.isNotEmpty()) {
+            text = "$salutation! $text"
+        }
+        speakText(text, true, "SessionEnded") // Käytetään flushia ja lopetetaan
+    }
+
+    private fun speakText(text: String, flush: Boolean = true, utteranceId: String = "TalkingClock") {
         if (requestAudioFocus()) {
-            val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
+            val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            val result = tts?.speak(text, queueMode, null, utteranceId)
             if (result == TextToSpeech.ERROR) {
                 releaseWakeLock()
                 abandonAudioFocus()

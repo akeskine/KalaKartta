@@ -198,7 +198,7 @@ class FishingSessionService : Service() {
                     val interval = prefs.getInt("talking_clock_interval", 30)
                     val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
                         putExtra("interval", interval)
-                        action = "START_IMMEDIATELY"
+                        action = "SESSION_STARTED"
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(clockIntent)
@@ -256,7 +256,7 @@ class FishingSessionService : Service() {
                     val interval = prefs.getInt("talking_clock_interval", 30)
                     val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
                         putExtra("interval", interval)
-                        action = "START_IMMEDIATELY"
+                        action = "SESSION_STARTED"
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(clockIntent)
@@ -300,7 +300,25 @@ class FishingSessionService : Service() {
                 val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
                 if (prefs.getBoolean("talking_clock_only_fishing", false)) {
                     prefs.edit().putBoolean("talking_clock_enabled", false).apply()
-                    stopService(Intent(this@FishingSessionService, TalkingClockService::class.java))
+                    val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
+                        action = "SESSION_ENDED"
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(clockIntent)
+                    } else {
+                        startService(clockIntent)
+                    }
+                    
+                    // Annetaan palvelun puhua loppuun ennen pysäytystä. 
+                    // TalkingClockService hoitaa itse itsensä loppuun ja scheduleNextiä ei kutsuta SESSION_ENDEDissä.
+                    // Kuitenkin stopService intentin jälkeen kello saattaa pysähtyä heti.
+                    // Onneksi SESSION_ENDED handlerissa emme kutsu scheduleNextiä, joten se ei ajoita uusia.
+                    // Mutta jotta palvelu ei jää ikuisesti päälle, se pitäisi pysäyttää.
+                    // Koska TTS on asynkroninen, on parempi antaa palvelun päättää itse milloin se sammuu tai 
+                    // lähettää stopService pienen viiveen jälkeen.
+                    // Mutta tehtävänannossa ei pyydetty monimutkaista elinkaaren hallintaa.
+                    // Käytetään handleria pysäyttämiseen puheen jälkeen jos tarpeen, 
+                    // mutta helpointa on antaa TalkingClockService:n olla "päällä" mutta ei ajoittaa mitään.
                 }
                 
                 // Ilmoitetaan MainActivitylle että sessio loppui, jotta se voi avata dialogin
