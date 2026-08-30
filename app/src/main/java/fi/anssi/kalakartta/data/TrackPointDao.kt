@@ -141,6 +141,9 @@ interface TrackPointDao {
     @Query("DELETE FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun deleteForSession(sessionId: Long)
 
+    @Query("UPDATE TrackPoint SET fishingSessionId = :newSessionId WHERE fishingSessionId = :oldSessionId")
+    fun updateSessionId(oldSessionId: Long, newSessionId: Long)
+
     @Query("SELECT COUNT(*) FROM TrackPoint")
     fun getCount(): Int
 

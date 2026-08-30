@@ -189,4 +189,10 @@
     <string name="too_many_track_points">Liikaa reittipisteitä (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nRajaathan näytettävää dataa suodattimien avulla.</string>
     <string name="too_many_heatmap_cells">Liikaa heatmap-ruutuja (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nSuurenna ruudun kokoa tai rajaa näytettävää dataa suodattimien avulla.</string>
     <string name="warning">Huomio</string>
+    <string name="merge_sessions">Yhdistä sessiot</string>
+    <string name="merge">Yhdistä</string>
+    <string name="merge_error_fishermen">Sessiot on merkitty erikalastajille, yhdistäminen ei ole mahdollista.</string>
+    <string name="merge_error_consecutive">Vain aikajärjestyksessä peräkkäiset päivän sessiot annetaan yhdistää.</string>
+    <string name="merge_error_too_few">Valitse vähintään kaksi sessiota yhdistettäväksi.</string>
+    <string name="merge_success">Sessiot yhdistetty</string>
 </resources>

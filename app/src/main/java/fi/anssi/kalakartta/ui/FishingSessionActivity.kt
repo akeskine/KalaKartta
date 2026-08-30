@@ -29,7 +29,9 @@ class FishingSessionActivity : AppCompatActivity() {
     private lateinit var monthYearText: TextView
     private lateinit var sessionsContainer: LinearLayout
     private lateinit var sessionsLabel: TextView
+    private lateinit var mergeSessionsButton: TextView
     private var allSessions: List<FishingSession> = emptyList()
+    private var sessionsForSelectedDate: List<FishingSession> = emptyList()
     private var currentCalendar = Calendar.getInstance()
     private var selectedCalendar = Calendar.getInstance()
     private var openSessionId: Long = -1L
@@ -68,6 +70,11 @@ class FishingSessionActivity : AppCompatActivity() {
         monthYearText = findViewById(R.id.monthYearText)
         sessionsContainer = findViewById(R.id.sessionsContainer)
         sessionsLabel = findViewById(R.id.sessionsLabel)
+        mergeSessionsButton = findViewById(R.id.mergeSessionsButton)
+
+        mergeSessionsButton.setOnClickListener {
+            showMergeSessionsDialog()
+        }
 
         findViewById<TextView>(R.id.backButton).setOnClickListener {
             finish()
@@ -234,9 +241,11 @@ class FishingSessionActivity : AppCompatActivity() {
         val endOfDay = targetCal.timeInMillis
 
         val sessionsForDate = allSessions.filter { it.startedAt in startOfDay until endOfDay }
+        sessionsForSelectedDate = sessionsForDate.sortedBy { it.startedAt }
 
-        if (sessionsForDate.isEmpty()) {
+        if (sessionsForSelectedDate.isEmpty()) {
             sessionsLabel.visibility = View.GONE
+            mergeSessionsButton.visibility = View.GONE
             val noSessionsText = TextView(this).apply {
                 text = "Ei tallennettuja sessioita tälle päivälle."
                 setPadding(0, 20, 0, 20)
@@ -244,7 +253,8 @@ class FishingSessionActivity : AppCompatActivity() {
             sessionsContainer.addView(noSessionsText)
         } else {
             sessionsLabel.visibility = View.VISIBLE
-            sessionsForDate.forEach { session ->
+            mergeSessionsButton.visibility = if (sessionsForSelectedDate.size > 1) View.VISIBLE else View.GONE
+            sessionsForSelectedDate.forEach { session ->
                 addSessionItem(session)
             }
         }
@@ -488,5 +498,113 @@ class FishingSessionActivity : AppCompatActivity() {
     private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
         return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
                 cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+    }
+
+    private fun showMergeSessionsDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_merge_sessions, null)
+        val sessionsList = dialogView.findViewById<LinearLayout>(R.id.sessionsList)
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        
+        val checkboxes = sessionsForSelectedDate.map { session ->
+            val startTime = timeFormat.format(Date(session.startedAt))
+            val endTime = session.endedAt?.let { timeFormat.format(Date(it)) } ?: "?"
+            
+            CheckBox(this).apply {
+                text = "Sessio $startTime-$endTime"
+                tag = session
+                sessionsList.addView(this)
+            }
+        }
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.merge_sessions)
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<TextView>(R.id.backButton).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<TextView>(R.id.mergeButton).setOnClickListener {
+            val selectedSessions = checkboxes.filter { it.isChecked }.map { it.tag as FishingSession }
+            
+            if (selectedSessions.size < 2) {
+                Toast.makeText(this, R.string.merge_error_too_few, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Tarkistetaan kalastajat
+            val fishermen = selectedSessions.map { it.fisherman }.distinct()
+            if (fishermen.size > 1) {
+                Toast.makeText(this, R.string.merge_error_fishermen, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Tarkistetaan peräkkäisyys
+            val selectedIndices = sessionsForSelectedDate.indices.filter { i ->
+                selectedSessions.contains(sessionsForSelectedDate[i])
+            }
+            
+            val isConsecutive = selectedIndices.zipWithNext().all { (a, b) -> b == a + 1 }
+            if (!isConsecutive) {
+                Toast.makeText(this, R.string.merge_error_consecutive, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            performMerge(selectedSessions)
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun performMerge(selectedSessions: List<FishingSession>) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val newStartedAt = selectedSessions.minOf { it.startedAt }
+            val newEndedAt = selectedSessions.mapNotNull { it.endedAt }.maxOrNull()
+            
+            val newNotes = selectedSessions.joinToString("\n") { it.notes }.trim()
+            val fisherman = selectedSessions.first().fisherman
+            
+            val newSession = FishingSession(
+                startedAt = newStartedAt,
+                endedAt = newEndedAt,
+                notes = newNotes,
+                fisherman = fisherman
+            )
+            
+            val newSessionId = db.fishingSessionDao().insert(newSession)
+            
+            // Päivitetään TrackPointit
+            selectedSessions.forEach { oldSession ->
+                db.trackPointDao().updateSessionId(oldSession.id, newSessionId)
+            }
+            
+            // Päivitetään kalapisteiden muistiinpanot (koska niillä ei ole session ID:tä)
+            selectedSessions.forEach { oldSession ->
+                val startTime = oldSession.startedAt
+                val endTime = oldSession.endedAt ?: Long.MAX_VALUE
+                
+                val catches = db.fishCatchDao().getAll().filter { 
+                    it.caughtAt != null && it.caughtAt >= startTime && it.caughtAt <= endTime && it.fisherman == fisherman
+                }
+                
+                catches.forEach { fish ->
+                    // Jos tripNotes oli sama kuin session notes, päivitetään se uuteen sessio-muistiinpanoon?
+                    // Tehtävänannossa ei pyydetty päivittämään kalapisteitä, mutta on hyvä tarkistaa ne.
+                    // Ohitetaan toistaiseksi, koska kalapisteet eivät ole suoraan sidottu sessioihin ID:llä.
+                }
+            }
+            
+            // Poistetaan vanhat sessiot
+            selectedSessions.forEach { oldSession ->
+                db.fishingSessionDao().deleteById(oldSession.id)
+            }
+            
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@FishingSessionActivity, R.string.merge_success, Toast.LENGTH_SHORT).show()
+                loadSessions()
+            }
+        }
     }
 }

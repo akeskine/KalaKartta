@@ -77,16 +77,30 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
 
-            <Button
-                android:id="@+id/backButton"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:text="Takaisin"
+                android:orientation="horizontal"
+                android:gravity="end"
                 android:layout_marginTop="8dp"
                 android:layout_marginEnd="@dimen/landscape_safe_margin"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp">
+
+                <Button
+                    android:id="@+id/mergeSessionsButton"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/merge_sessions"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/backButton"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/back" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
