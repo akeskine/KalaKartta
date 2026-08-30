@@ -390,23 +390,30 @@ class FishingSessionActivity : AppCompatActivity() {
                 container.addView(infoText)
 
                 val replayRow = LinearLayout(this@FishingSessionActivity).apply {
-                    orientation = LinearLayout.VERTICAL
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
                     setPadding(0, 10, 0, 10)
                 }
 
                 val showOnlySessionCatchesCheck = android.widget.CheckBox(this@FishingSessionActivity).apply {
                     text = "Näytä vain session kalapisteet"
                     isChecked = true // Oletuksena ruksittu
-                    setPadding(0, 10, 0, 10)
+                    setPadding(0, 10, 20, 10)
                 }
                 replayRow.addView(showOnlySessionCatchesCheck)
 
-                val replayLink = TextView(this@FishingSessionActivity).apply {
-                    text = "Toista"
-                    setTextColor(androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.link_color))
-                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setPadding(0, 20, 0, 10)
-                    isClickable = true
+                val replayButton = android.widget.ImageButton(this@FishingSessionActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        (48 * resources.displayMetrics.density).toInt(),
+                        (48 * resources.displayMetrics.density).toInt()
+                    )
+                    setImageResource(android.R.drawable.ic_media_play)
+                    background = androidx.core.content.ContextCompat.getDrawable(
+                        this@FishingSessionActivity,
+                        android.R.drawable.btn_default
+                    )
+                    imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK)
+                    contentDescription = "Toista sessio"
                     setOnClickListener {
                         val intent = Intent()
                         intent.putExtra("EXTRA_SESSION_ID", session.id)
@@ -416,7 +423,7 @@ class FishingSessionActivity : AppCompatActivity() {
                         finish()
                     }
                 }
-                replayRow.addView(replayLink)
+                replayRow.addView(replayButton)
 
                 container.addView(replayRow)
             }
