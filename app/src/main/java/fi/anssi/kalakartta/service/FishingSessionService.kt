@@ -283,10 +283,13 @@ class FishingSessionService : Service() {
         currentSessionId = -1L
 
         serviceScope.launch {
+            var durationMs = 0L
             if (sessionId != -1L) {
                 val session = db.fishingSessionDao().getById(sessionId)
                 if (session != null) {
-                    db.fishingSessionDao().update(session.copy(endedAt = System.currentTimeMillis()))
+                    val now = System.currentTimeMillis()
+                    durationMs = now - session.startedAt
+                    db.fishingSessionDao().update(session.copy(endedAt = now))
                 }
             }
             
@@ -302,6 +305,8 @@ class FishingSessionService : Service() {
                     prefs.edit().putBoolean("talking_clock_enabled", false).apply()
                     val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
                         action = "SESSION_ENDED"
+                        putExtra("duration_ms", durationMs)
+                        putExtra("distance_m", totalDistance)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(clockIntent)
@@ -324,6 +329,8 @@ class FishingSessionService : Service() {
                 // Ilmoitetaan MainActivitylle että sessio loppui, jotta se voi avata dialogin
                 val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED")
                 intent.putExtra("SESSION_ID", sessionId)
+                intent.putExtra("duration_ms", durationMs)
+                intent.putExtra("distance_m", totalDistance)
                 intent.setPackage(packageName)
                 sendBroadcast(intent)
                 

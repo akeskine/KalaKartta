@@ -531,9 +531,11 @@ class MainActivity : AppCompatActivity() {
             when (intent?.action) {
                 "fi.anssi.kalakartta.SESSION_ENDED" -> {
                     val sessionId = intent.getLongExtra("SESSION_ID", -1L)
+                    val durationMs = intent.getLongExtra("duration_ms", 0L)
+                    val distanceM = intent.getFloatExtra("distance_m", 0f)
                     updateRecordingStatusUI()
                     if (sessionId != -1L) {
-                        showSessionNotesDialog(sessionId)
+                        showSessionNotesDialog(sessionId, durationMs, distanceM)
                     }
                 }
                 "fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF" -> {
@@ -1678,7 +1680,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSessionNotesDialog(sessionId: Long) {
+    private fun showSessionNotesDialog(sessionId: Long, durationMs: Long, distanceM: Float) {
         if (isFinishing || isDestroyed) return
         
         val builder = AlertDialog.Builder(this)
@@ -1687,6 +1689,18 @@ class MainActivity : AppCompatActivity() {
         val layout = android.widget.LinearLayout(this)
         layout.orientation = android.widget.LinearLayout.VERTICAL
         layout.setPadding(48, 24, 48, 24)
+
+        // Session kesto ja matka
+        val statsLabel = android.widget.TextView(this)
+        val totalMinutes = durationMs / 60000
+        val h = totalMinutes / 60
+        val m = totalMinutes % 60
+        val distanceKm = distanceM / 1000f
+        
+        statsLabel.text = String.format("Session kesto: %d h %d min\nKuljettu matka: %.3f km.", h, m, distanceKm).replace(".", ",")
+        statsLabel.textSize = 16f
+        statsLabel.setPadding(0, 0, 0, 24)
+        layout.addView(statsLabel)
 
         val label = android.widget.TextView(this)
         label.text = "Kalastussession huomiot:"

@@ -36,6 +36,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private var intervalMinutes = 10
     private var isTtsInitialized = false
     private var pendingAction: String? = null
+    private var pendingDurationMs: Long = 0L
+    private var pendingDistanceM: Double = 0.0
     private var wakeLock: PowerManager.WakeLock? = null
     
     private val sunService = SunService()
@@ -131,15 +133,18 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         }
         
         if (isTtsInitialized) {
-            handleAction(intent?.action)
+            handleAction(intent)
         } else {
             pendingAction = intent?.action
+            pendingDurationMs = intent?.getLongExtra("duration_ms", 0L) ?: 0L
+            pendingDistanceM = intent?.getDoubleExtra("distance_m", 0.0) ?: 0.0
         }
         
         return START_STICKY
     }
 
-    private fun handleAction(action: String?) {
+    private fun handleAction(intent: Intent?) {
+        val action = intent?.action
         when (action) {
             "START_IMMEDIATELY" -> {
                 // Ei puhuta heti, vaan ajoitetaan seuraava tasaväli
@@ -152,7 +157,9 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             }
             "SESSION_ENDED" -> {
                 acquireWakeLock()
-                speakSessionEnded()
+                val durationMs = intent?.getLongExtra("duration_ms", 0L) ?: 0L
+                val distanceM = intent?.getDoubleExtra("distance_m", 0.0) ?: 0.0
+                speakSessionEnded(durationMs, distanceM)
             }
             "TALK" -> {
                 acquireWakeLock()
@@ -164,6 +171,35 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 scheduleNext()
             }
         }
+    }
+
+    private fun handlePendingAction() {
+        val action = pendingAction
+        when (action) {
+            "SESSION_STARTED" -> {
+                acquireWakeLock()
+                speakSessionStarted()
+                scheduleNext()
+            }
+            "SESSION_ENDED" -> {
+                acquireWakeLock()
+                speakSessionEnded(pendingDurationMs, pendingDistanceM)
+            }
+            "TALK" -> {
+                acquireWakeLock()
+                speakCurrentTime()
+                scheduleNext()
+            }
+            "START_IMMEDIATELY" -> {
+                scheduleNext()
+            }
+            else -> {
+                scheduleNext()
+            }
+        }
+        pendingAction = null
+        pendingDurationMs = 0L
+        pendingDistanceM = 0.0
     }
 
     override fun onInit(status: Int) {
@@ -192,8 +228,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             } else {
                 isTtsInitialized = true
                 if (pendingAction != null) {
-                    handleAction(pendingAction)
-                    pendingAction = null
+                    handlePendingAction()
                 } else {
                     // Ajoitetaan seuraava tasaväli ilman välitöntä puhetta
                     scheduleNext()
@@ -338,15 +373,80 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         speakText(text)
     }
 
-    private fun speakSessionEnded() {
+    private fun speakSessionEnded(durationMs: Long, distanceM: Double) {
         if (!isTtsInitialized) return
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         val salutation = prefs.getString("talking_clock_salutation", "") ?: ""
-        var text = getString(R.string.talking_clock_session_ended)
+        
+        val durationText = formatDurationFinnish(durationMs)
+        val distanceKm = distanceM / 1000.0
+        val distanceText = String.format("%.3f", distanceKm).replace(".", ",")
+        
+        var text = getString(R.string.talking_clock_session_ended, durationText, distanceText)
         if (salutation.isNotEmpty()) {
             text = "$salutation! $text"
         }
         speakText(text, true, "SessionEnded") // Käytetään flushia ja lopetetaan
+    }
+
+    private fun formatDurationFinnish(durationMs: Long): String {
+        val totalMinutes = durationMs / 60000
+        val hours = (totalMinutes / 60).toInt()
+        val minutes = (totalMinutes % 60).toInt()
+
+        val hoursStr = when (hours) {
+            0 -> ""
+            1 -> "yksi tunti"
+            else -> {
+                val hStr = when (hours) {
+                    2 -> "kaksi"; 3 -> "kolme"; 4 -> "neljä"; 5 -> "viisi"; 6 -> "kuusi"
+                    7 -> "seitsemän"; 8 -> "kahdeksan"; 9 -> "yhdeksän"; 10 -> "kymmenen"
+                    11 -> "yksitoista"; 12 -> "kaksitoista"
+                    13 -> "kolmetoista"; 14 -> "neljätoista"; 15 -> "viisitoista"
+                    16 -> "kuusitoista"; 17 -> "seitsemäntoista"; 18 -> "kahdeksantoista"
+                    19 -> "yhdeksäntoista"; 20 -> "kaksikymmentä"; 21 -> "kaksikymmentäyksi"
+                    22 -> "kaksikymmentäkaksi"; 23 -> "kaksikymmentäkolme"; 24 -> "kaksikymmentäneljä"
+                    else -> hours.toString()
+                }
+                "$hStr tuntia"
+            }
+        }
+
+        val minutesStr = when (minutes) {
+            0 -> if (hours == 0) "nolla minuuttia" else ""
+            1 -> "yksi minuutti"
+            else -> {
+                val mStr = when (minutes) {
+                    2 -> "kaksi"; 3 -> "kolme"; 4 -> "neljä"; 5 -> "viisi"; 6 -> "kuusi"
+                    7 -> "seitsemän"; 8 -> "kahdeksan"; 9 -> "yhdeksän"; 10 -> "kymmenen"
+                    11 -> "yksitoista"; 12 -> "kaksitoista"
+                    13 -> "kolmetoista"; 14 -> "neljätoista"; 15 -> "viisitoista"
+                    16 -> "kuusitoista"; 17 -> "seitsemäntoista"; 18 -> "kahdeksantoista"
+                    19 -> "yhdeksäntoista"; 20 -> "kaksikymmentä"; 21 -> "kaksikymmentäyksi"
+                    22 -> "kaksikymmentäkaksi"; 23 -> "kaksikymmentäkolme"; 24 -> "kaksikymmentäneljä"
+                    25 -> "kaksikymmentäviisi"; 26 -> "kaksikymmentäkuusi"; 27 -> "kaksikymmentäseitsemän"
+                    28 -> "kaksikymmentäkahdeksan"; 29 -> "kaksikymmentäyhdeksän"
+                    30 -> "kolmekymmentä"; 31 -> "kolmekymmentäyksi"; 32 -> "kolmekymmentäkaksi"
+                    33 -> "kolmekymmentäkolme"; 34 -> "kolmekymmentäneljä"; 35 -> "kolmekymmentäviisi"
+                    36 -> "kolmekymmentäkuusi"; 37 -> "kolmekymmentäseitsemän"; 38 -> "kolmekymmentäkahdeksan"
+                    39 -> "kolmekymmentäyhdeksän"; 40 -> "neljäkymmentä"; 41 -> "neljäkymmentäyksi"
+                    42 -> "neljäkymmentäkaksi"; 43 -> "neljäkymmentäkolme"; 44 -> "neljäkymmentäneljä"
+                    45 -> "neljäkymmentäviisi"; 46 -> "neljäkymmentäkuusi"; 47 -> "neljäkymmentäseitsemän"
+                    48 -> "neljäkymmentäkahdeksan"; 49 -> "neljäkymmentäyhdeksän"; 50 -> "viisikymmentä"
+                    51 -> "viisikymmentäyksi"; 52 -> "viisikymmentäkaksi"; 53 -> "viisikymmentäkolme"
+                    54 -> "viisikymmentäneljä"; 55 -> "viisikymmentäviisi"; 56 -> "viisikymmentäkuusi"
+                    57 -> "viisikymmentäseitsemän"; 58 -> "viisikymmentäkahdeksan"; 59 -> "viisikymmentäyhdeksän"
+                    else -> minutes.toString()
+                }
+                "$mStr minuuttia"
+            }
+        }
+
+        return when {
+            hoursStr.isNotEmpty() && minutesStr.isNotEmpty() -> "$hoursStr $minutesStr"
+            hoursStr.isNotEmpty() -> hoursStr
+            else -> minutesStr
+        }
     }
 
     private fun speakText(text: String, flush: Boolean = true, utteranceId: String = "TalkingClock") {
