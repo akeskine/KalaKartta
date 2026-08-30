@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity() {
                 
                 markerManager.setMaxTimestamp(replayStartTime)
                 if (isOnlySessionCatchesMode) {
-                    markerManager.setTimeRange(replayStartTime, replayStartTime)
+                    markerManager.setTimeRange(replayStartTime, replayStartTime, true)
                 }
                 
                 updateReplayUI()
@@ -412,7 +412,7 @@ class MainActivity : AppCompatActivity() {
         
         archivedSessionPolyline?.setPoints(geoPoints)
         if (isOnlySessionCatchesMode) {
-            markerManager.setTimeRange(replayStartTime, currentTime)
+            markerManager.setTimeRange(replayStartTime, currentTime, true)
         } else {
             markerManager.setMaxTimestamp(currentTime)
         }

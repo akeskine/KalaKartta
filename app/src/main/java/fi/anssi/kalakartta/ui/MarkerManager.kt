@@ -443,21 +443,24 @@ class MarkerManager(
 
     private var maxTimestamp: Long = Long.MAX_VALUE
     private var minTimestamp: Long = 0L
+    private var hidePlacesIfFiltering: Boolean = false
 
     fun setMaxTimestamp(timestamp: Long) {
         maxTimestamp = timestamp
         rebuildMarkers(lastZoom)
     }
 
-    fun setTimeRange(min: Long, max: Long) {
+    fun setTimeRange(min: Long, max: Long, hidePlaces: Boolean = false) {
         minTimestamp = min
         maxTimestamp = max
+        hidePlacesIfFiltering = hidePlaces
         rebuildMarkers(lastZoom)
     }
 
     fun resetTimeRange() {
         minTimestamp = 0L
         maxTimestamp = Long.MAX_VALUE
+        hidePlacesIfFiltering = false
         rebuildMarkers(lastZoom)
     }
 
@@ -497,7 +500,11 @@ class MarkerManager(
                 }.toList() 
             }
             val placesCopy = synchronized(allPlaces) { 
-                allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList() 
+                if (hidePlacesIfFiltering && (minTimestamp > 0 || maxTimestamp < Long.MAX_VALUE)) {
+                    emptyList()
+                } else {
+                    allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList()
+                }
             }
             
             // Tyhjennetään poistolistat vasta kun ollaan saatu kopiot uusista listoista
