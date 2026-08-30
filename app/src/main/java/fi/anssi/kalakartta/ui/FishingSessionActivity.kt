@@ -53,10 +53,14 @@ class FishingSessionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_fishing_sessions)
 
+        val intentSessionId = intent.getLongExtra("EXTRA_OPEN_SESSION_ID", -1L)
+
         if (savedInstanceState != null) {
             currentCalendar.timeInMillis = savedInstanceState.getLong("currentCalendar", System.currentTimeMillis())
             selectedCalendar.timeInMillis = savedInstanceState.getLong("selectedCalendar", System.currentTimeMillis())
             openSessionId = savedInstanceState.getLong("openSessionId", -1L)
+        } else if (intentSessionId != -1L) {
+            openSessionId = intentSessionId
         }
 
         db = AppDatabase.getInstance(this)
@@ -99,6 +103,18 @@ class FishingSessionActivity : AppCompatActivity() {
     private fun loadSessions() {
         lifecycleScope.launch(Dispatchers.IO) {
             allSessions = db.fishingSessionDao().getFinishedSessions()
+            
+            // Jos meillä on openSessionId, asetetaan selectedCalendar sen päivään
+            if (openSessionId != -1L) {
+                val session = allSessions.find { it.id == openSessionId }
+                if (session != null) {
+                    val cal = Calendar.getInstance()
+                    cal.timeInMillis = session.startedAt
+                    selectedCalendar = cal
+                    currentCalendar.timeInMillis = session.startedAt
+                }
+            }
+
             withContext(Dispatchers.Main) {
                 updateCalendar()
                 showSessionsForDate(

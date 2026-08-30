@@ -2329,7 +2329,7 @@ class SettingsManager(
         }
     }
 
-    private fun openFishingSessionSettings() {
+    fun openFishingSessionSettings() {
         val mainActivity = activity as? fi.anssi.kalakartta.MainActivity
         val fishingService = mainActivity?.getFishingService()
         val isRecording = fishingService?.isRecording() ?: false

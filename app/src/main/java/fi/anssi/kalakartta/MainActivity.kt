@@ -694,6 +694,27 @@ class MainActivity : AppCompatActivity() {
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
 
+            onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (findViewById<android.view.View>(R.id.replayPlayerLayout).visibility == android.view.View.VISIBLE) {
+                        val sessionId = visibleArchivedSessionId
+                        hideArchivedSession()
+                        
+                        // Avataan asetukset ja sessioiden listaus
+                        settingsManager.openSettings()
+                        
+                        // Avataan FishingSessionActivity suoraan oikealla ID:llä
+                        val intent = Intent(this@MainActivity, fi.anssi.kalakartta.ui.FishingSessionActivity::class.java)
+                        intent.putExtra("EXTRA_OPEN_SESSION_ID", sessionId)
+                        startActivityForResult(intent, 3001)
+                    } else {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
+                }
+            })
+
             // Tehtävä 1: Sovelluksen käynnistyessä aseta aina heat map-ruutujen ja reittien näyttäminen pois päältä.
             val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
             if (savedInstanceState == null) {
