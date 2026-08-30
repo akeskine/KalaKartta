@@ -314,9 +314,13 @@ class MainActivity : AppCompatActivity() {
         playerContainer.visibility = android.view.View.VISIBLE
         restoreButton.visibility = android.view.View.GONE
         
+        playerContainer.setOnClickListener { 
+            // Estetään klikkausten meneminen läpi kartalle
+        }
+        
         // Piilotetaan muut napit
         findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.GONE
-        findViewById<android.view.View>(R.id.myLocationButton).visibility = android.view.View.GONE
+        updateMyLocationButtonVisibility()
 
         playPauseButton.setOnClickListener {
             isReplayPlaying = !isReplayPlaying
@@ -1947,6 +1951,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMyLocationButtonVisibility() {
+        if (findViewById<android.view.View>(R.id.replayPlayerLayout).visibility == android.view.View.VISIBLE) {
+            findViewById<MaterialButton>(R.id.myLocationButton).visibility = android.view.View.GONE
+            return
+        }
+
         val hasPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
         val isGpsEnabled = try {
