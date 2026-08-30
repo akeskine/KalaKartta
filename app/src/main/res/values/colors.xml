@@ -3,4 +3,5 @@
     <color name="white">#FFFFFFFF</color>
     <color name="button_text_color">#6200EE</color>
     <color name="link_color">#6200EE</color>
+    <color name="play_icon_tint">#FF000000</color>
 </resources>

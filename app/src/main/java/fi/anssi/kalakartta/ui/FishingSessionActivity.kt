@@ -419,7 +419,9 @@ class FishingSessionActivity : AppCompatActivity() {
                     )
                     setImageResource(android.R.drawable.ic_media_play)
                     background = null
-                    imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK)
+                    imageTintList = android.content.res.ColorStateList.valueOf(
+                        androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.play_icon_tint)
+                    )
                     contentDescription = "Toista sessio"
                     setOnClickListener {
                         val intent = Intent()
