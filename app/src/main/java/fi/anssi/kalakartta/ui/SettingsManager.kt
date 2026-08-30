@@ -1466,6 +1466,18 @@ class SettingsManager(
         })
         layout.addView(intervalLayout)
         
+        // Akun varaus
+        val batteryCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.talking_clock_battery_status)
+            isChecked = prefs.getBoolean("talking_clock_battery", false)
+            textSize = 18f
+            setPadding(paddingLeft, 10, paddingRight, 0)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("talking_clock_battery", isChecked).apply()
+            }
+        }
+        layout.addView(batteryCheckbox)
+
         // Puhuttelu
         layout.addView(TextView(activity).apply {
             text = activity.getString(R.string.talking_clock_salutation)

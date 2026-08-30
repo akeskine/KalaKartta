@@ -160,6 +160,7 @@
     <string name="talking_clock_only_fishing">Päällä kun kalastussessio käynnissä</string>
     <string name="talking_clock_interval_prefix">Kellonaika </string>
     <string name="talking_clock_interval_suffix"> min välein</string>
+    <string name="talking_clock_battery_status">Kerro akun varaus</string>
     <string name="talking_clock_salutation">Puhuttelu</string>
     <string name="talking_clock_sunset">Kerro auringonlasku</string>
     <string name="talking_clock_sunset_limit">jos alle </string>

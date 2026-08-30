@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -289,6 +290,13 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         if (sunText.isNotEmpty()) {
             text = "$text $sunText"
         }
+
+        if (prefs.getBoolean("talking_clock_battery", false)) {
+            val batteryLevel = getBatteryLevel()
+            if (batteryLevel != -1) {
+                text = "$text Akun varaus on $batteryLevel prosenttia."
+            }
+        }
         
         if (requestAudioFocus()) {
             val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "TalkingClock")
@@ -419,6 +427,19 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         }
 
         return "Auringon $event on $timePart."
+    }
+
+    private fun getBatteryLevel(): Int {
+        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+            applicationContext.registerReceiver(null, ifilter)
+        }
+        val level: Int = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale: Int = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level != -1 && scale != -1) {
+            (level * 100 / scale.toFloat()).toInt()
+        } else {
+            -1
+        }
     }
 
     private fun formatTimeFinnish(hour: Int, minute: Int): String {
