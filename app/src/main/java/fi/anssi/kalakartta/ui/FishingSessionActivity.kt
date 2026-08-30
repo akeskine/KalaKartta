@@ -408,10 +408,7 @@ class FishingSessionActivity : AppCompatActivity() {
                         (48 * resources.displayMetrics.density).toInt()
                     )
                     setImageResource(android.R.drawable.ic_media_play)
-                    background = androidx.core.content.ContextCompat.getDrawable(
-                        this@FishingSessionActivity,
-                        android.R.drawable.btn_default
-                    )
+                    background = null
                     imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK)
                     contentDescription = "Toista sessio"
                     setOnClickListener {
