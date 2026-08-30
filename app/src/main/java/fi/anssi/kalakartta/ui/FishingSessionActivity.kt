@@ -241,12 +241,30 @@ class FishingSessionActivity : AppCompatActivity() {
 
         val sessionView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 20, 0, 20)
+            setPadding(20, 20, 20, 20)
             isClickable = true
             isFocusable = true
+            
+            // Luodaan 1px kehys
+            val border = android.graphics.drawable.GradientDrawable().apply {
+                setStroke(2, Color.GRAY) // 2px jotta näyttää 1dp:ltä useimmilla näytöillä, tai käytetään muunnosta
+                setColor(Color.TRANSPARENT)
+                cornerRadius = 8f
+            }
+            
             val outValue = android.util.TypedValue()
             context.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
+            val ripple = androidx.core.content.ContextCompat.getDrawable(context, outValue.resourceId)
+            
+            background = android.graphics.drawable.LayerDrawable(arrayOf(border, ripple))
+            
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, 16)
+            }
+            layoutParams = params
         }
 
         val titleText = TextView(this).apply {
@@ -254,10 +272,20 @@ class FishingSessionActivity : AppCompatActivity() {
             textSize = 18f
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
+
+        val expandIcon = ImageView(this).apply {
+            setImageResource(android.R.drawable.arrow_down_float)
+            setPadding(10, 10, 10, 10)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
         
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(expandIcon)
             addView(titleText)
             
             val editIcon = ImageView(this@FishingSessionActivity).apply {
@@ -292,6 +320,7 @@ class FishingSessionActivity : AppCompatActivity() {
         sessionView.setOnClickListener {
             if (detailsContainer.visibility == View.VISIBLE) {
                 detailsContainer.visibility = View.GONE
+                expandIcon.rotation = 0f
                 openSessionId = -1L
             } else {
                 openSessionId = session.id
@@ -299,6 +328,7 @@ class FishingSessionActivity : AppCompatActivity() {
                     loadSessionDetails(session, detailsContainer)
                 }
                 detailsContainer.visibility = View.VISIBLE
+                expandIcon.rotation = 180f
             }
         }
 
@@ -308,6 +338,7 @@ class FishingSessionActivity : AppCompatActivity() {
         if (session.id == openSessionId) {
             loadSessionDetails(session, detailsContainer)
             detailsContainer.visibility = View.VISIBLE
+            expandIcon.rotation = 180f
         }
     }
 
