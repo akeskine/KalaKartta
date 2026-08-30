@@ -442,9 +442,22 @@ class MarkerManager(
     }
 
     private var maxTimestamp: Long = Long.MAX_VALUE
+    private var minTimestamp: Long = 0L
 
     fun setMaxTimestamp(timestamp: Long) {
         maxTimestamp = timestamp
+        rebuildMarkers(lastZoom)
+    }
+
+    fun setTimeRange(min: Long, max: Long) {
+        minTimestamp = min
+        maxTimestamp = max
+        rebuildMarkers(lastZoom)
+    }
+
+    fun resetTimeRange() {
+        minTimestamp = 0L
+        maxTimestamp = Long.MAX_VALUE
         rebuildMarkers(lastZoom)
     }
 
@@ -477,7 +490,11 @@ class MarkerManager(
             delay(if (catchesCount < 100) 10 else 40)
             
             val catchesCopy = synchronized(allCatches) { 
-                allCatches.filter { !deletedFishIds.contains(it.id) && (it.caughtAt ?: 0L) <= maxTimestamp }.toList() 
+                allCatches.filter { 
+                    !deletedFishIds.contains(it.id) && 
+                    (it.caughtAt ?: 0L) >= minTimestamp &&
+                    (it.caughtAt ?: 0L) <= maxTimestamp 
+                }.toList() 
             }
             val placesCopy = synchronized(allPlaces) { 
                 allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList() 

@@ -129,6 +129,7 @@ class MainActivity : AppCompatActivity() {
     private var replayStartTime = 0L
     private var replayEndTime = 0L
     private var replayPoints = listOf<TrackPoint>()
+    private var isOnlySessionCatchesMode = false
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
     private var recordingIntervalSeconds = 0
@@ -179,8 +180,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun replaySessionOnMap(sessionId: Long) {
+    private fun replaySessionOnMap(sessionId: Long, onlySessionCatches: Boolean = false) {
         replayJob?.cancel()
+        isOnlySessionCatchesMode = onlySessionCatches
         
         lifecycleScope.launch(Dispatchers.IO) {
             val session = db.fishingSessionDao().getById(sessionId)
@@ -246,6 +248,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 markerManager.setMaxTimestamp(replayStartTime)
+                if (isOnlySessionCatchesMode) {
+                    markerManager.setTimeRange(replayStartTime, replayStartTime)
+                }
                 
                 updateReplayUI()
             }
@@ -406,7 +411,11 @@ class MainActivity : AppCompatActivity() {
         val geoPoints = visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
         
         archivedSessionPolyline?.setPoints(geoPoints)
-        markerManager.setMaxTimestamp(currentTime)
+        if (isOnlySessionCatchesMode) {
+            markerManager.setTimeRange(replayStartTime, currentTime)
+        } else {
+            markerManager.setMaxTimestamp(currentTime)
+        }
         map.invalidate()
     }
 
@@ -443,7 +452,7 @@ class MainActivity : AppCompatActivity() {
                     
                     // Zoomataan session alkuun
                     map.controller.animateTo(geoPoints[0], 15.0, 500L)
-                    markerManager.setMaxTimestamp(Long.MAX_VALUE)
+                    markerManager.resetTimeRange()
                     map.invalidate()
                 }
             }
@@ -505,7 +514,7 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     val allGeoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
                     archivedSessionPolyline?.setPoints(allGeoPoints)
-                    markerManager.setMaxTimestamp(Long.MAX_VALUE)
+                    markerManager.resetTimeRange()
                     map.invalidate()
                 }
             }
@@ -514,6 +523,7 @@ class MainActivity : AppCompatActivity() {
 
     fun hideArchivedSession() {
         replayJob?.cancel()
+        isOnlySessionCatchesMode = false
         
         findViewById<android.view.View>(R.id.replayPlayerLayout).visibility = android.view.View.GONE
         findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.VISIBLE
@@ -523,7 +533,7 @@ class MainActivity : AppCompatActivity() {
             map.overlays.remove(archivedSessionPolyline)
             archivedSessionPolyline = null
             visibleArchivedSessionId = -1L
-            markerManager.setMaxTimestamp(Long.MAX_VALUE)
+            markerManager.resetTimeRange()
             map.invalidate()
         }
     }
@@ -2016,7 +2026,8 @@ class MainActivity : AppCompatActivity() {
                 settingsManager.closeSettings()
                 
                 if (replayRequest) {
-                    replaySessionOnMap(sessionId)
+                    val onlySessionCatches = data?.getBooleanExtra("EXTRA_ONLY_SESSION_CATCHES", false) ?: false
+                    replaySessionOnMap(sessionId, onlySessionCatches)
                 } else {
                     showArchivedSessionOnMap(sessionId)
                 }

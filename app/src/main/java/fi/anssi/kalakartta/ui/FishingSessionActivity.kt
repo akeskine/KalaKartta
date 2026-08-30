@@ -390,21 +390,28 @@ class FishingSessionActivity : AppCompatActivity() {
                 container.addView(infoText)
 
                 val replayRow = LinearLayout(this@FishingSessionActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    orientation = LinearLayout.VERTICAL
                     setPadding(0, 10, 0, 10)
                 }
+
+                val showOnlySessionCatchesCheck = android.widget.CheckBox(this@FishingSessionActivity).apply {
+                    text = "Näytä vain session kalapisteet"
+                    isChecked = true // Oletuksena ruksittu
+                    setPadding(0, 10, 0, 10)
+                }
+                replayRow.addView(showOnlySessionCatchesCheck)
 
                 val replayLink = TextView(this@FishingSessionActivity).apply {
                     text = "Toista"
                     setTextColor(androidx.core.content.ContextCompat.getColor(this@FishingSessionActivity, R.color.link_color))
                     paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setPadding(0, 10, 0, 10)
+                    setPadding(0, 20, 0, 10)
                     isClickable = true
                     setOnClickListener {
                         val intent = Intent()
                         intent.putExtra("EXTRA_SESSION_ID", session.id)
                         intent.putExtra("EXTRA_REPLAY_REQUEST", true)
+                        intent.putExtra("EXTRA_ONLY_SESSION_CATCHES", showOnlySessionCatchesCheck.isChecked)
                         setResult(RESULT_OK, intent)
                         finish()
                     }
