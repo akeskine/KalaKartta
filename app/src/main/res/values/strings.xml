@@ -195,4 +195,7 @@
     <string name="merge_error_consecutive">Vain aikajärjestyksessä peräkkäiset päivän sessiot annetaan yhdistää.</string>
     <string name="merge_error_too_few">Valitse vähintään kaksi sessiota yhdistettäväksi.</string>
     <string name="merge_success">Sessiot yhdistetty</string>
+    <string name="icon_sizes">Kuvakkeiden koot</string>
+    <string name="fish_icon_size">Kalakuvakkeiden koko:</string>
+    <string name="other_icon_size">Muu paikka-kuvakkeiden koko:</string>
 </resources>

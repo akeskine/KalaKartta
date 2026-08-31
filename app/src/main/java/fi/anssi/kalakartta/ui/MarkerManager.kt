@@ -72,6 +72,19 @@ class MarkerManager(
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
     
+    private var fishIconScale = 1.0f
+    private var otherIconScale = 1.0f
+
+    init {
+        loadSettings()
+    }
+
+    private fun loadSettings() {
+        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        fishIconScale = prefs.getFloat("fish_icon_scale", 1.0f)
+        otherIconScale = prefs.getFloat("other_icon_scale", 1.0f)
+    }
+    
     // Marker-olioiden kierrätys
     private val markerPool = mutableListOf<Marker>()
     private val activeIndividualMarkers = mutableMapOf<Long, Marker>()
@@ -409,6 +422,9 @@ class MarkerManager(
         var baseIconSize = if (drawableId == R.drawable.default_point) 24 else 40
         var visibleSize = if (drawableId == R.drawable.default_point) 8 else 40
 
+        // Sovelletaan yleistä skaalauskerrointa
+        scaleFactor *= fishIconScale.toDouble()
+
         // Punaiset oletuspisteet (default_point) pidetään vakioina ja pieninä
         if (drawableId == R.drawable.default_point) {
             scaleFactor = 0.8
@@ -465,6 +481,7 @@ class MarkerManager(
     }
 
     fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
+        loadSettings()
         if (forceRefreshSpecies) {
             speciesCache.clear()
             iconCache.clear()
@@ -877,10 +894,11 @@ class MarkerManager(
         val touchSize = 48
         
         marker.icon = if (drawableId == R.drawable.default_place_point) {
-            val key = Triple(drawableId, visibleSize, touchSize)
-            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, visibleSize, touchSize) }
+            val scaledVisibleSize = (visibleSize * otherIconScale).toInt()
+            val key = Triple(drawableId, scaledVisibleSize, touchSize)
+            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, scaledVisibleSize, touchSize) }
         } else {
-            var iconSize = 40
+            var iconSize = (40 * otherIconScale).toInt()
             when (place.typeId) {
                 "SHALLOW", "DEEP" -> iconSize = (iconSize * 0.5).toInt()
                 "ROCK", "VEGETATION" -> iconSize = (iconSize * 0.7).toInt()
