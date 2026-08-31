@@ -574,7 +574,7 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    if (prefs.getBoolean("heatmap_auto_configure", false)) return
+                    if (prefs.getBoolean("heatmap_auto_configure", true)) return
                     
                     val value = s.toString().toIntOrNull() ?: 1
                     prefs.edit().putInt("heatmap_min_points", value).apply()
@@ -606,7 +606,7 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    if (prefs.getBoolean("heatmap_auto_configure", false)) return
+                    if (prefs.getBoolean("heatmap_auto_configure", true)) return
                     
                     val value = s.toString().toIntOrNull() ?: 50
                     prefs.edit().putInt("heatmap_max_points", value).apply()
@@ -636,7 +636,7 @@ class SettingsManager(
 
         val autoConfigureCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_auto_configure)
-            isChecked = prefs.getBoolean("heatmap_auto_configure", false)
+            isChecked = prefs.getBoolean("heatmap_auto_configure", true)
             textSize = 16f
             
             // Päivitetään kenttien tila heti

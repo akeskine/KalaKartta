@@ -67,7 +67,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val oldAutoConfigure = autoConfigure
 
         gridSizeMeters = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
-        autoConfigure = prefs.getBoolean("heatmap_auto_configure", false)
+        autoConfigure = prefs.getBoolean("heatmap_auto_configure", true)
         minPoints = if (autoConfigure) 1 else prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
         maxPoints = prefs.getInt("heatmap_max_points", 50).coerceAtLeast(minPoints + 1)
         heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
@@ -368,9 +368,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             if (autoConfigure && heatmapData.isNotEmpty()) {
                 val values = heatmapData.values.sorted()
-                // 10 prosenttia heatmap-ruuduista saa tummimman värisävyn
-                // Eli etsitään 90. persentiili
-                val index = (values.size * 0.9).toInt().coerceIn(0, values.size - 1)
+                // Mahdollisimman tarkkaan 5 prosenttia heatmap-ruuduista saa tummimman värisävyn
+                // Eli etsitään 95. persentiili
+                val index = (values.size * 0.95).toInt().coerceIn(0, values.size - 1)
                 val calculatedMax = values[index]
                 
                 maxPoints = calculatedMax.coerceAtLeast(5)
