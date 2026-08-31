@@ -39,6 +39,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     
     private var minPoints = 1
     private var maxPoints = 5
+    private var autoConfigure = false
     private var baseColor = Color.RED
     private var heatmapEnabled = false
     private var routesEnabled = false
@@ -63,9 +64,11 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val oldRoutesEnabled = routesEnabled
         val oldHeatmapFilterEnabled = heatmapFilterEnabled
         val oldRoutesFilterEnabled = routesFilterEnabled
+        val oldAutoConfigure = autoConfigure
 
         gridSizeMeters = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
-        minPoints = prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
+        autoConfigure = prefs.getBoolean("heatmap_auto_configure", false)
+        minPoints = if (autoConfigure) 1 else prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
         maxPoints = prefs.getInt("heatmap_max_points", 50).coerceAtLeast(minPoints + 1)
         heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
         routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
@@ -84,7 +87,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         }
         return oldGridSize != gridSizeMeters || oldHeatmapEnabled != heatmapEnabled ||
                 oldRoutesEnabled != routesEnabled || oldHeatmapFilterEnabled != heatmapFilterEnabled ||
-                oldRoutesFilterEnabled != routesFilterEnabled
+                oldRoutesFilterEnabled != routesFilterEnabled || oldAutoConfigure != autoConfigure
     }
 
     private fun getPoints(f: fi.anssi.kalakartta.ui.FilterManager.Filters, hasAreaFilter: Boolean): List<TrackPointHeatmapData> {
@@ -362,6 +365,25 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             heatmapData = newData.first
             routeData = newData.second
+            
+            if (autoConfigure && heatmapData.isNotEmpty()) {
+                val values = heatmapData.values.sorted()
+                // 10 prosenttia heatmap-ruuduista saa tummimman värisävyn
+                // Eli etsitään 90. persentiili
+                val index = (values.size * 0.9).toInt().coerceIn(0, values.size - 1)
+                val calculatedMax = values[index]
+                
+                maxPoints = calculatedMax.coerceAtLeast(5)
+                minPoints = 1
+                
+                // Tallennetaan lasketut arvot, jotta SettingsManager voi näyttää ne
+                val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putInt("heatmap_min_points", minPoints)
+                    .putInt("heatmap_max_points", maxPoints)
+                    .apply()
+            }
+            
             mapView.invalidate()
         }
     }

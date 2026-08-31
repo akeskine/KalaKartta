@@ -574,6 +574,8 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
+                    if (prefs.getBoolean("heatmap_auto_configure", false)) return
+                    
                     val value = s.toString().toIntOrNull() ?: 1
                     prefs.edit().putInt("heatmap_min_points", value).apply()
                     
@@ -604,6 +606,8 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
+                    if (prefs.getBoolean("heatmap_auto_configure", false)) return
+                    
                     val value = s.toString().toIntOrNull() ?: 50
                     prefs.edit().putInt("heatmap_max_points", value).apply()
                     
@@ -630,6 +634,50 @@ class SettingsManager(
 
         layout.addView(minMaxLayout)
 
+        val autoConfigureCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.heatmap_auto_configure)
+            isChecked = prefs.getBoolean("heatmap_auto_configure", false)
+            textSize = 16f
+            
+            // Päivitetään kenttien tila heti
+            minEdit.isEnabled = !isChecked
+            maxEdit.isEnabled = !isChecked
+            
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean("heatmap_auto_configure", checked).apply()
+                minEdit.isEnabled = !checked
+                maxEdit.isEnabled = !checked
+                
+                if (checked) {
+                    minEdit.setText("1")
+                    // maxEdit pysyy toistaiseksi samana, kunnes se lasketaan uudelleen
+                    onMapSettingsChanged()
+                } else {
+                    onMapSettingsChanged()
+                }
+            }
+        }
+        layout.addView(autoConfigureCb)
+
+        // Lisätään SharedPreferences listener päivittämään UI:ta, jos automaattiset arvot muuttuvat
+        val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == "heatmap_min_points" || key == "heatmap_max_points") {
+                activity.runOnUiThread {
+                    if (key == "heatmap_min_points") {
+                        val newVal = p.getInt("heatmap_min_points", 1).toString()
+                        if (minEdit.text.toString() != newVal) {
+                            minEdit.setText(newVal)
+                        }
+                    } else if (key == "heatmap_max_points") {
+                        val newVal = p.getInt("heatmap_max_points", 50).toString()
+                        if (maxEdit.text.toString() != newVal) {
+                            maxEdit.setText(newVal)
+                        }
+                    }
+                }
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
 
         // Ruudun koko
         val gridSizeRow = LinearLayout(activity).apply {
@@ -917,7 +965,13 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.action_fishing_heatmap))
             .setView(ScrollView(activity).apply { addView(layout) })
-            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
+            .setPositiveButton(activity.getString(R.string.back)) { _, _ -> 
+                prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+                openSettings() 
+            }
+            .setOnCancelListener {
+                prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+            }
             .create()
         showDialog(dialog)
     }

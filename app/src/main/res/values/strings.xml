@@ -147,6 +147,7 @@
     <string name="heatmap_method_points">Reittipisteiden määrä</string>
     <string name="heatmap_sessions_in_grid">Kalastussessioita ruudussa</string>
     <string name="heatmap_points_in_grid">Reittipisteitä ruudussa</string>
+    <string name="heatmap_auto_configure">Määritä automaattisesti</string>
     <string name="heatmap_remove_transitions">Poista siirtymäpisteet</string>
     <string name="heatmap_transition_removal_mode">Siirtymien poiston laajuus</string>
     <string name="heatmap_transition_removal_only_heatmap">Vain kalastetut alueet</string>
