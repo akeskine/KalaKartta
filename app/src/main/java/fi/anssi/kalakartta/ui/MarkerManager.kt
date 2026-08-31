@@ -425,9 +425,14 @@ class MarkerManager(
         // Sovelletaan yleistä skaalauskerrointa
         scaleFactor *= fishIconScale.toDouble()
 
+        // Jos kalan painoa ja pituutta ei ole annettu, asetetaan koko pienen (0.7) ja keskikokoisen (1.0) väliin
+        if (fish.weight == null && fish.length == null && drawableId != R.drawable.default_point) {
+            scaleFactor *= 0.85
+        }
+
         // Punaiset oletuspisteet (default_point) pidetään vakioina ja pieninä
         if (drawableId == R.drawable.default_point) {
-            scaleFactor = 0.8
+            scaleFactor = 0.8 * fishIconScale.toDouble()
         }
         
         if (species != null && species.small_weight == 0L && species.small_length == 0L) {
@@ -438,11 +443,6 @@ class MarkerManager(
             } else if (fish.species == "BURBOT") {
                 scaleFactor *= 1.2
             }
-        }
-        
-        // Varmistetaan, ettei skaalaus ole pienempi kuin 1.0, jos painoa/pituutta ei ole annettu
-        if (fish.weight == null && fish.length == null && scaleFactor < 1.0 && drawableId != R.drawable.default_point) {
-            scaleFactor = 1.0
         }
         
         val finalIconSize = (baseIconSize * scaleFactor).toInt()

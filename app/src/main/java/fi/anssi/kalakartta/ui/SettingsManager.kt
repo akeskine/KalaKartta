@@ -940,8 +940,8 @@ class SettingsManager(
             setPadding(60, 40, 60, 40)
         }
 
-        val options = arrayOf("0.5", "0.75", "1.0", "1.25", "1.5")
-        val optionValues = arrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
+        val options = arrayOf("0.2", "0.3", "0.4", "0.5", "0.75", "1.0", "1.25", "1.5")
+        val optionValues = arrayOf(0.2f, 0.3f, 0.4f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
 
         // Kalakuvakkeiden koko
         layout.addView(TextView(activity).apply {
