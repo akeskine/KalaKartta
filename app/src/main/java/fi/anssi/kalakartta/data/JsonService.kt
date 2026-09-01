@@ -13,7 +13,7 @@ import java.util.*
 
 class JsonService {
 
-    private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+    val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
@@ -235,15 +235,27 @@ class JsonService {
         return results
     }
 
-    fun exportCatchesAndPlaces(catches: List<FishCatch>, places: List<PlaceOfInterest>): JSONObject {
+    fun exportCatchesAndPlaces(catches: List<FishCatch>, places: List<PlaceOfInterest>, diaryPages: List<FishDiaryPage> = emptyList()): JSONObject {
         val root = JSONObject()
         root.put("catches", catchesToJson(catches))
         root.put("places", placesToJson(places))
+        if (diaryPages.isNotEmpty()) {
+            root.put("diaryPages", diaryPagesToJson(diaryPages))
+        }
         return root
     }
 
-    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
-        val root = exportCatchesAndPlaces(catches, places)
+    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>, diaryPages: List<FishDiaryPage> = emptyList()) {
+        val root = exportCatchesAndPlaces(catches, places, diaryPages)
+
+        contentResolver.openOutputStream(uri)?.use { out ->
+            out.write(root.toString(4).toByteArray())
+        }
+    }
+
+    fun exportDiary(contentResolver: ContentResolver, uri: Uri, diaryPages: List<FishDiaryPage>) {
+        val root = JSONObject()
+        root.put("diaryPages", diaryPagesToJson(diaryPages))
 
         contentResolver.openOutputStream(uri)?.use { out ->
             out.write(root.toString(4).toByteArray())
@@ -407,9 +419,34 @@ class JsonService {
         return array
     }
 
-    fun parseCatchesAndPlaces(text: String): Pair<List<FishCatch>, List<PlaceOfInterest>> {
+    private fun diaryPagesToJson(diaryPages: List<FishDiaryPage>): JSONArray {
+        val array = JSONArray()
+        diaryPages.forEach {
+            val obj = JSONObject()
+            obj.put("id", it.id)
+            obj.put("startDate", isoFormat.format(Date(it.startDate)))
+            if (it.endDate != null) {
+                obj.put("endDate", isoFormat.format(Date(it.endDate)))
+            }
+            obj.put("location", it.location)
+            obj.put("fishingMethod", it.fishingMethod)
+            obj.put("catch", it.catch)
+            obj.put("story", it.story)
+            array.put(obj)
+        }
+        return array
+    }
+
+    data class ImportData(
+        val catches: List<FishCatch>,
+        val places: List<PlaceOfInterest>,
+        val diaryPages: List<FishDiaryPage> = emptyList()
+    )
+
+    fun parseImportData(text: String): ImportData {
         val catches = mutableListOf<FishCatch>()
         val places = mutableListOf<PlaceOfInterest>()
+        val diaryPages = mutableListOf<FishDiaryPage>()
 
         try {
             if (text.trim().startsWith("{")) {
@@ -422,6 +459,10 @@ class JsonService {
                 if (placesArray != null) {
                     places.addAll(parsePlaces(placesArray))
                 }
+                val diaryArray = root.optJSONArray("diaryPages")
+                if (diaryArray != null) {
+                    diaryPages.addAll(parseDiaryPages(diaryArray))
+                }
             } else if (text.trim().startsWith("[")) {
                 val jsonArray = JSONArray(text)
                 catches.addAll(parseCatches(jsonArray))
@@ -430,7 +471,12 @@ class JsonService {
             android.util.Log.e("JsonService", "Error parsing JSON", e)
         }
 
-        return Pair(catches, places)
+        return ImportData(catches, places, diaryPages)
+    }
+
+    fun parseCatchesAndPlaces(text: String): Pair<List<FishCatch>, List<PlaceOfInterest>> {
+        val data = parseImportData(text)
+        return Pair(data.catches, data.places)
     }
 
     fun import(contentResolver: ContentResolver, uri: Uri): Pair<List<FishCatch>, List<PlaceOfInterest>> {
@@ -440,6 +486,15 @@ class JsonService {
             ?: return Pair(emptyList(), emptyList())
 
         return parseCatchesAndPlaces(text)
+    }
+
+    fun importDiary(contentResolver: ContentResolver, uri: Uri): List<FishDiaryPage> {
+        val text = contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?: return emptyList()
+
+        return parseImportData(text).diaryPages
     }
 
     fun parseSpecies(text: String, filesDir: File): List<FishSpecies> {
@@ -629,6 +684,42 @@ class JsonService {
                 result.add(place)
             } catch (e: Exception) {
                 android.util.Log.e("JsonService", "Error parsing PlaceOfInterest object at index $i", e)
+            }
+        }
+        return result
+    }
+
+    private fun parseDiaryPages(jsonArray: JSONArray): List<FishDiaryPage> {
+        val result = mutableListOf<FishDiaryPage>()
+        for (i in 0 until jsonArray.length()) {
+            try {
+                val obj = jsonArray.getJSONObject(i)
+                val startDateStr = obj.optString("startDate", "")
+                val startDateLong = if (startDateStr.isNotEmpty()) {
+                    isoFormat.parse(startDateStr)?.time ?: 0L
+                } else {
+                    obj.optLong("startDate", 0L)
+                }
+
+                val endDateStr = obj.optString("endDate", "")
+                val endDateLong = if (endDateStr.isNotEmpty()) {
+                    isoFormat.parse(endDateStr)?.time
+                } else if (obj.has("endDate") && !obj.isNull("endDate")) {
+                    obj.optLong("endDate")
+                } else null
+
+                val page = FishDiaryPage(
+                    id = 0,
+                    startDate = startDateLong,
+                    endDate = endDateLong,
+                    location = obj.optString("location", ""),
+                    fishingMethod = obj.optString("fishingMethod", ""),
+                    catch = obj.optString("catch", ""),
+                    story = obj.optString("story", "")
+                )
+                result.add(page)
+            } catch (e: Exception) {
+                android.util.Log.e("JsonService", "Error parsing FishDiaryPage object at index $i", e)
             }
         }
         return result

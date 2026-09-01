@@ -17,6 +17,8 @@ import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.JsonService
 import fi.anssi.kalakartta.utils.enlargeButtons
+import org.json.JSONArray
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,13 +32,15 @@ class ImportExportManager(
 
     private var pendingExportCatches: List<FishCatch>? = null
     private var pendingExportPlaces: List<PlaceOfInterest>? = null
+    private var pendingExportDiaryPages: List<fi.anssi.kalakartta.data.FishDiaryPage>? = null
 
     private val exportLauncher = activity.registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        uri?.let { exportToJson(it, pendingExportCatches, pendingExportPlaces) }
+        uri?.let { exportToJson(it, pendingExportCatches, pendingExportPlaces, pendingExportDiaryPages) }
         pendingExportCatches = null
         pendingExportPlaces = null
+        pendingExportDiaryPages = null
     }
 
     private val exportSpeciesLauncher = activity.registerForActivityResult(
@@ -49,6 +53,12 @@ class ImportExportManager(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { exportRoutesToJson(it) }
+    }
+
+    private val exportDiaryLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { exportDiaryToJson(it) }
     }
 
     private val importLauncher = activity.registerForActivityResult(
@@ -69,6 +79,12 @@ class ImportExportManager(
         uri?.let { importRoutesFromJson(it) }
     }
 
+    private val importDiaryLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { importDiaryFromJson(it) }
+    }
+
     private val exportMediaLauncher = activity.registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
@@ -81,9 +97,10 @@ class ImportExportManager(
         uri?.let { importMediaFromZip(it) }
     }
 
-    fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null) {
+    fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null, diaryPages: List<fi.anssi.kalakartta.data.FishDiaryPage>? = null) {
         pendingExportCatches = catches
         pendingExportPlaces = places
+        pendingExportDiaryPages = diaryPages
         exportLauncher.launch("kalakartta.json")
     }
 
@@ -105,6 +122,14 @@ class ImportExportManager(
 
     fun launchImportRoutes() {
         importRoutesLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+    }
+
+    fun launchExportDiary() {
+        exportDiaryLauncher.launch("paivakirja.json")
+    }
+
+    fun launchImportDiary() {
+        importDiaryLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
     }
 
     fun launchExportMedia() {
@@ -138,7 +163,7 @@ class ImportExportManager(
     fun launchDeleteAllData() {
         AlertDialog.Builder(activity)
             .setTitle("Poista kaikki tiedot")
-            .setMessage("Haluatko varmasti poistaa KAIKKI tiedot (pisteet, reitit, mediat ja asetukset)? Tätä toimintoa ei voi peruuttaa.")
+            .setMessage("Haluatko varmasti poistaa KAIKKI tiedot (pisteet, reitit, mediat, kalapäiväkirjan ja asetukset)? Tätä toimintoa ei voi peruuttaa.")
             .setPositiveButton("Poista kaikki") { _, _ ->
                 Thread {
                     try {
@@ -175,6 +200,30 @@ class ImportExportManager(
             .show()
     }
 
+    fun launchDeleteDiaryData() {
+        AlertDialog.Builder(activity)
+            .setTitle("Poista kalapäiväkirja?")
+            .setMessage("Haluatko varmasti poistaa kaikki kalapäiväkirjan merkinnät? Tätä toimintoa ei voi kumota.")
+            .setPositiveButton("Takaisin", null)
+            .setNegativeButton("Poista") { _, _ ->
+                Thread {
+                    try {
+                        db.fishDiaryPageDao().getAll().forEach { db.fishDiaryPageDao().delete(it) }
+                        activity.runOnUiThread {
+                            onImportDone(false)
+                            showConfirmationDialog("Kalapäiväkirja tyhjennetty.")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImportExportManager", "Delete diary failed", e)
+                        activity.runOnUiThread {
+                            showConfirmationDialog("Poisto epäonnistui: ${e.message}")
+                        }
+                    }
+                }.start()
+            }
+            .show()
+    }
+
     private fun exportAllToZip(uri: Uri) {
         Thread {
             try {
@@ -198,6 +247,30 @@ class ImportExportManager(
                     }
                     writer.flush()
                     zipOut.closeEntry()
+
+                    // 2.5 paivakirja.json
+                    val diaryPages = db.fishDiaryPageDao().getAll()
+                    if (diaryPages.isNotEmpty()) {
+                        zipOut.putNextEntry(java.util.zip.ZipEntry("paivakirja.json"))
+                        val diaryJson = JSONObject()
+                        val diaryArray = JSONArray()
+                        diaryPages.forEach { page ->
+                            val obj = JSONObject()
+                            obj.put("id", page.id)
+                            obj.put("startDate", jsonService.isoFormat.format(java.util.Date(page.startDate)))
+                            if (page.endDate != null) {
+                                obj.put("endDate", jsonService.isoFormat.format(java.util.Date(page.endDate)))
+                            }
+                            obj.put("location", page.location)
+                            obj.put("fishingMethod", page.fishingMethod)
+                            obj.put("catch", page.catch)
+                            obj.put("story", page.story)
+                            diaryArray.put(obj)
+                        }
+                        diaryJson.put("diaryPages", diaryArray)
+                        zipOut.write(diaryJson.toString(4).toByteArray())
+                        zipOut.closeEntry()
+                    }
 
                     // 3. kalalajit.json
                     val species = db.fishSpeciesDao().getAll()
@@ -260,6 +333,7 @@ class ImportExportManager(
                     var importedTrackPoints = 0
                     var importedMedia = 0
                     var importedSpecies = 0
+                    var importedDiaryPages = 0
                     
                     val tempMediaFiles = mutableMapOf<String, ByteArray>()
                     var mediaJsonStr: String? = null
@@ -298,6 +372,14 @@ class ImportExportManager(
                                     importedSpecies = species.size
                                 }
                             }
+                            "paivakirja.json" -> {
+                                val text = zipIn.readBytes().toString(Charsets.UTF_8)
+                                val data = jsonService.parseImportData(text)
+                                data.diaryPages.forEach {
+                                    db.fishDiaryPageDao().insert(it.copy(id = 0))
+                                    importedDiaryPages++
+                                }
+                            }
                             "media.json" -> {
                                 mediaJsonStr = zipIn.readBytes().toString(Charsets.UTF_8)
                             }
@@ -324,7 +406,7 @@ class ImportExportManager(
                     activity.runOnUiThread {
                         progressDialog.dismiss()
                         onImportDone(importedSpecies > 0)
-                        showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia")
+                        showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia\n- $importedDiaryPages kalapäiväkirjan sivua")
                     }
                 }
             } catch (e: Exception) {
@@ -337,12 +419,54 @@ class ImportExportManager(
         }.start()
     }
 
-    private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {
+    private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null, manualDiaryPages: List<fi.anssi.kalakartta.data.FishDiaryPage>? = null) {
         Thread {
             val catches = manualCatches ?: db.fishCatchDao().getAll()
             val places = manualPlaces ?: db.placeOfInterestDao().getAll()
-            jsonService.export(activity.contentResolver, uri, catches, places)
-            showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
+            val diaryPages = manualDiaryPages ?: db.fishDiaryPageDao().getAll()
+            jsonService.export(activity.contentResolver, uri, catches, places, diaryPages)
+            showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa, ${diaryPages.size} päiväkirjan sivua).")
+        }.start()
+    }
+
+    private fun exportDiaryToJson(uri: Uri) {
+        Thread {
+            try {
+                val diaryPages = db.fishDiaryPageDao().getAll()
+                jsonService.exportDiary(activity.contentResolver, uri, diaryPages)
+                showConfirmationDialog("Kalapäiväkirjan vienti valmis (${diaryPages.size} sivua).")
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Diary export failed", e)
+                activity.runOnUiThread {
+                    showConfirmationDialog("Kalapäiväkirjan vienti epäonnistui: ${e.message}")
+                }
+            }
+        }.start()
+    }
+
+    private fun importDiaryFromJson(uri: Uri) {
+        Thread {
+            try {
+                val importedPages = jsonService.importDiary(activity.contentResolver, uri)
+                if (importedPages.isEmpty()) {
+                    activity.runOnUiThread {
+                        showConfirmationDialog("Tiedostosta ei löytynyt tuotavia kalapäiväkirjan sivuja tai se on virheellinen.")
+                    }
+                    return@Thread
+                }
+
+                importedPages.forEach { db.fishDiaryPageDao().insert(it.copy(id = 0)) }
+                
+                activity.runOnUiThread {
+                    onImportDone(false)
+                    showConfirmationDialog("Kalapäiväkirjan tuonti valmis (${importedPages.size} sivua).")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Diary import failed", e)
+                activity.runOnUiThread {
+                    showConfirmationDialog("Kalapäiväkirjan tuonti epäonnistui: ${e.message}")
+                }
+            }
         }.start()
     }
 

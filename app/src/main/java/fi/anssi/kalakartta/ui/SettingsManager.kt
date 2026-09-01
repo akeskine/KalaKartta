@@ -101,6 +101,7 @@ class SettingsManager(
             val sessionCount = db.fishingSessionDao().getCount()
             val routePointCount = db.trackPointDao().getCount()
             val mediaCount = db.mediaDao().getCount()
+            val diaryPageCount = db.fishDiaryPageDao().getAll().size // Luodaan myöhemmin getCount() jos tarpeen
             withContext(Dispatchers.Main) {
                 val inflater = activity.layoutInflater
                 val titleView = inflater.inflate(fi.anssi.kalakartta.R.layout.dialog_settings_title, null)
@@ -168,6 +169,7 @@ class SettingsManager(
                                 sessionCount,
                                 routePointCount,
                                 mediaCount,
+                                diaryPageCount,
                                 isFiltered,
                                 filteredCatches?.size ?: 0,
                                 filteredPlaceCount = filteredPlaces?.size ?: 0,
@@ -2137,6 +2139,7 @@ class SettingsManager(
         sessionCount: Int,
         routePointCount: Int,
         mediaCount: Int,
+        diaryPageCount: Int,
         isFiltered: Boolean = false, 
         filteredCount: Int = 0, 
         filteredPlaceCount: Int = 0,
@@ -2169,7 +2172,8 @@ class SettingsManager(
                     "Muita pisteitä: $placeCount\n" +
                     "Kalastussessioita: $sessionCount\n" +
                     "Reittipisteitä: $routePointCount\n" +
-                    "Mediatiedostoja: $mediaCount\n\n" +
+                    "Mediatiedostoja: $mediaCount\n" +
+                    "Kalapäiväkirjan sivuja: $diaryPageCount\n\n" +
                     "Mediatiedostot: ${String.format(Locale.US, "%.2f", mediaSizeMb)} Mt\n" +
                     "Tietokanta: ${String.format(Locale.US, "%.2f", databaseSizeMb)} Mt\n" +
                     "Yhteensä: ${String.format(Locale.US, "%.2f", totalSizeMb)} Mt"
@@ -2246,7 +2250,7 @@ class SettingsManager(
             visibility = View.GONE
         }
 
-        val oldOptions = arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Vie media", "Tuo media", "Poista kaikki pisteet", "Poista kaikki reitit", "Poista kaikki media")
+        val oldOptions = arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Vie media", "Tuo media", "Vie kalapäiväkirja", "Tuo kalapäiväkirja", "Poista kaikki pisteet", "Poista kaikki reitit", "Poista kaikki media", "Poista kalapäiväkirja")
         oldOptions.forEachIndexed { index, option ->
             val textView = TextView(activity).apply {
                 text = option
@@ -2292,9 +2296,15 @@ class SettingsManager(
                     }
                     4 -> importExportManager.launchExportMedia()
                     5 -> importExportManager.launchImportMedia()
-                    6 -> confirmDeleteAllCatches()
-                    7 -> confirmDeleteAllRoutes()
-                    8 -> importExportManager.launchDeleteAllData()
+                    6 -> importExportManager.launchExportDiary()
+                    7 -> {
+                        disableHeatmapAndRoutes()
+                        importExportManager.launchImportDiary()
+                    }
+                    8 -> confirmDeleteAllCatches()
+                    9 -> confirmDeleteAllRoutes()
+                    10 -> importExportManager.launchDeleteAllData()
+                    11 -> importExportManager.launchDeleteDiaryData()
                 }
             }
             extraOptionsLayout.addView(textView)
