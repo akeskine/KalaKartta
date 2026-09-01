@@ -99,6 +99,10 @@ class FilterManager(private val context: Context) {
         )
     }
 
+    fun clearFilters() {
+        prefs.edit().clear().apply()
+    }
+
     fun saveFilters(filters: Filters) {
         prefs.edit().apply {
             if (filters.startDate != null) putLong("startDate", filters.startDate) else remove("startDate")

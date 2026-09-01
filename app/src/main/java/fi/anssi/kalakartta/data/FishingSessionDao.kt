@@ -18,6 +18,9 @@ interface FishingSessionDao {
 
     @Query("SELECT * FROM FishingSession ORDER BY startedAt DESC")
     fun getAll(): List<FishingSession>
+    
+    @Query("SELECT * FROM FishingSession WHERE (startedAt <= :endDate AND (endedAt IS NULL OR endedAt >= :startDate))")
+    fun getSessionsInRange(startDate: Long, endDate: Long): List<FishingSession>
 
     @Query("DELETE FROM FishingSession WHERE id = :id")
     fun deleteById(id: Long)

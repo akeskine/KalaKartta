@@ -1970,6 +1970,13 @@ class MainActivity : AppCompatActivity() {
             if (start != -1L && end != -1L) {
                 // Suljetaan dialogit
                 settingsManager.closeSettings()
+                
+                // Asetetaan suodattimet vastaamaan aikaväliä, jotta pisteet näkyvät kartalla
+                filterManager.clearFilters()
+                filterManager.saveFilters(FilterManager.Filters(startDate = start, endDate = end))
+                reloadMarkersFromDb()
+                updateFilterStatusUI()
+                
                 zoomToRangeOnMap(start, end)
             }
             intent.removeExtra("EXTRA_ZOOM_TO_SUMMARY")

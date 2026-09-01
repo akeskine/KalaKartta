@@ -287,6 +287,13 @@ class SummaryActivity : AppCompatActivity() {
             }
         }
         sb.append(":")
+        
+        if (start > end) {
+            summaryResultText.text = "Virheellinen aikaväli. Aseta alkuaika ennen loppuaikaa"
+            copyToClipboardButton.visibility = View.GONE
+            showOnMapButton.visibility = View.GONE
+            return
+        }
 
         fetchAndDisplaySummary(start, end, sb.toString())
     }
@@ -298,16 +305,26 @@ class SummaryActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val allCatches = db.fishCatchDao().getAll()
+                val sessions = db.fishingSessionDao().getSessionsInRange(start, end)
+                val allCatches = db.fishCatchDao().getCatchesInRange(start, end)
+                
                 val filteredCatches = allCatches.filter { 
-                    val caughtAt = it.caughtAt ?: 0L
                     val matchesFisherman = selectedFisherman == null || it.fisherman.equals(selectedFisherman, ignoreCase = true)
                     
-                    caughtAt in start..end && 
                     it.species != "UNKNOWN" && 
                     (it.eventType == null || it.eventType == FishCatch.CAUGHT_FISH) &&
                     matchesFisherman
                 }
+
+                if (sessions.isEmpty() && filteredCatches.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        summaryResultText.text = "Ei kalastussessioita tai kalatapahtumia valitulla aikavälillä."
+                        copyToClipboardButton.visibility = View.GONE
+                        showOnMapButton.visibility = View.GONE
+                    }
+                    return@launch
+                }
+                
                 val speciesList = db.fishSpeciesDao().getAll()
                 val speciesMap = speciesList.associateBy { it.id }
 
@@ -422,8 +439,8 @@ class SummaryActivity : AppCompatActivity() {
         val filters = filterManager.getFilters().copy(
             startDate = start,
             endDate = end,
-            startTimeMinutes = startMinutes,
-            endTimeMinutes = endMinutes,
+            startTimeMinutes = null,
+            endTimeMinutes = null,
             fisherman = selectedFisherman
         )
         filterManager.saveFilters(filters)
