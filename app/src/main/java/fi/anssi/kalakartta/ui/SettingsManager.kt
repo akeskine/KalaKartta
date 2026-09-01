@@ -154,7 +154,7 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Kalastetut alueet", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", "Sää", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
+                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Kalastetut alueet", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
                             0 -> openMapSettings()
                             1 -> openFishingSessionSettings()
@@ -173,9 +173,8 @@ class SettingsManager(
                                 filteredCatches = filteredCatches,
                                 filteredPlaces = filteredPlaces
                             )
-                            6 -> openWeatherSettings()
-                            7 -> openSpeciesSettings()
-                            8 -> openGeneralSettings()
+                            6 -> openSpeciesSettings()
+                            7 -> openGeneralSettings()
                         }
                     }
                     .setPositiveButton("Takaisin", null)
@@ -1083,6 +1082,21 @@ class SettingsManager(
             }
         }
         layout.addView(fishermanLink)
+
+        // Sää -linkki
+        val weatherLink = TextView(activity).apply {
+            text = "Sää"
+            textSize = 16f
+            setTextColor(primaryTextColor)
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
+            setOnClickListener {
+                openWeatherSettings()
+            }
+        }
+        layout.addView(weatherLink)
 
         // Mittakaava -linkki
         val scaleLink = TextView(activity).apply {
@@ -2093,7 +2107,7 @@ class SettingsManager(
             .setTitle("Sääasetukset")
             .setView(scrollView)
             .setPositiveButton("Takaisin") { _, _ ->
-                openSettings()
+                openGeneralSettings()
             }
             .create()
         showDialog(dialog)
