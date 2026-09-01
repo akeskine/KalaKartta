@@ -37,6 +37,9 @@ interface FishCatchDao {
     @Query("SELECT DISTINCT otherSpecies FROM FishCatch WHERE otherSpecies IS NOT NULL AND otherSpecies != '' ORDER BY otherSpecies ASC")
     fun getUniqueOtherSpecies(): List<String>
 
+    @Query("SELECT * FROM FishCatch WHERE caughtAt >= :startDate AND caughtAt <= :endDate")
+    fun getCatchesInRange(startDate: Long, endDate: Long): List<FishCatch>
+
     data class FishermanCount(
         val fisherman: String,
         val count: Int

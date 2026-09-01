@@ -430,6 +430,17 @@ class SummaryActivity : AppCompatActivity() {
 
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        intent.putExtra("EXTRA_ZOOM_TO_SUMMARY", true)
+        if (start != null) {
+            intent.putExtra("EXTRA_START_TIME", start)
+        } else if (startDateTime != null) {
+            intent.putExtra("EXTRA_START_TIME", startDateTime!!.timeInMillis)
+        }
+        if (end != null) {
+            intent.putExtra("EXTRA_END_TIME", end)
+        } else if (endDateTime != null) {
+            intent.putExtra("EXTRA_END_TIME", endDateTime!!.timeInMillis)
+        }
         startActivity(intent)
         finish()
     }

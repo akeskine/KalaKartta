@@ -180,6 +180,67 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun zoomToRangeOnMap(start: Long, end: Long) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val points = db.trackPointDao().getPointsForHeatmapRange(start, end)
+            val catches = db.fishCatchDao().getCatchesInRange(start, end)
+            
+            if (points.isEmpty() && catches.isEmpty()) return@launch
+
+            withContext(Dispatchers.Main) {
+                var minLat = Double.MAX_VALUE
+                var maxLat = -Double.MAX_VALUE
+                var minLon = Double.MAX_VALUE
+                var maxLon = -Double.MAX_VALUE
+
+                for (p in points) {
+                    if (p.latitude < minLat) minLat = p.latitude
+                    if (p.latitude > maxLat) maxLat = p.latitude
+                    if (p.longitude < minLon) minLon = p.longitude
+                    if (p.longitude > maxLon) maxLon = p.longitude
+                }
+                for (c in catches) {
+                    if (c.latitude < minLat) minLat = c.latitude
+                    if (c.latitude > maxLat) maxLat = c.latitude
+                    if (c.longitude < minLon) minLon = c.longitude
+                    if (c.longitude > maxLon) maxLon = c.longitude
+                }
+
+                if (minLat == Double.MAX_VALUE) return@withContext
+
+                val box = BoundingBox(maxLat, maxLon, minLat, minLon)
+                
+                // Lisätään 10% marginaali
+                val latDelta = maxLat - minLat
+                val lonDelta = maxLon - minLon
+                val margin = 0.1
+                
+                val finalMinLat = minLat - latDelta * margin
+                val finalMaxLat = maxLat + latDelta * margin
+                val finalMinLon = minLon - lonDelta * margin
+                val finalMaxLon = maxLon + lonDelta * margin
+
+                // Varmistetaan vähintään 400 metrin leveys
+                val centerLat = (finalMaxLat + finalMinLat) / 2.0
+                val centerLon = (finalMaxLon + finalMinLon) / 2.0
+                val results = FloatArray(1)
+                android.location.Location.distanceBetween(centerLat, finalMinLon, centerLat, finalMaxLon, results)
+                val currentWidth = results[0]
+                
+                val finalBox = if (currentWidth < 400.0) {
+                    val latRad = Math.toRadians(centerLat)
+                    val metersPerDegreeLon = 111320.0 * Math.cos(latRad)
+                    val degreeDelta = (400.0 / metersPerDegreeLon) / 2.0
+                    BoundingBox(finalMaxLat, centerLon + degreeDelta, finalMinLat, centerLon - degreeDelta)
+                } else {
+                    BoundingBox(finalMaxLat, finalMaxLon, finalMinLat, finalMinLon)
+                }
+                
+                map.zoomToBoundingBox(finalBox, true, 100)
+            }
+        }
+    }
+
     private fun replaySessionOnMap(sessionId: Long, onlySessionCatches: Boolean = false) {
         replayJob?.cancel()
         isOnlySessionCatchesMode = onlySessionCatches
@@ -1896,9 +1957,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        if (intent.getBooleanExtra("EXTRA_ZOOM_TO_SUMMARY", false)) {
+            val start = intent.getLongExtra("EXTRA_START_TIME", -1L)
+            val end = intent.getLongExtra("EXTRA_END_TIME", -1L)
+            if (start != -1L && end != -1L) {
+                // Suljetaan dialogit
+                settingsManager.closeSettings()
+                zoomToRangeOnMap(start, end)
+            }
+            intent.removeExtra("EXTRA_ZOOM_TO_SUMMARY")
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         map.onResume()
+        
+        intent?.let { handleIntent(it) }
         
         updateRecordingStatusUI()
 
