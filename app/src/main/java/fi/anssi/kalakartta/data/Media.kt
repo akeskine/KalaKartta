@@ -6,9 +6,9 @@ import androidx.room.PrimaryKey
 @Entity
 data class Media(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val latitude: Double,
-    val longitude: Double,
-    val pointTime: Long?,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val pointTime: Long? = null,
     val mimeType: String,
     val originalFileName: String,
     val fileName: String, // sovelluksen sisäinen tiedostonimi (esim. <uuid>_<alkuperäinen>)

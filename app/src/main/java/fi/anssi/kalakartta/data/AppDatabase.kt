@@ -8,8 +8,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import android.content.Context
 
 @Database(
-    entities = [FishCatch::class, FishSpecies::class, WeatherError::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class],
-    version = 17,
+    entities = [FishCatch::class, FishSpecies::class, WeatherError::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class, FishDiaryPage::class],
+    version = 19,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -21,6 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fishingSessionDao(): FishingSessionDao
     abstract fun trackPointDao(): TrackPointDao
     abstract fun mediaDao(): MediaDao
+    abstract fun fishDiaryPageDao(): FishDiaryPageDao
     
     fun initializeDefaults() {
         // Esitäyttö
@@ -103,11 +104,53 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kalakartta-db"
                 )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                 .allowMainThreadQueries()
                 .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Varmistetaan, että Media-taulussa ei ole diaryPageId-saraketta (jos se jäi edellisestä kokeilusta)
+                val cursor = db.query("PRAGMA table_info(Media)")
+                var hasDiaryPageId = false
+                while (cursor.moveToNext()) {
+                    val nameIndex = cursor.getColumnIndex("name")
+                    if (nameIndex != -1 && cursor.getString(nameIndex) == "diaryPageId") {
+                        hasDiaryPageId = true
+                        break
+                    }
+                }
+                cursor.close()
+
+                if (hasDiaryPageId) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `Media_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `latitude` REAL, `longitude` REAL, `pointTime` INTEGER, `mimeType` TEXT NOT NULL, `originalFileName` TEXT NOT NULL, `fileName` TEXT NOT NULL, `externalId` TEXT)")
+                    db.execSQL("INSERT INTO Media_new (id, latitude, longitude, pointTime, mimeType, originalFileName, fileName, externalId) SELECT id, latitude, longitude, pointTime, mimeType, originalFileName, fileName, externalId FROM Media")
+                    db.execSQL("DROP TABLE Media")
+                    db.execSQL("ALTER TABLE Media_new RENAME TO Media")
+                }
+                
+                // Varmistetaan myös FishDiaryPage-taulun olemassaolo, jos se jäi luomatta
+                db.execSQL("CREATE TABLE IF NOT EXISTS `FishDiaryPage` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startDate` INTEGER NOT NULL, `endDate` INTEGER, `location` TEXT NOT NULL, `fishingMethod` TEXT NOT NULL, `catch` TEXT NOT NULL, `story` TEXT NOT NULL)")
+            }
+        }
+
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Luodaan FishDiaryPage-taulu
+                db.execSQL("CREATE TABLE IF NOT EXISTS `FishDiaryPage` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startDate` INTEGER NOT NULL, `endDate` INTEGER, `location` TEXT NOT NULL, `fishingMethod` TEXT NOT NULL, `catch` TEXT NOT NULL, `story` TEXT NOT NULL)")
+                
+                // Muokataan Media-taulua: muutetaan latitude ja longitude valinnaisiksi
+                // SQLite ei tue sarakkeen muuttamista NULLABLEksi suoraan, joten käytetään väliaikaista taulua
+                db.execSQL("CREATE TABLE IF NOT EXISTS `Media_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `latitude` REAL, `longitude` REAL, `pointTime` INTEGER, `mimeType` TEXT NOT NULL, `originalFileName` TEXT NOT NULL, `fileName` TEXT NOT NULL, `externalId` TEXT)")
+                
+                db.execSQL("INSERT INTO Media_new (id, latitude, longitude, pointTime, mimeType, originalFileName, fileName, externalId) SELECT id, latitude, longitude, pointTime, mimeType, originalFileName, fileName, externalId FROM Media")
+                
+                db.execSQL("DROP TABLE Media")
+                db.execSQL("ALTER TABLE Media_new RENAME TO Media")
             }
         }
 
