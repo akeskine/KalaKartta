@@ -154,14 +154,15 @@ class SettingsManager(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setCustomTitle(titleView)
-                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Kalastetut alueet", "Tiedon suodatus", "Yhteenveto", "Tiedonsiirto", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
+                    .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Kalastetut alueet", "Tiedon suodatus", "Yhteenveto", "Kalapäiväkirja", "Tiedonsiirto", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
                             0 -> openMapSettings()
                             1 -> openFishingSessionSettings()
                             2 -> openFishingHeatmapSettings()
                             3 -> openFilterSettings()
                             4 -> openSummary()
-                            5 -> openDataTransferSettings(
+                            5 -> openDiary()
+                            6 -> openDataTransferSettings(
                                 count,
                                 placeCount,
                                 sessionCount,
@@ -173,8 +174,8 @@ class SettingsManager(
                                 filteredCatches = filteredCatches,
                                 filteredPlaces = filteredPlaces
                             )
-                            6 -> openSpeciesSettings()
-                            7 -> openGeneralSettings()
+                            7 -> openSpeciesSettings()
+                            8 -> openGeneralSettings()
                         }
                     }
                     .setPositiveButton("Takaisin", null)
@@ -2114,6 +2115,11 @@ class SettingsManager(
     }
 
     // Poistettu updateMissingWeatherData metodit ja siirretty WeatherUpdateActivityyn
+
+    private fun openDiary() {
+        val intent = android.content.Intent(activity, DiaryActivity::class.java)
+        activity.startActivityForResult(intent, 2003)
+    }
 
     private fun openSummary() {
         val intent = android.content.Intent(activity, SummaryActivity::class.java)

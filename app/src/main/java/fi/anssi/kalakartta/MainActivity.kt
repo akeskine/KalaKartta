@@ -2130,8 +2130,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     reloadMarkersFromDb()
                 }
-            } else if (requestCode == 2001 || requestCode == 2002) {
-                // Suodattimet tai yhteenveto päivitetty
+            } else if (requestCode == 2001 || requestCode == 2002 || requestCode == 2003) {
+                // Suodattimet, yhteenveto tai kalapäiväkirja päivitetty
                 reloadMarkersFromDb()
                 if (data?.getBooleanExtra("BACK_TO_SETTINGS", false) == true) {
                     settingsManager.openSettings()
