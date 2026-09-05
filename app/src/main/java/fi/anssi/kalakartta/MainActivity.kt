@@ -99,6 +99,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var scaleBarOverlay: ScaleBarOverlay? = null
+    private val heatmapUpdateHandler = Handler(Looper.getMainLooper())
+    private val heatmapUpdateRunnable = Runnable { if (::db.isInitialized && heatmapOverlay != null) { heatmapOverlay?.refreshData(map.boundingBox) } }
     
     private fun addOverlayBelowMarkers(overlay: Overlay) {
         var index = -1
@@ -1060,6 +1062,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onScroll(event: ScrollEvent?): Boolean {
                     // Jos käyttäjä skrollaa itse, poistetaan automaattinen seuranta
                     if (isUserScrolling) {
+                        updateHeatmapDelayed()
                         locationOverlay.disableFollowLocation()
                     }
 
@@ -1104,6 +1107,7 @@ class MainActivity : AppCompatActivity() {
                     return false
                 }
                 override fun onZoom(event: ZoomEvent?): Boolean {
+                    updateHeatmapDelayed()
                     updateMarkersVisibility()
                     return true
                 }
@@ -1590,7 +1594,10 @@ class MainActivity : AppCompatActivity() {
         map.invalidate()
     }
 
+    private fun updateHeatmapDelayed() { heatmapUpdateHandler.removeCallbacks(heatmapUpdateRunnable); heatmapUpdateHandler.postDelayed(heatmapUpdateRunnable, 500) }
+
     private fun updateMarkersVisibility() {
+
         // Näytetään pisteet laajemmalla zoom-alueella (alk. tasolta 1.0)
         // Optimointi on tehty MarkerManagerin kuvakevälimuistilla ja klusteroinnilla
         markerManager.setMarkersVisible(map.zoomLevelDouble >= 1.0, map.zoomLevelDouble)

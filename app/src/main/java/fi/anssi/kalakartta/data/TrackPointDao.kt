@@ -19,19 +19,21 @@ interface TrackPointDao {
     @Query("SELECT COUNT(*) FROM TrackPoint WHERE fishingSessionId = :sessionId")
     fun getPointCountForSession(sessionId: Long): Int
 
-    @Query("SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint")
+    @Query("SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint ORDER BY fishingSessionId, timestamp")
     fun getAllForHeatmap(): List<TrackPointHeatmapData>
 
     @Query("""
         SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint 
         WHERE latitude BETWEEN :latSouth AND :latNorth 
           AND longitude BETWEEN :lonWest AND :lonEast
+        ORDER BY fishingSessionId, timestamp
     """)
     fun getPointsForHeatmapArea(latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): List<TrackPointHeatmapData>
 
     @Query("""
         SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint 
         WHERE timestamp >= :startDate AND timestamp <= :endDate
+        ORDER BY fishingSessionId, timestamp
     """)
     fun getPointsForHeatmapRange(startDate: Long, endDate: Long): List<TrackPointHeatmapData>
 
@@ -40,6 +42,7 @@ interface TrackPointDao {
         WHERE timestamp >= :startDate AND timestamp <= :endDate
           AND latitude BETWEEN :latSouth AND :latNorth 
           AND longitude BETWEEN :lonWest AND :lonEast
+        ORDER BY fishingSessionId, timestamp
     """)
     fun getPointsForHeatmapRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): List<TrackPointHeatmapData>
 
@@ -236,6 +239,36 @@ interface TrackPointDao {
         )
     """)
     fun getHeatmapCellCountRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, latDegreeMeters: Double, lonDegreeMeters: Double, gridSizeMeters: Double): Int
+
+    @Query("SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint WHERE (rowid % :step) = 0 ORDER BY fishingSessionId, timestamp")
+    fun getAllForHeatmapSampled(step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint 
+        WHERE latitude BETWEEN :latSouth AND :latNorth 
+          AND longitude BETWEEN :lonWest AND :lonEast
+          AND (rowid % :step) = 0
+        ORDER BY fishingSessionId, timestamp
+    """)
+    fun getPointsForHeatmapAreaSampled(latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint 
+        WHERE timestamp >= :startDate AND timestamp <= :endDate
+          AND (rowid % :step) = 0
+        ORDER BY fishingSessionId, timestamp
+    """)
+    fun getPointsForHeatmapRangeSampled(startDate: Long, endDate: Long, step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT fishingSessionId, latitude, longitude, timestamp, speed FROM TrackPoint 
+        WHERE timestamp >= :startDate AND timestamp <= :endDate
+          AND latitude BETWEEN :latSouth AND :latNorth 
+          AND longitude BETWEEN :lonWest AND :lonEast
+          AND (rowid % :step) = 0
+        ORDER BY fishingSessionId, timestamp
+    """)
+    fun getPointsForHeatmapRangeAndAreaSampled(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, step: Int): List<TrackPointHeatmapData>
 }
 
 data class TrackPointHeatmapData(
@@ -251,3 +284,4 @@ data class HeatmapGridCell(
     val y: Int,
     val sessionCount: Int
 )
+

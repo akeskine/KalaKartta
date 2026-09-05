@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
+import org.osmdroid.util.BoundingBox
 import kotlin.math.cos
 import kotlin.math.roundToInt
 
@@ -50,8 +51,17 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var removeTransitionsMode = 0
     private var maxSpeed = 10.0f
     private var minZoomLevel = 10.0
+    private var maxTrackPoints = 50000
 
-    private var routeData = listOf<List<TrackPointHeatmapData>>()
+    private data class RouteWithBounds(
+        val points: List<TrackPointHeatmapData>,
+        val minLat: Double,
+        val maxLat: Double,
+        val minLon: Double,
+        val maxLon: Double
+    )
+
+    private var routeData = listOf<RouteWithBounds>()
 
     init {
         refreshSettings()
@@ -80,6 +90,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
         maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
         minZoomLevel = prefs.getFloat("heatmap_min_zoom", 10.0f).toDouble()
+        maxTrackPoints = prefs.getInt("max_track_points", 50000)
 
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
@@ -92,27 +103,49 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 oldRoutesFilterEnabled != routesFilterEnabled || oldAutoConfigure != autoConfigure
     }
 
-    private fun getPoints(f: fi.anssi.kalakartta.ui.FilterManager.Filters, hasAreaFilter: Boolean): List<TrackPointHeatmapData> {
+    private fun getPoints(f: fi.anssi.kalakartta.ui.FilterManager.Filters, hasAreaFilter: Boolean, latSouth: Double? = null, latNorth: Double? = null, lonWest: Double? = null, lonEast: Double? = null): List<TrackPointHeatmapData> {
+        val useBBox = latSouth != null && latNorth != null && lonWest != null && lonEast != null
+        val lS = if (useBBox) latSouth!! else f.latSouth ?: 0.0
+        val lN = if (useBBox) latNorth!! else f.latNorth ?: 0.0
+        val lW = if (useBBox) lonWest!! else f.lonWest ?: 0.0
+        val lE = if (useBBox) lonEast!! else f.lonEast ?: 0.0
+        val areaActive = hasAreaFilter || useBBox
+
+        val totalCount = db.trackPointDao().getCountFiltered(
+            checkRange = f.startDate != null || f.endDate != null,
+            startDate = f.startDate ?: 0L,
+            endDate = f.endDate ?: Long.MAX_VALUE,
+            checkArea = areaActive,
+            latSouth = lS,
+            latNorth = lN,
+            lonWest = lW,
+            lonEast = lE,
+            removeTransitions = false,
+            maxSpeed = 0f
+        )
+        val step = if (totalCount > maxTrackPoints) (totalCount / maxTrackPoints) + 1 else 1
+
         return when {
-            (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
-                db.trackPointDao().getPointsForHeatmapRangeAndArea(
-                    f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE,
-                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
-                )
+            (f.startDate != null || f.endDate != null) && areaActive -> {
+                if (step > 1) db.trackPointDao().getPointsForHeatmapRangeAndAreaSampled(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE, lS, lN, lW, lE, step)
+                else db.trackPointDao().getPointsForHeatmapRangeAndArea(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE, lS, lN, lW, lE)
             }
             f.startDate != null || f.endDate != null -> {
-                db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
+                if (step > 1) db.trackPointDao().getPointsForHeatmapRangeSampled(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE, step)
+                else db.trackPointDao().getPointsForHeatmapRange(f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE)
             }
-            hasAreaFilter -> {
-                db.trackPointDao().getPointsForHeatmapArea(
-                    f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!
-                )
+            areaActive -> {
+                if (step > 1) db.trackPointDao().getPointsForHeatmapAreaSampled(lS, lN, lW, lE, step)
+                else db.trackPointDao().getPointsForHeatmapArea(lS, lN, lW, lE)
             }
-            else -> db.trackPointDao().getAllForHeatmap()
+            else -> {
+                if (step > 1) db.trackPointDao().getAllForHeatmapSampled(step)
+                else db.trackPointDao().getAllForHeatmap()
+            }
         }
     }
 
-    fun refreshData() {
+    fun refreshData(bbox: BoundingBox? = null) {
         refreshSettings()
         dataJob?.cancel()
         dataJob = scope.launch {
@@ -130,10 +163,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val hasTimeFilter = f.startTimeMinutes != null && f.endTimeMinutes != null
                 val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
                 val hasAreaFilter = f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null
+                val latS = bbox?.latSouth
+                val latN = bbox?.latNorth
+                val lonW = bbox?.lonWest
+                val lonE = bbox?.lonEast
                 
                 val resultData: Map<Pair<Int, Int>, Int> = if (heatmapEnabled) {
                     if (heatmapFilterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
-                        val rawPoints = getPoints(f, hasAreaFilter)
+                        val rawPoints = getPoints(f, hasAreaFilter, latS, latN, lonW, lonE)
 
                         val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
                         val filteredPoints = rawPoints.filter { p ->
@@ -193,9 +230,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                         
                         if (removeTransitions) {
                             val rawPoints = if (heatmapFilterEnabled) {
-                                getPoints(f, hasAreaFilter)
+                                getPoints(f, hasAreaFilter, latS, latN, lonW, lonE)
                             } else {
-                                db.trackPointDao().getAllForHeatmap()
+                                getPoints(f, false, latS, latN, lonW, lonE)
                             }
                             
                             val filteredPoints = rawPoints.filter { it.speed <= maxSpeed }
@@ -299,69 +336,97 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 }
 
                 // Reittien haku
-                val newRouteData: List<List<TrackPointHeatmapData>> = if (routesEnabled) {
+                val newRouteData = mutableListOf<RouteWithBounds>()
+                if (routesEnabled) {
                     val rawPoints = if (routesFilterEnabled) {
-                        getPoints(f, hasAreaFilter)
+                        getPoints(f, hasAreaFilter, latS, latN, lonW, lonE)
                     } else {
-                        db.trackPointDao().getAllForHeatmap()
+                        getPoints(f, false, latS, latN, lonW, lonE)
                     }
 
-                    val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
-                    val filteredPoints = rawPoints.filter { p ->
-                        if (removeTransitions && removeTransitionsMode == 1 && p.speed > maxSpeed) return@filter false
+                    if (rawPoints.isNotEmpty()) {
+                        val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))
                         
-                        if (routesFilterEnabled) {
-                            calendar.timeInMillis = p.timestamp
+                        var currentRoutePoints = mutableListOf<TrackPointHeatmapData>()
+                        var currentSessionId = rawPoints[0].fishingSessionId
+                        
+                        var rMinLat = Double.MAX_VALUE
+                        var rMaxLat = -Double.MAX_VALUE
+                        var rMinLon = Double.MAX_VALUE
+                        var rMaxLon = -Double.MAX_VALUE
 
-                            if (hasAreaFilter) {
-                                if (p.latitude < f.latSouth!! || p.latitude > f.latNorth!! ||
-                                    p.longitude < f.lonWest!! || p.longitude > f.lonEast!!) return@filter false
-                            }
-
-                            if (hasAnnualDateFilter) {
-                                val month = calendar.get(java.util.Calendar.MONTH)
-                                val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-                                val currentVal = month * 100 + day
-                                val startVal = f.annualStartMonth!! * 100 + f.annualStartDay!!
-                                val endVal = f.annualEndMonth!! * 100 + f.annualEndDay!!
-                                if (startVal <= endVal) {
-                                    if (currentVal < startVal || currentVal > endVal) return@filter false
-                                } else {
-                                    if (currentVal < startVal && currentVal > endVal) return@filter false
-                                }
-                            }
-
-                            if (hasAnnualTimeFilter) {
-                                val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-                                val minute = calendar.get(java.util.Calendar.MINUTE)
-                                val currentMinutes = hour * 60 + minute
-                                if (f.annualStartTimeMinutes!! <= f.annualEndTimeMinutes!!) {
-                                    if (currentMinutes < f.annualStartTimeMinutes || currentMinutes > f.annualEndTimeMinutes) return@filter false
-                                } else {
-                                    if (currentMinutes < f.annualStartTimeMinutes && currentMinutes > f.annualEndTimeMinutes) return@filter false
-                                }
-                            }
-
-                            if (hasTimeFilter) {
-                                val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-                                val minute = calendar.get(java.util.Calendar.MINUTE)
-                                val currentMinutes = hour * 60 + minute
-                                if (f.startTimeMinutes!! <= f.endTimeMinutes!!) {
-                                    if (currentMinutes < f.startTimeMinutes || currentMinutes > f.endTimeMinutes) return@filter false
-                                } else {
-                                    if (currentMinutes < f.startTimeMinutes && currentMinutes > f.endTimeMinutes) return@filter false
-                                }
+                        fun finalizeRoute() {
+                            if (currentRoutePoints.size >= 2) {
+                                newRouteData.add(RouteWithBounds(currentRoutePoints, rMinLat, rMaxLat, rMinLon, rMaxLon))
                             }
                         }
-                        true
+
+                        for (p in rawPoints) {
+                            var accepted = true
+                            if (removeTransitions && removeTransitionsMode == 1 && p.speed > maxSpeed) accepted = false
+                            
+                            if (accepted && routesFilterEnabled) {
+                                calendar.timeInMillis = p.timestamp
+
+                                if (hasAreaFilter) {
+                                    if (p.latitude < f.latSouth!! || p.latitude > f.latNorth!! ||
+                                        p.longitude < f.lonWest!! || p.longitude > f.lonEast!!) accepted = false
+                                }
+
+                                if (accepted && hasAnnualDateFilter) {
+                                    val month = calendar.get(java.util.Calendar.MONTH)
+                                    val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                                    val currentVal = month * 100 + day
+                                    val startVal = f.annualStartMonth!! * 100 + f.annualStartDay!!
+                                    val endVal = f.annualEndMonth!! * 100 + f.annualEndDay!!
+                                    if (startVal <= endVal) {
+                                        if (currentVal < startVal || currentVal > endVal) accepted = false
+                                    } else {
+                                        if (currentVal < startVal && currentVal > endVal) accepted = false
+                                    }
+                                }
+
+                                if (accepted && hasAnnualTimeFilter) {
+                                    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                                    val minute = calendar.get(java.util.Calendar.MINUTE)
+                                    val currentMinutes = hour * 60 + minute
+                                    if (f.annualStartTimeMinutes!! <= f.annualEndTimeMinutes!!) {
+                                        if (currentMinutes < f.annualStartTimeMinutes || currentMinutes > f.annualEndTimeMinutes) accepted = false
+                                    } else {
+                                        if (currentMinutes < f.annualStartTimeMinutes && currentMinutes > f.annualEndTimeMinutes) accepted = false
+                                    }
+                                }
+
+                                if (accepted && hasTimeFilter) {
+                                    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                                    val minute = calendar.get(java.util.Calendar.MINUTE)
+                                    val currentMinutes = hour * 60 + minute
+                                    if (f.startTimeMinutes!! <= f.endTimeMinutes!!) {
+                                        if (currentMinutes < f.startTimeMinutes || currentMinutes > f.endTimeMinutes) accepted = false
+                                    } else {
+                                        if (currentMinutes < f.startTimeMinutes && currentMinutes > f.endTimeMinutes) accepted = false
+                                    }
+                                }
+                            }
+                            
+                            if (accepted) {
+                                if (p.fishingSessionId != currentSessionId) {
+                                    finalizeRoute()
+                                    currentRoutePoints = mutableListOf()
+                                    currentSessionId = p.fishingSessionId
+                                    rMinLat = Double.MAX_VALUE; rMaxLat = -Double.MAX_VALUE; rMinLon = Double.MAX_VALUE; rMaxLon = -Double.MAX_VALUE
+                                }
+                                currentRoutePoints.add(p)
+                                if (p.latitude < rMinLat) rMinLat = p.latitude
+                                if (p.latitude > rMaxLat) rMaxLat = p.latitude
+                                if (p.longitude < rMinLon) rMinLon = p.longitude
+                                if (p.longitude > rMaxLon) rMaxLon = p.longitude
+                            }
+                        }
+                        finalizeRoute()
                     }
-
-                    filteredPoints.groupBy { it.fishingSessionId }
-                        .values.map { it.sortedBy { p -> p.timestamp } }
-                } else {
-                    listOf()
                 }
-
+                
                 Pair(resultData, newRouteData)
             }
             
@@ -498,22 +563,58 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             paint.isAntiAlias = true
             
             val p1 = android.graphics.Point()
-            
+            val bbox = projection.boundingBox
+            // Lisätään marginaali koordinaatteihin, jotta viivat piirtyvät siististi näytön reunoilla
+            val margin = 0.01 
+            val minLat = bbox.latSouth - margin
+            val maxLat = bbox.latNorth + margin
+            val minLon = bbox.lonWest - margin
+            val maxLon = bbox.lonEast + margin
+
             for (route in routeData) {
-                if (route.size < 2) continue
+                // 1. Reittikohtainen Bounding Box -tarkistus
+                if (route.maxLat < minLat || route.minLat > maxLat || 
+                    route.maxLon < minLon || route.minLon > maxLon) continue
+
+                if (route.points.size < 2) continue
                 
                 var first = true
                 var prevX = 0f
                 var prevY = 0f
+                var prevInside = false
                 
-                for (pt in route) {
-                    projection.toPixels(GeoPoint(pt.latitude, pt.longitude), p1)
-                    if (!first) {
-                        c.drawLine(prevX, prevY, p1.x.toFloat(), p1.y.toFloat(), paint)
+                for (pt in route.points) {
+                    val isInside = pt.latitude in minLat..maxLat && pt.longitude in minLon..maxLon
+                    
+                    // Piirretään jos joko nykyinen tai edellinen piste on näkyvällä alueella
+                    if (isInside || prevInside) {
+                        projection.toPixels(GeoPoint(pt.latitude, pt.longitude), p1)
+                        val curX = p1.x.toFloat()
+                        val curY = p1.y.toFloat()
+                        
+                        if (!first) {
+                            // 2. Dynaaminen harvennus piirtovaiheessa (Visual Downsampling)
+                            // Piirretään vain jos piste on tarpeeksi kaukana edellisestä (esim. > 2 pikseliä)
+                            // TAI jos se on reitin viimeinen piste (varmistetaan reitin jatkuvuus)
+                            val dx = curX - prevX
+                            val dy = curY - prevY
+                            if (dx*dx + dy*dy > 4f || pt == route.points.last()) {
+                                c.drawLine(prevX, prevY, curX, curY, paint)
+                                prevX = curX
+                                prevY = curY
+                                first = false
+                            }
+                        } else {
+                            prevX = curX
+                            prevY = curY
+                            first = false
+                        }
+                    } else {
+                        // Jos hypätään näkymän ulkopuolelle, merkataan seuraava piste "ensimmäiseksi"
+                        // jotta ei vedetä viivaa näkymän halki silloin kun se ei ole tarpeen
+                        first = true
                     }
-                    first = false
-                    prevX = p1.x.toFloat()
-                    prevY = p1.y.toFloat()
+                    prevInside = isInside
                 }
             }
         }
