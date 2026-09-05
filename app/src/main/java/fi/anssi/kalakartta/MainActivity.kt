@@ -1786,49 +1786,71 @@ class MainActivity : AppCompatActivity() {
     private fun showSessionNotesDialog(sessionId: Long, durationMs: Long, distanceM: Float) {
         if (isFinishing || isDestroyed) return
         
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Kalastussessio lopetettu")
-        
-        val layout = android.widget.LinearLayout(this)
-        layout.orientation = android.widget.LinearLayout.VERTICAL
-        layout.setPadding(48, 24, 48, 24)
-
-        // Session kesto ja matka
-        val statsLabel = android.widget.TextView(this)
-        val totalMinutes = durationMs / 60000
-        val h = totalMinutes / 60
-        val m = totalMinutes % 60
-        val distanceKm = distanceM / 1000f
-        
-        statsLabel.text = String.format("Session kesto: %d h %d min\nKuljettu matka: %.3f km.", h, m, distanceKm).replace(".", ",")
-        statsLabel.textSize = 16f
-        statsLabel.setPadding(0, 0, 0, 24)
-        layout.addView(statsLabel)
-
-        val label = android.widget.TextView(this)
-        label.text = "Kalastussession huomiot:"
-        label.textSize = 16f
-        layout.addView(label)
-        
-        val input = android.widget.EditText(this)
-        input.hint = "Lisää muistiinpanoja sessiosta..."
-        input.setLines(3)
-        input.gravity = android.view.Gravity.TOP
-        
-        layout.addView(input)
-        builder.setView(layout)
-
-        builder.setPositiveButton("Tallenna") { _, _ ->
-            val notes = input.text.toString()
-            lifecycleScope.launch(Dispatchers.IO) {
-                val session = db.fishingSessionDao().getById(sessionId)
-                if (session != null) {
-                    db.fishingSessionDao().update(session.copy(notes = notes))
-                }
+        lifecycleScope.launch {
+            val pointCount = withContext(Dispatchers.IO) {
+                db.trackPointDao().getPointCountForSession(sessionId)
             }
+
+            val builder = AlertDialog.Builder(this@MainActivity)
+            builder.setTitle("Kalastussessio lopetettu")
+            
+            val layout = android.widget.LinearLayout(this@MainActivity)
+            layout.orientation = android.widget.LinearLayout.VERTICAL
+            layout.setPadding(48, 24, 48, 24)
+
+            // Session kesto ja matka
+            val statsLabel = android.widget.TextView(this@MainActivity)
+            val totalMinutes = durationMs / 60000
+            val h = totalMinutes / 60
+            val m = totalMinutes % 60
+            val distanceKm = distanceM / 1000f
+            
+            statsLabel.text = String.format("Session kesto: %d h %d min\nKuljettu matka: %.3f km.", h, m, distanceKm).replace(".", ",")
+            statsLabel.textSize = 16f
+            statsLabel.setPadding(0, 0, 0, 24)
+            layout.addView(statsLabel)
+
+            if (pointCount == 0) {
+                val noPointsLabel = android.widget.TextView(this@MainActivity)
+                noPointsLabel.text = "Kalastussessiossa ei ole reittipisteitä. Kalastussessiota ei tallenneta."
+                noPointsLabel.textSize = 16f
+                noPointsLabel.setTextColor(Color.RED)
+                layout.addView(noPointsLabel)
+                
+                builder.setView(layout)
+                builder.setPositiveButton("Sulje", null)
+                
+                // Poistetaan sessio koska reittipisteitä ei ole
+                withContext(Dispatchers.IO) {
+                    db.fishingSessionDao().deleteById(sessionId)
+                }
+            } else {
+                val label = android.widget.TextView(this@MainActivity)
+                label.text = "Kalastussession huomiot:"
+                label.textSize = 16f
+                layout.addView(label)
+                
+                val input = android.widget.EditText(this@MainActivity)
+                input.hint = "Lisää muistiinpanoja sessiosta..."
+                input.setLines(3)
+                input.gravity = android.view.Gravity.TOP
+                
+                layout.addView(input)
+                builder.setView(layout)
+
+                builder.setPositiveButton("Tallenna") { _, _ ->
+                    val notes = input.text.toString()
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val session = db.fishingSessionDao().getById(sessionId)
+                        if (session != null) {
+                            db.fishingSessionDao().update(session.copy(notes = notes))
+                        }
+                    }
+                }
+                builder.setNegativeButton("Sulje", null)
+            }
+            builder.show()
         }
-        builder.setNegativeButton("Sulje", null)
-        builder.show()
     }
 
     private fun clearMeasurement() {
