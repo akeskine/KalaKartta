@@ -6,6 +6,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.text.Html
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.StyleSpan
+import android.graphics.Typeface
 import fi.anssi.kalakartta.MainActivity
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +26,8 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.FishSpecies
+import fi.anssi.kalakartta.data.FishingSession
+import fi.anssi.kalakartta.data.TrackPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -328,10 +335,15 @@ class SummaryActivity : AppCompatActivity() {
                 val speciesList = db.fishSpeciesDao().getAll()
                 val speciesMap = speciesList.associateBy { it.id }
 
+                val sessionIds = sessions.map { it.id }
+                val trackPoints = if (sessionIds.isNotEmpty()) {
+                    db.trackPointDao().getPointsForSessions(sessionIds)
+                } else emptyList()
+
                 val fishermanTitlePart = if (selectedFisherman != null) {
                     " ($selectedFisherman)"
                 } else ""
-                val result = formatSummary(title + fishermanTitlePart, filteredCatches, speciesMap)
+                val result = formatSummary(title + fishermanTitlePart, filteredCatches, speciesMap, sessions, trackPoints)
                 
                 withContext(Dispatchers.Main) {
                     summaryResultText.text = result
@@ -346,59 +358,122 @@ class SummaryActivity : AppCompatActivity() {
         }
     }
 
-    private fun formatSummary(title: String, catches: List<FishCatch>, speciesMap: Map<String, FishSpecies>): String {
+    private fun formatSummary(
+        title: String,
+        catches: List<FishCatch>,
+        speciesMap: Map<String, FishSpecies>,
+        sessions: List<FishingSession> = emptyList(),
+        allTrackPoints: List<TrackPoint> = emptyList()
+    ): CharSequence {
+        val ssb = SpannableStringBuilder()
+
+        // Otsikko lihavoidulla
+        val titleStart = ssb.length
+        ssb.append(title)
+        ssb.setSpan(StyleSpan(Typeface.BOLD), titleStart, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        ssb.append("\n\n")
+
         if (catches.isEmpty()) {
-            return "$title\n\nEi saaliita tältä ajalta."
-        }
-
-        val sb = StringBuilder(title).append("\n\n")
-
-        // Ryhmittele lajeittain
-        val grouped = catches.groupBy { it.species }
-        
-        // Järjestä lajit käyttäjän määrittelemän järjestyksen mukaan
-        val sortedSpecies = grouped.entries.sortedBy { entry ->
-            speciesMap[entry.key]?.sortOrder ?: Int.MAX_VALUE
-        }
-
-        for ((index, entry) in sortedSpecies.withIndex()) {
-            val speciesId = entry.key
-            val speciesCatches = entry.value
-            val speciesNameRaw = speciesMap[speciesId]?.name ?: speciesId
-            val speciesName = speciesNameRaw.lowercase().replaceFirstChar { it.uppercase() }
+            ssb.append("Ei saaliita tältä ajalta.\n\n")
+        } else {
+            // Ryhmittele lajeittain
+            val grouped = catches.groupBy { it.species }
             
-            if (speciesId == "OTHER") {
-                // Ryhmittele "Muu kalalaji" vielä tarkemman lajin mukaan
-                val subGrouped = speciesCatches.groupBy { it.otherSpecies ?: "Tuntematon" }
-                val sortedSubGroups = subGrouped.entries.sortedByDescending { it.value.size }
+            // Järjestä lajit käyttäjän määrittelemän järjestyksen mukaan
+            val sortedSpecies = grouped.entries.sortedBy { entry ->
+                speciesMap[entry.key]?.sortOrder ?: Int.MAX_VALUE
+            }
+
+            for ((index, entry) in sortedSpecies.withIndex()) {
+                val speciesId = entry.key
+                val speciesCatches = entry.value
+                val speciesNameRaw = speciesMap[speciesId]?.name ?: speciesId
+                val speciesName = speciesNameRaw.lowercase().replaceFirstChar { it.uppercase() }
                 
-                for ((subIndex, subEntry) in sortedSubGroups.withIndex()) {
-                    val otherSpeciesNameRaw = subEntry.key
-                    val otherSpeciesName = if (otherSpeciesNameRaw != "Tuntematon") {
-                        otherSpeciesNameRaw.lowercase().replaceFirstChar { it.uppercase() }
-                    } else {
-                        otherSpeciesNameRaw
+                val catchSb = StringBuilder()
+                if (speciesId == "OTHER") {
+                    // Ryhmittele "Muu kalalaji" vielä tarkemman lajin mukaan
+                    val subGrouped = speciesCatches.groupBy { it.otherSpecies ?: "Tuntematon" }
+                    val sortedSubGroups = subGrouped.entries.sortedByDescending { it.value.size }
+                    
+                    for ((subIndex, subEntry) in sortedSubGroups.withIndex()) {
+                        val otherSpeciesNameRaw = subEntry.key
+                        val otherSpeciesName = if (otherSpeciesNameRaw != "Tuntematon") {
+                            otherSpeciesNameRaw.lowercase().replaceFirstChar { it.uppercase() }
+                        } else {
+                            otherSpeciesNameRaw
+                        }
+                        val subCatches = subEntry.value
+                        
+                        catchSb.append(speciesName).append(" (").append(otherSpeciesName).append(") ").append(subCatches.size).append(" kpl")
+                        appendCatchData(catchSb, subCatches)
+                        
+                        if (subIndex < sortedSubGroups.size - 1 || index < sortedSpecies.size - 1) {
+                            catchSb.append("\n\n")
+                        }
                     }
-                    val subCatches = subEntry.value
+                } else {
+                    catchSb.append(speciesName).append(" ").append(speciesCatches.size).append(" kpl")
+                    appendCatchData(catchSb, speciesCatches)
                     
-                    sb.append(speciesName).append(" (").append(otherSpeciesName).append(") ").append(subCatches.size).append(" kpl")
-                    appendCatchData(sb, subCatches)
-                    
-                    if (subIndex < sortedSubGroups.size - 1 || index < sortedSpecies.size - 1) {
-                        sb.append("\n\n")
+                    if (index < sortedSpecies.size - 1) {
+                        catchSb.append("\n\n")
                     }
                 }
-            } else {
-                sb.append(speciesName).append(" ").append(speciesCatches.size).append(" kpl")
-                appendCatchData(sb, speciesCatches)
-                
-                if (index < sortedSpecies.size - 1) {
-                    sb.append("\n\n")
+                ssb.append(catchSb.toString())
+            }
+            ssb.append("\n\n")
+        }
+
+        // Lisätään sessioiden tiedot
+        if (sessions.isNotEmpty()) {
+            val sessionCountStart = ssb.length
+            ssb.append("Kalastussessioita aikavälillä ${sessions.size} kpl.")
+            ssb.setSpan(StyleSpan(Typeface.BOLD), sessionCountStart, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            ssb.append("\n")
+
+            // Lasketaan kesto
+            var totalDurationMs = 0L
+            for (session in sessions) {
+                val start = session.startedAt
+                val end = session.endedAt ?: System.currentTimeMillis()
+                if (end > start) {
+                    totalDurationMs += (end - start)
                 }
             }
+
+            val hours = totalDurationMs / (1000 * 60 * 60)
+            val minutes = (totalDurationMs / (1000 * 60)) % 60
+            ssb.append("Sessioiden kesto yhteensä: ${hours} h ${minutes} min\n")
+
+            // Lasketaan matka
+            var totalDistanceMeters = 0.0
+            val sessionIdsInPoints = allTrackPoints.map { it.fishingSessionId }.distinct()
+            for (sessionId in sessionIdsInPoints) {
+                val sessionPoints = allTrackPoints.filter { it.fishingSessionId == sessionId }
+                if (sessionPoints.size > 1) {
+                    val sortedPoints = sessionPoints.sortedBy { it.timestamp }
+                    for (i in 0 until sortedPoints.size - 1) {
+                        val p1 = sortedPoints[i]
+                        val p2 = sortedPoints[i + 1]
+                        val results = FloatArray(1)
+                        android.location.Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
+                        totalDistanceMeters += results[0]
+                    }
+                }
+            }
+            ssb.append("Kuljettu matka yhteensä: ${formatDistance(totalDistanceMeters)}")
         }
 
-        return sb.toString()
+        return ssb
+    }
+
+    private fun formatDistance(meters: Double): String {
+        return if (meters >= 1000) {
+            String.format("%.3f km", meters / 1000.0).replace(".", ",")
+        } else {
+            "${meters.toInt()} m"
+        }
     }
 
     private fun applyFiltersAndShowMap() {
