@@ -302,11 +302,13 @@ class ImportExportManager(
         
         val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            isIndeterminate = true
+            isIndeterminate = false
+            max = 100
+            progress = 0
         }
         
         val progressText = TextView(activity).apply {
-            text = "Tuodaan kaikkia tietoja..."
+            text = "Valmistellaan tuontia..."
             setPadding(0, 0, 0, 20)
         }
         
@@ -323,8 +325,51 @@ class ImportExportManager(
 
         Thread {
             try {
+                // 1. Vaihe: "Ladataan" (lasketaan koko/entryt jos mahdollista tai simuloidaan alku)
+                activity.runOnUiThread {
+                    progressText.text = "Ladataan zip-tiedostoa..."
+                    progressBar.progress = 5
+                }
+
+                val totalSize = try {
+                    activity.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+                } catch (e: Exception) {
+                    -1L
+                }
+
                 activity.contentResolver.openInputStream(uri)?.use { input ->
-                    val zipIn = java.util.zip.ZipInputStream(input)
+                    // Käytetään laskuria edistymisen seurantaan lukemisen aikana
+                    var bytesRead = 0L
+                    val wrappedInput = object : java.io.FilterInputStream(input) {
+                        override fun read(): Int {
+                            val b = super.read()
+                            if (b != -1) {
+                                bytesRead++
+                                updateDownloadProgress()
+                            }
+                            return b
+                        }
+                        override fun read(b: ByteArray, off: Int, len: Int): Int {
+                            val n = super.read(b, off, len)
+                            if (n != -1) {
+                                bytesRead += n
+                                updateDownloadProgress()
+                            }
+                            return n
+                        }
+                        private fun updateDownloadProgress() {
+                            if (totalSize > 0) {
+                                val p = (bytesRead * 30 / totalSize).toInt() // Max 30% lataukselle
+                                activity.runOnUiThread {
+                                    if (progressBar.progress < p + 5) {
+                                        progressBar.progress = p + 5
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    val zipIn = java.util.zip.ZipInputStream(wrappedInput)
                     var entry = zipIn.nextEntry
                     
                     var importedCatches = 0
@@ -338,23 +383,25 @@ class ImportExportManager(
                     val tempMediaFiles = mutableMapOf<String, ByteArray>()
                     var mediaJsonStr: String? = null
 
+                    // 2. Vaihe: "Puretaan"
+                    activity.runOnUiThread {
+                        progressText.text = "Puretaan zip-tiedostoa..."
+                    }
+
                     while (entry != null) {
-                        when (entry.name) {
+                        val entryName = entry.name
+                        when (entryName) {
                             "pisteet.json" -> {
+                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (pisteet)..." }
                                 val text = zipIn.readBytes().toString(Charsets.UTF_8)
                                 val (catches, places) = jsonService.parseCatchesAndPlaces(text)
-                                // Yksinkertaisuuden vuoksi tässä lisätään kaikki ilman duplikaattitarkistusta
-                                // jos käyttäjä tuo "kaikki tiedot", oletetaan että hän haluaa palauttaa backupin.
                                 catches.forEach { db.fishCatchDao().insertAll(listOf(it.copy(id = 0))) }
                                 places.forEach { db.placeOfInterestDao().insertAll(listOf(it.copy(id = 0))) }
                                 importedCatches = catches.size
                                 importedPlaces = places.size
                             }
                             "sessiot.json" -> {
-                                // Koska JsonReader lukee streamin, meidän pitää käsitellä se varovasti
-                                // Emme voi sulkea zipIn:iä tässä.
-                                // Mutta importRoutesFromStream lukee koko streamin loppuun.
-                                // ZipInputStreamin tapauksessa se lukee vain tämän entryn.
+                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (reitit)..." }
                                 jsonService.importRoutesFromStream(zipIn) { session, points ->
                                     val sid = db.fishingSessionDao().insert(session)
                                     val pts = points.map { it.copy(fishingSessionId = sid) }
@@ -364,6 +411,7 @@ class ImportExportManager(
                                 }
                             }
                             "kalalajit.json" -> {
+                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (lajit)..." }
                                 val text = zipIn.readBytes().toString(Charsets.UTF_8)
                                 val species = jsonService.parseSpecies(text, activity.filesDir)
                                 if (species.isNotEmpty()) {
@@ -373,6 +421,7 @@ class ImportExportManager(
                                 }
                             }
                             "paivakirja.json" -> {
+                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (päiväkirja)..." }
                                 val text = zipIn.readBytes().toString(Charsets.UTF_8)
                                 val data = jsonService.parseImportData(text)
                                 data.diaryPages.forEach {
@@ -384,23 +433,42 @@ class ImportExportManager(
                                 mediaJsonStr = zipIn.readBytes().toString(Charsets.UTF_8)
                             }
                             else -> {
-                                if (entry.name.startsWith("media/")) {
-                                    val fileName = entry.name.substringAfter("media/")
+                                if (entryName.startsWith("media/")) {
+                                    val fileName = entryName.substringAfter("media/")
                                     if (fileName.isNotEmpty()) {
                                         tempMediaFiles[fileName] = zipIn.readBytes()
                                     }
                                 }
                             }
                         }
+                        
+                        // Edistyminen purkamisen aikana (30% -> 70%)
+                        if (totalSize > 0) {
+                            val p = 35 + (bytesRead * 35 / totalSize).toInt()
+                            activity.runOnUiThread {
+                                if (progressBar.progress < p) progressBar.progress = p
+                            }
+                        }
+
                         zipIn.closeEntry()
                         entry = zipIn.nextEntry
                     }
                     
-                    // Lopuksi media jos löytyi
+                    // 3. Vaihe: "Käsitellään mediatiedostot"
                     if (mediaJsonStr != null) {
-                        mediaService.processMediaImport(mediaJsonStr, tempMediaFiles) { current, total ->
-                            importedMedia = total
+                        activity.runOnUiThread { 
+                            progressText.text = "Käsitellään mediatiedostoja..." 
+                            if (progressBar.progress < 70) progressBar.progress = 70
                         }
+                        mediaService.processMediaImport(mediaJsonStr!!, tempMediaFiles) { current, total ->
+                            importedMedia = total
+                            val p = 70 + (current * 30 / total)
+                            activity.runOnUiThread {
+                                progressBar.progress = p
+                            }
+                        }
+                    } else {
+                        activity.runOnUiThread { progressBar.progress = 100 }
                     }
                     
                     activity.runOnUiThread {
