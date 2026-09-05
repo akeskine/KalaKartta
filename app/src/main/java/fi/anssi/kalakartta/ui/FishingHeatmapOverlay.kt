@@ -49,6 +49,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var removeTransitions = false
     private var removeTransitionsMode = 0
     private var maxSpeed = 10.0f
+    private var minZoomLevel = 10.0
 
     private var routeData = listOf<List<TrackPointHeatmapData>>()
 
@@ -78,6 +79,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
         removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
         maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
+        minZoomLevel = prefs.getFloat("heatmap_min_zoom", 10.0f).toDouble()
 
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
@@ -435,7 +437,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         
         val projection = osmv.projection
         
-        if (heatmapEnabled) {
+        if (heatmapEnabled && osmv.zoomLevelDouble >= minZoomLevel) {
             val boundingBox = projection.boundingBox
             val latDegreeMeters = 111320.0
             val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
@@ -447,9 +449,11 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             paint.style = Paint.Style.FILL
             
-            for (x in minX..maxX) {
-                for (y in minY..maxY) {
-                    val count = heatmapData[Pair(x, y)] ?: continue
+            for ((key, count) in heatmapData) {
+                val x = key.first
+                val y = key.second
+                
+                if (x in minX..maxX && y in minY..maxY) {
                     if (count < minPoints) continue
                     
                     // Lasketaan alfa (max peittävyys 60% = 153/255)

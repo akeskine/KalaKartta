@@ -1350,6 +1350,24 @@ class SettingsManager(
         row2.addView(maxCellsEdit)
         layout.addView(row2)
 
+        // Rivi 3: Heat map zoomaustaso min
+        val row3 = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        val minZoomLabel = TextView(activity).apply {
+            text = "Heat map zoomaustaso min:"
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.5f)
+        }
+        val minZoomEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(prefs.getFloat("heatmap_min_zoom", 10.0f).toString())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        row3.addView(minZoomLabel)
+        row3.addView(minZoomEdit)
+        layout.addView(row3)
+
         // Tulostus: Näkyvät määrät
         val statusText = TextView(activity).apply {
             text = "Lasketaan..."
@@ -1414,9 +1432,11 @@ class SettingsManager(
             .setPositiveButton("Tallenna") { _, _ ->
                 val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: 50000
                 val maxCells = maxCellsEdit.text.toString().toIntOrNull() ?: 10000
+                val minZoom = minZoomEdit.text.toString().toFloatOrNull() ?: 10.0f
                 prefs.edit().apply {
                     putInt("max_track_points", maxPoints)
                     putInt("max_heatmap_cells", maxCells)
+                    putFloat("heatmap_min_zoom", minZoom)
                     apply()
                 }
                 openGeneralSettings()
