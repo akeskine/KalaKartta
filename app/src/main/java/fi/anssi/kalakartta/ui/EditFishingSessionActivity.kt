@@ -183,152 +183,178 @@ class EditFishingSessionActivity : AppCompatActivity() {
 
     private fun showTrimDialog() {
         val s = session ?: return
-        val startTime = s.startedAt
-        val endTime = s.endedAt ?: System.currentTimeMillis()
-        val totalDuration = endTime - startTime
-        if (totalDuration <= 0) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val points = db.trackPointDao().getPointsForSession(s.id)
+            withContext(Dispatchers.Main) {
+                if (points.isEmpty()) {
+                    Toast.makeText(this@EditFishingSessionActivity, "Istunnolla ei ole reittipisteitä", Toast.LENGTH_SHORT).show()
+                    return@withContext
+                }
 
-        val dialogView = layoutInflater.inflate(R.layout.dialog_trim_session, null)
-        val startSeekBar = dialogView.findViewById<SeekBar>(R.id.startSeekBar)
-        val endSeekBar = dialogView.findViewById<SeekBar>(R.id.endSeekBar)
-        val newStartInput = dialogView.findViewById<EditText>(R.id.newStartInput)
-        val newEndInput = dialogView.findViewById<EditText>(R.id.newEndInput)
-        val trimSessionLink = dialogView.findViewById<TextView>(R.id.trimSessionLink)
-        val dialogBackLink = dialogView.findViewById<TextView>(R.id.dialogBackLink)
+                val startTime = s.startedAt
+                val endTime = s.endedAt ?: System.currentTimeMillis()
 
-        val fullDateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault())
+                val dialogView = layoutInflater.inflate(R.layout.dialog_trim_session, null)
+                val startSeekBar = dialogView.findViewById<SeekBar>(R.id.startSeekBar)
+                val endSeekBar = dialogView.findViewById<SeekBar>(R.id.endSeekBar)
+                val newStartInput = dialogView.findViewById<EditText>(R.id.newStartInput)
+                val newEndInput = dialogView.findViewById<EditText>(R.id.newEndInput)
+                val trimSessionLink = dialogView.findViewById<TextView>(R.id.trimSessionLink)
+                val dialogBackLink = dialogView.findViewById<TextView>(R.id.dialogBackLink)
 
-        startSeekBar.max = 1000
-        startSeekBar.progress = 0
-        endSeekBar.max = 1000
-        endSeekBar.progress = 1000
+                val fullDateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault())
 
-        newStartInput.setText(fullDateFormat.format(Date(startTime)))
-        newEndInput.setText(fullDateFormat.format(Date(endTime)))
+                startSeekBar.max = points.size - 1
+                startSeekBar.progress = 0
+                endSeekBar.max = points.size - 1
+                endSeekBar.progress = points.size - 1
 
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
+                newStartInput.setText(fullDateFormat.format(Date(points.first().timestamp)))
+                newEndInput.setText(fullDateFormat.format(Date(points.last().timestamp)))
 
-        var isUpdatingFromSeekBar = false
+                val dialog = AlertDialog.Builder(this@EditFishingSessionActivity)
+                    .setView(dialogView)
+                    .create()
 
-        startSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    isUpdatingFromSeekBar = true
-                    val newTime = startTime + (totalDuration * progress / 1000)
-                    newStartInput.setText(fullDateFormat.format(Date(newTime)))
-                    isUpdatingFromSeekBar = false
+                var isUpdatingFromSeekBar = false
+
+                startSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        if (fromUser) {
+                            isUpdatingFromSeekBar = true
+                            val point = points[progress.coerceIn(0, points.size - 1)]
+                            newStartInput.setText(fullDateFormat.format(Date(point.timestamp)))
+                            isUpdatingFromSeekBar = false
+                            updateTrimLinkVisibility(
+                                newStartInput, newEndInput, trimSessionLink,
+                                startTime, endTime, fullDateFormat
+                            )
+                        }
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                })
+
+                endSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        if (fromUser) {
+                            isUpdatingFromSeekBar = true
+                            val point = points[progress.coerceIn(0, points.size - 1)]
+                            newEndInput.setText(fullDateFormat.format(Date(point.timestamp)))
+                            isUpdatingFromSeekBar = false
+                            updateTrimLinkVisibility(
+                                newStartInput, newEndInput, trimSessionLink,
+                                startTime, endTime, fullDateFormat
+                            )
+                        }
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                })
+
+                newStartInput.addTextChangedListener {
+                    if (!isUpdatingFromSeekBar) {
+                        try {
+                            val date = fullDateFormat.parse(it.toString())
+                            if (date != null) {
+                                // Etsitään lähin piste
+                                val index = points.indexOfFirst { p -> p.timestamp >= date.time }
+                                val finalIndex = if (index == -1) points.size - 1 else index
+                                startSeekBar.progress = finalIndex
+                            }
+                        } catch (e: ParseException) {
+                        }
+                    }
                     updateTrimLinkVisibility(
                         newStartInput, newEndInput, trimSessionLink,
                         startTime, endTime, fullDateFormat
                     )
                 }
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
 
-        endSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    isUpdatingFromSeekBar = true
-                    val newTime = startTime + (totalDuration * progress / 1000)
-                    newEndInput.setText(fullDateFormat.format(Date(newTime)))
-                    isUpdatingFromSeekBar = false
+                newEndInput.addTextChangedListener {
+                    if (!isUpdatingFromSeekBar) {
+                        try {
+                            val date = fullDateFormat.parse(it.toString())
+                            if (date != null) {
+                                // Etsitään lähin piste
+                                val index = points.indexOfLast { p -> p.timestamp <= date.time }
+                                val finalIndex = if (index == -1) 0 else index
+                                endSeekBar.progress = finalIndex
+                            }
+                        } catch (e: ParseException) {
+                        }
+                    }
                     updateTrimLinkVisibility(
                         newStartInput, newEndInput, trimSessionLink,
                         startTime, endTime, fullDateFormat
                     )
                 }
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
 
-        newStartInput.addTextChangedListener {
-            if (!isUpdatingFromSeekBar) {
-                try {
-                    val date = fullDateFormat.parse(it.toString())
-                    if (date != null) {
-                        val progress = if (totalDuration > 0) ((date.time - startTime) * 1000 / totalDuration).toInt() else 0
-                        startSeekBar.progress = progress.coerceIn(0, 1000)
+                updateTrimLinkVisibility(
+                    newStartInput, newEndInput, trimSessionLink,
+                    startTime, endTime, fullDateFormat
+                )
+
+                trimSessionLink.setOnClickListener {
+                    val newStartStr = newStartInput.text.toString()
+                    val newEndStr = newEndInput.text.toString()
+
+                    val targetStart: Date
+                    val targetEnd: Date
+                    try {
+                        targetStart = fullDateFormat.parse(newStartStr)!!
+                        targetEnd = fullDateFormat.parse(newEndStr)!!
+                    } catch (e: ParseException) {
+                        Toast.makeText(this@EditFishingSessionActivity, R.string.invalid_format, Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
                     }
-                } catch (e: ParseException) {
-                    // Invalid format, ignore
-                }
-            }
-            updateTrimLinkVisibility(
-                newStartInput, newEndInput, trimSessionLink,
-                startTime, endTime, fullDateFormat
-            )
-        }
 
-        newEndInput.addTextChangedListener {
-            if (!isUpdatingFromSeekBar) {
-                try {
-                    val date = fullDateFormat.parse(it.toString())
-                    if (date != null) {
-                        val progress = if (totalDuration > 0) ((date.time - startTime) * 1000 / totalDuration).toInt() else 0
-                        endSeekBar.progress = progress.coerceIn(0, 1000)
+                    // Etsitään toteutuvat pisteet
+                    // Alkuajaksi ensimmäinen ennen asetettua uutta alkuaikaa olevan pisteen tallennusaika
+                    val startPoint = points.findLast { it.timestamp <= targetStart.time } ?: points.first()
+                    // Session loppupäiväksi seuraava uuden loppupäivän jälkeen olevan pisteen tallennusaika
+                    val endPoint = points.find { it.timestamp >= targetEnd.time } ?: points.last()
+
+                    val newStartActual = startPoint.timestamp
+                    val newEndActual = endPoint.timestamp
+
+                    if (newStartActual >= newEndActual) {
+                        Toast.makeText(this@EditFishingSessionActivity, R.string.invalid_times, Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
                     }
-                } catch (e: ParseException) {
-                    // Invalid format, ignore
+
+                    val startDiff = newStartActual - startTime
+                    val endDiff = endTime - newEndActual
+
+                    val startDiffStr = formatDuration(startDiff)
+                    val endDiffStr = formatDuration(endDiff)
+
+                    AlertDialog.Builder(this@EditFishingSessionActivity)
+                        .setMessage(getString(R.string.trim_confirm, startDiffStr, endDiffStr))
+                        .setPositiveButton(R.string.yes) { _, _ ->
+                            if (newStartActual != targetStart.time || newEndActual != targetEnd.time) {
+                                val msg = getString(
+                                    R.string.session_trimmed_info,
+                                    fullDateFormat.format(Date(newStartActual)),
+                                    fullDateFormat.format(Date(newEndActual))
+                                )
+                                Toast.makeText(this@EditFishingSessionActivity, msg, Toast.LENGTH_LONG).show()
+                            }
+                            performTrim(newStartActual, newEndActual)
+                            dialog.dismiss()
+                        }
+                        .setNegativeButton(R.string.no, null)
+                        .show()
+                        .enlargeButtons()
                 }
-            }
-            updateTrimLinkVisibility(
-                newStartInput, newEndInput, trimSessionLink,
-                startTime, endTime, fullDateFormat
-            )
-        }
 
-        // Alkutilan tarkistus
-        updateTrimLinkVisibility(
-            newStartInput, newEndInput, trimSessionLink,
-            startTime, endTime, fullDateFormat
-        )
-
-        trimSessionLink.setOnClickListener {
-            val newStartStr = newStartInput.text.toString()
-            val newEndStr = newEndInput.text.toString()
-
-            val newStart: Date
-            val newEnd: Date
-            try {
-                newStart = fullDateFormat.parse(newStartStr)!!
-                newEnd = fullDateFormat.parse(newEndStr)!!
-            } catch (e: ParseException) {
-                Toast.makeText(this, R.string.invalid_format, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            if (newStart.time >= newEnd.time || newStart.time < startTime || newEnd.time > endTime) {
-                Toast.makeText(this, R.string.invalid_times, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val startDiff = newStart.time - startTime
-            val endDiff = endTime - newEnd.time
-
-            val startDiffStr = formatDuration(startDiff)
-            val endDiffStr = formatDuration(endDiff)
-
-            AlertDialog.Builder(this)
-                .setMessage(getString(R.string.trim_confirm, startDiffStr, endDiffStr))
-                .setPositiveButton(R.string.yes) { _, _ ->
-                    performTrim(newStart.time, newEnd.time)
+                dialogBackLink.setOnClickListener {
                     dialog.dismiss()
                 }
-                .setNegativeButton(R.string.no, null)
-                .show()
-                .enlargeButtons()
-        }
 
-        dialogBackLink.setOnClickListener {
-            dialog.dismiss()
+                dialog.show()
+            }
         }
-
-        dialog.show()
     }
 
     private fun formatDuration(durationMs: Long): String {

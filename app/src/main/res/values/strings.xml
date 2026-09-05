@@ -184,7 +184,8 @@
     <string name="trim_confirm">Oletko varma, että haluat lyhentää kalastussessiota alkupäästä %1$s ja loppupäästä %2$s?</string>
     <string name="trim_success">Kalastussessiota rajattu</string>
     <string name="invalid_times">Tarkista ajat. Alkuajan on oltava ennen loppuaikaa ja aikojen on oltava session sisällä.</string>
-    <string name="invalid_format">Virheellinen ajan muotoilu. Käytä dd.mm.yyyy HH:mm:ss</string>
+    <string name="invalid_format">Virheellinen ajan muotoilu. Käytä dd.MM.yyyy HH:mm:ss</string>
+    <string name="session_trimmed_info">Sessiota on lyhennetty. Session ensimmäisen reittipisteen tallennusaika %1$s, viimeisen %2$s.</string>
     <string name="yes">Kyllä</string>
     <string name="no">Ei</string>
     <string name="too_many_track_points">Liikaa reittipisteitä (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nRajaathan näytettävää dataa suodattimien avulla.</string>
