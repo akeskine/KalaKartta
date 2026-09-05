@@ -92,12 +92,12 @@ Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedo
 - **Vie kaikki tiedot:** Tallentaa sovelluksen kaiken datan (pisteet, reitit, mediatiedostojen linkitykset ja asetukset) yhteen tiedostoon.
 - **Tuo kaikki tiedot:** Palauttaa kaikki sovelluksen tiedot tiedostosta.
 - **Poista kaikki tiedot:** Tyhjentää kaikki sovelluksen tiedot (pisteet ja reitit).
-- **Vie pisteet:** Tallentaa kaikki kalapisteet ja muut merkit tiedostoon.
+- **Vie kalapisteet ja muut pisteet:** Tallentaa kaikki kalapisteet ja muut merkit tiedostoon.
 - **Vie suodatetut pisteet:** Jos suodatus on päällä, voit halutessasi viedä vain ne pisteet, jotka näkyvät parhaillaan kartalla.
-- **Tuo pisteet:** Lukee pisteet tiedostosta.
-- **Vie reitit:** Tallentaa kaikki kalastussessiot ja niiden reittipisteet tiedostoon.
-- **Tuo reitit:** Lukee sessiot ja reitit tiedostosta.
-- **Poista kaikki reitit:** Tyhjentää kaikki tallennetut reittitiedot sovelluksesta.
+- **Tuo kalapisteet ja muut pisteet:** Lukee pisteet tiedostosta.
+- **Vie kalastussessiot:** Tallentaa kaikki kalastussessiot ja niiden reittipisteet tiedostoon.
+- **Tuo kalastussessiot:** Lukee sessiot ja reitit tiedostosta.
+- **Poista kalastussessiot:** Tyhjentää kaikki tallennetut reittitiedot sovelluksesta.
 - **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki. Reittien osalta tuodaan toistaiseksi kaikki sessiot uusina.
 - **Infopallura (i):** Tiedonsiirto-valikon yläreunassa on infopainike, josta näet yksityiskohtaiset tilastot sovelluksen sisältämästä datasta (sessiot, pisteet, mediatiedostot) ja käytetystä tallennustilasta.
 

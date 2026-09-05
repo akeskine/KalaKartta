@@ -2270,7 +2270,7 @@ class SettingsManager(
             visibility = View.GONE
         }
 
-        val oldOptions = arrayOf("Vie pisteet", "Tuo pisteet", "Vie reitit", "Tuo reitit", "Vie media", "Tuo media", "Vie kalapäiväkirja", "Tuo kalapäiväkirja", "Poista kaikki pisteet", "Poista kaikki reitit", "Poista kaikki media", "Poista kalapäiväkirja")
+        val oldOptions = arrayOf("Vie kalapisteet ja muut pisteet", "Tuo kalapisteet ja muut pisteet", "Vie kalastussessiot", "Tuo kalastussessiot", "Vie media", "Tuo media", "Vie kalapäiväkirja", "Tuo kalapäiväkirja", "Poista kalapisteet ja muut pisteet", "Poista kalastussessiot", "Poista media", "Poista kalapäiväkirja")
         oldOptions.forEachIndexed { index, option ->
             val textView = TextView(activity).apply {
                 text = option
@@ -2288,7 +2288,7 @@ class SettingsManager(
                     0 -> {
                         if (isFiltered) {
                             val exportDialog = AlertDialog.Builder(activity)
-                                .setTitle("Vie pisteet")
+                                .setTitle("Vie kalapisteet ja muut pisteet")
                                 .setMessage("Viedäänkö kaikki pisteet vai nykyisen suodatuksen rajaamat pisteet?\n\n" +
                                         "Kaikki: $count kalapistettä, $placeCount muuta pistettä\n\n" +
                                         "Suodatetut: $filteredCount kalapistettä, $filteredPlaceCount muuta pistettä")
@@ -2357,7 +2357,7 @@ class SettingsManager(
 
     private fun confirmDeleteAllCatches() {
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Poista kaikki pisteet?")
+            .setTitle("Poista kalapisteet ja muut pisteet?")
             .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalamerkit ja paikkamerkit? Tätä toimintoa ei voi kumota.")
             .setPositiveButton("Takaisin", null)
             .setNegativeButton("Poista") { _, _ ->
@@ -2374,7 +2374,7 @@ class SettingsManager(
         onDataChanged(false)
 
         val dialog = AlertDialog.Builder(activity)
-            .setMessage("Kaikki pisteet poistettu.")
+            .setMessage("Kalapisteet ja muut pisteet poistettu.")
             .setPositiveButton("OK", null)
             .create()
         showDialog(dialog)
@@ -2382,7 +2382,7 @@ class SettingsManager(
 
     private fun confirmDeleteAllRoutes() {
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Poista kaikki reitit?")
+            .setTitle("Poista kalastussessiot?")
             .setMessage("Haluatko varmasti poistaa kaikki tallennetut kalastussessiot ja reittipisteet? Tätä toimintoa ei voi kumota.")
             .setPositiveButton("Takaisin", null)
             .setNegativeButton("Poista") { _, _ ->
@@ -2398,7 +2398,7 @@ class SettingsManager(
         onDataChanged(false)
 
         val dialog = AlertDialog.Builder(activity)
-            .setMessage("Kaikki reitit poistettu.")
+            .setMessage("Kalastussessiot poistettu.")
             .setPositiveButton("OK", null)
             .create()
         showDialog(dialog)
