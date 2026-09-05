@@ -163,10 +163,13 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val hasTimeFilter = f.startTimeMinutes != null && f.endTimeMinutes != null
                 val hasAnnualTimeFilter = f.annualStartTimeMinutes != null && f.annualEndTimeMinutes != null
                 val hasAreaFilter = f.latNorth != null && f.latSouth != null && f.lonEast != null && f.lonWest != null
-                val latS = bbox?.latSouth
-                val latN = bbox?.latNorth
-                val lonW = bbox?.lonWest
-                val lonE = bbox?.lonEast
+                val zoom = mapView.zoomLevelDouble
+                val marginFactor = if (zoom >= 12.0) 0.25 else 0.0
+
+                val latS = bbox?.let { it.latSouth - (it.latNorth - it.latSouth) * marginFactor }
+                val latN = bbox?.let { it.latNorth + (it.latNorth - it.latSouth) * marginFactor }
+                val lonW = bbox?.let { it.lonWest - (it.lonEast - it.lonWest) * marginFactor }
+                val lonE = bbox?.let { it.lonEast + (it.lonEast - it.lonWest) * marginFactor }
                 
                 val resultData: Map<Pair<Int, Int>, Int> = if (heatmapEnabled) {
                     if (heatmapFilterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
