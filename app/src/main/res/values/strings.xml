@@ -200,4 +200,6 @@
     <string name="icon_sizes">Kuvakkeiden koot</string>
     <string name="fish_icon_size">Kalakuvakkeiden koko:</string>
     <string name="other_icon_size">Muu paikka-kuvakkeiden koko:</string>
+    <string name="heatmap_advanced_settings">Kalastettujen alueiden lisäasetukset</string>
+    <string name="route_advanced_settings">Reittien lisäasetukset</string>
 </resources>
