@@ -155,8 +155,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 
                 // Approksimaatio: 1 aste latitudia on n. 111320 metriä
                 val latDegreeMeters = 111320.0
-                // Käytetään kiinteää latitudia (60 astetta) longitudin muunnokseen, jotta ruudutus on vakio
-                val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(60.0))
+                // Käytetään vakiota (esim. Suomen keskipiste 64.7), jotta ruudukko on stabiili ja ennustettava.
+                // Dynaaminen latitudi draw-metodissa rikkoo ruudukon haun, jos se ei vastaa indeksointia.
+                val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
 
                 val hasAnnualDateFilter = f.annualStartDay != null && f.annualStartMonth != null && 
                                         f.annualEndDay != null && f.annualEndMonth != null
@@ -466,12 +467,12 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             // Approksimaatio: 1 aste latitudia on n. 111320 metriä
             val latDegreeMeters = 111320.0
-            // Käytetään kiinteää latitudia (60 astetta) longitudin muunnokseen, jotta ruudutus on vakio
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(60.0))
+            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään Suomen keskipistettä vakiona tässä funktiossa)
+            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
             
             for (p in points) {
-                val x = (p.longitude * lonDegreeMeters / gridSizeMeters).roundToInt()
-                val y = (p.latitude * latDegreeMeters / gridSizeMeters).roundToInt()
+                val x = (p.longitude * lonDegreeMeters / gridSizeMeters).toInt()
+                val y = (p.latitude * latDegreeMeters / gridSizeMeters).toInt()
                 
                 val key = Pair(x, y)
                 gridPoints[key] = (gridPoints[key] ?: 0) + 1
@@ -482,12 +483,12 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             // Approksimaatio: 1 aste latitudia on n. 111320 metriä
             val latDegreeMeters = 111320.0
-            // Käytetään kiinteää latitudia (60 astetta) longitudin muunnokseen, jotta ruudutus on vakio
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(60.0))
+            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään Suomen keskipistettä vakiona tässä funktiossa)
+            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
             
             for (p in points) {
-                val x = (p.longitude * lonDegreeMeters / gridSizeMeters).roundToInt()
-                val y = (p.latitude * latDegreeMeters / gridSizeMeters).roundToInt()
+                val x = (p.longitude * lonDegreeMeters / gridSizeMeters).toInt()
+                val y = (p.latitude * latDegreeMeters / gridSizeMeters).toInt()
                 
                 val key = Pair(x, y)
                 if (!gridSessions.containsKey(key)) {
@@ -508,12 +509,13 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         if (heatmapEnabled && osmv.zoomLevelDouble >= minZoomLevel) {
             val boundingBox = projection.boundingBox
             val latDegreeMeters = 111320.0
-            val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
+            // Käytetään samaa stabiilia vakiota kuin indeksoinnissa
+            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
             
-            val minX = (boundingBox.lonWest * lonDegreeMeters / gridSizeMeters).roundToInt() - 1
-            val maxX = (boundingBox.lonEast * lonDegreeMeters / gridSizeMeters).roundToInt() + 1
-            val minY = (boundingBox.latSouth * latDegreeMeters / gridSizeMeters).roundToInt() - 1
-            val maxY = (boundingBox.latNorth * latDegreeMeters / gridSizeMeters).roundToInt() + 1
+            val minX = (boundingBox.lonWest * lonDegreeMeters / gridSizeMeters).toInt() - 1
+            val maxX = (boundingBox.lonEast * lonDegreeMeters / gridSizeMeters).toInt() + 1
+            val minY = (boundingBox.latSouth * latDegreeMeters / gridSizeMeters).toInt() - 1
+            val maxY = (boundingBox.latNorth * latDegreeMeters / gridSizeMeters).toInt() + 1
             
             paint.style = Paint.Style.FILL
             
