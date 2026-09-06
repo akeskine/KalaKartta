@@ -149,7 +149,6 @@ class JsonService {
                 "fisherman" -> fisherman = reader.nextString()
                 "points" -> {
                     pointsFound = true
-                    val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes, fisherman = fisherman)
                     val pointsBatch = mutableListOf<TrackPoint>()
                     
                     reader.beginArray()
@@ -158,6 +157,9 @@ class JsonService {
                         pointsBatch.add(pt)
                         
                         if (pointsBatch.size >= 1000) {
+                            val actualStart = pointsBatch.first().timestamp
+                            val actualEnd = pointsBatch.last().timestamp
+                            val session = FishingSession(startedAt = actualStart, endedAt = actualEnd, notes = notes, fisherman = fisherman)
                             onSessionParsed(session, pointsBatch.toList())
                             pointsBatch.clear()
                         }
@@ -165,6 +167,9 @@ class JsonService {
                     reader.endArray()
                     
                     if (pointsBatch.isNotEmpty() || !pointsFound) {
+                        val actualStart = if (pointsBatch.isNotEmpty()) pointsBatch.first().timestamp else startedAtMs
+                        val actualEnd = if (pointsBatch.isNotEmpty()) pointsBatch.last().timestamp else endedAtMs
+                        val session = FishingSession(startedAt = actualStart, endedAt = actualEnd, notes = notes, fisherman = fisherman)
                         onSessionParsed(session, pointsBatch)
                     }
                 }
@@ -224,7 +229,13 @@ class JsonService {
                 if (existingIndex != -1) {
                     val pair = results[existingIndex]
                     val updatedPoints = pair.second + points
-                    results[existingIndex] = Pair(pair.first, updatedPoints)
+                    
+                    // Update session start/end times based on the merged points
+                    val actualStart = updatedPoints.firstOrNull()?.timestamp ?: pair.first.startedAt
+                    val actualEnd = updatedPoints.lastOrNull()?.timestamp ?: pair.first.endedAt
+                    val updatedSession = pair.first.copy(startedAt = actualStart, endedAt = actualEnd)
+                    
+                    results[existingIndex] = Pair(updatedSession, updatedPoints)
                 } else {
                     results.add(Pair(session, points))
                 }

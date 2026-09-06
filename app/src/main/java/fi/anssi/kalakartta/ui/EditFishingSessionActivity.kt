@@ -209,8 +209,10 @@ class EditFishingSessionActivity : AppCompatActivity() {
                 endSeekBar.max = points.size - 1
                 endSeekBar.progress = points.size - 1
 
-                newStartInput.setText(fullDateFormat.format(Date(points.first().timestamp)))
-                newEndInput.setText(fullDateFormat.format(Date(points.last().timestamp)))
+                val initialStart = points.first().timestamp
+                val initialEnd = points.last().timestamp
+                newStartInput.setText(fullDateFormat.format(Date(initialStart)))
+                newEndInput.setText(fullDateFormat.format(Date(initialEnd)))
 
                 val dialog = AlertDialog.Builder(this@EditFishingSessionActivity)
                     .setView(dialogView)
@@ -227,7 +229,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                             isUpdatingFromSeekBar = false
                             updateTrimLinkVisibility(
                                 newStartInput, newEndInput, trimSessionLink,
-                                startTime, endTime, fullDateFormat
+                                startTime, endTime, initialStart, initialEnd, fullDateFormat
                             )
                         }
                     }
@@ -244,7 +246,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                             isUpdatingFromSeekBar = false
                             updateTrimLinkVisibility(
                                 newStartInput, newEndInput, trimSessionLink,
-                                startTime, endTime, fullDateFormat
+                                startTime, endTime, initialStart, initialEnd, fullDateFormat
                             )
                         }
                     }
@@ -267,7 +269,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                     }
                     updateTrimLinkVisibility(
                         newStartInput, newEndInput, trimSessionLink,
-                        startTime, endTime, fullDateFormat
+                        startTime, endTime, initialStart, initialEnd, fullDateFormat
                     )
                 }
 
@@ -286,13 +288,13 @@ class EditFishingSessionActivity : AppCompatActivity() {
                     }
                     updateTrimLinkVisibility(
                         newStartInput, newEndInput, trimSessionLink,
-                        startTime, endTime, fullDateFormat
+                        startTime, endTime, initialStart, initialEnd, fullDateFormat
                     )
                 }
 
                 updateTrimLinkVisibility(
                     newStartInput, newEndInput, trimSessionLink,
-                    startTime, endTime, fullDateFormat
+                    startTime, endTime, initialStart, initialEnd, fullDateFormat
                 )
 
                 trimSessionLink.setOnClickListener {
@@ -387,8 +389,10 @@ class EditFishingSessionActivity : AppCompatActivity() {
         startInput: EditText,
         endInput: EditText,
         trimLink: TextView,
-        origStart: Long,
-        origEnd: Long,
+        minAllowed: Long,
+        maxAllowed: Long,
+        initialStart: Long,
+        initialEnd: Long,
         df: SimpleDateFormat
     ) {
         try {
@@ -396,10 +400,10 @@ class EditFishingSessionActivity : AppCompatActivity() {
             val newEnd = df.parse(endInput.text.toString()) ?: return
 
             val isValid = newStart.time < newEnd.time &&
-                    newStart.time >= origStart &&
-                    newEnd.time <= origEnd
+                    newStart.time >= minAllowed &&
+                    newEnd.time <= maxAllowed
 
-            val hasChanges = newStart.time != origStart || newEnd.time != origEnd
+            val hasChanges = newStart.time != initialStart || newEnd.time != initialEnd
 
             trimLink.visibility = if (isValid && hasChanges) android.view.View.VISIBLE else android.view.View.GONE
         } catch (e: ParseException) {

@@ -1747,7 +1747,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun finishUnfinishedSession(session: FishingSession, endTime: Long) {
         lifecycleScope.launch(Dispatchers.IO) {
-            db.fishingSessionDao().update(session.copy(endedAt = endTime))
+            val points = db.trackPointDao().getPointsForSession(session.id)
+            val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
+            val actualEnd = points.lastOrNull()?.timestamp ?: endTime
+            
+            db.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
             withContext(Dispatchers.Main) {
                 updateSessionLine()
                 android.widget.Toast.makeText(this@MainActivity, "Sessio päätetty", android.widget.Toast.LENGTH_SHORT).show()

@@ -287,9 +287,12 @@ class FishingSessionService : Service() {
             if (sessionId != -1L) {
                 val session = db.fishingSessionDao().getById(sessionId)
                 if (session != null) {
-                    val now = System.currentTimeMillis()
-                    durationMs = now - session.startedAt
-                    db.fishingSessionDao().update(session.copy(endedAt = now))
+                    val points = db.trackPointDao().getPointsForSession(sessionId)
+                    val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
+                    val actualEnd = points.lastOrNull()?.timestamp ?: System.currentTimeMillis()
+                    
+                    durationMs = actualEnd - actualStart
+                    db.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
                 }
             }
             
