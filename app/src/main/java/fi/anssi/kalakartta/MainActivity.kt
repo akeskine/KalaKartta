@@ -150,16 +150,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateSessionLine() {
+    fun updateSessionLine() {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val showLiveRoute = prefs.getBoolean("show_live_session_route", true)
+        
         val sessionId = fishingService?.getCurrentSessionId() ?: -1L
-        if (sessionId != -1L) {
+        if (sessionId != -1L && showLiveRoute) {
             lifecycleScope.launch(Dispatchers.IO) {
                 val points = db.trackPointDao().getPointsForSession(sessionId)
                 withContext(Dispatchers.Main) {
                     if (points.isNotEmpty()) {
                         if (sessionPolyline == null) {
                             sessionPolyline = Polyline(map).apply {
-                                outlinePaint.color = Color.GREEN
+                                outlinePaint.color = Color.rgb(144, 238, 144)
                                 outlinePaint.strokeWidth = 8f
                                 setOnClickListener { _, _, _ -> true }
                             }
@@ -1771,13 +1774,12 @@ class MainActivity : AppCompatActivity() {
             recordingLayout.visibility = android.view.View.VISIBLE
             statusText?.text = "REC"
             
-            if (!isBlinking) {
-                isBlinking = true
-                recordingHandler.removeCallbacks(recordingBlinkRunnable)
-                recordingDotVisible = true
-                dot?.visibility = android.view.View.VISIBLE
-                recordingHandler.postDelayed(recordingBlinkRunnable, 1000)
-            }
+            isBlinking = true
+            recordingHandler.removeCallbacks(recordingBlinkRunnable)
+            recordingDotVisible = true
+            dot?.visibility = android.view.View.VISIBLE
+            recordingHandler.postDelayed(recordingBlinkRunnable, 1000)
+            updateSessionLine()
         } else {
             recordingLayout.visibility = android.view.View.GONE
             isBlinking = false

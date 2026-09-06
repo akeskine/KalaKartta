@@ -2688,6 +2688,18 @@ class SettingsManager(
             }
             contentLayout.addView(statusText)
 
+            val showLiveRouteCb = CheckBox(activity).apply {
+                text = "Näytä tallennettavan session reitti"
+                val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                isChecked = prefs.getBoolean("show_live_session_route", true)
+                textSize = 16f
+                setOnCheckedChangeListener { _, isChecked ->
+                    prefs.edit().putBoolean("show_live_session_route", isChecked).apply()
+                    mainActivity?.updateSessionLine()
+                }
+            }
+            contentLayout.addView(showLiveRouteCb)
+
             val startButton = TextView(activity).apply {
                 text = "Aloita tallennus"
                 textSize = 16f
@@ -2735,6 +2747,7 @@ class SettingsManager(
                     val locationEnabled = isGpsEnabled || isNetworkEnabled
                     startButton.isEnabled = locationEnabled
                     startButton.visibility = if (locationEnabled) View.VISIBLE else View.GONE
+                    showLiveRouteCb.visibility = if (locationEnabled) View.VISIBLE else View.GONE
                     trackingSettingsLink.visibility = if (locationEnabled) View.VISIBLE else View.GONE
                     
                     if (locationEnabled) {
@@ -2814,6 +2827,18 @@ class SettingsManager(
                     kotlinx.coroutines.delay(1000)
                 }
             }
+
+            val showLiveRouteCb = CheckBox(activity).apply {
+                text = "Näytä tallennettavan session reitti"
+                val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                isChecked = prefs.getBoolean("show_live_session_route", true)
+                textSize = 16f
+                setOnCheckedChangeListener { _, isChecked ->
+                    prefs.edit().putBoolean("show_live_session_route", isChecked).apply()
+                    mainActivity?.updateSessionLine()
+                }
+            }
+            contentLayout.addView(showLiveRouteCb)
             
             val stopButton = TextView(activity).apply {
                 text = "Lopeta tallennus"
