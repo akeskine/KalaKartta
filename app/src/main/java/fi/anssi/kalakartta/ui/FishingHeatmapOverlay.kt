@@ -52,6 +52,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var maxSpeed = 10.0f
     private var minZoomLevel = 10.0
     private var maxTrackPoints = 50000
+    private var referenceLatitude = 64.7
 
     private data class RouteWithBounds(
         val points: List<TrackPointHeatmapData>,
@@ -91,6 +92,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
         minZoomLevel = prefs.getFloat("heatmap_min_zoom", 10.0f).toDouble()
         maxTrackPoints = prefs.getInt("max_track_points", 50000)
+        referenceLatitude = prefs.getFloat("heatmap_reference_latitude", 64.7f).toDouble()
 
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
@@ -157,7 +159,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val latDegreeMeters = 111320.0
                 // Käytetään vakiota (esim. Suomen keskipiste 64.7), jotta ruudukko on stabiili ja ennustettava.
                 // Dynaaminen latitudi draw-metodissa rikkoo ruudukon haun, jos se ei vastaa indeksointia.
-                val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
+                val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
 
                 val hasAnnualDateFilter = f.annualStartDay != null && f.annualStartMonth != null && 
                                         f.annualEndDay != null && f.annualEndMonth != null
@@ -467,8 +469,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             // Approksimaatio: 1 aste latitudia on n. 111320 metriä
             val latDegreeMeters = 111320.0
-            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään Suomen keskipistettä vakiona tässä funktiossa)
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
+            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään referenssileveyspiiriä vakiona tässä funktiossa)
+            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
             
             for (p in points) {
                 val x = (p.longitude * lonDegreeMeters / gridSizeMeters).toInt()
@@ -483,8 +485,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             
             // Approksimaatio: 1 aste latitudia on n. 111320 metriä
             val latDegreeMeters = 111320.0
-            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään Suomen keskipistettä vakiona tässä funktiossa)
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
+            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään referenssileveyspiiriä vakiona tässä funktiossa)
+            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
             
             for (p in points) {
                 val x = (p.longitude * lonDegreeMeters / gridSizeMeters).toInt()
@@ -510,7 +512,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             val boundingBox = projection.boundingBox
             val latDegreeMeters = 111320.0
             // Käytetään samaa stabiilia vakiota kuin indeksoinnissa
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(64.7))
+            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
             
             val minX = (boundingBox.lonWest * lonDegreeMeters / gridSizeMeters).toInt() - 1
             val maxX = (boundingBox.lonEast * lonDegreeMeters / gridSizeMeters).toInt() + 1

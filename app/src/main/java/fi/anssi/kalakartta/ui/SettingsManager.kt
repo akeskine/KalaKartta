@@ -1368,6 +1368,27 @@ class SettingsManager(
         row3.addView(minZoomEdit)
         layout.addView(row3)
 
+        // Rivi 4: Heatmap referenssileveyspiiri
+        val row4 = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val refLatLabel = TextView(activity).apply {
+            text = "Heatmap referenssileveyspiiri (0-180°):"
+        }
+        val refLatEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(prefs.getFloat("heatmap_reference_latitude", 64.7f).toString())
+        }
+        val refLatHint = TextView(activity).apply {
+            text = "Määrittää pituuspiirien välisen etäisyyden. Oletus: 64.7 (Suomen keskipiste). Arvoalue 0-180."
+            textSize = 12f
+        }
+        row4.addView(refLatLabel)
+        row4.addView(refLatEdit)
+        row4.addView(refLatHint)
+        layout.addView(row4)
+
         // Tulostus: Näkyvät määrät
         val statusText = TextView(activity).apply {
             text = "Lasketaan..."
@@ -1402,8 +1423,9 @@ class SettingsManager(
 
             // Heatmap ruudut
             val gridSize = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
+            val refLat = prefs.getFloat("heatmap_reference_latitude", 64.7f).toDouble()
             val latDegreeMeters = 111320.0
-            val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
+            val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(refLat))
             
             val cellCount = db.trackPointDao().getHeatmapCellCountFiltered(
                 checkRange = heatmapFilterEnabled && (filters.startDate != null || filters.endDate != null),
@@ -1433,10 +1455,14 @@ class SettingsManager(
                 val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: 50000
                 val maxCells = maxCellsEdit.text.toString().toIntOrNull() ?: 10000
                 val minZoom = minZoomEdit.text.toString().toFloatOrNull() ?: 10.0f
+                val refLatInput = refLatEdit.text.toString().toFloatOrNull()
+                val refLat = if (refLatInput != null && refLatInput in 0f..180f) refLatInput else 64.7f
+                
                 prefs.edit().apply {
                     putInt("max_track_points", maxPoints)
                     putInt("max_heatmap_cells", maxCells)
                     putFloat("heatmap_min_zoom", minZoom)
+                    putFloat("heatmap_reference_latitude", refLat)
                     apply()
                 }
                 openGeneralSettings()
