@@ -3,6 +3,7 @@ package fi.anssi.kalakartta.ui
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.View
 import android.view.MotionEvent
@@ -14,6 +15,7 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.widget.*
+import android.widget.RelativeLayout
 import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.BuildConfig
 import androidx.appcompat.app.AlertDialog
@@ -945,14 +947,113 @@ class SettingsManager(
             setPadding(60, 40, 60, 40)
         }
 
-        // Siirtymäpisteiden poisto siirretty heatmapin lisäasetuksiin.
-        // Jätetään dialogi silti, jos sille tulee myöhemmin käyttöä, 
-        // tai jos halutaan säilyttää valikko-rakenne.
-        layout.addView(TextView(activity).apply {
-            text = "Ei lisäasetuksia reiteille."
-            textSize = 16f
-            setPadding(0, 20, 0, 20)
+        val typedValue = android.util.TypedValue()
+        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
+        val primaryTextColor = if (typedValue.resourceId != 0) {
+            activity.getColor(typedValue.resourceId)
+        } else {
+            typedValue.data
+        }
+
+        // Checkbox: Häivytä vanhat reittiviitat
+        val fadeEnabledCheckbox = CheckBox(activity).apply {
+            text = "Häivytä vanhat reittiviitat"
+            setTextColor(primaryTextColor)
+            isChecked = prefs.getBoolean("routes_fade_enabled", false)
+            setPadding(20, 20, 20, 20)
+        }
+        layout.addView(fadeEnabledCheckbox)
+
+        // Lisäasetusten kontti
+        val fadeSettingsLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = if (fadeEnabledCheckbox.isChecked) View.VISIBLE else View.GONE
+        }
+        layout.addView(fadeSettingsLayout)
+
+        // Visuaalinen palkki
+        val previewLine = View(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 8).apply {
+                topMargin = 40
+                bottomMargin = 10
+            }
+            val colorStr = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
+            val baseColor = when (colorStr) {
+                activity.getString(R.string.color_purple) -> Color.rgb(128, 0, 128)
+                activity.getString(R.string.color_green) -> Color.GREEN
+                else -> Color.RED
+            }
+            val startColor = Color.argb(20, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+            val endColor = Color.argb(200, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(startColor, endColor)
+            )
+        }
+        fadeSettingsLayout.addView(previewLine)
+
+        // Syöttökentät
+        val inputsLayout = RelativeLayout(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        
+        val startLimitEdit = EditText(activity).apply {
+            id = View.generateViewId()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("routes_fade_start_days", 365).toString())
+            textSize = 14f
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            layoutParams = RelativeLayout.LayoutParams(150, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_LEFT)
+            }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s.toString().toIntOrNull() ?: 365
+                    prefs.edit().putInt("routes_fade_start_days", value).apply()
+                    onMapSettingsChanged()
+                }
+            })
+        }
+        inputsLayout.addView(startLimitEdit)
+
+        val fullLimitEdit = EditText(activity).apply {
+            id = View.generateViewId()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(prefs.getInt("routes_fade_full_days", 30).toString())
+            textSize = 14f
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            layoutParams = RelativeLayout.LayoutParams(150, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+            }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s.toString().toIntOrNull() ?: 30
+                    prefs.edit().putInt("routes_fade_full_days", value).apply()
+                    onMapSettingsChanged()
+                }
+            })
+        }
+        inputsLayout.addView(fullLimitEdit)
+        
+        fadeSettingsLayout.addView(inputsLayout)
+
+        // Yksikköteksti
+        fadeSettingsLayout.addView(TextView(activity).apply {
+            text = "Yksikkönä päivä. Vasen: häivytys alkaa, Oikea: täysin näkyvä."
+            textSize = 12f
+            setTextColor(primaryTextColor)
+            setPadding(0, 10, 0, 20)
         })
+
+        fadeEnabledCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("routes_fade_enabled", isChecked).apply()
+            fadeSettingsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            onMapSettingsChanged()
+        }
 
         layout.addView(createBackLink {
             openFishingHeatmapSettings()

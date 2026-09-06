@@ -46,6 +46,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var routesEnabled = false
     private var heatmapFilterEnabled = false
     private var routesFilterEnabled = false
+    private var routesFadeEnabled = false
+    private var routesFadeStartLimitDays = 365
+    private var routesFadeFullLimitDays = 30
     private var calculationMethod = ""
     private var removeTransitions = false
     private var removeTransitionsMode = 0
@@ -77,6 +80,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val oldHeatmapFilterEnabled = heatmapFilterEnabled
         val oldRoutesFilterEnabled = routesFilterEnabled
         val oldAutoConfigure = autoConfigure
+        val oldRoutesFadeEnabled = routesFadeEnabled
+        val oldRoutesFadeStartLimitDays = routesFadeStartLimitDays
+        val oldRoutesFadeFullLimitDays = routesFadeFullLimitDays
 
         gridSizeMeters = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
         autoConfigure = prefs.getBoolean("heatmap_auto_configure", true)
@@ -86,6 +92,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
         heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
         routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
+        routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", false)
+        routesFadeStartLimitDays = prefs.getInt("routes_fade_start_days", 365)
+        routesFadeFullLimitDays = prefs.getInt("routes_fade_full_days", 30)
         calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_points)) ?: context.getString(R.string.heatmap_method_points)
         removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
         removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
@@ -102,7 +111,10 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         }
         return oldGridSize != gridSizeMeters || oldHeatmapEnabled != heatmapEnabled ||
                 oldRoutesEnabled != routesEnabled || oldHeatmapFilterEnabled != heatmapFilterEnabled ||
-                oldRoutesFilterEnabled != routesFilterEnabled || oldAutoConfigure != autoConfigure
+                oldRoutesFilterEnabled != routesFilterEnabled || oldAutoConfigure != autoConfigure ||
+                oldRoutesFadeEnabled != routesFadeEnabled ||
+                oldRoutesFadeStartLimitDays != routesFadeStartLimitDays ||
+                oldRoutesFadeFullLimitDays != routesFadeFullLimitDays
     }
 
     private fun getPoints(f: fi.anssi.kalakartta.ui.FilterManager.Filters, hasAreaFilter: Boolean, latSouth: Double? = null, latNorth: Double? = null, lonWest: Double? = null, lonEast: Double? = null): List<TrackPointHeatmapData> {
@@ -578,12 +590,33 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             val minLon = bbox.lonWest - margin
             val maxLon = bbox.lonEast + margin
 
+            val now = System.currentTimeMillis()
             for (route in routeData) {
                 // 1. Reittikohtainen Bounding Box -tarkistus
                 if (route.maxLat < minLat || route.minLat > maxLat || 
                     route.maxLon < minLon || route.minLon > maxLon) continue
 
                 if (route.points.size < 2) continue
+                
+                if (routesFadeEnabled) {
+                    val timestamp = route.points.firstOrNull()?.timestamp ?: 0L
+                    val ageMs = now - timestamp
+                    val ageDays = ageMs / (1000L * 60 * 60 * 24)
+                    
+                    if (ageDays > routesFadeStartLimitDays) continue
+                    
+                    val alpha = if (ageDays < routesFadeFullLimitDays) {
+                        200
+                    } else {
+                        val range = (routesFadeStartLimitDays - routesFadeFullLimitDays).toDouble().coerceAtLeast(1.0)
+                        val pos = (ageDays - routesFadeFullLimitDays).toDouble()
+                        val ratio = 1.0 - (pos / range)
+                        (ratio * 200).toInt().coerceIn(0, 200)
+                    }
+                    paint.alpha = alpha
+                } else {
+                    paint.alpha = 200
+                }
                 
                 var first = true
                 var prevX = 0f
