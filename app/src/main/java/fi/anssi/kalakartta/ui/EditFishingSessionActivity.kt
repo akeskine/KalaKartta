@@ -191,8 +191,8 @@ class EditFishingSessionActivity : AppCompatActivity() {
                     return@withContext
                 }
 
-                val startTime = s.startedAt
-                val endTime = s.endedAt ?: System.currentTimeMillis()
+                val minAllowed = points.first().timestamp
+                val maxAllowed = points.last().timestamp
 
                 val dialogView = layoutInflater.inflate(R.layout.dialog_trim_session, null)
                 val startSeekBar = dialogView.findViewById<SeekBar>(R.id.startSeekBar)
@@ -229,7 +229,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                             isUpdatingFromSeekBar = false
                             updateTrimLinkVisibility(
                                 newStartInput, newEndInput, trimSessionLink,
-                                startTime, endTime, initialStart, initialEnd, fullDateFormat
+                                minAllowed, maxAllowed, initialStart, initialEnd, fullDateFormat
                             )
                         }
                     }
@@ -246,7 +246,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                             isUpdatingFromSeekBar = false
                             updateTrimLinkVisibility(
                                 newStartInput, newEndInput, trimSessionLink,
-                                startTime, endTime, initialStart, initialEnd, fullDateFormat
+                                minAllowed, maxAllowed, initialStart, initialEnd, fullDateFormat
                             )
                         }
                     }
@@ -269,7 +269,7 @@ class EditFishingSessionActivity : AppCompatActivity() {
                     }
                     updateTrimLinkVisibility(
                         newStartInput, newEndInput, trimSessionLink,
-                        startTime, endTime, initialStart, initialEnd, fullDateFormat
+                        minAllowed, maxAllowed, initialStart, initialEnd, fullDateFormat
                     )
                 }
 
@@ -288,13 +288,13 @@ class EditFishingSessionActivity : AppCompatActivity() {
                     }
                     updateTrimLinkVisibility(
                         newStartInput, newEndInput, trimSessionLink,
-                        startTime, endTime, initialStart, initialEnd, fullDateFormat
+                        minAllowed, maxAllowed, initialStart, initialEnd, fullDateFormat
                     )
                 }
 
                 updateTrimLinkVisibility(
                     newStartInput, newEndInput, trimSessionLink,
-                    startTime, endTime, initialStart, initialEnd, fullDateFormat
+                    minAllowed, maxAllowed, initialStart, initialEnd, fullDateFormat
                 )
 
                 trimSessionLink.setOnClickListener {
@@ -325,8 +325,8 @@ class EditFishingSessionActivity : AppCompatActivity() {
                         return@setOnClickListener
                     }
 
-                    val startDiff = newStartActual - startTime
-                    val endDiff = endTime - newEndActual
+                    val startDiff = newStartActual - minAllowed
+                    val endDiff = maxAllowed - newEndActual
 
                     val startDiffStr = formatDuration(startDiff)
                     val endDiffStr = formatDuration(endDiff)
@@ -396,14 +396,20 @@ class EditFishingSessionActivity : AppCompatActivity() {
         df: SimpleDateFormat
     ) {
         try {
-            val newStart = df.parse(startInput.text.toString()) ?: return
-            val newEnd = df.parse(endInput.text.toString()) ?: return
+            val newStart = df.parse(startInput.text.toString())?.time ?: return
+            val newEnd = df.parse(endInput.text.toString())?.time ?: return
 
-            val isValid = newStart.time < newEnd.time &&
-                    newStart.time >= minAllowed &&
-                    newEnd.time <= maxAllowed
+            // Nollataan millisekunnit vertailua varten, koska df (dd.MM.yyyy HH:mm:ss) ei sisällä niitä
+            val initialStartTrunc = initialStart / 1000 * 1000
+            val initialEndTrunc = initialEnd / 1000 * 1000
+            val minAllowedTrunc = minAllowed / 1000 * 1000
+            val maxAllowedTrunc = maxAllowed / 1000 * 1000
 
-            val hasChanges = newStart.time != initialStart || newEnd.time != initialEnd
+            val isValid = newStart < newEnd &&
+                    newStart >= minAllowedTrunc &&
+                    newEnd <= maxAllowedTrunc
+
+            val hasChanges = newStart != initialStartTrunc || newEnd != initialEndTrunc
 
             trimLink.visibility = if (isValid && hasChanges) android.view.View.VISIBLE else android.view.View.GONE
         } catch (e: ParseException) {
