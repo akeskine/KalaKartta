@@ -803,28 +803,7 @@ class SettingsManager(
         methodRow.addView(methodSpinner)
         layout.addView(methodRow)
 
-        layout.addView(createBackLink {
-            prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
-            openFishingHeatmapSettings()
-        })
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.heatmap_advanced_settings))
-            .setView(ScrollView(activity).apply { addView(layout) })
-            .setOnCancelListener {
-                prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
-            }
-            .create()
-        showDialog(dialog)
-    }
-
-    private fun openFishingRouteAdvancedSettings() {
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
+        // Siirtymäpisteiden poisto siirretty tänne
         val removeTransitionsCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_remove_transitions)
             isChecked = prefs.getBoolean("heatmap_remove_transitions", false)
@@ -943,6 +922,37 @@ class SettingsManager(
         layout.addView(removeTransitionsCb)
         layout.addView(removalModeLayout)
         layout.addView(speedInputLayout)
+
+        layout.addView(createBackLink {
+            prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+            openFishingHeatmapSettings()
+        })
+
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.heatmap_advanced_settings))
+            .setView(ScrollView(activity).apply { addView(layout) })
+            .setOnCancelListener {
+                prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+            }
+            .create()
+        showDialog(dialog)
+    }
+
+    private fun openFishingRouteAdvancedSettings() {
+        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(60, 40, 60, 40)
+        }
+
+        // Siirtymäpisteiden poisto siirretty heatmapin lisäasetuksiin.
+        // Jätetään dialogi silti, jos sille tulee myöhemmin käyttöä, 
+        // tai jos halutaan säilyttää valikko-rakenne.
+        layout.addView(TextView(activity).apply {
+            text = "Ei lisäasetuksia reiteille."
+            textSize = 16f
+            setPadding(0, 20, 0, 20)
+        })
 
         layout.addView(createBackLink {
             openFishingHeatmapSettings()
