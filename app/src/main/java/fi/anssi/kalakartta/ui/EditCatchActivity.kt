@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.PressureSample
 import fi.anssi.kalakartta.data.FishSpecies
 import fi.anssi.kalakartta.data.Media
 import fi.anssi.kalakartta.data.MediaService
@@ -73,6 +74,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var otherSpeciesEditText: EditText
     private lateinit var otherSpeciesContainer: View
     private lateinit var pressureEditText: EditText
+    private lateinit var pressureGraph: PressureGraphView
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
     private lateinit var titleSpeciesIcon: ImageView
@@ -194,6 +196,7 @@ class EditCatchActivity : AppCompatActivity() {
         otherSpeciesEditText = findViewById(R.id.otherSpeciesEditText)
         otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
         pressureEditText = findViewById(R.id.pressureEditText)
+        pressureGraph = findViewById(R.id.pressureGraph)
         placeNameEditText = findViewById(R.id.placeNameEditText)
         placeNameContainer = findViewById(R.id.placeNameContainer)
         latEditText = findViewById(R.id.latEditText)
@@ -568,6 +571,21 @@ class EditCatchActivity : AppCompatActivity() {
             }
         }
         isUpdatingFromCode = false
+        
+        // Mock data for pressure graph
+        if (!isPlace) {
+            fishCatch?.let { fc ->
+                if (fc.caughtAt != null && fc.caughtAt!! > 0L) {
+                    val mockSamples = generateMockPressureSamples(fc.caughtAt!!)
+                    val updatedFc = fc.copy(pressureSamples = mockSamples)
+                    fishCatch = updatedFc
+                    
+                    pressureGraph.setData(mockSamples, fc.caughtAt!!)
+                    pressureGraph.visibility = View.VISIBLE
+                }
+            }
+        }
+
         refreshMediaList()
         updateMoonData()
     }
@@ -1006,5 +1024,24 @@ class EditCatchActivity : AppCompatActivity() {
     private fun String.toDoubleSafe(default: Double = 0.0): Double {
         val d = this.replace(',', '.').toDoubleOrNull()
         return if (d == null || d.isNaN()) default else d
+    }
+
+    private fun generateMockPressureSamples(caughtAt: Long): List<PressureSample> {
+        val samples = mutableListOf<PressureSample>()
+        val startPressure = 1030.0
+        val endPressure = 990.0
+        val durationHours = 12.0
+        val startTime = caughtAt - 6 * 60 * 60 * 1000L
+        val intervalMs = 30 * 60 * 1000L // 30 min välein
+        
+        val steps = (durationHours * 60 * 60 * 1000 / intervalMs).toInt()
+        val pressureStep = (endPressure - startPressure) / steps
+        
+        for (i in 0..steps) {
+            val time = startTime + i * intervalMs
+            val pressure = startPressure + i * pressureStep
+            samples.add(PressureSample(time, pressure))
+        }
+        return samples
     }
 }
