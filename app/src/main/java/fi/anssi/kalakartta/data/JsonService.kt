@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import android.util.Base64
 import android.util.JsonReader
+import fi.anssi.kalakartta.utils.MoonCalculator
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -12,6 +13,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class JsonService {
+    
+    private val moonCalculator = MoonCalculator()
     
     private val isoFormatThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
         override fun initialValue(): SimpleDateFormat {
@@ -426,8 +429,20 @@ class JsonService {
                 }
                 obj.put("pressureSamples", samplesArray)
             }
-            if (it.moonPhase != null) obj.put("moonPhase", it.moonPhase)
-            if (it.moonAltitude != null) obj.put("moonAltitude", it.moonAltitude)
+            var mPhase = it.moonPhase
+            var mAltitude = it.moonAltitude
+            
+            if (it.caughtAt != null && it.caughtAt > 0) {
+                if (mPhase == null) mPhase = moonCalculator.getMoonPhase(it.caughtAt)
+                if (mAltitude == null) mAltitude = moonCalculator.getMoonAltitude(it.latitude, it.longitude, it.caughtAt)
+            }
+            
+            if (mPhase != null) {
+                obj.put("moonPhase", String.format(Locale.US, "%.2f", mPhase).toDouble())
+            }
+            if (mAltitude != null) {
+                obj.put("moonAltitude", Math.round(mAltitude).toInt())
+            }
             array.put(obj)
         }
         return array
@@ -651,6 +666,25 @@ class JsonService {
                     } else null
                 }
 
+                var moonPhase = if (obj.isNull("moonPhase")) null else obj.optDouble("moonPhase")
+                var moonAltitude = if (obj.isNull("moonAltitude")) null else obj.optDouble("moonAltitude")
+
+                if (caughtAtLong != null && caughtAtLong > 0) {
+                    if (moonPhase == null) moonPhase = moonCalculator.getMoonPhase(caughtAtLong)
+                    if (moonAltitude == null) {
+                        val lat = if (obj.isNull("latitude") || !obj.has("latitude")) 60.0 else obj.optDouble("latitude", 60.0)
+                        val lon = if (obj.isNull("longitude") || !obj.has("longitude")) 24.0 else obj.optDouble("longitude", 24.0)
+                        moonAltitude = moonCalculator.getMoonAltitude(lat, lon, caughtAtLong)
+                    }
+                }
+
+                if (moonPhase != null) {
+                    moonPhase = String.format(Locale.US, "%.2f", moonPhase).toDouble()
+                }
+                if (moonAltitude != null) {
+                    moonAltitude = Math.round(moonAltitude).toDouble()
+                }
+
                 val catch = FishCatch(
                     id = 0,
                     species = obj.optString("species", "UNKNOWN"),
@@ -692,8 +726,8 @@ class JsonService {
                     weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime"),
                     pressureTrend = if (obj.isNull("pressureTrend")) null else obj.optDouble("pressureTrend"),
                     pressureSamples = parsePressureSamples(obj.optJSONArray("pressureSamples")),
-                    moonPhase = if (obj.isNull("moonPhase")) null else obj.optDouble("moonPhase"),
-                    moonAltitude = if (obj.isNull("moonAltitude")) null else obj.optDouble("moonAltitude")
+                    moonPhase = moonPhase,
+                    moonAltitude = moonAltitude
                 )
                 result.add(catch)
             } catch (e: Exception) {
