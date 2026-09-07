@@ -12,10 +12,17 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class JsonService {
-
-    val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
+    
+    private val isoFormatThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue(): SimpleDateFormat {
+            return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+        }
     }
+
+    val isoFormat: SimpleDateFormat
+        get() = isoFormatThreadLocal.get()!!
 
     fun writeRoutesToWriter(
         writer: android.util.JsonWriter,

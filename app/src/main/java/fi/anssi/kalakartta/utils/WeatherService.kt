@@ -3,6 +3,7 @@
 import android.content.Context
 import android.location.Location
 import android.util.Xml
+import fi.anssi.kalakartta.data.PressureSample
 import org.xmlpull.v1.XmlPullParser
 import java.net.HttpURLConnection
 import java.net.URL
@@ -52,6 +53,7 @@ class WeatherService(private val context: Context) {
                     finalData.putAll(existingData)
                 }
                 val usedStations = mutableListOf<String>()
+                var pressureStationInfo: String? = null
                 var bestTime: Long? = null
 
                 val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
@@ -80,6 +82,10 @@ class WeatherService(private val context: Context) {
                     val data = result.first
                     if (data != null && data.isNotEmpty()) {
                         android.util.Log.d("KalaKartta", "Asema palautti: $data")
+                        
+                        val providesPressure = data.containsKey("p_sea") || data.containsKey("p_msl")
+                        val neededPressure = keysToFill.contains("p_sea") || keysToFill.contains("p_msl")
+                        
                         var addedAnyFromThisStation = false
                         for (key in keysToFill.toList()) {
                             if (data.containsKey(key)) {
@@ -119,11 +125,20 @@ class WeatherService(private val context: Context) {
                         }
 
                         if (addedAnyFromThisStation) {
-                            usedStations.add("${station.fmisid}:${station.name}")
+                            val info = "${station.fmisid}:${station.name}"
+                            if (providesPressure && neededPressure && pressureStationInfo == null) {
+                                pressureStationInfo = info
+                            } else {
+                                usedStations.add(info)
+                            }
                             if (bestTime == null) bestTime = result.second
                         }
                     }
                     if (keysToFill.isEmpty()) break
+                }
+
+                if (pressureStationInfo != null) {
+                    usedStations.add(0, pressureStationInfo!!)
                 }
 
                 val stationInfo = if (usedStations.isNotEmpty()) {
@@ -200,6 +215,7 @@ class WeatherService(private val context: Context) {
                 finalData.putAll(existingData)
             }
             val usedStations = mutableListOf<String>()
+            var pressureStationInfo: String? = null
             var bestTime: Long? = null
 
             val keysToFill = mutableSetOf("t2m", "nn_ll01", "n_man", "r_1h", "ws_10min", "wd_10min", "p_sea", "p_msl", "ri_10min")
@@ -230,6 +246,10 @@ class WeatherService(private val context: Context) {
                 val data = result.first
                 if (data != null && data.isNotEmpty()) {
                     android.util.Log.d("KalaKartta", "Asema palautti: $data")
+                    
+                    val providesPressure = data.containsKey("p_sea") || data.containsKey("p_msl")
+                    val neededPressure = keysToFill.contains("p_sea") || keysToFill.contains("p_msl")
+                    
                     var addedAnyFromThisStation = false
                     val foundThisStation = mutableListOf<String>()
                     for (key in keysToFill.toList()) {
@@ -276,11 +296,20 @@ class WeatherService(private val context: Context) {
                     }
 
                     if (addedAnyFromThisStation) {
-                        usedStations.add("${station.fmisid}:${station.name}")
+                        val info = "${station.fmisid}:${station.name}"
+                        if (providesPressure && neededPressure && pressureStationInfo == null) {
+                            pressureStationInfo = info
+                        } else {
+                            usedStations.add(info)
+                        }
                         if (bestTime == null) bestTime = result.second
                     }
                 }
                 if (keysToFill.isEmpty()) break
+            }
+
+            if (pressureStationInfo != null) {
+                usedStations.add(0, pressureStationInfo!!)
             }
 
             val stationInfo = if (usedStations.isNotEmpty()) {
@@ -323,6 +352,103 @@ class WeatherService(private val context: Context) {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             fetchWeatherDataSync(fmisid, targetTime)
         }
+    }
+
+    suspend fun fetchPressureSamplesSuspend(fmisid: String, startTime: Long, endTime: Long): List<PressureSample> {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                }
+                
+                val startStr = isoFormat.format(java.util.Date(startTime))
+                val endStr = isoFormat.format(java.util.Date(endTime))
+                
+                val urlString = OBSERVATIONS_URL + fmisid + "&starttime=$startStr&endtime=$endStr&timestep=60"
+                android.util.Log.i("KalaKartta", "Haetaan ilmanpainehistoria FMI:ltä: $urlString")
+                
+                val url = URL(urlString)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+
+                if (connection.responseCode != 200) {
+                    android.util.Log.e("KalaKartta", "FMI-haku epäonnistui: ${connection.responseCode} ${connection.responseMessage}")
+                    return@withContext emptyList<PressureSample>()
+                }
+
+                val observations = connection.inputStream.use { 
+                    parseAllWeatherObservations(it)
+                }
+                
+                val samples = observations.mapNotNull { (time, params) ->
+                    val pressure = params["p_sea"] ?: params["p_msl"]
+                    if (pressure != null) {
+                        PressureSample(time, pressure)
+                    } else {
+                        null
+                    }
+                }.sortedBy { it.time }
+                
+                android.util.Log.d("KalaKartta", "Löydetty ${samples.size} ilmanpainenäytettä asemalta $fmisid")
+                samples.forEach { 
+                    android.util.Log.d("KalaKartta", "  Sample: time=${it.time}, pressure=${it.pressure}")
+                }
+                
+                samples
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Virhe painenäytteiden haussa: ${e.message}", e)
+                emptyList<PressureSample>()
+            }
+        }
+    }
+
+    private fun parseAllWeatherObservations(inputStream: java.io.InputStream): Map<Long, Map<String, Double>> {
+        val allObservations = mutableMapOf<Long, MutableMap<String, Double>>()
+        val parser = Xml.newPullParser()
+        parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
+        parser.setInput(inputStream, null)
+
+        val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+
+        var eventType = parser.eventType
+        var currentParam = ""
+        var currentTime: Long? = null
+        
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            try {
+                val tagName = parser.name
+                when (eventType) {
+                    XmlPullParser.START_TAG -> {
+                        when (tagName) {
+                            "Time" -> {
+                                val timeStr = parser.nextText()
+                                if (timeStr.isNotEmpty()) {
+                                    try {
+                                        currentTime = isoFormat.parse(timeStr)?.time
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                            "ParameterName" -> currentParam = parser.nextText()
+                            "ParameterValue" -> {
+                                val valueStr = parser.nextText()
+                                val value = valueStr.toDoubleOrNull()
+                                if (value != null && !value.isNaN() && currentParam.isNotEmpty() && currentTime != null) {
+                                    val observation = allObservations.getOrPut(currentTime!!) { mutableMapOf() }
+                                    observation[currentParam] = value
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ohitetaan yksittäiset parsimisvirheet
+            }
+            eventType = parser.next()
+        }
+        return allObservations
     }
 
     private fun parseWeatherObservations(inputStream: java.io.InputStream, targetTime: Long?): Pair<Map<String, Double>, Long?> {

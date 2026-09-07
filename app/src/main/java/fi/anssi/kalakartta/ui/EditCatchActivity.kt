@@ -12,6 +12,10 @@ import android.widget.*
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
@@ -302,6 +306,7 @@ class EditCatchActivity : AppCompatActivity() {
 
             if (catchId == -1L) {
                 titleTextView.setText(R.string.add_detailed_title)
+                android.util.Log.d("KalaKartta", "loadData: Uusi saalis, alustetaan säätiedot")
                 setupWeatherForNewCatch(fishCatch!!.latitude, fishCatch!!.longitude)
             } else {
                 titleTextView.setText(R.string.edit_catch_title)
@@ -572,16 +577,19 @@ class EditCatchActivity : AppCompatActivity() {
         }
         isUpdatingFromCode = false
         
-        // Mock data for pressure graph
+        // Pressure graph
         if (!isPlace) {
             fishCatch?.let { fc ->
-                if (fc.caughtAt != null && fc.caughtAt!! > 0L) {
-                    val mockSamples = generateMockPressureSamples(fc.caughtAt!!)
-                    val updatedFc = fc.copy(pressureSamples = mockSamples)
-                    fishCatch = updatedFc
-                    
-                    pressureGraph.setData(mockSamples, fc.caughtAt!!)
+                if (fc.pressureSamples.isNotEmpty() && fc.caughtAt != null && fc.caughtAt!! > 0L) {
+                    pressureGraph.setData(fc.pressureSamples, fc.caughtAt!!)
                     pressureGraph.visibility = View.VISIBLE
+                } else if (fc.caughtAt != null && fc.caughtAt!! > 0L && !fc.weatherStation.isNullOrEmpty()) {
+                    val fmisid = getFmisidFromStationInfo(fc.weatherStation!!)
+                    if (fmisid != null) {
+                        fetchPressureHistory(fc.caughtAt!!, fmisid)
+                    }
+                } else {
+                    pressureGraph.visibility = View.GONE
                 }
             }
         }
@@ -780,16 +788,20 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun setupWeatherForNewCatch(lat: Double, lon: Double) {
+        android.util.Log.d("KalaKartta", "setupWeatherForNewCatch: lat=$lat, lon=$lon")
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         if (prefs.getBoolean("weather_enabled", true)) {
             autoWeatherCheckBox.visibility = View.VISIBLE
             autoWeatherCheckBox.isChecked = true
             weatherService.fetchNearestStations(lat, lon, selectedCalendar.timeInMillis, 1) { stations, _ ->
                 runOnUiThread {
+                    android.util.Log.d("KalaKartta", "setupWeatherForNewCatch callback: stations=${stations?.size}")
                     stations?.firstOrNull()?.let {
                         nearestStation = it
                         nearestStationText.text = "Sääasema: ${it.name}"
-                        if (autoWeatherCheckBox.isChecked) fetchWeatherForDisplay()
+                        if (autoWeatherCheckBox.isChecked) {
+                            fetchWeatherForDisplay()
+                        }
                     }
                 }
             }
@@ -803,18 +815,29 @@ class EditCatchActivity : AppCompatActivity() {
         val catchInfo = if (fishCatch != null) "ID: ${fishCatch!!.id}" else "Uusi saalis"
         weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis, null, catchInfo) { data, time, error, stations ->
             runOnUiThread {
+                android.util.Log.d("KalaKartta", "fetchWeatherForDisplay callback: data=${data?.size} keys, time=$time, stations='$stations'")
                 if (data != null) {
-                    applyWeatherData(data, time, null, onlyMissing)
                     currentWeatherStation = stations
+                    applyWeatherData(data, time, null, onlyMissing)
                     nearestStationText.text = "Sääasema: ${nearestStation?.name ?: ""}"
+                    
+                    val fmisid = getFmisidFromStationInfo(stations)
+                    android.util.Log.d("KalaKartta", "fetchWeatherForDisplay callback: fmisid='$fmisid' parsittu asemasta '$stations'")
+                    if (fmisid != null) {
+                        fetchPressureHistory(time ?: selectedCalendar.timeInMillis, fmisid)
+                    } else {
+                        android.util.Log.w("KalaKartta", "fetchWeatherForDisplay: fmisid on null, ei voida hakea historiaa")
+                    }
                 } else {
                     nearestStationText.text = "Virhe: $error"
+                    android.util.Log.e("KalaKartta", "fetchWeatherForDisplay: virhe=$error")
                 }
             }
         }
     }
 
     private fun applyWeatherData(data: Map<String, Double>, time: Long?, station: WeatherStation?, onlyMissing: Boolean = false) {
+        android.util.Log.d("KalaKartta", "applyWeatherData: data=$data, time=$time, station=${station?.name}, onlyMissing=$onlyMissing")
         val wasUpdating = isUpdatingFromCode
         isUpdatingFromCode = true
         fun setText(et: EditText, v: Double?) {
@@ -853,18 +876,50 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun saveChanges() {
-        if (autoWeatherCheckBox.visibility == View.VISIBLE && autoWeatherCheckBox.isChecked) {
-            val progress = AlertDialog.Builder(this).setMessage("Päivitetään säätietoja...").setCancelable(false).show()
-            val lat = latEditText.text.toString().toDoubleSafe()
-            val lon = lonEditText.text.toString().toDoubleSafe()
-            weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis, null, "Save") { data, time, _, stations ->
-                runOnUiThread {
-                    progress.dismiss()
-                    data?.let { applyWeatherData(it, time, null); currentWeatherStation = stations; currentWeatherSource = "FMI" }
-                    performFinalSave()
+        lifecycleScope.launch {
+            if (autoWeatherCheckBox.visibility == View.VISIBLE && autoWeatherCheckBox.isChecked) {
+                val progress = withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(this@EditCatchActivity).setMessage("Päivitetään säätietoja...").setCancelable(false).show()
                 }
+                val lat = latEditText.text.toString().toDoubleSafe()
+                val lon = lonEditText.text.toString().toDoubleSafe()
+                
+                val result = weatherService.fetchWeatherFromMultipleStationsSuspend(lat, lon, selectedCalendar.timeInMillis, null, "Save")
+                val data = result.first
+                val time = result.second
+                val stations = result.third
+                
+                withContext(Dispatchers.Main) {
+                    progress.dismiss()
+                    android.util.Log.d("KalaKartta", "saveChanges main thread: data=${data?.size} keys, stations='$stations'")
+                    if (data != null) {
+                        applyWeatherData(data, time, null)
+                        currentWeatherStation = stations
+                        currentWeatherSource = "FMI"
+                        
+                        val fmisid = getFmisidFromStationInfo(stations)
+                        android.util.Log.d("KalaKartta", "saveChanges main thread: fmisid='$fmisid' parsittu asemasta '$stations'")
+                        if (fmisid != null) {
+                            val targetTime = time ?: selectedCalendar.timeInMillis
+                            val startTime = targetTime - 6 * 60 * 60 * 1000L
+                            val endTime = Math.min(targetTime + 6 * 60 * 60 * 1000L, System.currentTimeMillis())
+                            android.util.Log.d("KalaKartta", "saveChanges: haetaan historiaa väliltä $startTime - $endTime, asema $fmisid")
+                            val samples = weatherService.fetchPressureSamplesSuspend(fmisid, startTime, endTime)
+                            android.util.Log.d("KalaKartta", "saveChanges: saatiin ${samples.size} näytettä")
+                            if (samples.isNotEmpty()) {
+                                fishCatch = fishCatch?.copy(pressureSamples = samples)
+                                android.util.Log.d("KalaKartta", "saveChanges: asetettiin ${samples.size} näytettä fishCatchiin")
+                            }
+                        }
+                        performFinalSave()
+                    } else {
+                        performFinalSave()
+                    }
+                }
+            } else {
+                performFinalSave()
             }
-        } else performFinalSave()
+        }
     }
 
     private fun performFinalSave() {
@@ -922,8 +977,10 @@ class EditCatchActivity : AppCompatActivity() {
                 additionalInfo = additionalInfoEditText.text.toString(),
                 fisherman = fishermanEditText.text.toString().trim(),
                 latitude = latEditText.text.toString().toDoubleSafe(fc.latitude),
-                longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude)
+                longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude),
+                pressureSamples = fc.pressureSamples
             )
+            android.util.Log.d("KalaKartta", "performFinalSave: tallennetaan ${updated.pressureSamples.size} näytettä")
             Thread {
                 if (updated.id == 0L) db.fishCatchDao().insert(updated) else db.fishCatchDao().update(updated)
                 runOnUiThread {
@@ -1021,27 +1078,49 @@ class EditCatchActivity : AppCompatActivity() {
         }
     }
 
+    private fun getFmisidFromStationInfo(stationInfo: String): String? {
+        android.util.Log.d("KalaKartta", "getFmisidFromStationInfo: stationInfo='$stationInfo'")
+        if (stationInfo.isEmpty()) return null
+        val firstStation = stationInfo.split(",").firstOrNull()?.trim() ?: return null
+        val parts = firstStation.split(":")
+        if (parts.isNotEmpty()) {
+            val fmisid = parts[0].trim()
+            if (fmisid.all { it.isDigit() }) {
+                android.util.Log.d("KalaKartta", "getFmisidFromStationInfo: löytyi fmisid=$fmisid")
+                return fmisid
+            }
+        }
+        android.util.Log.d("KalaKartta", "getFmisidFromStationInfo: ei löytynyt fmisidiä")
+        return null
+    }
+
+    private fun fetchPressureHistory(caughtAt: Long, fmisid: String) {
+        lifecycleScope.launch {
+            val startTime = caughtAt - 6 * 60 * 60 * 1000L
+            val endTime = Math.min(caughtAt + 6 * 60 * 60 * 1000L, System.currentTimeMillis())
+            
+            android.util.Log.d("KalaKartta", "fetchPressureHistory: fmisid=$fmisid, caughtAt=$caughtAt")
+            try {
+                val samples = weatherService.fetchPressureSamplesSuspend(fmisid, startTime, endTime)
+                android.util.Log.d("KalaKartta", "fetchPressureHistory: saatiin ${samples.size} näytettä asemalta $fmisid")
+                withContext(Dispatchers.Main) {
+                    if (samples.isNotEmpty()) {
+                        fishCatch = fishCatch?.copy(pressureSamples = samples)
+                        pressureGraph.setData(samples, caughtAt)
+                        pressureGraph.visibility = View.VISIBLE
+                    } else {
+                        pressureGraph.visibility = View.GONE
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "fetchPressureHistory: VIRHE korutiinissa: ${e.message}", e)
+            }
+        }
+    }
+
     private fun String.toDoubleSafe(default: Double = 0.0): Double {
         val d = this.replace(',', '.').toDoubleOrNull()
         return if (d == null || d.isNaN()) default else d
     }
 
-    private fun generateMockPressureSamples(caughtAt: Long): List<PressureSample> {
-        val samples = mutableListOf<PressureSample>()
-        val startPressure = 1030.0
-        val endPressure = 990.0
-        val durationHours = 12.0
-        val startTime = caughtAt - 6 * 60 * 60 * 1000L
-        val intervalMs = 30 * 60 * 1000L // 30 min välein
-        
-        val steps = (durationHours * 60 * 60 * 1000 / intervalMs).toInt()
-        val pressureStep = (endPressure - startPressure) / steps
-        
-        for (i in 0..steps) {
-            val time = startTime + i * intervalMs
-            val pressure = startPressure + i * pressureStep
-            samples.add(PressureSample(time, pressure))
-        }
-        return samples
-    }
 }

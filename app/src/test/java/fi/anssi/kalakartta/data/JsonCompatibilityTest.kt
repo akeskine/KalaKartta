@@ -9,6 +9,32 @@ import java.util.*
 class JsonCompatibilityTest {
 
     @Test
+    fun testExportWithTwoCatchesHavingPressureSamples() {
+        val service = JsonService()
+        val samples1 = listOf(PressureSample(1000L, 1010.0))
+        val samples2 = listOf(PressureSample(3000L, 1020.0))
+        
+        val catch1 = FishCatch(species = "AHVEN", latitude = 60.0, longitude = 24.0, caughtAt = 1000L, pressureSamples = samples1)
+        val catch2 = FishCatch(species = "HAUKI", latitude = 61.0, longitude = 25.0, caughtAt = 2000L, pressureSamples = samples2)
+        
+        val catches = listOf(catch1, catch2)
+        val root = service.exportCatchesAndPlaces(catches, emptyList())
+        val catchesArray = root.getJSONArray("catches")
+        
+        assertEquals(2, catchesArray.length())
+        
+        val obj1 = catchesArray.getJSONObject(0)
+        assertTrue(obj1.has("pressureSamples"))
+        assertEquals(1, obj1.getJSONArray("pressureSamples").length())
+        assertEquals(1010.0, obj1.getJSONArray("pressureSamples").getJSONObject(0).getDouble("pressure"), 0.001)
+        
+        val obj2 = catchesArray.getJSONObject(1)
+        assertTrue(obj2.has("pressureSamples"))
+        assertEquals(1, obj2.getJSONArray("pressureSamples").length())
+        assertEquals(1020.0, obj2.getJSONArray("pressureSamples").getJSONObject(0).getDouble("pressure"), 0.001)
+    }
+
+    @Test
     fun testExportWithNewFields() {
         val service = JsonService()
         val samples = listOf(

@@ -50,6 +50,7 @@ class PressureGraphView @JvmOverloads constructor(
     private val timeRangeHours = 6f // -6 to +6
 
     fun setData(samples: List<PressureSample>, caughtAt: Long) {
+        android.util.Log.d("KalaKartta", "PressureGraphView.setData: samples=${samples.size}, caughtAt=$caughtAt")
         this.samples = samples.sortedBy { it.time }
         this.caughtAt = caughtAt
         invalidate()

@@ -416,7 +416,7 @@ class CatchManager(
                 weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt, null, catchInfo) { data, obsTime, _, stations ->
                     if (data != null) {
                         val rainHour = data["r_1h"] ?: data["ri_10min"]
-                        val updatedFish = fishWithId.copy(
+                        var updatedFish = fishWithId.copy(
                             airTemp = data["t2m"],
                             cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
                             rainHourMm = rainHour,
@@ -427,19 +427,54 @@ class CatchManager(
                             weatherTime = obsTime ?: caughtAt,
                             weatherStation = stations
                         )
-                        // Varmistetaan ennen päivitystä, ettei kohdetta ole juuri poistettu
-                        val isStillValid = Thread {
-                            val current = db.fishCatchDao().getById(updatedFish.id)
-                            if (current != null) {
-                                db.fishCatchDao().update(updatedFish)
-                                activity.runOnUiThread {
-                                    android.util.Log.d("CatchManager", "Updating catch with weather: ID=${updatedFish.id}")
-                                    onCatchAdded(updatedFish)
+
+                        // Haetaan FMISID historiatietojen hakua varten
+                        val fmisid = try {
+                            stations.split(":").first().trim()
+                        } catch (e: Exception) {
+                            null
+                        }
+
+                        if (fmisid != null) {
+                            Thread {
+                                try {
+                                    val startTime = caughtAt - 6 * 60 * 60 * 1000L
+                                    val endTime = Math.min(caughtAt + 6 * 60 * 60 * 1000L, System.currentTimeMillis())
+                                    
+                                    val samples = kotlinx.coroutines.runBlocking {
+                                        weatherService.fetchPressureSamplesSuspend(fmisid, startTime, endTime)
+                                    }
+                                    
+                                    if (samples.isNotEmpty()) {
+                                        updatedFish = updatedFish.copy(pressureSamples = samples)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("CatchManager", "Error fetching pressure history", e)
                                 }
-                            } else {
-                                android.util.Log.d("CatchManager", "Catch ID=${updatedFish.id} was deleted during weather fetch, skipping update.")
-                            }
-                        }.start()
+                                
+                                // Varmistetaan ennen päivitystä, ettei kohdetta ole juuri poistettu
+                                val current = db.fishCatchDao().getById(updatedFish.id)
+                                if (current != null) {
+                                    db.fishCatchDao().update(updatedFish)
+                                    activity.runOnUiThread {
+                                        android.util.Log.d("CatchManager", "Updating catch with weather and ${updatedFish.pressureSamples.size} samples: ID=${updatedFish.id}")
+                                        onCatchAdded(updatedFish)
+                                    }
+                                }
+                            }.start()
+                        } else {
+                            // Ei FMISID:tä, päivitetään pelkät perustiedot
+                            Thread {
+                                val current = db.fishCatchDao().getById(updatedFish.id)
+                                if (current != null) {
+                                    db.fishCatchDao().update(updatedFish)
+                                    activity.runOnUiThread {
+                                        android.util.Log.d("CatchManager", "Updating catch with weather: ID=${updatedFish.id}")
+                                        onCatchAdded(updatedFish)
+                                    }
+                                }
+                            }.start()
+                        }
                     }
                 }
             }
