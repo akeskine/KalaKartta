@@ -29,7 +29,6 @@ data class FishCatch(
     val weatherStation: String = "",
     val additionalInfo: String = "",
     val originalRef: String = "",
-    val tripNotes: String = "",
     val fisherman: String = "",
     val lure: String? = null,
     val lureColor: String? = null,

@@ -405,7 +405,6 @@ class JsonService {
             obj.put("weatherStation", it.weatherStation)
             obj.put("additionalInfo", it.additionalInfo)
             obj.put("originalRef", it.originalRef)
-            obj.put("tripNotes", it.tripNotes)
             if (it.fisherman.isNotBlank()) obj.put("fisherman", it.fisherman.uppercase())
             if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies.uppercase())
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
@@ -668,7 +667,6 @@ class JsonService {
                     weatherStation = obj.optString("weatherStation", ""),
                     additionalInfo = obj.optString("additionalInfo", ""),
                     originalRef = obj.optString("originalRef", ""),
-                    tripNotes = obj.optString("tripNotes", ""),
                     fisherman = obj.optString("fisherman", ""),
                     otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", ""),
                     weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")

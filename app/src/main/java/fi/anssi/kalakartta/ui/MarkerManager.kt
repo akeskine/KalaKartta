@@ -1512,28 +1512,7 @@ class MarkerManager(
             }
         }
 
-        val finalMessage: CharSequence = if (fish != null && fish.tripNotes.isNotEmpty()) {
-            val linkText = "Kalapäiväkirjan merkinnät"
-            val combinedSpannable = android.text.SpannableStringBuilder(spannableMessage)
-            combinedSpannable.append("\n\n")
-            val linkStart = combinedSpannable.length
-            combinedSpannable.append(linkText)
-            
-            val clickableSpan = object : ClickableSpan() {
-                override fun onClick(widget: View) {
-                    val intent = Intent(context, TripNotesActivity::class.java)
-                    intent.putExtra("EXTRA_NOTES", fish.tripNotes)
-                    if (context !is android.app.Activity) {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
-                }
-            }
-            combinedSpannable.setSpan(clickableSpan, linkStart, combinedSpannable.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            combinedSpannable
-        } else {
-            spannableMessage
-        }
+        val finalMessage: CharSequence = spannableMessage
 
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1642,12 +1621,6 @@ class MarkerManager(
             popup.show()
         }
 
-        if (fish != null && fish.tripNotes.isNotEmpty()) {
-            dialog.setOnShowListener {
-                dialog.findViewById<TextView>(android.R.id.message)?.movementMethod = LinkMovementMethod.getInstance()
-            }
-        }
-        
         dialog.show()
         dialog.enlargeButtons()
     }

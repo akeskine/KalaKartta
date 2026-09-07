@@ -511,20 +511,6 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/trip_notes"
-                android:layout_marginTop="16dp" />
-            <EditText
-                android:id="@+id/tripNotesEditText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textMultiLine"
-                android:minLines="2"
-                android:gravity="top"
-                android:importantForAutofill="no" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="@string/fisherman"
                 android:layout_marginTop="16dp" />
             <EditText
