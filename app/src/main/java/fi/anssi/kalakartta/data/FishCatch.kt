@@ -38,8 +38,25 @@ data class FishCatch(
      * asemat (max 5 kpl 300km säteellä) on kokeiltu, vaikka joitain tietoja jäisikin puuttumaan.
      * Jos tämä on asetettu, sovellus ei yritä hakea säätietoja uudelleen automaattisesti.
      */
-    val weatherDataCompleteTime: Long? = null
+    val weatherDataCompleteTime: Long? = null,
+    val pressureTrend: Double? = null, // hPa/h
+    val pressureSamples: List<PressureSample> = emptyList(),
+    val moonPhase: Double? = null,
+    val moonAltitude: Double? = null
 ) {
+    fun calculatePressureTrend(): Double? {
+        if (pressureSamples.size < 2) return null
+        
+        val sortedSamples = pressureSamples.sortedBy { it.time }
+        val first = sortedSamples.first()
+        val last = sortedSamples.last()
+        
+        val timeDiffHours = (last.time - first.time).toDouble() / (1000 * 60 * 60)
+        if (timeDiffHours == 0.0) return null
+        
+        return (last.pressure - first.pressure) / timeDiffHours
+    }
+
     companion object {
         const val CAUGHT_FISH = "CAUGHT_FISH"
         const val LOST_FISH = "LOST_FISH"

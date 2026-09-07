@@ -1,0 +1,106 @@
+package fi.anssi.kalakartta.data
+
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+import java.util.*
+
+class JsonCompatibilityTest {
+
+    @Test
+    fun testExportWithNewFields() {
+        val service = JsonService()
+        val samples = listOf(
+            PressureSample(1000L, 1013.25),
+            PressureSample(2000L, 1012.0)
+        )
+        val fishCatch = FishCatch(
+            species = "AHVEN",
+            latitude = 60.12345,
+            longitude = 24.54321,
+            caughtAt = 1672531200000L, // 2023-01-01 00:00:00 UTC
+            pressureTrend = 1.5,
+            pressureSamples = samples,
+            moonPhase = 0.5,
+            moonAltitude = 45.0
+        )
+        
+        val catches = listOf(fishCatch)
+        val root = service.exportCatchesAndPlaces(catches, emptyList())
+        val catchesArray = root.getJSONArray("catches")
+        val obj = catchesArray.getJSONObject(0)
+        
+        assertEquals(1.5, obj.getDouble("pressureTrend"), 0.001)
+        assertEquals(0.5, obj.getDouble("moonPhase"), 0.001)
+        assertEquals(45.0, obj.getDouble("moonAltitude"), 0.001)
+        
+        val samplesArray = obj.getJSONArray("pressureSamples")
+        assertEquals(2, samplesArray.length())
+        assertEquals(1013.25, samplesArray.getJSONObject(0).getDouble("pressure"), 0.001)
+        assertEquals(1012.0, samplesArray.getJSONObject(1).getDouble("pressure"), 0.001)
+    }
+
+    @Test
+    fun testImportOldJsonMissingNewFields() {
+        val service = JsonService()
+        val oldJson = """
+            {
+                "catches": [
+                    {
+                        "species": "HAUKI",
+                        "latitude": 61.0,
+                        "longitude": 25.0,
+                        "method": "Heitto",
+                        "weight": 2500
+                    }
+                ],
+                "places": []
+            }
+        """.trimIndent()
+        
+        val importData = service.parseImportData(oldJson)
+        assertEquals(1, importData.catches.size)
+        val fishCatch = importData.catches[0]
+        
+        assertEquals("HAUKI", fishCatch.species)
+        assertNull(fishCatch.pressureTrend)
+        assertTrue(fishCatch.pressureSamples.isEmpty())
+        assertNull(fishCatch.moonPhase)
+        assertNull(fishCatch.moonAltitude)
+    }
+
+    @Test
+    fun testImportNewJson() {
+        val service = JsonService()
+        val newJson = """
+            {
+                "catches": [
+                    {
+                        "species": "KUHA",
+                        "latitude": 62.0,
+                        "longitude": 26.0,
+                        "pressureTrend": -0.5,
+                        "pressureSamples": [
+                            {"time": "2023-01-01T00:00:00Z", "pressure": 1010.0},
+                            {"time": "2023-01-01T01:00:00Z", "pressure": 1009.5}
+                        ],
+                        "moonPhase": 0.25,
+                        "moonAltitude": 30.0
+                    }
+                ]
+            }
+        """.trimIndent()
+        
+        val importData = service.parseImportData(newJson)
+        assertEquals(1, importData.catches.size)
+        val fishCatch = importData.catches[0]
+        
+        assertEquals("KUHA", fishCatch.species)
+        assertEquals(-0.5, fishCatch.pressureTrend!!, 0.001)
+        assertEquals(2, fishCatch.pressureSamples.size)
+        assertEquals(1010.0, fishCatch.pressureSamples[0].pressure, 0.001)
+        assertEquals(0.25, fishCatch.moonPhase!!, 0.001)
+        assertEquals(30.0, fishCatch.moonAltitude!!, 0.001)
+    }
+}

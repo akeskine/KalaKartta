@@ -408,6 +408,19 @@ class JsonService {
             if (it.fisherman.isNotBlank()) obj.put("fisherman", it.fisherman.uppercase())
             if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies.uppercase())
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
+            if (it.pressureTrend != null) obj.put("pressureTrend", it.pressureTrend)
+            if (it.pressureSamples.isNotEmpty()) {
+                val samplesArray = JSONArray()
+                it.pressureSamples.forEach { sample ->
+                    val sampleObj = JSONObject()
+                    sampleObj.put("time", isoFormat.format(Date(sample.time)))
+                    sampleObj.put("pressure", sample.pressure)
+                    samplesArray.put(sampleObj)
+                }
+                obj.put("pressureSamples", samplesArray)
+            }
+            if (it.moonPhase != null) obj.put("moonPhase", it.moonPhase)
+            if (it.moonAltitude != null) obj.put("moonAltitude", it.moonAltitude)
             array.put(obj)
         }
         return array
@@ -669,12 +682,37 @@ class JsonService {
                     originalRef = obj.optString("originalRef", ""),
                     fisherman = obj.optString("fisherman", ""),
                     otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", ""),
-                    weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime")
+                    weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime"),
+                    pressureTrend = if (obj.isNull("pressureTrend")) null else obj.optDouble("pressureTrend"),
+                    pressureSamples = parsePressureSamples(obj.optJSONArray("pressureSamples")),
+                    moonPhase = if (obj.isNull("moonPhase")) null else obj.optDouble("moonPhase"),
+                    moonAltitude = if (obj.isNull("moonAltitude")) null else obj.optDouble("moonAltitude")
                 )
                 result.add(catch)
             } catch (e: Exception) {
                 android.util.Log.e("JsonService", "Error parsing FishCatch object at index $i", e)
             }
+        }
+        return result
+    }
+
+    private fun parsePressureSamples(jsonArray: JSONArray?): List<PressureSample> {
+        if (jsonArray == null) return emptyList()
+        val result = mutableListOf<PressureSample>()
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            val timeStr = obj.optString("time", "")
+            val timeMs = if (timeStr.isNotEmpty()) {
+                try {
+                    isoFormat.parse(timeStr)?.time ?: 0L
+                } catch (e: Exception) {
+                    obj.optLong("time", 0L)
+                }
+            } else {
+                obj.optLong("time", 0L)
+            }
+            val pressure = obj.optDouble("pressure", 0.0)
+            result.add(PressureSample(timeMs, pressure))
         }
         return result
     }
