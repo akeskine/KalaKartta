@@ -24,6 +24,8 @@ import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.formatFishermanName
 import fi.anssi.kalakartta.utils.WeatherStation
 import fi.anssi.kalakartta.utils.enlargeButtons
+import fi.anssi.kalakartta.utils.MoonCalculator
+import fi.anssi.kalakartta.ui.MoonPhaseView
 import android.graphics.BitmapFactory
 import java.io.File
 import java.text.SimpleDateFormat
@@ -85,6 +87,11 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var mediaListLayout: LinearLayout
     private lateinit var addMediaButton: Button
     private lateinit var mediaService: MediaService
+    
+    private lateinit var moonPhaseEditText: EditText
+    private lateinit var moonAltitudeEditText: EditText
+    private lateinit var moonPhaseSymbol: MoonPhaseView
+    private val moonCalculator = MoonCalculator()
     
     private lateinit var autoWeatherCheckBox: CheckBox
     private lateinit var nearestStationText: TextView
@@ -200,6 +207,10 @@ class EditCatchActivity : AppCompatActivity() {
         mediaListLayout = findViewById(R.id.mediaListLayout)
         addMediaButton = findViewById(R.id.addMediaButton)
         mediaService = MediaService(this)
+
+        moonPhaseEditText = findViewById(R.id.moonPhaseEditText)
+        moonAltitudeEditText = findViewById(R.id.moonAltitudeEditText)
+        moonPhaseSymbol = findViewById(R.id.moonPhaseSymbol)
         
         autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
         nearestStationText = findViewById(R.id.nearestStationText)
@@ -558,6 +569,7 @@ class EditCatchActivity : AppCompatActivity() {
         }
         isUpdatingFromCode = false
         refreshMediaList()
+        updateMoonData()
     }
 
     private fun refreshMediaList() {
@@ -736,6 +748,17 @@ class EditCatchActivity : AppCompatActivity() {
                 isUpdatingFromCode = false
             }
         }
+
+        latEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateMoonData() }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+        lonEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateMoonData() }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
     }
 
     private fun setupWeatherForNewCatch(lat: Double, lon: Double) {
@@ -802,6 +825,7 @@ class EditCatchActivity : AppCompatActivity() {
                 selectedCalendar.set(Calendar.MINUTE, min)
                 isTimeSetManually = true
                 updateDateTimeButtonText()
+                updateMoonData()
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                 val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
                 autoWeatherCheckBox.visibility = if (isWeatherEnabled) View.VISIBLE else View.GONE
@@ -872,6 +896,8 @@ class EditCatchActivity : AppCompatActivity() {
                 windSpeed = windSpeedEditText.text.toString().toDoubleOrNull(),
                 windDirection = windDirectionEditText.text.toString().toLongOrNull(),
                 pressure = pressureEditText.text.toString().toDoubleOrNull(),
+                moonPhase = moonPhaseEditText.text.toString().toDoubleOrNull(),
+                moonAltitude = moonAltitudeEditText.text.toString().replace("°", "").toDoubleOrNull(),
                 weatherSource = if (currentWeatherSource == "FMI") "FMI" else "MANUAL",
                 weatherTime = if (currentWeatherSource == "FMI") currentWeatherTime else selectedCalendar.timeInMillis,
                 weatherStation = if (currentWeatherSource == "FMI") currentWeatherStation else "",
@@ -949,6 +975,32 @@ class EditCatchActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setMessage(R.string.unsaved_changes_warning)
             .setPositiveButton(R.string.discard) { _, _ -> finish() }
             .setNegativeButton(R.string.cancel, null).show().enlargeButtons()
+    }
+
+    private fun updateMoonData() {
+        if (isPlace) return
+        
+        val lat = latEditText.text.toString().toDoubleSafe()
+        val lon = lonEditText.text.toString().toDoubleSafe()
+        
+        val caughtAt = if (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L) {
+            selectedCalendar.timeInMillis
+        } else {
+            null
+        }
+        
+        if (caughtAt != null) {
+            val phase = moonCalculator.getMoonPhase(caughtAt)
+            val altitude = moonCalculator.getMoonAltitude(lat, lon, caughtAt)
+            
+            moonPhaseEditText.setText(String.format(Locale.US, "%.2f", phase))
+            moonAltitudeEditText.setText(String.format(Locale.US, "%.1f°", altitude))
+            moonPhaseSymbol.setPhase(phase)
+        } else {
+            moonPhaseEditText.setText("")
+            moonAltitudeEditText.setText("")
+            moonPhaseSymbol.setPhase(0.0)
+        }
     }
 
     private fun String.toDoubleSafe(default: Double = 0.0): Double {
