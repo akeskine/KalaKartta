@@ -308,7 +308,7 @@ class ImportExportManager(
         }
         
         val progressText = TextView(activity).apply {
-            text = "Valmistellaan tuontia..."
+            text = "Valmistellaan tuontia... 0 %"
             setPadding(0, 0, 0, 20)
         }
         
@@ -323,13 +323,33 @@ class ImportExportManager(
             
         progressDialog.show()
 
+        var currentProgressStage = "Valmistellaan tuontia..."
+        var currentStageProgress = 0
+        var lastOverallProgress = 0
+
+        fun updateProgress(
+            stage: String? = null,
+            stageProgress: Int = currentStageProgress,
+            overallProgress: Int = lastOverallProgress
+        ) {
+            stage?.let { currentProgressStage = it }
+            currentStageProgress = stageProgress.coerceIn(0, 100)
+            lastOverallProgress = maxOf(lastOverallProgress, overallProgress.coerceIn(0, 100))
+            val displayedStageProgress = currentStageProgress
+            val displayedOverallProgress = lastOverallProgress
+            val displayedText = "$currentProgressStage $displayedStageProgress %"
+
+            activity.runOnUiThread {
+                progressBar.progress = displayedOverallProgress
+                progressText.text = displayedText
+            }
+        }
+
         Thread {
+            var tempZipFile: java.io.File? = null
             try {
-                // 1. Vaihe: "Ladataan" (lasketaan koko/entryt jos mahdollista tai simuloidaan alku)
-                activity.runOnUiThread {
-                    progressText.text = "Ladataan zip-tiedostoa..."
-                    progressBar.progress = 5
-                }
+                tempZipFile = java.io.File.createTempFile("kalakartta-import-", ".zip", activity.cacheDir)
+                val zipFile = tempZipFile ?: throw java.io.IOException("Väliaikaista zip-tiedostoa ei voitu luoda")
 
                 val totalSize = try {
                     activity.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
@@ -337,62 +357,107 @@ class ImportExportManager(
                     -1L
                 }
 
-                activity.contentResolver.openInputStream(uri)?.use { input ->
-                    // Käytetään laskuria edistymisen seurantaan lukemisen aikana
-                    var bytesRead = 0L
-                    val wrappedInput = object : java.io.FilterInputStream(input) {
+                // 1. Vaihe: "Ladataan"
+                updateProgress("Ladataan zip-tiedostoa...", 0, 0)
+
+                val input = activity.contentResolver.openInputStream(uri)
+                    ?: throw java.io.IOException("Zip-tiedostoa ei voitu avata")
+                input.use { source ->
+                    java.io.FileOutputStream(zipFile).use { target ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead = 0L
+                        while (true) {
+                            val read = source.read(buffer)
+                            if (read == -1) break
+                            target.write(buffer, 0, read)
+                            bytesRead += read
+
+                            val stageProgress = if (totalSize > 0) {
+                                (bytesRead * 100 / totalSize).toInt()
+                            } else {
+                                // Joidenkin URI-lähteiden kokoa ei voi selvittää etukäteen.
+                                (bytesRead / (1024 * 1024)).toInt().coerceAtMost(99)
+                            }.coerceIn(0, 100)
+                            val overallProgress = stageProgress * 30 / 100
+                            updateProgress(
+                                stageProgress = stageProgress,
+                                overallProgress = overallProgress
+                            )
+                        }
+                    }
+                }
+
+                updateProgress(stageProgress = 100, overallProgress = 30)
+
+                // 2. Vaihe: "Puretaan"
+                updateProgress("Puretaan zip-tiedostoa...", 0, 30)
+
+                var importedCatches = 0
+                var importedPlaces = 0
+                var importedSessions = 0
+                var importedTrackPoints = 0
+                var importedMedia = 0
+                var importedSpecies = 0
+                var importedDiaryPages = 0
+
+                val tempMediaFiles = mutableMapOf<String, ByteArray>()
+                var mediaJsonStr: String? = null
+
+                val archiveSize = zipFile.length()
+                java.io.FileInputStream(zipFile).use { archiveInput ->
+                    var archiveBytesRead = 0L
+                    var extractionProgress = 0
+
+                    fun updateExtractionProgress() {
+                        val rawProgress = if (archiveSize > 0) {
+                            (archiveBytesRead * 100 / archiveSize).toInt()
+                        } else {
+                            0
+                        }
+                        extractionProgress = rawProgress.coerceIn(0, 100)
+                        updateProgress(
+                            stageProgress = extractionProgress,
+                            overallProgress = 30 + extractionProgress * 40 / 100
+                        )
+                    }
+
+                    val wrappedInput = object : java.io.FilterInputStream(archiveInput) {
                         override fun read(): Int {
                             val b = super.read()
                             if (b != -1) {
-                                bytesRead++
-                                updateDownloadProgress()
+                                archiveBytesRead++
+                                updateExtractionProgress()
                             }
                             return b
                         }
+
                         override fun read(b: ByteArray, off: Int, len: Int): Int {
                             val n = super.read(b, off, len)
                             if (n != -1) {
-                                bytesRead += n
-                                updateDownloadProgress()
+                                archiveBytesRead += n
+                                updateExtractionProgress()
                             }
                             return n
-                        }
-                        private fun updateDownloadProgress() {
-                            if (totalSize > 0) {
-                                val p = (bytesRead * 30 / totalSize).toInt() // Max 30% lataukselle
-                                activity.runOnUiThread {
-                                    if (progressBar.progress < p + 5) {
-                                        progressBar.progress = p + 5
-                                    }
-                                }
-                            }
                         }
                     }
 
                     val zipIn = java.util.zip.ZipInputStream(wrappedInput)
                     var entry = zipIn.nextEntry
-                    
-                    var importedCatches = 0
-                    var importedPlaces = 0
-                    var importedSessions = 0
-                    var importedTrackPoints = 0
-                    var importedMedia = 0
-                    var importedSpecies = 0
-                    var importedDiaryPages = 0
-                    
-                    val tempMediaFiles = mutableMapOf<String, ByteArray>()
-                    var mediaJsonStr: String? = null
-
-                    // 2. Vaihe: "Puretaan"
-                    activity.runOnUiThread {
-                        progressText.text = "Puretaan zip-tiedostoa..."
-                    }
 
                     while (entry != null) {
                         val entryName = entry.name
+                        updateProgress(
+                            "Puretaan zip-tiedostoa...",
+                            extractionProgress,
+                            30 + extractionProgress * 40 / 100
+                        )
                         when (entryName) {
                             "pisteet.json" -> {
-                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (pisteet)..." }
+                                updateProgress(
+                                    "Populoidaan tietokanta (pisteet)...",
+                                    extractionProgress,
+                                    30 + extractionProgress * 40 / 100
+                                )
                                 val text = zipIn.readBytes().toString(Charsets.UTF_8)
                                 val (catches, places) = jsonService.parseCatchesAndPlaces(text)
                                 catches.forEach { db.fishCatchDao().insertAll(listOf(it.copy(id = 0))) }
@@ -401,7 +466,11 @@ class ImportExportManager(
                                 importedPlaces = places.size
                             }
                             "sessiot.json" -> {
-                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (reitit)..." }
+                                updateProgress(
+                                    "Populoidaan tietokanta (reitit)...",
+                                    extractionProgress,
+                                    30 + extractionProgress * 40 / 100
+                                )
                                 jsonService.importRoutesFromStream(zipIn) { session, points ->
                                     val sid = db.fishingSessionDao().insert(session)
                                     val pts = points.map { it.copy(fishingSessionId = sid) }
@@ -411,7 +480,11 @@ class ImportExportManager(
                                 }
                             }
                             "kalalajit.json" -> {
-                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (lajit)..." }
+                                updateProgress(
+                                    "Populoidaan tietokanta (lajit)...",
+                                    extractionProgress,
+                                    30 + extractionProgress * 40 / 100
+                                )
                                 val text = zipIn.readBytes().toString(Charsets.UTF_8)
                                 val species = jsonService.parseSpecies(text, activity.filesDir)
                                 if (species.isNotEmpty()) {
@@ -421,7 +494,11 @@ class ImportExportManager(
                                 }
                             }
                             "paivakirja.json" -> {
-                                activity.runOnUiThread { progressText.text = "Populoidaan tietokanta (päiväkirja)..." }
+                                updateProgress(
+                                    "Populoidaan tietokanta (päiväkirja)...",
+                                    extractionProgress,
+                                    30 + extractionProgress * 40 / 100
+                                )
                                 val text = zipIn.readBytes().toString(Charsets.UTF_8)
                                 val data = jsonService.parseImportData(text)
                                 data.diaryPages.forEach {
@@ -441,41 +518,35 @@ class ImportExportManager(
                                 }
                             }
                         }
-                        
-                        // Edistyminen purkamisen aikana (30% -> 70%)
-                        if (totalSize > 0) {
-                            val p = 35 + (bytesRead * 35 / totalSize).toInt()
-                            activity.runOnUiThread {
-                                if (progressBar.progress < p) progressBar.progress = p
-                            }
-                        }
+
+                        updateExtractionProgress()
 
                         zipIn.closeEntry()
                         entry = zipIn.nextEntry
                     }
-                    
-                    // 3. Vaihe: "Käsitellään mediatiedostot"
-                    if (mediaJsonStr != null) {
-                        activity.runOnUiThread { 
-                            progressText.text = "Käsitellään mediatiedostoja..." 
-                            if (progressBar.progress < 70) progressBar.progress = 70
-                        }
-                        mediaService.processMediaImport(mediaJsonStr!!, tempMediaFiles) { current, total ->
-                            importedMedia = total
-                            val p = 70 + (current * 30 / total)
-                            activity.runOnUiThread {
-                                progressBar.progress = p
-                            }
-                        }
-                    } else {
-                        activity.runOnUiThread { progressBar.progress = 100 }
+                }
+
+                // 3. Vaihe: "Käsitellään mediatiedostot"
+                if (mediaJsonStr != null) {
+                    updateProgress("Käsitellään mediatiedostoja...", 0, 70)
+                    mediaService.processMediaImport(mediaJsonStr!!, tempMediaFiles) { current, total ->
+                        importedMedia = total
+                        val stageProgress = if (total > 0) current * 100 / total else 100
+                        val overallProgress = 70 + stageProgress * 30 / 100
+                        updateProgress(
+                            stageProgress = stageProgress,
+                            overallProgress = overallProgress
+                        )
                     }
-                    
-                    activity.runOnUiThread {
-                        progressDialog.dismiss()
-                        onImportDone(importedSpecies > 0)
-                        showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia\n- $importedDiaryPages kalapäiväkirjan sivua")
-                    }
+                    updateProgress(stageProgress = 100, overallProgress = 100)
+                } else {
+                    updateProgress(stageProgress = 100, overallProgress = 100)
+                }
+
+                activity.runOnUiThread {
+                    progressDialog.dismiss()
+                    onImportDone(importedSpecies > 0)
+                    showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia\n- $importedDiaryPages kalapäiväkirjan sivua")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Import all failed", e)
@@ -483,6 +554,8 @@ class ImportExportManager(
                     progressDialog.dismiss()
                     showConfirmationDialog("Tuonti epäonnistui: ${e.message}")
                 }
+            } finally {
+                tempZipFile?.delete()
             }
         }.start()
     }
