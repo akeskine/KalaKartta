@@ -35,6 +35,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var intervalMinutes = 10
     private var isTtsInitialized = false
+    private var isEnding = false
     private var pendingAction: String? = null
     private var pendingDurationMs: Long = 0L
     private var pendingDistanceM: Double = 0.0
@@ -145,6 +146,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     private fun handleAction(intent: Intent?) {
         val action = intent?.action
+        if (isEnding && action != "SESSION_ENDED") return
+        
         when (action) {
             "START_IMMEDIATELY" -> {
                 // Ei puhuta heti, vaan ajoitetaan seuraava tasaväli
@@ -156,6 +159,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 scheduleNext()
             }
             "SESSION_ENDED" -> {
+                isEnding = true
+                cancelScheduledTalk()
                 acquireWakeLock()
                 val durationMs = intent?.getLongExtra("duration_ms", 0L) ?: 0L
                 val distanceM = intent?.getDoubleExtra("distance_m", 0.0) ?: 0.0
@@ -175,6 +180,11 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     private fun handlePendingAction() {
         val action = pendingAction
+        if (isEnding && action != "SESSION_ENDED") {
+            pendingAction = null
+            return
+        }
+        
         when (action) {
             "SESSION_STARTED" -> {
                 acquireWakeLock()
@@ -182,6 +192,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 scheduleNext()
             }
             "SESSION_ENDED" -> {
+                isEnding = true
+                cancelScheduledTalk()
                 acquireWakeLock()
                 speakSessionEnded(pendingDurationMs, pendingDistanceM)
             }
@@ -240,6 +252,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun scheduleNext() {
+        if (isEnding) return
+        
         val now = System.currentTimeMillis()
         val calendar = Calendar.getInstance()
         calendar.timeInMillis = now
@@ -330,7 +344,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun speakCurrentTime() {
-        if (!isTtsInitialized) return
+        if (!isTtsInitialized || isEnding) return
         
         val now = Calendar.getInstance()
         // Pieni pyöristys ylöspäin jos ollaan aivan sekunnin rajalla (esim. 15:44:59.950)
@@ -363,7 +377,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun speakSessionStarted() {
-        if (!isTtsInitialized) return
+        if (!isTtsInitialized || isEnding) return
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         val salutation = prefs.getString("talking_clock_salutation", "") ?: ""
         var text = getString(R.string.talking_clock_session_started, intervalMinutes)
@@ -450,6 +464,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun speakText(text: String, flush: Boolean = true, utteranceId: String = "TalkingClock") {
+        if (isEnding && utteranceId != "SessionEnded") return
+        
         if (requestAudioFocus()) {
             val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
             val result = tts?.speak(text, queueMode, null, utteranceId)
@@ -697,17 +713,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
-        val intent = Intent(this, TalkingClockService::class.java).apply {
-            action = "TALK"
-        }
-        val pendingIntent = PendingIntent.getService(
-            this, 0, intent, 
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-        )
-        if (pendingIntent != null) {
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            alarmManager.cancel(pendingIntent)
-        }
+        cancelScheduledTalk()
 
         locationManager?.removeUpdates(locationListener)
         tts?.stop()
@@ -745,6 +751,20 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         } else {
             @Suppress("DEPRECATION")
             audioManager.abandonAudioFocus { }
+        }
+    }
+
+    private fun cancelScheduledTalk() {
+        val intent = Intent(this, TalkingClockService::class.java).apply {
+            action = "TALK"
+        }
+        val pendingIntent = PendingIntent.getService(
+            this, 0, intent, 
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.cancel(pendingIntent)
         }
     }
 
