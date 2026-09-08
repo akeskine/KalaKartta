@@ -263,6 +263,7 @@ class MainActivity : AppCompatActivity() {
                 isReplayPlaying = false
                 
                 initReplayUI()
+                updateSessionInfoText(replayStartTime, replayEndTime)
                 
                 if (archivedSessionPolyline != null) {
                     map.overlays.remove(archivedSessionPolyline)
@@ -336,6 +337,7 @@ class MainActivity : AppCompatActivity() {
                 // currentReplayTime, replaySpeed ja isReplayPlaying on jo palautettu
                 
                 initReplayUI()
+                updateSessionInfoText(replayStartTime, replayEndTime)
                 
                 val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
                 val speedIndex = speedOptions.indexOf("${replaySpeed}x")
@@ -497,6 +499,31 @@ class MainActivity : AppCompatActivity() {
         timeText.text = "$currentStr / $endStr"
     }
 
+    private fun updateSessionInfoText(start: Long, end: Long) {
+        val infoText = findViewById<android.widget.TextView>(R.id.sessionInfoText)
+        
+        val calStart = java.util.Calendar.getInstance()
+        calStart.timeInMillis = start
+        val calEnd = java.util.Calendar.getInstance()
+        calEnd.timeInMillis = end
+        
+        val sameDay = calStart.get(java.util.Calendar.YEAR) == calEnd.get(java.util.Calendar.YEAR) &&
+                calStart.get(java.util.Calendar.DAY_OF_YEAR) == calEnd.get(java.util.Calendar.DAY_OF_YEAR)
+        
+        val dfDate = java.text.SimpleDateFormat("d.M.yyyy", java.util.Locale.getDefault())
+        val dfTime = java.text.SimpleDateFormat("H:mm", java.util.Locale.getDefault())
+        val dfDateTime = java.text.SimpleDateFormat("d.M.yyyy H:mm", java.util.Locale.getDefault())
+        
+        val text = if (sameDay) {
+            "Sessio ${dfDate.format(java.util.Date(start))} ${dfTime.format(java.util.Date(start))} - ${dfTime.format(java.util.Date(end))}"
+        } else {
+            "Sessio ${dfDateTime.format(java.util.Date(start))} - ${dfDateTime.format(java.util.Date(end))}"
+        }
+        
+        infoText.text = text
+        infoText.visibility = android.view.View.VISIBLE
+    }
+
     private fun showArchivedSessionOnMap(sessionId: Long) {
         lifecycleScope.launch(Dispatchers.IO) {
             val session = db.fishingSessionDao().getById(sessionId)
@@ -515,6 +542,8 @@ class MainActivity : AppCompatActivity() {
                     archivedSessionPolyline?.setPoints(geoPoints)
                     addOverlayBelowMarkers(archivedSessionPolyline!!)
                     visibleArchivedSessionId = sessionId
+                    
+                    updateSessionInfoText(session.startedAt, session.endedAt ?: points.last().timestamp)
                     
                     // Zoomataan session alkuun
                     map.controller.animateTo(geoPoints[0], 15.0, 500L)
@@ -592,6 +621,7 @@ class MainActivity : AppCompatActivity() {
         isOnlySessionCatchesMode = false
         
         findViewById<android.view.View>(R.id.replayPlayerLayout).visibility = android.view.View.GONE
+        findViewById<android.view.View>(R.id.sessionInfoText).visibility = android.view.View.GONE
         findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.VISIBLE
         updateMyLocationButtonVisibility()
 
