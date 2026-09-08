@@ -1264,9 +1264,13 @@ class SettingsManager(
         }
         layout.addView(developerToolsLink)
 
+        val scrollView = ScrollView(activity).apply {
+            addView(layout)
+        }
+
         val dialog = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.general_settings))
-            .setView(layout)
+            .setView(scrollView)
             .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .create()
         showDialog(dialog)
