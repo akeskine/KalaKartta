@@ -891,7 +891,7 @@ private fun formatCloudCover(value: Double): String = when {
 }
 
 private fun formatPrecipitation(value: Double): String = when {
-    value < 0.025 -> "sateetonta"
+    value < 0.025 -> "ei sadetta"
     value < 0.4 -> "heikkoa sadetta"
     value < 4.0 -> "sadetta"
     else -> "runsasta sadetta"
