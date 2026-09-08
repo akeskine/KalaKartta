@@ -18,6 +18,11 @@ data class WeatherStation(
     val endTime: Long? = null
 )
 
+data class ForecastRow(
+    val time: Long,
+    val parameters: Map<String, Double>
+)
+
 class WeatherService(private val context: Context) {
 
     companion object {
@@ -29,6 +34,46 @@ class WeatherService(private val context: Context) {
 
     private val STATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::ef::stations"
     private val OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::observations::weather::simple&fmisid="
+    private val FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::harmonie::surface::point::simple"
+
+    suspend fun fetchForecastSuspend(
+        latitude: Double,
+        longitude: Double,
+        targetHours: List<Int>
+    ): List<Pair<Int, ForecastRow>> {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            if (targetHours.isEmpty()) return@withContext emptyList()
+
+            try {
+                val now = System.currentTimeMillis()
+                val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                }
+                val startTime = dateFormat.format(java.util.Date(now))
+                val endTime = dateFormat.format(java.util.Date(now + 12 * 60 * 60 * 1000L))
+                val urlString = "$FORECAST_URL&latlon=$latitude,$longitude" +
+                    "&starttime=$startTime&endtime=$endTime&timestep=60" +
+                    "&parameters=Temperature,WindSpeedMS,WindGust,WindDirection,Precipitation1h,TotalCloudCover"
+
+                val connection = URL(urlString).openConnection() as HttpURLConnection
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    return@withContext emptyList()
+                }
+
+                val rows = connection.inputStream.use { parseAllWeatherObservations(it) }
+                targetHours.sorted().mapNotNull { hours ->
+                    val targetTime = now + hours * 60 * 60 * 1000L
+                    val closest = rows.minByOrNull { abs(it.key - targetTime) } ?: return@mapNotNull null
+                    hours to ForecastRow(closest.key, closest.value.toMap())
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Virhe sääennusteen haussa: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
 
     fun fetchWeatherData(fmisid: String, targetTime: Long? = null, callback: (Map<String, Double>?, Long?, String?) -> Unit) {
         Thread {
@@ -797,4 +842,67 @@ class WeatherService(private val context: Context) {
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
     }
+}
+
+fun formatForecastSpeech(hours: Int, row: ForecastRow): String? {
+    val values = row.parameters
+    val parts = mutableListOf<String>()
+    values["Temperature"]?.let { temperature ->
+        val sign = if (temperature >= 0) "+" else ""
+        parts.add("$sign${formatForecastNumber(temperature)} astetta")
+    }
+    values["TotalCloudCover"]?.let { parts.add(formatCloudCover(it)) }
+    values["Precipitation1h"]?.let { parts.add(formatPrecipitation(it)) }
+
+    val windParts = mutableListOf<String>()
+    values["WindDirection"]?.let { windParts.add("Tuuli ${formatWindDirection(it)}") }
+    values["WindSpeedMS"]?.let { windParts.add("${formatForecastNumber(it)} metriä sekunnissa") }
+    values["WindGust"]?.let { windParts.add("puuskissa ${formatForecastNumber(it)} metriä sekunnissa") }
+    if (windParts.isNotEmpty()) {
+        parts.add(windParts.joinToString(" "))
+    }
+
+    if (parts.isEmpty()) return null
+    return "Sää ${formatHourFinnish(hours)} päästä: ${parts.joinToString(", ")}."
+}
+
+private fun formatForecastNumber(value: Double): String {
+    return if (value % 1.0 == 0.0) {
+        value.toInt().toString()
+    } else {
+        String.format(java.util.Locale.US, "%.1f", value).replace('.', ',')
+    }
+}
+
+private fun formatHourFinnish(hours: Int): String = when (hours) {
+    1 -> "yhden tunnin"
+    3 -> "kolmen tunnin"
+    6 -> "kuuden tunnin"
+    12 -> "kahdentoista tunnin"
+    else -> "$hours tunnin"
+}
+
+private fun formatCloudCover(value: Double): String = when {
+    value < 20.0 -> "selkeää"
+    value < 33.0 -> "melkein selkeää"
+    value < 72.0 -> "puolipilvistä"
+    value < 93.0 -> "pilvistä"
+    else -> "täysin pilvistä"
+}
+
+private fun formatPrecipitation(value: Double): String = when {
+    value < 0.025 -> "sateetonta"
+    value < 0.4 -> "heikkoa sadetta"
+    value < 4.0 -> "sadetta"
+    else -> "runsasta sadetta"
+}
+
+private fun formatWindDirection(value: Double): String {
+    val directions = listOf(
+        "Pohjoisesta", "Koillisesta", "Idästä", "Kaakosta",
+        "Etelästä", "Lounaasta", "Lännestä", "Luoteesta"
+    )
+    val normalized = ((value % 360.0) + 360.0) % 360.0
+    val index = floor((normalized + 22.5) / 45.0).toInt() % directions.size
+    return directions[index]
 }

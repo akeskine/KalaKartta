@@ -28,7 +28,9 @@ import androidx.core.app.NotificationCompat
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.utils.SunService
+import fi.anssi.kalakartta.utils.WeatherService
 import java.util.*
+import java.util.concurrent.atomic.AtomicLong
 
 class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
@@ -42,6 +44,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private var wakeLock: PowerManager.WakeLock? = null
     
     private val sunService = SunService()
+    private val weatherService = WeatherService(this)
+    private val weatherRequestId = AtomicLong(0)
     private var cachedSunTimes: Pair<Calendar, Calendar>? = null
     private var lastCalculationDate: String = ""
     private var lastCalculationLocation: Location? = null
@@ -160,6 +164,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             }
             "SESSION_ENDED" -> {
                 isEnding = true
+                weatherRequestId.incrementAndGet()
                 cancelScheduledTalk()
                 acquireWakeLock()
                 val durationMs = intent?.getLongExtra("duration_ms", 0L) ?: 0L
@@ -193,6 +198,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             }
             "SESSION_ENDED" -> {
                 isEnding = true
+                weatherRequestId.incrementAndGet()
                 cancelScheduledTalk()
                 acquireWakeLock()
                 speakSessionEnded(pendingDurationMs, pendingDistanceM)
@@ -372,8 +378,35 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
                 text = "$text Akun varaus on $batteryLevel prosenttia."
             }
         }
-        
-        speakText(text)
+
+        val targetHours = if (prefs.getBoolean("talking_clock_weather", false)) {
+            listOf(1, 3, 6, 12).filter { hours ->
+                prefs.getBoolean("talking_clock_weather_${hours}h", false)
+            }
+        } else {
+            emptyList()
+        }
+        val location = lastKnownLocation
+        if (targetHours.isEmpty() || location == null) {
+            weatherRequestId.incrementAndGet()
+            speakText(text)
+            return
+        }
+
+        val requestId = weatherRequestId.incrementAndGet()
+        val baseText = text
+        Thread {
+            val forecasts = kotlinx.coroutines.runBlocking {
+                weatherService.fetchForecastSuspend(location.latitude, location.longitude, targetHours)
+            }
+            if (requestId != weatherRequestId.get() || isEnding || !isTtsInitialized) return@Thread
+
+            val weatherText = forecasts.mapNotNull { (hours, row) ->
+                fi.anssi.kalakartta.utils.formatForecastSpeech(hours, row)
+            }
+            val finalText = if (weatherText.isEmpty()) baseText else "$baseText ${weatherText.joinToString(" ")}"
+            speakText(finalText)
+        }.start()
     }
 
     private fun speakSessionStarted() {
@@ -713,6 +746,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        weatherRequestId.incrementAndGet()
         cancelScheduledTalk()
 
         locationManager?.removeUpdates(locationListener)

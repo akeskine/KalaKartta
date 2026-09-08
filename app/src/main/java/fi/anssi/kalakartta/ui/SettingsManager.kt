@@ -1777,6 +1777,41 @@ class SettingsManager(
         }
         layout.addView(batteryCheckbox)
 
+        val weatherHoursLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(80, 0, 0, 10)
+            visibility = if (prefs.getBoolean("talking_clock_weather", false)) View.VISIBLE else View.GONE
+        }
+        val weatherHourOptions = listOf(
+            1 to "talking_clock_weather_1h",
+            3 to "talking_clock_weather_3h",
+            6 to "talking_clock_weather_6h",
+            12 to "talking_clock_weather_12h"
+        )
+        weatherHourOptions.forEach { (hours, key) ->
+            weatherHoursLayout.addView(CheckBox(activity).apply {
+                text = hours.toString()
+                textSize = 18f
+                isChecked = prefs.getBoolean(key, false)
+                setOnCheckedChangeListener { _, isChecked ->
+                    prefs.edit().putBoolean(key, isChecked).apply()
+                }
+            })
+        }
+
+        val weatherCheckbox = CheckBox(activity).apply {
+            text = activity.getString(R.string.talking_clock_weather)
+            isChecked = prefs.getBoolean("talking_clock_weather", false)
+            textSize = 18f
+            setPadding(paddingLeft, 10, paddingRight, 0)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("talking_clock_weather", isChecked).apply()
+                weatherHoursLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            }
+        }
+        layout.addView(weatherCheckbox)
+        layout.addView(weatherHoursLayout)
+
         // Puhuttelu
         layout.addView(TextView(activity).apply {
             text = activity.getString(R.string.talking_clock_salutation)
