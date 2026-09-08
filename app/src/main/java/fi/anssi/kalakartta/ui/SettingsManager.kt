@@ -1789,10 +1789,14 @@ class SettingsManager(
             12 to "talking_clock_weather_12h"
         )
         weatherHourOptions.forEach { (hours, key) ->
+            val defaultChecked = hours == 3
+            if (!prefs.contains(key)) {
+                prefs.edit().putBoolean(key, defaultChecked).apply()
+            }
             weatherHoursLayout.addView(CheckBox(activity).apply {
-                text = hours.toString()
+                text = "$hours h päähän"
                 textSize = 18f
-                isChecked = prefs.getBoolean(key, false)
+                isChecked = prefs.getBoolean(key, defaultChecked)
                 setOnCheckedChangeListener { _, isChecked ->
                     prefs.edit().putBoolean(key, isChecked).apply()
                 }

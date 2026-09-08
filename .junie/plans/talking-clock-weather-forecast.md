@@ -10,7 +10,7 @@ Lisätään puhuvaan kelloon valinnainen FMI:n sääennuste, joka haetaan puheli
 ### Scope
 **In scope**
 - Asetus `Kerro sääennuste`, oletuksena pois päältä.
-- Kun pääasetus on päällä, näkyvät valittavat ennustetunnit `1`, `3`, `6` ja `12`.
+- Kun pääasetus on päällä, näkyvät valittavat ennustetunnit `1 h päähän`, `3 h päähän`, `6 h päähän` ja `12 h päähän`; `3 h päähän` on oletuksena valittuna.
 - Jokaiselle valitulle tunnille valitaan FMI:n saatavilla olevista ennusteriveistä ajallisesti lähin rivi.
 - Puhe sisältää lämpötilan, pilvisyystulkinnan, sadetulkinnan, keskituulen, puuskatuulen ja kahdeksansuuntaisen tuulitulkinnan.
 - Ennustetta ei haeta, jos kellopalvelulla ei ole sijaintia.
@@ -127,7 +127,7 @@ graph TD
 - Lisää parseri- ja rajaarvotestit `app/src/test/java/fi/anssi/kalakartta/utils/`-hakemistoon.
 
 ### ✓ Step 2: Lisää sääennusteen asetukset kellodialogiin
-Puhuvan kellon asetuksissa on oletuksena pois päältä oleva `Kerro sääennuste` ja sen alla ehdollisesti näkyvät tuntivalinnat.
+Puhuvan kellon asetuksissa on oletuksena pois päältä oleva `Kerro sääennuste` ja sen alla ehdollisesti näkyvät tuntivalinnat, joista `3 h päähän` on oletuksena valittuna.
 - Muokkaa `SettingsManager.openTalkingClockSettings()`-dialogia nykyisten auringonnousu- ja auringonlaskuvalintojen mallin mukaisesti.
 - Tallenna pääasetus ja valinnat `settings`-SharedPreferencesiin.
 - Lisää tarvittavat käyttöliittymätekstit `app/src/main/res/values/strings.xml`-tiedostoon.
