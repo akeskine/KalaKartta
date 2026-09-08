@@ -1764,7 +1764,26 @@ class SettingsManager(
             textSize = 18f
         })
         layout.addView(intervalLayout)
-        
+
+        // Puhuttelu
+        layout.addView(TextView(activity).apply {
+            text = activity.getString(R.string.talking_clock_salutation)
+            textSize = 18f
+            setPadding(0, 10, 0, 0)
+        })
+        val salutationEdit = EditText(activity).apply {
+            setText(prefs.getString("talking_clock_salutation", ""))
+            textSize = 18f
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    prefs.edit().putString("talking_clock_salutation", s?.toString() ?: "").apply()
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }
+        layout.addView(salutationEdit)
+
         // Akun varaus
         val batteryCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_battery_status)
@@ -1815,25 +1834,6 @@ class SettingsManager(
         }
         layout.addView(weatherCheckbox)
         layout.addView(weatherHoursLayout)
-
-        // Puhuttelu
-        layout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.talking_clock_salutation)
-            textSize = 18f
-            setPadding(0, 10, 0, 0)
-        })
-        val salutationEdit = EditText(activity).apply {
-            setText(prefs.getString("talking_clock_salutation", ""))
-            textSize = 18f
-            addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    prefs.edit().putString("talking_clock_salutation", s?.toString() ?: "").apply()
-                }
-                override fun afterTextChanged(s: android.text.Editable?) {}
-            })
-        }
-        layout.addView(salutationEdit)
 
         // Auringonlasku
         val sunsetLimitLayout = LinearLayout(activity).apply {
