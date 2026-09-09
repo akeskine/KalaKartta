@@ -41,10 +41,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:gravity="center"
-                android:text="Elokuu 2026"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+            android:gravity="center"
+            android:text="Elokuu 2026"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Valitse kuukausi ja vuosi" />
 
             <Button
                 android:id="@+id/nextMonthButton"

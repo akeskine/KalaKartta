@@ -81,16 +81,51 @@ class FishingSessionActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.prevMonthButton).setOnClickListener {
-            currentCalendar.add(Calendar.MONTH, -1)
-            updateCalendar()
+            changeMonth(-1)
         }
 
         findViewById<Button>(R.id.nextMonthButton).setOnClickListener {
-            currentCalendar.add(Calendar.MONTH, 1)
-            updateCalendar()
+            changeMonth(1)
+        }
+
+        monthYearText.setOnClickListener {
+            MonthYearPickerDialog.show(this, currentCalendar) { year, month ->
+                navigateToMonth(year, month)
+            }
         }
 
         loadSessions()
+    }
+
+    private fun changeMonth(amount: Int) {
+        val target = currentCalendar.clone() as Calendar
+        target.set(Calendar.DAY_OF_MONTH, 1)
+        target.add(Calendar.MONTH, amount)
+        navigateToMonth(target.get(Calendar.YEAR), target.get(Calendar.MONTH))
+    }
+
+    private fun navigateToMonth(year: Int, month: Int) {
+        val selectedDay = selectedCalendar.get(Calendar.DAY_OF_MONTH)
+        val targetSelected = selectedCalendar.clone() as Calendar
+        targetSelected.set(Calendar.DAY_OF_MONTH, 1)
+        targetSelected.set(Calendar.YEAR, year)
+        targetSelected.set(Calendar.MONTH, month)
+        targetSelected.set(
+            Calendar.DAY_OF_MONTH,
+            minOf(selectedDay, targetSelected.getActualMaximum(Calendar.DAY_OF_MONTH))
+        )
+
+        currentCalendar.set(Calendar.DAY_OF_MONTH, 1)
+        currentCalendar.set(Calendar.YEAR, year)
+        currentCalendar.set(Calendar.MONTH, month)
+        selectedCalendar = targetSelected
+
+        updateCalendar()
+        showSessionsForDate(
+            selectedCalendar.get(Calendar.YEAR),
+            selectedCalendar.get(Calendar.MONTH),
+            selectedCalendar.get(Calendar.DAY_OF_MONTH)
+        )
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
