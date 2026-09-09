@@ -21,8 +21,9 @@ object MediaComponent {
             val thumb = view.findViewById<ImageView>(R.id.mediaThumbnail)
             val fileName = view.findViewById<TextView>(R.id.mediaFileName)
             fileName.text = item.originalFileName
-            fileName.visibility = if (showFileName) View.VISIBLE else View.GONE
-            if (item.mimeType.startsWith("image/")) {
+            val isImage = item.mimeType.startsWith("image/")
+            fileName.visibility = if (showFileName || !isImage) View.VISIBLE else View.GONE
+            if (isImage) {
                 val file = File(context.filesDir, "media/${item.fileName}")
                 if (file.exists()) { thumb.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath)); thumb.visibility = View.VISIBLE }
             }
