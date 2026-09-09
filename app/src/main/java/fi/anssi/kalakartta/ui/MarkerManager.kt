@@ -31,6 +31,8 @@ import fi.anssi.kalakartta.data.Media
 import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
+import fi.anssi.kalakartta.utils.FishDiaryDialog
+import fi.anssi.kalakartta.utils.FishDiaryPageMatcher
 import fi.anssi.kalakartta.utils.enlargeButtons
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
@@ -1531,6 +1533,8 @@ class MarkerManager(
         }
 
         // Median haku ja lisäys
+        fish?.let { addDiaryLinks(container, it) }
+
         fish?.let { fc ->
             val mediaService = MediaService(context)
             val mediaList = mediaService.getMediaForPoint(fc.latitude, fc.longitude, fc.caughtAt)
@@ -1623,6 +1627,31 @@ class MarkerManager(
 
         dialog.show()
         dialog.enlargeButtons()
+    }
+
+    private fun addDiaryLinks(container: LinearLayout, fish: FishCatch) {
+        val pages = FishDiaryPageMatcher.pagesForCaughtAt(
+            fish.caughtAt,
+            db.fishDiaryPageDao().getAll()
+        )
+        if (pages.isEmpty()) return
+
+        pages.forEachIndexed { index, page ->
+            val linkText = if (pages.size == 1) {
+                context.getString(R.string.trip_notes)
+            } else {
+                context.getString(R.string.trip_notes) + " ${index + 1}"
+            }
+            val link = TextView(context).apply {
+                text = linkText
+                setTextColor(ContextCompat.getColor(context, R.color.link_color))
+                paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
+                textSize = 16f
+                setPadding(0, (8 * context.resources.displayMetrics.density).toInt(), 0, 0)
+                setOnClickListener { FishDiaryDialog.show(context, page) }
+            }
+            container.addView(link)
+        }
     }
 
     private fun confirmDeleteMarker(marker: Marker, fishFromDialog: FishCatch?) {

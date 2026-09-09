@@ -28,6 +28,8 @@ import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.formatFishermanName
 import fi.anssi.kalakartta.utils.WeatherStation
+import fi.anssi.kalakartta.utils.FishDiaryDialog
+import fi.anssi.kalakartta.utils.FishDiaryPageMatcher
 import fi.anssi.kalakartta.utils.enlargeButtons
 import fi.anssi.kalakartta.utils.MoonCalculator
 import fi.anssi.kalakartta.ui.MoonPhaseView
@@ -86,6 +88,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var clearTimeButton: ImageButton
     private lateinit var timeLabel: TextView
     private lateinit var dateTimeContainer: View
+    private lateinit var diaryLinksLayout: LinearLayout
     
     private lateinit var placeNameEditText: EditText
     private lateinit var placeNameContainer: View
@@ -210,6 +213,7 @@ class EditCatchActivity : AppCompatActivity() {
         clearTimeButton = findViewById(R.id.clearTimeButton)
         timeLabel = findViewById(R.id.timeLabel)
         dateTimeContainer = findViewById(R.id.dateTimeContainer)
+        diaryLinksLayout = findViewById(R.id.diaryLinksLayout)
         
         mediaListLayout = findViewById(R.id.mediaListLayout)
         addMediaButton = findViewById(R.id.addMediaButton)
@@ -596,6 +600,43 @@ class EditCatchActivity : AppCompatActivity() {
 
         refreshMediaList()
         updateMoonData()
+        refreshDiaryLinks()
+    }
+
+    private fun refreshDiaryLinks() {
+        diaryLinksLayout.removeAllViews()
+
+        val caughtAt = if (!isPlace && (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L)) {
+            selectedCalendar.timeInMillis
+        } else {
+            null
+        }
+        val pages = FishDiaryPageMatcher.pagesForCaughtAt(
+            caughtAt,
+            db.fishDiaryPageDao().getAll()
+        )
+        if (pages.isEmpty()) {
+            diaryLinksLayout.visibility = View.GONE
+            return
+        }
+
+        diaryLinksLayout.visibility = View.VISIBLE
+        pages.forEachIndexed { index, page ->
+            val linkText = if (pages.size == 1) {
+                getString(R.string.trip_notes)
+            } else {
+                getString(R.string.trip_notes) + " ${index + 1}"
+            }
+            val link = TextView(this).apply {
+                text = linkText
+                setTextColor(androidx.core.content.ContextCompat.getColor(this@EditCatchActivity, R.color.link_color))
+                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                textSize = 16f
+                setPadding(0, (8 * resources.displayMetrics.density).toInt(), 0, 0)
+                setOnClickListener { FishDiaryDialog.show(this@EditCatchActivity, page) }
+            }
+            diaryLinksLayout.addView(link)
+        }
     }
 
     private fun refreshMediaList() {
@@ -696,6 +737,7 @@ class EditCatchActivity : AppCompatActivity() {
             fishCatch = fishCatch?.copy(caughtAt = null)
             updateDateTimeButtonText()
             autoWeatherCheckBox.visibility = View.GONE
+            refreshDiaryLinks()
         }
         speciesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -867,6 +909,7 @@ class EditCatchActivity : AppCompatActivity() {
                 isTimeSetManually = true
                 updateDateTimeButtonText()
                 updateMoonData()
+                refreshDiaryLinks()
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                 val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
                 autoWeatherCheckBox.visibility = if (isWeatherEnabled) View.VISIBLE else View.GONE

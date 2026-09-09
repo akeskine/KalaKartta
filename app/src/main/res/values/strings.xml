@@ -30,6 +30,13 @@
     <string name="latitude">Leveysaste (Lat)</string>
     <string name="longitude">Pituusaste (Lon)</string>
     <string name="trip_notes">Kalapäiväkirjan merkinnät</string>
+    <string name="fish_diary_entry_title">Kalapäiväkirjan merkintä</string>
+    <string name="fish_diary_date">Päivämäärä</string>
+    <string name="fish_diary_date_range">%1$s–%2$s</string>
+    <string name="fish_diary_location">Paikka</string>
+    <string name="fish_diary_fishing_method">Kalastustapa</string>
+    <string name="fish_diary_catch">Saalis</string>
+    <string name="fish_diary_story">Kertomus</string>
     <string name="fisherman">Kalastaja</string>
     <string name="lure">Viehe</string>
     <string name="lure_color">Väri</string>

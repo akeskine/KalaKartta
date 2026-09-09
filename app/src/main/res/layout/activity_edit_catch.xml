@@ -153,6 +153,14 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/diaryLinksLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
+
+        <LinearLayout
             android:id="@+id/fishSpecificFields"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
