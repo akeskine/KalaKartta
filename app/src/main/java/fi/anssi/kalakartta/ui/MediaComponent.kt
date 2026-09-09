@@ -14,17 +14,21 @@ import fi.anssi.kalakartta.data.MediaService
 import java.io.File
 
 object MediaComponent {
-    fun render(context: Context, container: LinearLayout, media: List<Media>, allowDelete: (Media) -> Boolean, onChanged: () -> Unit = {}) {
+    fun render(context: Context, container: LinearLayout, media: List<Media>, allowDelete: (Media) -> Boolean, onChanged: () -> Unit = {}, showFileName: Boolean = true) {
         container.removeAllViews()
         media.forEach { item ->
             val view = LayoutInflater.from(context).inflate(R.layout.item_media, container, false)
             val thumb = view.findViewById<ImageView>(R.id.mediaThumbnail)
-            view.findViewById<TextView>(R.id.mediaFileName).text = item.originalFileName
+            val fileName = view.findViewById<TextView>(R.id.mediaFileName)
+            fileName.text = item.originalFileName
+            fileName.visibility = if (showFileName) View.VISIBLE else View.GONE
             if (item.mimeType.startsWith("image/")) {
                 val file = File(context.filesDir, "media/${item.fileName}")
                 if (file.exists()) { thumb.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath)); thumb.visibility = View.VISIBLE }
             }
-            view.findViewById<TextView>(R.id.mediaFileName).setOnClickListener { open(context, item) }
+            view.setOnClickListener { open(context, item) }
+            view.isClickable = true
+            fileName.setOnClickListener { open(context, item) }
             thumb.setOnClickListener { open(context, item) }
             val remove = view.findViewById<ImageButton>(R.id.removeMediaButton)
             remove.visibility = if (allowDelete(item)) View.VISIBLE else View.GONE

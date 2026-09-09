@@ -74,9 +74,9 @@ class EditDiaryPageActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.saveButton).setOnClickListener { save() }
         findViewById<TextView>(R.id.backButton).setOnClickListener { goBack() }
         addMediaButton.setOnClickListener { selectMediaLauncher.launch("*/*") }
-        multiDayCheckBox.setOnCheckedChangeListener { _, checked -> endDateContainer.visibility = if (checked) View.VISIBLE else View.GONE; changed = true }
-        startDateText.setOnClickListener { pickDate(startDate) { startDate = it; updateDates(); changed = true } }
-        endDateText.setOnClickListener { pickDate(endDate ?: startDate) { endDate = it; updateDates(); changed = true } }
+        multiDayCheckBox.setOnCheckedChangeListener { _, checked -> endDateContainer.visibility = if (checked) View.VISIBLE else View.GONE; changed = true; refreshMediaList() }
+        startDateText.setOnClickListener { pickDate(startDate) { startDate = it; updateDates(); changed = true; refreshMediaList() } }
+        endDateText.setOnClickListener { pickDate(endDate ?: startDate) { endDate = it; updateDates(); changed = true; refreshMediaList() } }
         listOf(locationEdit, fishingMethodEdit, catchEdit, storyEdit).forEach { edit ->
             edit.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
@@ -90,20 +90,26 @@ class EditDiaryPageActivity : AppCompatActivity() {
 
     private fun loadPage() {
         val id = intent.getLongExtra(EXTRA_PAGE_ID, -1L)
-        if (id == -1L) { startDate = normalize(intent.getLongExtra(EXTRA_START_DATE, System.currentTimeMillis())); updateDates(); return }
+        if (id == -1L) {
+            startDate = normalize(intent.getLongExtra(EXTRA_START_DATE, System.currentTimeMillis()))
+            updateDates()
+            refreshMediaList()
+            return
+        }
         lifecycleScope.launch(Dispatchers.IO) { val loaded = db.fishDiaryPageDao().getById(id); withContext(Dispatchers.Main) {
             if (loaded == null) { finish(); return@withContext }; page = loaded; startDate = loaded.startDate; endDate = loaded.endDate
             locationEdit.setText(loaded.location); fishingMethodEdit.setText(loaded.fishingMethod); catchEdit.setText(loaded.catch); storyEdit.setText(loaded.story); multiDayCheckBox.isChecked = loaded.endDate != null; updateDates(); changed = false
             refreshMediaList()
         } }
-        if (id == -1L) refreshMediaList()
     }
 
     private fun refreshMediaList() {
         val dayStart = normalize(startDate)
-        val dayEnd = Calendar.getInstance().apply { timeInMillis = dayStart; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
-        val media = db.mediaDao().getMediaForDate(dayStart, dayEnd)
-        MediaComponent.render(this, mediaListLayout, media, { it.latitude == null && it.longitude == null }) { refreshMediaList() }
+        val selectedEnd = if (multiDayCheckBox.isChecked) endDate ?: dayStart else dayStart
+        val rangeStart = minOf(dayStart, normalize(selectedEnd))
+        val rangeEnd = Calendar.getInstance().apply { timeInMillis = maxOf(dayStart, normalize(selectedEnd)); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+        val media = db.mediaDao().getMediaForDate(rangeStart, rangeEnd)
+        MediaComponent.render(this, mediaListLayout, media, { it.latitude == null && it.longitude == null }, onChanged = { refreshMediaList() })
     }
 
     private fun pickDate(initial: Long, callback: (Long) -> Unit) {

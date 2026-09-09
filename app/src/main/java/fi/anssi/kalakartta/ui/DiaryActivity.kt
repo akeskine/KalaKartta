@@ -102,7 +102,7 @@ class DiaryActivity : AppCompatActivity() {
         val location = page.location.trim().ifBlank { "Ei paikkaa" }
         item.findViewById<TextView>(R.id.diaryPageTitle).text = "Päiväkirjasivu $pageNumber: $location"
         details.text = buildPageDetails(page); details.visibility = View.GONE
-        MediaComponent.render(this, mediaLayout, media, { false })
+        MediaComponent.render(this, mediaLayout, media, { false }, showFileName = false)
         item.setOnClickListener {
             details.visibility = if (details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
             expandIcon.rotation = if (details.visibility == View.VISIBLE) 180f else 0f
