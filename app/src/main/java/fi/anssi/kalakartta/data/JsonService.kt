@@ -467,7 +467,7 @@ class JsonService {
     private fun diaryPagesToJson(diaryPages: List<FishDiaryPage>): JSONArray {
         val array = JSONArray()
         val dayFormat = SimpleDateFormat("yyyy-MM-dd'T'00:00:00'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
+            timeZone = TimeZone.getTimeZone("Europe/Helsinki")
         }
         diaryPages.forEach {
             val obj = JSONObject()
