@@ -74,6 +74,7 @@ class EditDiaryPageActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.saveButton).setOnClickListener { save() }
         findViewById<TextView>(R.id.backButton).setOnClickListener { goBack() }
         addMediaButton.setOnClickListener { selectMediaLauncher.launch("*/*") }
+        findViewById<TextView>(R.id.generateCatchButton).setOnClickListener { generateCatchText() }
         multiDayCheckBox.setOnCheckedChangeListener { _, checked -> endDateContainer.visibility = if (checked) View.VISIBLE else View.GONE; changed = true; refreshMediaList() }
         startDateText.setOnClickListener { pickDate(startDate) { startDate = it; updateDates(); changed = true; refreshMediaList() } }
         endDateText.setOnClickListener { pickDate(endDate ?: startDate) { endDate = it; updateDates(); changed = true; refreshMediaList() } }
@@ -122,6 +123,19 @@ class EditDiaryPageActivity : AppCompatActivity() {
     private fun save() {
         val saved = FishDiaryPage(page?.id ?: 0L, startDate, if (multiDayCheckBox.isChecked) endDate ?: startDate else null, locationEdit.text.toString(), fishingMethodEdit.text.toString(), catchEdit.text.toString(), storyEdit.text.toString())
         lifecycleScope.launch(Dispatchers.IO) { if (saved.id == 0L) db.fishDiaryPageDao().insert(saved) else db.fishDiaryPageDao().update(saved); withContext(Dispatchers.Main) { setResult(RESULT_OK); finish() } }
+    }
+
+    private fun generateCatchText() {
+        val rangeStart = normalize(startDate)
+        val selectedEnd = if (multiDayCheckBox.isChecked) endDate ?: rangeStart else rangeStart
+        val rangeEnd = Calendar.getInstance().apply { timeInMillis = normalize(selectedEnd); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val catches = db.fishCatchDao().getCatchesInRange(rangeStart, rangeEnd).filter { it.species != "UNKNOWN" && (it.eventType == null || it.eventType == fi.anssi.kalakartta.data.FishCatch.CAUGHT_FISH) }
+                val text = CatchSummaryFormatter.format(catches, db.fishSpeciesDao().getAll().associateBy { it.id })
+                withContext(Dispatchers.Main) { catchEdit.setText(text); catchEdit.setSelection(text.length); changed = true }
+            } catch (_: Exception) { withContext(Dispatchers.Main) { Toast.makeText(this@EditDiaryPageActivity, "Virhe saaliita luotaessa", Toast.LENGTH_LONG).show() } }
+        }
     }
 
     private fun goBack() { if (!changed) finish() else AlertDialog.Builder(this).setMessage("Tietoja on muutettu, poistutaanko tallentamatta?").setPositiveButton("Kyllä") { _, _ -> finish() }.setNegativeButton("Ei", null).show() }

@@ -19,7 +19,7 @@
                 <EditText android:id="@+id/fishingMethodEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Kirjoita kalastustapa..." />
             </LinearLayout>
         </LinearLayout>
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Saalis" android:layout_marginTop="12dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="12dp"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Saalis" /><TextView android:id="@+id/generateCatchButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Generoi" android:textColor="@color/link_color" android:padding="8dp" android:clickable="true" android:focusable="true" /></LinearLayout>
         <EditText android:id="@+id/catchEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:minLines="3" android:gravity="top" android:inputType="textMultiLine" android:hint="Kirjoita saalis..." />
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kertomus" android:layout_marginTop="12dp" />
         <EditText android:id="@+id/storyEdit" android:layout_width="match_parent" android:layout_height="180dp" android:gravity="top" android:inputType="textMultiLine|textCapSentences" android:hint="Kirjoita kertomus..." />
