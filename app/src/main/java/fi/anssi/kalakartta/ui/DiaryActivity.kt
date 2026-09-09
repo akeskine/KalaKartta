@@ -1,10 +1,12 @@
 package fi.anssi.kalakartta.ui
 
-import android.app.DatePickerDialog
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.StyleSpan
+import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -22,472 +24,168 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class DiaryActivity : AppCompatActivity() {
-
     private lateinit var db: AppDatabase
     private lateinit var calendarGrid: GridLayout
     private lateinit var monthYearText: TextView
-    private lateinit var multiDayCheckBox: CheckBox
-    private lateinit var singleDayContainer: View
-    private lateinit var multiDayContainer: View
-    private lateinit var startDateText: TextView
-    private lateinit var multiStartDateText: TextView
-    private lateinit var endDateText: TextView
-    private lateinit var locationEdit: EditText
-    private lateinit var fishingMethodEdit: EditText
-    private lateinit var catchEdit: EditText
-    private lateinit var storyEdit: EditText
-    private lateinit var saveButton: View
-    private lateinit var deleteButton: View
-
+    private lateinit var diaryPagesContainer: LinearLayout
+    private lateinit var noPagesText: TextView
     private var allDiaryPages: List<FishDiaryPage> = emptyList()
     private var currentCalendar = Calendar.getInstance()
     private var selectedCalendar = Calendar.getInstance()
-    private var currentDiaryPage: FishDiaryPage? = null
-    
-    private var hasChanges = false
-    private val sdfDate = SimpleDateFormat("d.M.yyyy", Locale("fi", "FI"))
+
+    companion object { private const val EDIT_PAGE_REQUEST = 2001 }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { setShowWhenLocked(true); setTurnScreenOn(true) }
+        else @Suppress("DEPRECATION") { window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON) }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_diary)
-
         db = AppDatabase.getInstance(this)
-        
-        initViews()
-        setupListeners()
+        calendarGrid = findViewById(R.id.calendarGrid)
+        monthYearText = findViewById(R.id.monthYearText)
+        diaryPagesContainer = findViewById(R.id.diaryPagesContainer)
+        noPagesText = findViewById(R.id.noPagesText)
+        findViewById<View>(R.id.backButton).setOnClickListener { finish() }
+        findViewById<Button>(R.id.prevMonthButton).setOnClickListener { changeMonth(-1) }
+        findViewById<Button>(R.id.nextMonthButton).setOnClickListener { changeMonth(1) }
+        monthYearText.setOnClickListener { MonthYearPickerDialog.show(this, currentCalendar) { y, m -> navigateToMonth(y, m) } }
+        findViewById<View>(R.id.addDiaryPageButton).setOnClickListener { openNewPage() }
         loadDiaryPages()
     }
 
-    private fun initViews() {
-        val grid: GridLayout = findViewById(R.id.calendarGrid)
-        calendarGrid = grid
-        val mYText: TextView = findViewById(R.id.monthYearText)
-        monthYearText = mYText
-        val multiDayCB: CheckBox = findViewById(R.id.multiDayCheckBox)
-        multiDayCheckBox = multiDayCB
-        val sDayCont: View = findViewById(R.id.singleDayContainer)
-        singleDayContainer = sDayCont
-        val mDayCont: View = findViewById(R.id.multiDayContainer)
-        multiDayContainer = mDayCont
-        val sDateText: TextView = findViewById(R.id.startDateText)
-        startDateText = sDateText
-        val mStartDateText: TextView = findViewById(R.id.multiStartDateText)
-        multiStartDateText = mStartDateText
-        val eDateText: TextView = findViewById(R.id.endDateText)
-        endDateText = eDateText
-        val locEdit: EditText = findViewById(R.id.locationEdit)
-        locationEdit = locEdit
-        val fMethodEdit: EditText = findViewById(R.id.fishingMethodEdit)
-        fishingMethodEdit = fMethodEdit
-        val cEdit: EditText = findViewById(R.id.catchEdit)
-        catchEdit = cEdit
-        val sEdit: EditText = findViewById(R.id.storyEdit)
-        storyEdit = sEdit
-        val sButton: View = findViewById(R.id.saveButton)
-        saveButton = sButton
-        val dButton: View = findViewById(R.id.deleteButton)
-        deleteButton = dButton
-        
-        updateDateTexts()
-    }
-
-    private fun setupListeners() {
-        findViewById<View>(R.id.backButton).setOnClickListener {
-            onBackPressed()
-        }
-
-        findViewById<Button>(R.id.prevMonthButton).setOnClickListener {
-            changeMonth(-1)
-        }
-
-        findViewById<Button>(R.id.nextMonthButton).setOnClickListener {
-            changeMonth(1)
-        }
-
-        monthYearText.setOnClickListener {
-            MonthYearPickerDialog.show(this, currentCalendar) { year, month ->
-                navigateToMonth(year, month)
-            }
-        }
-
-        multiDayCheckBox.setOnCheckedChangeListener { _, isChecked ->
-            singleDayContainer.visibility = if (isChecked) View.GONE else View.VISIBLE
-            multiDayContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
-            if (!isChecked) {
-                currentDiaryPage = currentDiaryPage?.copy(endDate = null)
-                updateDateTexts()
-            }
-            markChanged()
-        }
-
-        startDateText.setOnClickListener { showDatePicker(selectedCalendar) { cal -> 
-            selectedCalendar = cal
-            updateDateTexts()
-            markChanged()
-        } }
-        
-        multiStartDateText.setOnClickListener { showDatePicker(selectedCalendar) { cal -> 
-            selectedCalendar = cal
-            updateDateTexts()
-            markChanged()
-        } }
-        
-        endDateText.setOnClickListener {
-            val endCal = Calendar.getInstance()
-            currentDiaryPage?.endDate?.let { endCal.timeInMillis = it }
-            
-            val dialog = DatePickerDialog(this, { _, year, month, dayOfMonth ->
-                val cal = Calendar.getInstance().apply {
-                    set(year, month, dayOfMonth, 0, 0, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                if (currentDiaryPage == null) {
-                    currentDiaryPage = FishDiaryPage(
-                        startDate = normalizeToStartOfDay(selectedCalendar.timeInMillis),
-                        endDate = cal.timeInMillis,
-                        location = locationEdit.text.toString(),
-                        fishingMethod = fishingMethodEdit.text.toString(),
-                        catch = catchEdit.text.toString(),
-                        story = storyEdit.text.toString()
-                    )
-                } else {
-                    currentDiaryPage = currentDiaryPage?.copy(endDate = cal.timeInMillis)
-                }
-                updateDateTexts()
-                markChanged()
-            }, endCal.get(Calendar.YEAR), endCal.get(Calendar.MONTH), endCal.get(Calendar.DAY_OF_MONTH))
-            
-            dialog.setButton(DatePickerDialog.BUTTON_NEGATIVE, "Peruuta") { _, _ -> }
-            dialog.setButton(DatePickerDialog.BUTTON_NEUTRAL, "Tyhjennä") { _, _ ->
-                currentDiaryPage = currentDiaryPage?.copy(endDate = null)
-                updateDateTexts()
-                markChanged()
-            }
-            dialog.show()
-        }
-
-        val watcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { markChanged() }
-            override fun afterTextChanged(s: Editable?) {}
-        }
-        locationEdit.addTextChangedListener(watcher)
-        fishingMethodEdit.addTextChangedListener(watcher)
-        catchEdit.addTextChangedListener(watcher)
-        storyEdit.addTextChangedListener(watcher)
-
-        saveButton.setOnClickListener { saveDiaryPage() }
-        deleteButton.setOnClickListener { confirmDelete() }
-    }
-
-    private fun changeMonth(amount: Int) {
-        val target = currentCalendar.clone() as Calendar
-        target.set(Calendar.DAY_OF_MONTH, 1)
-        target.add(Calendar.MONTH, amount)
-        navigateToMonth(target.get(Calendar.YEAR), target.get(Calendar.MONTH))
-    }
-
-    private fun navigateToMonth(year: Int, month: Int) {
-        if (hasChanges) {
-            AlertDialog.Builder(this)
-                .setMessage("Kalapäiväkirjan tietoja on muutettu, haluatko varmasti vaihtaa kuukautta tallentamatta?")
-                .setPositiveButton("Kyllä") { _, _ -> applyMonth(year, month) }
-                .setNegativeButton("Ei", null)
-                .show()
-        } else {
-            applyMonth(year, month)
-        }
-    }
-
-    private fun applyMonth(year: Int, month: Int) {
-        val selectedDay = selectedCalendar.get(Calendar.DAY_OF_MONTH)
-        val targetSelected = selectedCalendar.clone() as Calendar
-        targetSelected.set(Calendar.DAY_OF_MONTH, 1)
-        targetSelected.set(Calendar.YEAR, year)
-        targetSelected.set(Calendar.MONTH, month)
-        targetSelected.set(
-            Calendar.DAY_OF_MONTH,
-            minOf(selectedDay, targetSelected.getActualMaximum(Calendar.DAY_OF_MONTH))
-        )
-
-        currentCalendar.set(Calendar.DAY_OF_MONTH, 1)
-        currentCalendar.set(Calendar.YEAR, year)
-        currentCalendar.set(Calendar.MONTH, month)
-        selectDate(targetSelected)
-    }
-
-    private fun markChanged() {
-        hasChanges = true
-    }
-
-    private fun updateDateTexts() {
-        val dateStr = sdfDate.format(selectedCalendar.time)
-        startDateText.text = dateStr
-        multiStartDateText.text = dateStr
-        
-        val endTs = currentDiaryPage?.endDate
-        if (endTs != null) {
-            endDateText.text = sdfDate.format(Date(endTs))
-        } else {
-            endDateText.text = "Valitse..."
-        }
-    }
-
-    private fun showDatePicker(initialCal: Calendar = selectedCalendar, onDateSelected: (Calendar) -> Unit) {
-        DatePickerDialog(this, { _, year, month, dayOfMonth ->
-            val cal = Calendar.getInstance().apply {
-                set(year, month, dayOfMonth, 0, 0, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            onDateSelected(cal)
-        }, initialCal.get(Calendar.YEAR), initialCal.get(Calendar.MONTH), initialCal.get(Calendar.DAY_OF_MONTH)).show()
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == EDIT_PAGE_REQUEST && resultCode == RESULT_OK) loadDiaryPages()
     }
 
     private fun loadDiaryPages() {
         lifecycleScope.launch(Dispatchers.IO) {
             allDiaryPages = db.fishDiaryPageDao().getAll()
-            withContext(Dispatchers.Main) {
-                updateCalendar()
-                selectDate(selectedCalendar)
-            }
+            withContext(Dispatchers.Main) { updateCalendar(); selectDate(selectedCalendar) }
         }
     }
 
-    private fun updateCalendar() {
-        calendarGrid.removeAllViews()
-        
-        val sdfMonth = SimpleDateFormat("MMMM yyyy", Locale("fi", "FI"))
-        monthYearText.text = sdfMonth.format(currentCalendar.time).replaceFirstChar { it.uppercase() }
+    private fun changeMonth(amount: Int) {
+        val target = currentCalendar.clone() as Calendar
+        target.set(Calendar.DAY_OF_MONTH, 1); target.add(Calendar.MONTH, amount)
+        navigateToMonth(target.get(Calendar.YEAR), target.get(Calendar.MONTH))
+    }
 
-        val cal = currentCalendar.clone() as Calendar
-        cal.set(Calendar.DAY_OF_MONTH, 1)
-        
-        var firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY
-        if (firstDayOfWeek < 0) firstDayOfWeek += 7
-
-        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-
-        val daysOfWeek = listOf("ma", "ti", "ke", "to", "pe", "la", "su")
-        daysOfWeek.forEach { dayName ->
-            val tv = TextView(this).apply {
-                text = dayName
-                gravity = android.view.Gravity.CENTER
-                setPadding(0, 10, 0, 10)
-                textSize = 12f
-            }
-            val params = GridLayout.LayoutParams().apply {
-                width = 0
-                height = GridLayout.LayoutParams.WRAP_CONTENT
-                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            }
-            calendarGrid.addView(tv, params)
-        }
-
-        for (i in 0 until firstDayOfWeek) {
-            val emptyView = View(this)
-            val params = GridLayout.LayoutParams().apply {
-                width = 0
-                height = 1
-                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            }
-            calendarGrid.addView(emptyView, params)
-        }
-
-        val inflater = LayoutInflater.from(this)
-        for (day in 1..daysInMonth) {
-            val dayView = inflater.inflate(R.layout.item_calendar_day, calendarGrid, false)
-            val dayText = dayView.findViewById<TextView>(R.id.dayText)
-            val indicator = dayView.findViewById<View>(R.id.sessionIndicator)
-            
-            dayText.text = day.toString()
-
-            val dayCal = cal.clone() as Calendar
-            dayCal.set(Calendar.DAY_OF_MONTH, day)
-            
-            val hasDiary = allDiaryPages.any {
-                val sCal = normalizeCalendar(Calendar.getInstance().apply { timeInMillis = it.startDate })
-                val eTs = it.endDate
-                
-                if (eTs == null) {
-                    isSameDay(sCal, dayCal)
-                } else {
-                    val eCal = normalizeCalendar(Calendar.getInstance().apply { timeInMillis = eTs })
-                    // Tarkistetaan onko dayCal sCal:n ja eCal:n välissä (mukaan lukien ne)
-                    val dCalNorm = normalizeCalendar(dayCal.clone() as Calendar)
-                    !dCalNorm.before(sCal) && !dCalNorm.after(eCal)
-                }
-            }
-            
-            if (hasDiary) {
-                indicator.visibility = View.VISIBLE
-            }
-
-            if (isSameDay(dayCal, selectedCalendar)) {
-                val outValue = android.util.TypedValue()
-                theme.resolveAttribute(android.R.attr.colorControlHighlight, outValue, true)
-                dayView.setBackgroundColor(outValue.data)
-            }
-
-            dayView.setOnClickListener {
-                if (hasChanges) {
-                    AlertDialog.Builder(this)
-                        .setMessage("Kalapäiväkirjan tietoja on muutettu, haluatko varmasti poistua tallentamatta?")
-                        .setPositiveButton("Kyllä") { _, _ ->
-                            selectDate(dayCal)
-                        }
-                        .setNegativeButton("Ei", null)
-                        .show()
-                } else {
-                    selectDate(dayCal)
-                }
-            }
-
-            val params = GridLayout.LayoutParams().apply {
-                width = 0
-                height = GridLayout.LayoutParams.WRAP_CONTENT
-                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            }
-            calendarGrid.addView(dayView, params)
-        }
+    private fun navigateToMonth(year: Int, month: Int) {
+        val day = selectedCalendar.get(Calendar.DAY_OF_MONTH)
+        val target = selectedCalendar.clone() as Calendar
+        target.set(Calendar.DAY_OF_MONTH, 1); target.set(Calendar.YEAR, year); target.set(Calendar.MONTH, month)
+        target.set(Calendar.DAY_OF_MONTH, minOf(day, target.getActualMaximum(Calendar.DAY_OF_MONTH)))
+        currentCalendar.set(Calendar.DAY_OF_MONTH, 1); currentCalendar.set(Calendar.YEAR, year); currentCalendar.set(Calendar.MONTH, month)
+        selectDate(target)
     }
 
     private fun selectDate(cal: Calendar) {
         selectedCalendar = normalizeCalendar(cal.clone() as Calendar)
-        updateCalendar()
-        
-        // Etsitään päiväkirjasivu
-        val page = allDiaryPages.firstOrNull {
-            val sCal = normalizeCalendar(Calendar.getInstance().apply { timeInMillis = it.startDate })
-            val eTs = it.endDate
-            val selCal = normalizeCalendar(selectedCalendar.clone() as Calendar)
-            
-            if (eTs == null) {
-                isSameDay(sCal, selCal)
-            } else {
-                val eCal = normalizeCalendar(Calendar.getInstance().apply { timeInMillis = eTs })
-                !selCal.before(sCal) && !selCal.after(eCal)
-            }
-        }
-        
-        currentDiaryPage = page
-        fillForm(page)
-        hasChanges = false
+        updateCalendar(); updateDiaryPageList()
     }
 
-    private fun fillForm(page: FishDiaryPage?) {
-        if (page != null) {
-            multiDayCheckBox.isChecked = page.endDate != null
-            locationEdit.setText(page.location)
-            fishingMethodEdit.setText(page.fishingMethod)
-            catchEdit.setText(page.catch)
-            storyEdit.setText(page.story)
-            deleteButton.visibility = View.VISIBLE
-        } else {
-            multiDayCheckBox.isChecked = false
-            locationEdit.setText("")
-            fishingMethodEdit.setText("")
-            catchEdit.setText("")
-            storyEdit.setText("")
-            deleteButton.visibility = View.GONE
-        }
-        updateDateTexts()
+    private fun updateDiaryPageList() {
+        diaryPagesContainer.removeAllViews()
+        val pages = allDiaryPages.filter { pageCoversDate(it, selectedCalendar) }.sortedBy { it.startDate }
+        noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
+        pages.forEachIndexed { index, page -> addDiaryPageItem(page, index + 1) }
     }
 
-    private fun saveDiaryPage() {
-        val startDate = normalizeToStartOfDay(selectedCalendar.timeInMillis)
-        val endDate = if (multiDayCheckBox.isChecked) {
-            // Jos loppupäivää ei ole asetettu, käytetään alkupäivää? 
-            // Tehtävänannossa sanottiin: Jos "Usean päivän merkintä" on ruksittu, näytetään kentät "Alkupäivämäärä" ja "Loppupäivämäärä"
-            currentDiaryPage?.endDate ?: startDate
-        } else null
-        
-        val newPage = FishDiaryPage(
-            id = currentDiaryPage?.id ?: 0,
-            startDate = startDate,
-            endDate = endDate,
-            location = locationEdit.text.toString(),
-            fishingMethod = fishingMethodEdit.text.toString(),
-            catch = catchEdit.text.toString(),
-            story = storyEdit.text.toString()
-        )
+    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int) {
+        val item = LayoutInflater.from(this).inflate(R.layout.item_diary_page, diaryPagesContainer, false)
+        val details = item.findViewById<TextView>(R.id.diaryPageDetails)
+        val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
+        val location = page.location.trim().ifBlank { "Ei paikkaa" }
+        item.findViewById<TextView>(R.id.diaryPageTitle).text = "Päiväkirjasivu $pageNumber: $location"
+        details.text = buildPageDetails(page); details.visibility = View.GONE
+        item.setOnClickListener {
+            details.visibility = if (details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            expandIcon.rotation = if (details.visibility == View.VISIBLE) 180f else 0f
+        }
+        item.findViewById<ImageView>(R.id.editDiaryPageButton).setOnClickListener { showPageMenu(it, page) }
+        diaryPagesContainer.addView(item)
+    }
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            if (newPage.id == 0L) {
-                db.fishDiaryPageDao().insert(newPage)
-            } else {
-                db.fishDiaryPageDao().update(newPage)
-            }
-            allDiaryPages = db.fishDiaryPageDao().getAll()
-            withContext(Dispatchers.Main) {
-                hasChanges = false
-                currentDiaryPage = allDiaryPages.find { it.startDate == newPage.startDate }
-                updateCalendar()
-                deleteButton.visibility = View.VISIBLE
-                Toast.makeText(this@DiaryActivity, "Tallennettu", Toast.LENGTH_SHORT).show()
-            }
+    private fun buildPageDetails(page: FishDiaryPage): CharSequence {
+        val fmt = SimpleDateFormat("d.M.yyyy", Locale("fi", "FI"))
+        val dates = if (page.endDate != null) "${fmt.format(Date(page.startDate))}–${fmt.format(Date(page.endDate))}" else fmt.format(Date(page.startDate))
+        val result = SpannableStringBuilder()
+        appendBoldLine(result, "Päivä: ", dates)
+        appendBoldLine(result, "Paikka: ", page.location.ifBlank { "-" })
+        appendBoldLine(result, "Kalastustapa: ", page.fishingMethod.ifBlank { "-" })
+        appendBoldLine(result, "Saalis: ", page.catch.ifBlank { "-" })
+        result.append("\n")
+        appendBoldLine(result, "Kertomus:\n", page.story.ifBlank { "Ei kertomusta." })
+        return result
+    }
+
+    private fun appendBoldLine(result: SpannableStringBuilder, label: String, value: String) {
+        val start = result.length
+        result.append(label)
+        result.setSpan(StyleSpan(Typeface.BOLD), start, result.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        result.append(value).append("\n")
+    }
+
+    private fun showPageMenu(anchor: View, page: FishDiaryPage) {
+        PopupMenu(this, anchor).apply {
+            menu.add("Muokkaa"); menu.add("Poista")
+            setOnMenuItemClickListener { when (it.title) {
+                "Muokkaa" -> { openEditPage(page.id); true }
+                "Poista" -> { confirmDelete(page); true }
+                else -> false
+            } }
+            show()
         }
     }
 
-    private fun confirmDelete() {
-        val page = currentDiaryPage ?: return
-        AlertDialog.Builder(this)
-            .setTitle("Poistetaanko merkintä?")
-            .setMessage("Haluatko varmasti poistaa tämän päiväkirjamerkinnän?")
-            .setPositiveButton("Poista") { _, _ ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    db.fishDiaryPageDao().delete(page)
-                    allDiaryPages = db.fishDiaryPageDao().getAll()
-                    withContext(Dispatchers.Main) {
-                        selectDate(selectedCalendar)
-                        Toast.makeText(this@DiaryActivity, "Poistettu", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-            .setNegativeButton("Peruuta", null)
-            .show()
+    private fun confirmDelete(page: FishDiaryPage) {
+        AlertDialog.Builder(this).setTitle("Poistetaanko päiväkirjasivu?")
+            .setMessage("Haluatko varmasti poistaa tämän päiväkirjasivun?")
+            .setPositiveButton("Poista") { _, _ -> lifecycleScope.launch(Dispatchers.IO) {
+                db.fishDiaryPageDao().delete(page); allDiaryPages = db.fishDiaryPageDao().getAll()
+                withContext(Dispatchers.Main) { updateCalendar(); updateDiaryPageList() }
+            } }.setNegativeButton("Peruuta", null).show()
     }
 
-    override fun onBackPressed() {
-        if (hasChanges) {
-            AlertDialog.Builder(this)
-                .setMessage("Kalapäiväkirjan tietoja on muutettu, haluatko varmasti poistua tallentamatta?")
-                .setPositiveButton("Kyllä") { _, _ ->
-                    super.onBackPressed()
-                }
-                .setNegativeButton("Ei", null)
-                .show()
-        } else {
-            super.onBackPressed()
+    private fun openNewPage() {
+        startActivityForResult(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_START_DATE, selectedCalendar.timeInMillis), EDIT_PAGE_REQUEST)
+    }
+
+    private fun openEditPage(id: Long) {
+        startActivityForResult(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_PAGE_ID, id), EDIT_PAGE_REQUEST)
+    }
+
+    private fun updateCalendar() {
+        calendarGrid.removeAllViews()
+        val sdf = SimpleDateFormat("MMMM yyyy", Locale("fi", "FI"))
+        monthYearText.text = sdf.format(currentCalendar.time).replaceFirstChar { it.uppercase() }
+        val cal = currentCalendar.clone() as Calendar; cal.set(Calendar.DAY_OF_MONTH, 1)
+        var first = cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY; if (first < 0) first += 7
+        listOf("ma", "ti", "ke", "to", "pe", "la", "su").forEach { name ->
+            calendarGrid.addView(TextView(this).apply { text = name; gravity = android.view.Gravity.CENTER; setPadding(0, 10, 0, 10); textSize = 12f }, GridLayout.LayoutParams().apply { width = 0; height = GridLayout.LayoutParams.WRAP_CONTENT; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
+        }
+        repeat(first) { calendarGrid.addView(View(this), GridLayout.LayoutParams().apply { width = 0; height = 1; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) }) }
+        val inflater = LayoutInflater.from(this)
+        for (day in 1..cal.getActualMaximum(Calendar.DAY_OF_MONTH)) {
+            val dayView = inflater.inflate(R.layout.item_calendar_day, calendarGrid, false)
+            dayView.findViewById<TextView>(R.id.dayText).text = day.toString()
+            val dayCal = cal.clone() as Calendar; dayCal.set(Calendar.DAY_OF_MONTH, day)
+            if (allDiaryPages.any { pageCoversDate(it, dayCal) }) dayView.findViewById<View>(R.id.sessionIndicator).visibility = View.VISIBLE
+            if (isSameDay(dayCal, selectedCalendar)) { val value = android.util.TypedValue(); theme.resolveAttribute(android.R.attr.colorControlHighlight, value, true); dayView.setBackgroundColor(value.data) }
+            dayView.setOnClickListener { selectDate(dayCal) }
+            calendarGrid.addView(dayView, GridLayout.LayoutParams().apply { width = 0; height = GridLayout.LayoutParams.WRAP_CONTENT; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
         }
     }
 
-    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
-        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-                cal1.get(Calendar.MONTH) == cal2.get(Calendar.MONTH) &&
-                cal1.get(Calendar.DAY_OF_MONTH) == cal2.get(Calendar.DAY_OF_MONTH)
+    private fun pageCoversDate(page: FishDiaryPage, date: Calendar): Boolean {
+        val start = normalizeCalendar(Calendar.getInstance().apply { timeInMillis = page.startDate }); val selected = normalizeCalendar(date.clone() as Calendar)
+        if (page.endDate == null) return isSameDay(start, selected)
+        val end = normalizeCalendar(Calendar.getInstance().apply { timeInMillis = page.endDate })
+        return !selected.before(start) && !selected.after(end)
     }
 
-    private fun normalizeToStartOfDay(timeInMillis: Long): Long {
-        val cal = Calendar.getInstance()
-        cal.timeInMillis = timeInMillis
-        return normalizeCalendar(cal).timeInMillis
-    }
+    private fun isSameDay(a: Calendar, b: Calendar) = a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
 
-    private fun normalizeCalendar(cal: Calendar): Calendar {
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal
-    }
+    private fun normalizeCalendar(cal: Calendar): Calendar { cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0); return cal }
 }

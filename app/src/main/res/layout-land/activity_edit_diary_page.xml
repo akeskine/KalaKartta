@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/editorRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:paddingBottom="140dp">
+        <TextView android:id="@+id/diaryPageTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Päiväkirjasivu" android:textSize="20sp" android:textStyle="bold" android:layout_marginBottom="12dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingEnd="12dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Päivämäärä" />
+                <TextView android:id="@+id/startDateText" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                <CheckBox android:id="@+id/multiDayCheckBox" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Usean päivän merkintä" />
+                <LinearLayout android:id="@+id/endDateContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Loppupäivämäärä" />
+                    <TextView android:id="@+id/endDateText" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                </LinearLayout>
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="12dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Paikka" />
+                <EditText android:id="@+id/locationEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Kirjoita paikkatieto..." />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kalastustapa" android:layout_marginTop="8dp" />
+                <EditText android:id="@+id/fishingMethodEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Kirjoita kalastustapa..." />
+            </LinearLayout>
+        </LinearLayout>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Saalis" android:layout_marginTop="12dp" />
+        <EditText android:id="@+id/catchEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:minLines="3" android:gravity="top" android:inputType="textMultiLine" android:hint="Kirjoita saalis..." />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kertomus" android:layout_marginTop="12dp" />
+        <EditText android:id="@+id/storyEdit" android:layout_width="match_parent" android:layout_height="180dp" android:gravity="top" android:inputType="textMultiLine|textCapSentences" android:hint="Kirjoita kertomus..." />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end">
+            <TextView android:id="@+id/saveButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tallenna" android:textColor="@color/link_color" android:textSize="18sp" android:padding="16dp" android:clickable="true" android:focusable="true" />
+            <TextView android:id="@+id/backButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/back" android:textColor="@color/link_color" android:textSize="18sp" android:padding="16dp" android:clickable="true" android:focusable="true" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

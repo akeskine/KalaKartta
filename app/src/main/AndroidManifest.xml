@@ -44,6 +44,7 @@
         <activity android:name=".ui.WeatherErrorLogActivity" />
         <activity android:name=".ui.SummaryActivity" />
         <activity android:name=".ui.DiaryActivity" />
+        <activity android:name=".ui.EditDiaryPageActivity" android:windowSoftInputMode="adjustResize" android:showWhenLocked="true" android:turnScreenOn="true" />
         <activity android:name=".ui.EditSpeciesActivity" />
         <activity android:name=".ui.EditSpeciesDetailActivity" />
         <activity android:name=".ui.FishingSessionActivity" />
