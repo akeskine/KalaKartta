@@ -118,9 +118,9 @@ class MediaService(private val context: Context) {
         allMedia.forEach { m ->
             val obj = JSONObject()
             obj.put("id", m.id.toString())
-            obj.put("latitude", m.latitude)
-            obj.put("longitude", m.longitude)
-            obj.put("pointTime", m.pointTime)
+            obj.put("latitude", m.latitude ?: JSONObject.NULL)
+            obj.put("longitude", m.longitude ?: JSONObject.NULL)
+            obj.put("pointTime", m.pointTime ?: JSONObject.NULL)
             obj.put("originalFileName", m.originalFileName)
             obj.put("fileName", m.fileName)
             obj.put("mimeType", m.mimeType)
@@ -198,9 +198,9 @@ class MediaService(private val context: Context) {
             FileOutputStream(destFile).use { it.write(content) }
             
             val media = Media(
-                latitude = obj.getDouble("latitude"),
-                longitude = obj.getDouble("longitude"),
-                pointTime = if (obj.isNull("pointTime")) null else obj.getLong("pointTime"),
+                latitude = obj.optNullableDouble("latitude"),
+                longitude = obj.optNullableDouble("longitude"),
+                pointTime = if (!obj.has("pointTime") || obj.isNull("pointTime")) null else obj.optLong("pointTime"),
                 mimeType = obj.getString("mimeType"),
                 originalFileName = obj.getString("originalFileName"),
                 fileName = fileName,
@@ -209,5 +209,10 @@ class MediaService(private val context: Context) {
             mediaDao.insert(media)
             onProgress(i + 1, total)
         }
+    }
+
+    private fun JSONObject.optNullableDouble(key: String): Double? {
+        if (!has(key) || isNull(key)) return null
+        return optDouble(key).takeUnless { it.isNaN() || it.isInfinite() }
     }
 }
