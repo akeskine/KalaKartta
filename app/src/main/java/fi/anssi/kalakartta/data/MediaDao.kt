@@ -15,11 +15,17 @@ interface MediaDao {
     """)
     fun getMediaForPoint(lat: Double, lon: Double, time: Long?): List<Media>
 
+    @Query("SELECT * FROM Media WHERE pointTime >= :startTime AND pointTime < :endTime ORDER BY pointTime, id")
+    fun getMediaForDate(startTime: Long, endTime: Long): List<Media>
+
     @Insert
     fun insert(media: Media): Long
 
     @Delete
     fun delete(media: Media)
+
+    @Update
+    fun update(media: Media)
 
     @Query("SELECT * FROM Media")
     fun getAll(): List<Media>

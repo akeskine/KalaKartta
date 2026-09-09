@@ -644,6 +644,8 @@ class EditCatchActivity : AppCompatActivity() {
         val lat = fishCatch?.latitude ?: placeOfInterest?.latitude ?: return
         val lon = fishCatch?.longitude ?: placeOfInterest?.longitude ?: return
         val time = if (isPlace) null else fishCatch?.caughtAt
+        MediaComponent.render(this, mediaListLayout, mediaService.getMediaForPoint(lat, lon, time), { true }) { refreshMediaList() }
+        return
         
         val mediaList = mediaService.getMediaForPoint(lat, lon, time)
         mediaList.forEach { media ->
@@ -689,6 +691,8 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun openMedia(media: fi.anssi.kalakartta.data.Media) {
+        MediaComponent.open(this, media)
+        return
         val file = File(filesDir, "media/${media.fileName}")
         if (!file.exists()) return
         

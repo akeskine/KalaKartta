@@ -18,7 +18,7 @@ class MediaService(private val context: Context) {
     private val mediaDao = db.mediaDao()
     private val mediaDir = File(context.filesDir, "media").apply { if (!exists()) mkdirs() }
 
-    fun addMedia(uri: Uri, lat: Double, lon: Double, pointTime: Long?): Media? {
+    fun addMedia(uri: Uri, lat: Double? = null, lon: Double? = null, pointTime: Long?): Media? {
         val originalFileName = getFileName(uri) ?: "unknown"
         val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
         

@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishDiaryPage
+import fi.anssi.kalakartta.data.MediaService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,11 +32,21 @@ class EditDiaryPageActivity : AppCompatActivity() {
     private lateinit var fishingMethodEdit: EditText
     private lateinit var catchEdit: EditText
     private lateinit var storyEdit: EditText
+    private lateinit var mediaListLayout: LinearLayout
+    private lateinit var addMediaButton: Button
+    private lateinit var mediaService: MediaService
     private var page: FishDiaryPage? = null
     private var startDate = 0L
     private var endDate: Long? = null
     private var changed = false
     private val dateFormat = SimpleDateFormat("d.M.yyyy", Locale("fi", "FI"))
+
+    private val selectMediaLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            if (mediaService.addMedia(it, null, null, startDate) != null) refreshMediaList()
+            else Toast.makeText(this, "Median lisääminen epäonnistui", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -59,8 +70,10 @@ class EditDiaryPageActivity : AppCompatActivity() {
         db = AppDatabase.getInstance(this)
         startDateText = findViewById(R.id.startDateText); endDateText = findViewById(R.id.endDateText); endDateContainer = findViewById(R.id.endDateContainer)
         multiDayCheckBox = findViewById(R.id.multiDayCheckBox); locationEdit = findViewById(R.id.locationEdit); fishingMethodEdit = findViewById(R.id.fishingMethodEdit); catchEdit = findViewById(R.id.catchEdit); storyEdit = findViewById(R.id.storyEdit)
+        mediaListLayout = findViewById(R.id.mediaListLayout); addMediaButton = findViewById(R.id.addMediaButton); mediaService = MediaService(this)
         findViewById<TextView>(R.id.saveButton).setOnClickListener { save() }
         findViewById<TextView>(R.id.backButton).setOnClickListener { goBack() }
+        addMediaButton.setOnClickListener { selectMediaLauncher.launch("*/*") }
         multiDayCheckBox.setOnCheckedChangeListener { _, checked -> endDateContainer.visibility = if (checked) View.VISIBLE else View.GONE; changed = true }
         startDateText.setOnClickListener { pickDate(startDate) { startDate = it; updateDates(); changed = true } }
         endDateText.setOnClickListener { pickDate(endDate ?: startDate) { endDate = it; updateDates(); changed = true } }
@@ -81,7 +94,16 @@ class EditDiaryPageActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) { val loaded = db.fishDiaryPageDao().getById(id); withContext(Dispatchers.Main) {
             if (loaded == null) { finish(); return@withContext }; page = loaded; startDate = loaded.startDate; endDate = loaded.endDate
             locationEdit.setText(loaded.location); fishingMethodEdit.setText(loaded.fishingMethod); catchEdit.setText(loaded.catch); storyEdit.setText(loaded.story); multiDayCheckBox.isChecked = loaded.endDate != null; updateDates(); changed = false
+            refreshMediaList()
         } }
+        if (id == -1L) refreshMediaList()
+    }
+
+    private fun refreshMediaList() {
+        val dayStart = normalize(startDate)
+        val dayEnd = Calendar.getInstance().apply { timeInMillis = dayStart; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+        val media = db.mediaDao().getMediaForDate(dayStart, dayEnd)
+        MediaComponent.render(this, mediaListLayout, media, { it.latitude == null && it.longitude == null }) { refreshMediaList() }
     }
 
     private fun pickDate(initial: Long, callback: (Long) -> Unit) {

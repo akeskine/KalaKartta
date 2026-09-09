@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishDiaryPage
+import fi.anssi.kalakartta.data.Media
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -88,20 +89,24 @@ class DiaryActivity : AppCompatActivity() {
     private fun updateDiaryPageList() {
         diaryPagesContainer.removeAllViews()
         val pages = allDiaryPages.filter { pageCoversDate(it, selectedCalendar) }.sortedBy { it.startDate }
+        val media = mediaForDate(selectedCalendar)
         noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
-        pages.forEachIndexed { index, page -> addDiaryPageItem(page, index + 1) }
+        pages.forEachIndexed { index, page -> addDiaryPageItem(page, index + 1, media) }
     }
 
-    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int) {
+    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int, media: List<Media>) {
         val item = LayoutInflater.from(this).inflate(R.layout.item_diary_page, diaryPagesContainer, false)
         val details = item.findViewById<TextView>(R.id.diaryPageDetails)
         val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
+        val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
         val location = page.location.trim().ifBlank { "Ei paikkaa" }
         item.findViewById<TextView>(R.id.diaryPageTitle).text = "Päiväkirjasivu $pageNumber: $location"
         details.text = buildPageDetails(page); details.visibility = View.GONE
+        MediaComponent.render(this, mediaLayout, media, { false })
         item.setOnClickListener {
             details.visibility = if (details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
             expandIcon.rotation = if (details.visibility == View.VISIBLE) 180f else 0f
+            mediaLayout.visibility = details.visibility
         }
         item.findViewById<ImageView>(R.id.editDiaryPageButton).setOnClickListener { showPageMenu(it, page) }
         diaryPagesContainer.addView(item)
@@ -118,6 +123,13 @@ class DiaryActivity : AppCompatActivity() {
         result.append("\n")
         appendBoldLine(result, "Kertomus:\n", page.story.ifBlank { "Ei kertomusta." })
         return result
+    }
+
+    private fun mediaForDate(date: Calendar): List<Media> {
+        val start = normalizeCalendar(date.clone() as Calendar)
+        val end = start.clone() as Calendar
+        end.add(Calendar.DAY_OF_MONTH, 1)
+        return db.mediaDao().getMediaForDate(start.timeInMillis, end.timeInMillis)
     }
 
     private fun appendBoldLine(result: SpannableStringBuilder, label: String, value: String) {
