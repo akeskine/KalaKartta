@@ -45,8 +45,6 @@ class PressureGraphView @JvmOverloads constructor(
         style = Paint.Style.STROKE
     }
 
-    private val minPressure = 940f
-    private val maxPressure = 1060f
     private val timeRangeHours = 6f // -6 to +6
 
     fun setData(samples: List<PressureSample>, caughtAt: Long) {
@@ -67,18 +65,29 @@ class PressureGraphView @JvmOverloads constructor(
 
         val graphWidth = width.toFloat() - paddingLeft - paddingRight
         val graphHeight = height.toFloat() - paddingTop - paddingBottom
+        val millisInRange = timeRangeHours * 60 * 60 * 1000
+        val visibleSamples = samples.filter { sample ->
+            val relativeTime = sample.time - caughtAt
+            Math.abs(relativeTime) <= millisInRange && sample.pressure.isFinite()
+        }
+        if (visibleSamples.isEmpty()) return
 
-        // Draw grid and Y-axis labels (Pressure every 20 hPa)
-        for (p in 940..1060 step 20) {
-            val y = height.toFloat() - paddingBottom - ((p.toFloat() - minPressure) / (maxPressure - minPressure)) * graphHeight
+        val pressureRange = PressureGraphScale.rangeFor(visibleSamples.map { it.pressure })
+
+        // Draw grid and Y-axis labels (pressure every 10 hPa).
+        var pressure = pressureRange.min
+        while (pressure <= pressureRange.max) {
+            val y = height.toFloat() - paddingBottom -
+                    ((pressure - pressureRange.min) / (pressureRange.max - pressureRange.min)) * graphHeight
             
             // Grid line (horizontal)
-            if (p.toFloat() != minPressure && p.toFloat() != maxPressure) {
+            if (pressure != pressureRange.min && pressure != pressureRange.max) {
                 canvas.drawLine(paddingLeft, y, width.toFloat() - paddingRight, y, gridPaint)
             }
             
             // Label
-            canvas.drawText(p.toString(), 5f, y + 10f, textPaint)
+            canvas.drawText(pressure.toInt().toString(), 5f, y + 10f, textPaint)
+            pressure += PressureGraphScale.TICK_STEP_HPA
         }
 
         // Draw grid and X-axis labels (Time every 2h)
@@ -108,14 +117,15 @@ class PressureGraphView @JvmOverloads constructor(
         val path = Path()
         var first = true
 
-        val millisInRange = timeRangeHours * 60 * 60 * 1000
-
         for (sample in samples) {
             val relativeTime = sample.time - caughtAt
             if (Math.abs(relativeTime) > millisInRange) continue
+            if (!sample.pressure.isFinite()) continue
 
             val x = paddingLeft + graphWidth / 2 + (relativeTime.toFloat() / millisInRange) * (graphWidth / 2)
-            val y = height.toFloat() - paddingBottom - ((sample.pressure.toFloat() - minPressure) / (maxPressure - minPressure)) * graphHeight
+            val y = height.toFloat() - paddingBottom -
+                    ((sample.pressure.toFloat() - pressureRange.min) /
+                            (pressureRange.max - pressureRange.min)) * graphHeight
 
             if (first) {
                 path.moveTo(x, y)

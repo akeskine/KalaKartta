@@ -1346,10 +1346,13 @@ class MarkerManager(
 
     private fun showCatchDetailsDialog(marker: Marker) {
         val fish = marker.relatedObject as? FishCatch
+        val pressureGraphMarker = "\u0000PRESSURE_GRAPH\u0000"
         val details = StringBuilder()
         var hasSpecies = false
         
         fish?.let {
+            val shouldShowPressureGraph = it.pressureSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L
+            var pressureGraphMarkerAdded = false
             val species = db.fishSpeciesDao().getById(it.species)
             if (species != null) {
                 val speciesName = if (it.species == "OTHER" && !it.otherSpecies.isNullOrEmpty()) {
@@ -1416,8 +1419,6 @@ class MarkerManager(
                     }
                     details.append("\n")
                 }
-                if (it.pressure != null) details.append("  Paine: ${it.pressure} hPa\n")
-                
                 val rainLevels = context.resources.getStringArray(R.array.rain_levels)
                 val rainDesc = if (it.rain != null && (it.rain!!.toInt() + 1) < rainLevels.size) rainLevels[it.rain!!.toInt() + 1] else ""
                 
@@ -1428,10 +1429,26 @@ class MarkerManager(
                     if (it.rainHourMm != null) parts.add("Sade: ${it.rainHourMm} mm/h")
                     details.append("  ${parts.joinToString(", ")}\n")
                 }
+
+                if (it.pressure != null) {
+                    details.append("  Paine: ${it.pressure} hPa\n")
+                    if (shouldShowPressureGraph) {
+                        details.append(pressureGraphMarker)
+                        pressureGraphMarkerAdded = true
+                    }
+                } else if (shouldShowPressureGraph) {
+                    details.append(pressureGraphMarker)
+                    pressureGraphMarkerAdded = true
+                }
+
                 if (it.weatherStation.isNotEmpty()) {
                     val stationName = it.weatherStation.substringAfter(":")
                     details.append("  Asema: $stationName\n")
                 }
+            }
+
+            if (shouldShowPressureGraph && !pressureGraphMarkerAdded) {
+                details.append(pressureGraphMarker)
             }
 
             if (it.additionalInfo.isNotEmpty()) details.append("\nLisätieto: ${it.additionalInfo}\n")
@@ -1514,22 +1531,54 @@ class MarkerManager(
             }
         }
 
-        val finalMessage: CharSequence = spannableMessage
-
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             val padding = (16 * context.resources.displayMetrics.density).toInt()
             setPadding(padding, padding / 2, padding, padding)
         }
 
-        if (finalMessage.trim().isNotEmpty()) {
-            val tv = TextView(context).apply {
-                text = finalMessage
-                setTextAppearance(context, android.R.style.TextAppearance_Medium)
-                setTextColor(android.graphics.Color.BLACK)
-                movementMethod = android.text.method.LinkMovementMethod.getInstance()
+        fun addDetailsText(text: CharSequence) {
+            if (text.isNotBlank()) {
+                val tv = TextView(context).apply {
+                    this.text = text
+                    setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                    setTextColor(android.graphics.Color.BLACK)
+                    movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                }
+                container.addView(tv)
             }
-            container.addView(tv)
+        }
+
+        fun addPressureGraph(fishCatch: FishCatch) {
+            val pressureGraph = PressureGraphView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (180 * context.resources.displayMetrics.density).toInt()
+                ).apply {
+                    topMargin = (8 * context.resources.displayMetrics.density).toInt()
+                }
+                setData(fishCatch.pressureSamples, fishCatch.caughtAt!!)
+            }
+            container.addView(pressureGraph)
+        }
+
+        val graphMarkerIndex = messageText.indexOf(pressureGraphMarker)
+        if (graphMarkerIndex >= 0) {
+            val beforeGraphEnd = messageText.substring(0, graphMarkerIndex).trimEnd().length
+            val afterGraphStart = graphMarkerIndex + pressureGraphMarker.length
+            val afterGraphText = messageText.substring(afterGraphStart)
+            val firstAfterGraphCharacter = afterGraphText.indexOfFirst { !it.isWhitespace() }
+            val afterGraphContentStart = if (firstAfterGraphCharacter >= 0) {
+                afterGraphStart + firstAfterGraphCharacter
+            } else {
+                messageText.length
+            }
+
+            addDetailsText(spannableMessage.subSequence(0, beforeGraphEnd))
+            fish?.let { addPressureGraph(it) }
+            addDetailsText(spannableMessage.subSequence(afterGraphContentStart, messageText.length))
+        } else {
+            addDetailsText(spannableMessage)
         }
 
         // Median haku ja lisäys
