@@ -6,9 +6,12 @@ import android.view.WindowManager
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ScrollView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
@@ -49,6 +52,16 @@ class EditFishingSessionActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_fishing_session)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val editorRoot = findViewById<ScrollView>(R.id.editorRoot)
+        val baseBottomPadding = (140 * resources.displayMetrics.density).toInt()
+        ViewCompat.setOnApplyWindowInsetsListener(editorRoot) { view, insets ->
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, baseBottomPadding + maxOf(imeBottom, navigationBottom))
+            insets
+        }
+        ViewCompat.requestApplyInsets(editorRoot)
 
         db = AppDatabase.getInstance(this)
         sessionId = intent.getLongExtra("SESSION_ID", -1L)
@@ -65,6 +78,12 @@ class EditFishingSessionActivity : AppCompatActivity() {
                 showUnsavedChangesDialog()
             } else {
                 finish()
+            }
+        }
+
+        findViewById<EditText>(R.id.notesInput).setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) findViewById<EditText>(R.id.notesInput).post {
+                editorRoot.smoothScrollTo(0, findViewById<EditText>(R.id.notesInput).bottom)
             }
         }
 
