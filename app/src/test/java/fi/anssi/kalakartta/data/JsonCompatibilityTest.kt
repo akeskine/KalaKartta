@@ -47,6 +47,7 @@ class JsonCompatibilityTest {
             longitude = 24.54321,
             caughtAt = 1672531200000L, // 2023-01-01 00:00:00 UTC
             pressureTrend = 1.500006,
+            pressureTurningTrend = -0.246789,
             pressureSamples = samples,
             moonPhase = 0.5,
             moonAltitude = 45.0
@@ -58,6 +59,7 @@ class JsonCompatibilityTest {
         val obj = catchesArray.getJSONObject(0)
         
         assertEquals(1.50001, obj.getDouble("pressureTrend"), 0.000001)
+        assertEquals(-0.24679, obj.getDouble("pressureTurningTrend"), 0.000001)
         assertEquals(0.5, obj.getDouble("moonPhase"), 0.001)
         assertEquals(45.0, obj.getDouble("moonAltitude"), 0.001)
         
@@ -76,6 +78,7 @@ class JsonCompatibilityTest {
             longitude = 24.0,
             caughtAt = 1000L,
             pressureTrend = -0.1234567,
+            pressureTurningTrend = 0.9876543,
             pressureSamples = listOf(
                 PressureSample(1000L, 1000.1234567),
                 PressureSample(2000L, 1001.9876543)
@@ -86,6 +89,7 @@ class JsonCompatibilityTest {
         val imported = service.parseImportData(json).catches.single()
 
         assertEquals(-0.12346, imported.pressureTrend!!, 0.000001)
+        assertEquals(0.98765, imported.pressureTurningTrend!!, 0.000001)
         assertEquals(1000.12346, imported.pressureSamples[0].pressure, 0.000001)
         assertEquals(1001.98765, imported.pressureSamples[1].pressure, 0.000001)
     }
@@ -114,6 +118,7 @@ class JsonCompatibilityTest {
         
         assertEquals("HAUKI", fishCatch.species)
         assertNull(fishCatch.pressureTrend)
+        assertNull(fishCatch.pressureTurningTrend)
         assertTrue(fishCatch.pressureSamples.isEmpty())
         assertNull(fishCatch.moonPhase)
         assertNull(fishCatch.moonAltitude)
@@ -130,6 +135,7 @@ class JsonCompatibilityTest {
                         "latitude": 62.0,
                         "longitude": 26.0,
                         "pressureTrend": -0.5,
+                        "pressureTurningTrend": 0.125,
                         "pressureSamples": [
                             {"time": "2023-01-01T00:00:00Z", "pressure": 1010.0},
                             {"time": "2023-01-01T01:00:00Z", "pressure": 1009.5}
@@ -147,6 +153,7 @@ class JsonCompatibilityTest {
         
         assertEquals("KUHA", fishCatch.species)
         assertEquals(-0.5, fishCatch.pressureTrend!!, 0.001)
+        assertEquals(0.125, fishCatch.pressureTurningTrend!!, 0.001)
         assertEquals(2, fishCatch.pressureSamples.size)
         assertEquals(1010.0, fishCatch.pressureSamples[0].pressure, 0.001)
         assertEquals(0.25, fishCatch.moonPhase!!, 0.001)
@@ -161,6 +168,7 @@ class JsonCompatibilityTest {
                 "catches": [{
                     "species": "KUHA",
                     "pressureTrend": 0.9876543,
+                    "pressureTurningTrend": -0.1234567,
                     "pressureSamples": [
                         {"time": "2023-01-01T00:00:00Z", "pressure": 1012.3456789}
                     ]
@@ -171,6 +179,7 @@ class JsonCompatibilityTest {
         val fishCatch = service.parseImportData(json).catches.single()
 
         assertEquals(0.98765, fishCatch.pressureTrend!!, 0.000001)
+        assertEquals(-0.12346, fishCatch.pressureTurningTrend!!, 0.000001)
         assertEquals(1012.34568, fishCatch.pressureSamples.single().pressure, 0.000001)
     }
 }

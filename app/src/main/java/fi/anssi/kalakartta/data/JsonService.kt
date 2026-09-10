@@ -427,6 +427,7 @@ class JsonService {
             if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies.uppercase())
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
             if (it.pressureTrend != null) obj.put("pressureTrend", normalizePressure(it.pressureTrend))
+            if (it.pressureTurningTrend != null) obj.put("pressureTurningTrend", normalizePressure(it.pressureTurningTrend))
             if (it.pressureSamples.isNotEmpty()) {
                 val samplesArray = JSONArray()
                 it.pressureSamples.forEach { sample ->
@@ -733,6 +734,7 @@ class JsonService {
                     otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", ""),
                     weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime"),
                     pressureTrend = if (obj.isNull("pressureTrend")) null else normalizePressure(obj.optDouble("pressureTrend")),
+                    pressureTurningTrend = if (obj.isNull("pressureTurningTrend")) null else normalizePressure(obj.optDouble("pressureTurningTrend")),
                     pressureSamples = parsePressureSamples(obj.optJSONArray("pressureSamples")),
                     moonPhase = moonPhase,
                     moonAltitude = moonAltitude

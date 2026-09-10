@@ -446,7 +446,11 @@ class CatchManager(
                                     }
                                     
                                     if (samples.isNotEmpty()) {
-                                        updatedFish = updatedFish.copy(pressureSamples = samples)
+                                        val withSamples = updatedFish.copy(pressureSamples = samples)
+                                        updatedFish = withSamples.copy(
+                                            pressureTrend = withSamples.calculatePressureTrend(),
+                                            pressureTurningTrend = withSamples.calculatePressureTurningTrend()
+                                        )
                                     }
                                 } catch (e: Exception) {
                                     android.util.Log.e("CatchManager", "Error fetching pressure history", e)

@@ -5,18 +5,20 @@ sessionId: session-260910-133329-wirr
 # Requirements
 
 ### Overview & Goals
-Laajennetaan **Päivitä puuttuvat säätiedot** -toiminto täydentämään `FishCatch.pressureTrend`- ja `pressureSamples`-tiedot niille saalispisteille, joilta trendi puuttuu. Käytetty asema valitaan samoilla lähimmän aseman fallback-säännöillä kuin nykyisessä säähaussa, ja paineen hetkellinen arvo sekä painehistoria haetaan samalta asemalta.
+Laajennetaan **Päivitä puuttuvat säätiedot** -toiminto täydentämään `FishCatch.pressureTrend`-, `pressureTurningTrend`- ja `pressureSamples`-tiedot niille saalispisteille, joilta paineen trendit puuttuvat. Käytetty asema valitaan samoilla lähimmän aseman fallback-säännöillä kuin nykyisessä säähaussa, ja paineen hetkellinen arvo sekä painehistoria haetaan samalta asemalta.
 
 ### Scope
 #### In scope
 - Lisää `pressureTrend` puuttuvien säätietojen päivityskohteisiin ja näytä nämä pisteet nykyisessä `Päivitettäviä pisteitä`-laskurissa.
 - Kokeile saantihetken ilmanpainetta asemilta etäisyysjärjestyksessä ja hae `pressureSamples` samalta asemalta.
 - Laske trendi olemassa olevan `FishCatch.calculatePressureTrend()`-logiikan perusteella.
+- Laske `pressureTurningTrend` painehistorian −6…0 h ja 0…+6 h puoliskojen trendien erotuksena uusien sääpäivitysten yhteydessä.
+- Tallenna uusi turning-trend Roomiin nullable-kenttänä ja vie/tuo se JSON-muodossa.
 - Säilytä kaikki muut sääarvot ennallaan, kun piste tarvitsee vain paineeseen liittyvän päivityksen.
 - Vie ja tuo `pressureTrend` sekä `pressureSamples.pressure` enintään viiden desimaalin tarkkuudella.
 
 #### Out of scope
-- Painehistoria- ja trendikenttien Room-skeeman muuttaminen; niiden kentät ja `PressureConverter` ovat jo olemassa.
+- Olemassa olevien pisteiden erillinen `pressureTurningTrend`-migraatio- tai massalaskenta; vanhat arvot täytetään myöhemmin erillisessä työssä.
 - Uuden käyttöliittymän lisääminen; käytetään nykyistä päivitysnäkymää ja laskuria.
 - Muiden automaattisten sääpäivityspolkujen muuttaminen kuin niiden kanssa jaettavan sääasemalogiiikan tarpeelliset sisäiset muutokset.
 
@@ -29,13 +31,15 @@ Laajennetaan **Päivitä puuttuvat säätiedot** -toiminto täydentämään `Fis
 - Piste on päivitettävä, jos sillä on kelvollinen `caughtAt` ja joko:
   - normaaleja saantihetken säätietoja puuttuu nykyisen ehdon mukaan, tai
   - `pressureTrend == null`, riippumatta siitä, onko `weatherDataCompleteTime` jo asetettu.
+- `pressureTurningTrend` lasketaan aina, kun uusi piste tai puuttuvia säätietoja käsiteltävä piste saa painehistorian; puutteellisilla puoliskoilla arvo jää `null`iksi.
+- Turning-trendin laskennassa käytetään kummankin puoliskon ensimmäisen ja viimeisen painehavainnon välistä todelliseen aikaeroon perustuvaa hPa/h-muutosnopeutta ja vähennetään ennen-trendi after-trendistä.
 - Massapäivityksen on käsiteltävä erikseen nämä tilanteet:
   - uusi piste: haetaan nykyisen normaalin sääpäivityksen tapaan säätiedot sekä paineen näytteet ja lasketaan trendi samaan tallennukseen;
   - vanha piste, jolta `pressure` puuttuu kokonaan: haetaan puuttuva saantihetken paine, `pressureSamples` ja `pressureTrend`, mutta säilytetään kaikki muut jo tallennetut tiedot;
   - vanha piste, jolla `pressure` on olemassa mutta painehistoria/trendi puuttuu: haetaan painehistoria samalta saantihetken paineen tuottavalta asemalta ja täydennetään `pressureSamples` sekä `pressureTrend` ilman muiden sääarvojen korvaamista.
 - Painehaku kokeilee lähimmät käytettävissä olevat asemat nykyisen `WeatherService`-logiikan mukaisessa järjestyksessä ja jatkaa seuraavaan asemaan, jos saantihetken paine-/historiatietoa ei saada.
 - `pressureSamples` ja saantihetken `pressure` tulevat samasta käytetystä asemasta; asemien tietoja ei yhdistetä painehistorian sisällä.
-- Paine-only-päivitys saa muuttaa vain paineeseen liittyviä kenttiä (`pressure`, `pressureSamples`, `pressureTrend`); esimerkiksi lämpötila, tuuli, sade, `weatherStation`, `weatherTime` ja muut kalatiedot säilyvät.
+- Paine-only-päivitys saa muuttaa vain paineeseen liittyviä kenttiä (`pressure`, `pressureSamples`, `pressureTrend`, `pressureTurningTrend`); esimerkiksi lämpötila, tuuli, sade, `weatherStation`, `weatherTime` ja muut kalatiedot säilyvät.
 - Jos näytteitä ei saada tai näytteitä on liian vähän trendin laskemiseen, `pressureTrend` jää puuttuvaksi eikä pistettä merkitä onnistuneesti täydennetyksi.
 - JSON-viennissä ja -tuonnissa `pressureTrend` sek�� jokaisen `pressureSamples`-alkion paine normalisoidaan enintään viiteen desimaaliin; puuttuvat vanhan JSON-muodon kentät säilyvät yhteensopivina.
 - Jokaisesta päivitysyrityksestä säilytetään viimeisin tila catch-kohtaisesti; onnistunut yritys poistaa pisteen epäonnistuneiden joukosta ja epäonnistunut yritys merkitään ilman seuraavan yrityksen aikaviivettä.
@@ -80,8 +84,8 @@ Laajennetaan **Päivitä puuttuvat säätiedot** -toiminto täydentämään `Fis
    - Säilytä ISO-aikaleimat, tyhjien näytelistojen käsittely ja vanhojen JSON-tiedostojen puuttuvien kenttien oletukset.
 
 ### Components & File Structure
-- Muokattavat: `app/src/main/java/fi/anssi/kalakartta/utils/WeatherService.kt`, `app/src/main/java/fi/anssi/kalakartta/ui/WeatherUpdateActivity.kt`, `app/src/main/java/fi/anssi/kalakartta/data/JsonService.kt`.
-- Testit: `app/src/test/java/fi/anssi/kalakartta/data/JsonCompatibilityTest.kt` ja `app/src/test/java/fi/anssi/kalakartta/data/PressureCatchTest.kt`.
+- Muokattavat: `app/src/main/java/fi/anssi/kalakartta/data/FishCatch.kt`, `app/src/main/java/fi/anssi/kalakartta/data/AppDatabase.kt`, `app/src/main/java/fi/anssi/kalakartta/data/JsonService.kt`, `app/src/main/java/fi/anssi/kalakartta/ui/CatchManager.kt`, `app/src/main/java/fi/anssi/kalakartta/ui/EditCatchActivity.kt` ja `app/src/main/java/fi/anssi/kalakartta/ui/WeatherUpdateActivity.kt`.
+- Testit: `app/src/test/java/fi/anssi/kalakartta/data/JsonCompatibilityTest.kt`, `app/src/test/java/fi/anssi/kalakartta/data/PressureCatchTest.kt` ja `app/src/androidTest/java/fi/anssi/kalakartta/data/FishCatchMigrationTest.kt`.
 - Ennalleen: `FishCatch.kt`, `PressureConverter.kt`, `AppDatabase.kt` ja `FishCatchDao.kt`, ellei toteutuksessa tarvitse vain jakaa olemassa olevaa sisäistä apumallia.
 
 ### Architecture Diagram
@@ -113,6 +117,8 @@ graph TD
 - Painehistoria on tyhjä tai siinä on vain yksi kelvollinen näyte: trendiä ei aseteta eikä pistettä käsitellä onnistuneesti täydennettynä.
 - Viety trendi ja näytteiden paineet sisältävät yli viisi desimaalia: JSON-arvot sisältävät enintään viisi desimaalia ja tuonti palauttaa viiteen desimaaliin normalisoidut `Double`-arvot.
 - Vanha JSON ilman `pressureTrend`- ja `pressureSamples`-kenttiä tuodaan edelleen `null`-/tyhjälista-oletuksilla.
+- `pressureTurningTrend` lasketaan tunnetusta aineistosta positiiviseksi, negatiiviseksi, nollaksi tai `null`iksi riittämättömillä näytteillä.
+- Roomin `22 -> 23` -migraatio lisää uuden nullable-sarakkeen ja jättää vanhojen rivien arvon `null`iksi.
 
 ### Test Changes
 - Laajenna `JsonCompatibilityTest.kt`: tarkista trendin ja sample-paineiden vienti/tuonti viiden desimaalin rajalla, usean näytteen round-trip sekä vanhan JSON:n yhteensopivuus.
@@ -166,3 +172,24 @@ Tests cover persistence, ordering, count calculation, and the no-delay retry con
 - Add unit coverage for latest-attempt DAO behavior and non-failed-before-failed ordering.
 - Verify that failed points remain eligible immediately but are selected only after eligible points without a failed latest attempt.
 - Run the relevant JVM tests and compile checks.
+
+### ✓ Step 7: Add pressure turning trend calculation and persistence
+Add `FishCatch.pressureTurningTrend`, calculate it from the two pressure-history halves, and persist it through Room migration.
+
+- Implement before/after endpoint average-change calculation using the existing pressure-sample trend principle.
+- Add the nullable Room field and migration with `null` for existing rows.
+- Attach the calculated value to new catch weather saves and missing-weather mass-update saves without changing UI or target filtering.
+
+### ✓ Step 8: Extend JSON import/export and regression tests
+Preserve `pressureTurningTrend` in JSON and verify calculation, migration, and backward-compatible import behavior.
+
+- Export and import the nullable field while keeping older files valid with a `null` default.
+- Add positive, negative, zero, insufficient-data, JSON, and Room migration coverage.
+- Run the relevant unit tests and compile checks.
+
+### ✓ Step 9: Correct turning-trend calculation to use endpoint average change
+Update the two half-window trend calculations to use each half's first and last samples and their actual elapsed time.
+
+- Calculate endpoint average pressure change rates for the first six and last six samples.
+- Keep the existing `pressureTurningTrend` persistence, update paths, and import/export behavior unchanged.
+- Add tests proving internal sample values do not affect the endpoint result, then run the focused unit tests and compilation check.

@@ -212,6 +212,12 @@ class WeatherUpdateActivity : AppCompatActivity() {
                                 pressureSamples = result.pressureSamples
                             ).calculatePressureTrend()
                         }
+                        val fetchedPressureTurningTrend = pressureResult?.let { result ->
+                            fishCatch.copy(
+                                pressure = result.pressure,
+                                pressureSamples = result.pressureSamples
+                            ).calculatePressureTurningTrend()
+                        }
 
                         val existingData = mutableMapOf<String, Double>()
                         fishCatch.airTemp?.let { existingData["t2m"] = it }
@@ -242,6 +248,7 @@ class WeatherUpdateActivity : AppCompatActivity() {
                                 ?: fishCatch.pressure
                         val pressureSamples = pressureResult?.pressureSamples ?: fishCatch.pressureSamples
                         val pressureTrend = fetchedPressureTrend ?: fishCatch.pressureTrend
+                        val pressureTurningTrend = fetchedPressureTurningTrend ?: fishCatch.pressureTurningTrend
 
                         val updatedCatch = if (hasWeatherData) {
                             val airTemp = data?.get("t2m") ?: fishCatch.airTemp
@@ -272,12 +279,14 @@ class WeatherUpdateActivity : AppCompatActivity() {
                                 weatherTime = weatherResult?.second ?: fishCatch.weatherTime,
                                 weatherStation = station,
                                 weatherDataCompleteTime = if (isNowComplete) null else System.currentTimeMillis(),
+                                pressureTurningTrend = pressureTurningTrend,
                                 pressureSamples = pressureSamples,
                                 pressureTrend = pressureTrend
                             )
                         } else if (pressureResult != null) {
                             fishCatch.copy(
                                 pressure = pressureResult.pressure,
+                                pressureTurningTrend = pressureTurningTrend,
                                 pressureSamples = pressureResult.pressureSamples,
                                 pressureTrend = pressureTrend
                             )

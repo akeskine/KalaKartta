@@ -992,6 +992,11 @@ class EditCatchActivity : AppCompatActivity() {
             val fc = fishCatch ?: return
             val selectedSpeciesId = speciesList.getOrNull(speciesSpinner.selectedItemPosition)?.id ?: ""
             val otherSpecies = otherSpeciesEditText.text.toString().trim()
+            val updatedCaughtAt = if (isTimeSetManually || (fc.caughtAt ?: 0L) > 0L) {
+                selectedCalendar.timeInMillis
+            } else {
+                null
+            }
             
             if (selectedSpeciesId == "OTHER" && otherSpecies.isEmpty()) {
                 Toast.makeText(this, "Kalalaji on annettava.", Toast.LENGTH_SHORT).show()
@@ -1003,7 +1008,7 @@ class EditCatchActivity : AppCompatActivity() {
                 species = selectedSpeciesId,
                 otherSpecies = if (selectedSpeciesId == "OTHER") otherSpecies else null,
                 eventType = if (selectedType == "EMPTY") null else (selectedType ?: FishCatch.CAUGHT_FISH),
-                caughtAt = if (isTimeSetManually || (fc.caughtAt ?: 0L) > 0L) selectedCalendar.timeInMillis else null,
+                caughtAt = updatedCaughtAt,
                 weight = weightEditText.text.toString().toLongOrNull(),
                 length = lengthEditText.text.toString().toLongOrNull(),
                 method = methodEditText.text.toString(),
@@ -1030,9 +1035,17 @@ class EditCatchActivity : AppCompatActivity() {
                 longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude),
                 pressureSamples = fc.pressureSamples
             )
-            android.util.Log.d("KalaKartta", "performFinalSave: tallennetaan ${updated.pressureSamples.size} näytettä")
+            val updatedWithPressureTrends = if (updated.pressureSamples.isNotEmpty()) {
+                updated.copy(
+                    pressureTrend = updated.calculatePressureTrend(),
+                    pressureTurningTrend = updated.calculatePressureTurningTrend()
+                )
+            } else {
+                updated
+            }
+            android.util.Log.d("KalaKartta", "performFinalSave: tallennetaan ${updatedWithPressureTrends.pressureSamples.size} näytettä")
             Thread {
-                if (updated.id == 0L) db.fishCatchDao().insert(updated) else db.fishCatchDao().update(updated)
+                if (updatedWithPressureTrends.id == 0L) db.fishCatchDao().insert(updatedWithPressureTrends) else db.fishCatchDao().update(updatedWithPressureTrends)
                 runOnUiThread {
                     AlertDialog.Builder(this).setMessage(R.string.save_success).setPositiveButton(R.string.ok) { _, _ ->
                         setResult(RESULT_OK); finish()
