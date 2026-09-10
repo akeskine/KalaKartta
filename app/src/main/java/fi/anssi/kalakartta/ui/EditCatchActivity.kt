@@ -97,9 +97,10 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var addMediaButton: Button
     private lateinit var mediaService: MediaService
     
-    private lateinit var moonPhaseEditText: EditText
-    private lateinit var moonAltitudeEditText: EditText
+    private lateinit var moonPhaseEditText: TextView
+    private lateinit var moonAltitudeEditText: TextView
     private lateinit var moonPhaseSymbol: MoonPhaseView
+    private lateinit var moonDataLayout: View
     private val moonCalculator = MoonCalculator()
     
     private lateinit var autoWeatherCheckBox: CheckBox
@@ -222,6 +223,7 @@ class EditCatchActivity : AppCompatActivity() {
         moonPhaseEditText = findViewById(R.id.moonPhaseEditText)
         moonAltitudeEditText = findViewById(R.id.moonAltitudeEditText)
         moonPhaseSymbol = findViewById(R.id.moonPhaseSymbol)
+        moonDataLayout = findViewById(R.id.moonDataLayout)
         
         autoWeatherCheckBox = findViewById(R.id.autoWeatherCheckBox)
         nearestStationText = findViewById(R.id.nearestStationText)
@@ -740,6 +742,7 @@ class EditCatchActivity : AppCompatActivity() {
             isTimeSetManually = false
             fishCatch = fishCatch?.copy(caughtAt = null)
             updateDateTimeButtonText()
+            updateMoonData()
             autoWeatherCheckBox.visibility = View.GONE
             refreshDiaryLinks()
         }
@@ -1100,16 +1103,16 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun updateMoonData() {
-        if (isPlace) return
-        
         val lat = latEditText.text.toString().toDoubleSafe()
         val lon = lonEditText.text.toString().toDoubleSafe()
         
-        val caughtAt = if (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L) {
+        val caughtAt = if (!isPlace && (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L)) {
             selectedCalendar.timeInMillis
         } else {
             null
         }
+
+        moonDataLayout.visibility = if (caughtAt != null) View.VISIBLE else View.GONE
         
         if (caughtAt != null) {
             val phase = moonCalculator.getMoonPhase(caughtAt)
