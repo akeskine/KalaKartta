@@ -82,6 +82,7 @@
     <string name="min_moon_altitude">Min (°)</string>
     <string name="max_moon_altitude">Max (°)</string>
     <string name="moon_phase_filter_range_error">Syötä arvo väliltä 0–1.</string>
+    <string name="moon_phase_filter_both_error">Määritä sekä min- että max-arvo.</string>
     <string name="moon_altitude_filter_range_error">Syötä arvo väliltä -90–90°.</string>
     <string name="moon_altitude_filter_both_error">Määritä sekä min- että max-arvo.</string>
     <string name="moon_altitude_filter_order_error">Min-arvon on oltava pienempi kuin max-arvon.</string>

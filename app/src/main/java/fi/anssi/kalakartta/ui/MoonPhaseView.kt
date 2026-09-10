@@ -34,6 +34,9 @@ class MoonPhaseView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        shadowPaint.color = if (isEnabled) Color.parseColor("#444444") else Color.parseColor("#BDBDBD")
+        lightPaint.color = if (isEnabled) Color.parseColor("#F5F5DC") else Color.parseColor("#E0E0E0")
         
         val width = width.toFloat()
         val height = height.toFloat()

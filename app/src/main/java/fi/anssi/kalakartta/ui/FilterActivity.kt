@@ -393,8 +393,13 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun updateMoonPhasePreviews() {
-        moonPhaseMinPreview.setPhase(moonPhaseMinEdit.text.toString().toDoubleOrNull() ?: 0.0)
-        moonPhaseMaxPreview.setPhase(moonPhaseMaxEdit.text.toString().toDoubleOrNull() ?: 0.0)
+        val min = moonPhaseMinEdit.text.toString().toDoubleOrNull()
+        val max = moonPhaseMaxEdit.text.toString().toDoubleOrNull()
+
+        moonPhaseMinPreview.isEnabled = min != null
+        moonPhaseMaxPreview.isEnabled = max != null
+        moonPhaseMinPreview.setPhase(min ?: 0.0)
+        moonPhaseMaxPreview.setPhase(max ?: 0.0)
     }
 
     private fun hasAnyFilters(): Boolean {
@@ -718,8 +723,13 @@ class FilterActivity : AppCompatActivity() {
             return value
         }
 
-        validateValue(moonPhaseMinEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
-        validateValue(moonPhaseMaxEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
+        val moonPhaseMin = validateValue(moonPhaseMinEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
+        val moonPhaseMax = validateValue(moonPhaseMaxEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
+        if ((moonPhaseMin == null) != (moonPhaseMax == null)) {
+            moonPhaseMinEdit.error = getString(R.string.moon_phase_filter_both_error)
+            moonPhaseMaxEdit.error = getString(R.string.moon_phase_filter_both_error)
+            valid = false
+        }
         val altitudeMin = validateValue(moonAltitudeMinEdit, -90f, 90f, R.string.moon_altitude_filter_range_error)
         val altitudeMax = validateValue(moonAltitudeMaxEdit, -90f, 90f, R.string.moon_altitude_filter_range_error)
 
