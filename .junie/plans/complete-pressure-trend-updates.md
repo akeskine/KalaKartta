@@ -18,7 +18,7 @@ Laajennetaan **Päivitä puuttuvat säätiedot** -toiminto täydentämään `Fis
 - Vie ja tuo `pressureTrend` sekä `pressureSamples.pressure` enintään viiden desimaalin tarkkuudella.
 
 #### Out of scope
-- Olemassa olevien pisteiden erillinen `pressureTurningTrend`-migraatio- tai massalaskenta; vanhat arvot täytetään myöhemmin erillisessä työssä.
+- Sovelluksen tietokannan olemassa olevien pisteiden erillinen `pressureTurningTrend`-migraatio- tai massalaskenta; erillisen JSON-viennin kertaluonteinen korjaus käsitellään Step 10:nä.
 - Uuden käyttöliittymän lisääminen; käytetään nykyistä päivitysnäkymää ja laskuria.
 - Muiden automaattisten sääpäivityspolkujen muuttaminen kuin niiden kanssa jaettavan sääasemalogiiikan tarpeelliset sisäiset muutokset.
 
@@ -193,3 +193,10 @@ Update the two half-window trend calculations to use each half's first and last 
 - Calculate endpoint average pressure change rates for the first six and last six samples.
 - Keep the existing `pressureTurningTrend` persistence, update paths, and import/export behavior unchanged.
 - Add tests proving internal sample values do not affect the endpoint result, then run the focused unit tests and compilation check.
+
+### ✓ Step 10: Recalculate exported pressure turning trends
+Update `C:\kehitys\anssi\kalakartta-aineistot\pisteet.json` using the same endpoint average-change calculation as `FishCatch`.
+
+- Recalculate `pressureTurningTrend` for every catch with a non-empty `pressureSamples` list, including catches with an existing value.
+- Keep catches with insufficient samples without a calculated value and preserve every other JSON field and formatting.
+- Validate the resulting JSON and verify that only the targeted `pressureTurningTrend` fields changed.
