@@ -30,6 +30,10 @@ class FilterManager(private val context: Context) {
         val pressureMax: Float? = null,
         val waterTempMin: Float? = null,
         val waterTempMax: Float? = null,
+        val moonPhaseMin: Float? = null,
+        val moonPhaseMax: Float? = null,
+        val moonAltitudeMin: Float? = null,
+        val moonAltitudeMax: Float? = null,
         val speciesId: String? = null,
         val otherSpecies: String? = null,
         val placeTypeId: String? = null,
@@ -49,6 +53,17 @@ class FilterManager(private val context: Context) {
         val weightLengthOperator: String = "OR" // "AND" tai "OR"
     )
 
+    companion object {
+        fun isValueInRange(value: Double, min: Double?, max: Double?, wraps: Boolean): Boolean {
+            if (min != null && max != null && wraps && min > max) {
+                return value >= min || value <= max
+            }
+            if (min != null && value < min) return false
+            if (max != null && value > max) return false
+            return true
+        }
+    }
+
     fun getFilters(): Filters {
         val startDate = if (prefs.contains("startDate")) prefs.getLong("startDate", 0) else null
         val endDate = if (prefs.contains("endDate")) prefs.getLong("endDate", 0) else null
@@ -66,6 +81,10 @@ class FilterManager(private val context: Context) {
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
         val waterTempMin = if (prefs.contains("waterTempMin")) prefs.getFloat("waterTempMin", 0f) else null
         val waterTempMax = if (prefs.contains("waterTempMax")) prefs.getFloat("waterTempMax", 0f) else null
+        val moonPhaseMin = if (prefs.contains("moonPhaseMin")) prefs.getFloat("moonPhaseMin", 0f) else null
+        val moonPhaseMax = if (prefs.contains("moonPhaseMax")) prefs.getFloat("moonPhaseMax", 0f) else null
+        val moonAltitudeMin = if (prefs.contains("moonAltitudeMin")) prefs.getFloat("moonAltitudeMin", 0f) else null
+        val moonAltitudeMax = if (prefs.contains("moonAltitudeMax")) prefs.getFloat("moonAltitudeMax", 0f) else null
         val speciesId = prefs.getString("speciesId", null)
         val otherSpecies = prefs.getString("otherSpecies", null)
         val placeTypeId = prefs.getString("placeTypeId", null)
@@ -93,6 +112,8 @@ class FilterManager(private val context: Context) {
             windMin, windMax,
             pressureMin, pressureMax,
             waterTempMin, waterTempMax,
+            moonPhaseMin, moonPhaseMax,
+            moonAltitudeMin, moonAltitudeMax,
             speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints, onlyNonFishPoints,
             latNorth, latSouth, lonEast, lonWest,
             weightMin, weightMax, lengthMin, lengthMax, weightLengthOperator
@@ -121,6 +142,10 @@ class FilterManager(private val context: Context) {
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
             if (filters.waterTempMin != null) putFloat("waterTempMin", filters.waterTempMin) else remove("waterTempMin")
             if (filters.waterTempMax != null) putFloat("waterTempMax", filters.waterTempMax) else remove("waterTempMax")
+            if (filters.moonPhaseMin != null) putFloat("moonPhaseMin", filters.moonPhaseMin) else remove("moonPhaseMin")
+            if (filters.moonPhaseMax != null) putFloat("moonPhaseMax", filters.moonPhaseMax) else remove("moonPhaseMax")
+            if (filters.moonAltitudeMin != null) putFloat("moonAltitudeMin", filters.moonAltitudeMin) else remove("moonAltitudeMin")
+            if (filters.moonAltitudeMax != null) putFloat("moonAltitudeMax", filters.moonAltitudeMax) else remove("moonAltitudeMax")
             if (filters.speciesId != null) putString("speciesId", filters.speciesId) else remove("speciesId")
             if (filters.otherSpecies != null) putString("otherSpecies", filters.otherSpecies) else remove("otherSpecies")
             if (filters.placeTypeId != null) putString("placeTypeId", filters.placeTypeId) else remove("placeTypeId")
@@ -152,6 +177,8 @@ class FilterManager(private val context: Context) {
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
+                f.moonPhaseMin != null || f.moonPhaseMax != null ||
+                f.moonAltitudeMin != null || f.moonAltitudeMax != null ||
                 f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || 
                 f.onlyCaughtFish || f.onlyFishPoints || f.onlyNonFishPoints ||
                 f.latNorth != null
@@ -244,6 +271,22 @@ class FilterManager(private val context: Context) {
             if (f.waterTempMin != null && fish.waterTemp != null && fish.waterTemp < f.waterTempMin) return@filter false
             if (f.waterTempMax != null && fish.waterTemp != null && fish.waterTemp > f.waterTempMax) return@filter false
             if ((f.waterTempMin != null || f.waterTempMax != null) && fish.waterTemp == null) return@filter false
+
+            // Moon Phase Range
+            if (f.moonPhaseMin != null || f.moonPhaseMax != null) {
+                val moonPhase = fish.moonPhase ?: return@filter false
+                if (!isValueInRange(moonPhase, f.moonPhaseMin?.toDouble(), f.moonPhaseMax?.toDouble(), wraps = true)) {
+                    return@filter false
+                }
+            }
+
+            // Moon Altitude Range
+            if (f.moonAltitudeMin != null || f.moonAltitudeMax != null) {
+                val moonAltitude = fish.moonAltitude ?: return@filter false
+                if (!isValueInRange(moonAltitude, f.moonAltitudeMin?.toDouble(), f.moonAltitudeMax?.toDouble(), wraps = false)) {
+                    return@filter false
+                }
+            }
 
             // Species
             if (f.speciesId != null && fish.species != f.speciesId) return@filter false
@@ -515,6 +558,26 @@ class FilterManager(private val context: Context) {
                 parts.add("vesi $min C")
             } else {
                 parts.add("vesi $min-$max C")
+            }
+        }
+
+        if (f.moonPhaseMin != null || f.moonPhaseMax != null) {
+            val min = f.moonPhaseMin?.toString() ?: "..."
+            val max = f.moonPhaseMax?.toString() ?: "..."
+            if (min == max && min != "...") {
+                parts.add("kuu $min")
+            } else {
+                parts.add("kuu $min-$max")
+            }
+        }
+
+        if (f.moonAltitudeMin != null || f.moonAltitudeMax != null) {
+            val min = f.moonAltitudeMin?.toInt()?.toString() ?: "..."
+            val max = f.moonAltitudeMax?.toInt()?.toString() ?: "..."
+            if (min == max && min != "...") {
+                parts.add("kuun korkeus $min°")
+            } else {
+                parts.add("kuun korkeus $min-$max°")
             }
         }
 

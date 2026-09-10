@@ -66,6 +66,12 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var pressureMaxEdit: EditText
     private lateinit var waterTempMinEdit: EditText
     private lateinit var waterTempMaxEdit: EditText
+    private lateinit var moonPhaseMinEdit: EditText
+    private lateinit var moonPhaseMaxEdit: EditText
+    private lateinit var moonPhaseMinPreview: MoonPhaseView
+    private lateinit var moonPhaseMaxPreview: MoonPhaseView
+    private lateinit var moonAltitudeMinEdit: EditText
+    private lateinit var moonAltitudeMaxEdit: EditText
     private lateinit var onlyCaughtFishCheckBox: CheckBox
     private lateinit var onlyFishPointsCheckBox: CheckBox
     private lateinit var onlyNonFishPointsCheckBox: CheckBox
@@ -258,6 +264,12 @@ class FilterActivity : AppCompatActivity() {
         pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
         waterTempMinEdit = findViewById(R.id.waterTempMinEdit)
         waterTempMaxEdit = findViewById(R.id.waterTempMaxEdit)
+        moonPhaseMinEdit = findViewById(R.id.moonPhaseMinEdit)
+        moonPhaseMaxEdit = findViewById(R.id.moonPhaseMaxEdit)
+        moonPhaseMinPreview = findViewById(R.id.moonPhaseMinPreview)
+        moonPhaseMaxPreview = findViewById(R.id.moonPhaseMaxPreview)
+        moonAltitudeMinEdit = findViewById(R.id.moonAltitudeMinEdit)
+        moonAltitudeMaxEdit = findViewById(R.id.moonAltitudeMaxEdit)
         onlyCaughtFishCheckBox = findViewById(R.id.onlyCaughtFishCheckBox)
         onlyFishPointsCheckBox = findViewById(R.id.onlyFishPointsCheckBox)
         onlyNonFishPointsCheckBox = findViewById(R.id.onlyNonFishPointsCheckBox)
@@ -342,6 +354,11 @@ class FilterActivity : AppCompatActivity() {
         pressureMaxEdit.setText(currentFilters.pressureMax?.toString() ?: "")
         waterTempMinEdit.setText(currentFilters.waterTempMin?.toString() ?: "")
         waterTempMaxEdit.setText(currentFilters.waterTempMax?.toString() ?: "")
+        moonPhaseMinEdit.setText(currentFilters.moonPhaseMin?.toString() ?: "")
+        moonPhaseMaxEdit.setText(currentFilters.moonPhaseMax?.toString() ?: "")
+        moonAltitudeMinEdit.setText(currentFilters.moonAltitudeMin?.toString() ?: "")
+        moonAltitudeMaxEdit.setText(currentFilters.moonAltitudeMax?.toString() ?: "")
+        updateMoonPhasePreviews()
         onlyCaughtFishCheckBox.isChecked = currentFilters.onlyCaughtFish
         onlyFishPointsCheckBox.isChecked = currentFilters.onlyFishPoints
         onlyNonFishPointsCheckBox.isChecked = currentFilters.onlyNonFishPoints
@@ -375,6 +392,11 @@ class FilterActivity : AppCompatActivity() {
         windDirectionPreview.setRange(min, max)
     }
 
+    private fun updateMoonPhasePreviews() {
+        moonPhaseMinPreview.setPhase(moonPhaseMinEdit.text.toString().toDoubleOrNull() ?: 0.0)
+        moonPhaseMaxPreview.setPhase(moonPhaseMaxEdit.text.toString().toDoubleOrNull() ?: 0.0)
+    }
+
     private fun hasAnyFilters(): Boolean {
         val f = currentFilters
         val windMin = windMinEdit.text.toString().toFloatOrNull()
@@ -383,6 +405,10 @@ class FilterActivity : AppCompatActivity() {
         val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
+        val moonPhaseMin = moonPhaseMinEdit.text.toString().toFloatOrNull()
+        val moonPhaseMax = moonPhaseMaxEdit.text.toString().toFloatOrNull()
+        val moonAltitudeMin = moonAltitudeMinEdit.text.toString().toFloatOrNull()
+        val moonAltitudeMax = moonAltitudeMaxEdit.text.toString().toFloatOrNull()
         val freeText = freeTextEdit.text.toString().let { if (it.isEmpty()) null else it }
         
         val speciesSelected = speciesSpinner.selectedItemPosition > 0
@@ -402,6 +428,8 @@ class FilterActivity : AppCompatActivity() {
                 windMin != null || windMax != null ||
                 pressureMin != null || pressureMax != null ||
                 waterTempMin != null || waterTempMax != null ||
+                moonPhaseMin != null || moonPhaseMax != null ||
+                moonAltitudeMin != null || moonAltitudeMax != null ||
                 speciesSelected || otherSpeciesSelected || placeTypeSelected || 
                 freeText != null || fishermanSelected || 
                 onlyCaughtFishCheckBox.isChecked || onlyFishPointsCheckBox.isChecked || 
@@ -469,6 +497,7 @@ class FilterActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
+                updateMoonPhasePreviews()
                 updateButtons()
             }
         }
@@ -512,6 +541,10 @@ class FilterActivity : AppCompatActivity() {
         pressureMaxEdit.addTextChangedListener(updateButtonsWatcher)
         waterTempMinEdit.addTextChangedListener(updateButtonsWatcher)
         waterTempMaxEdit.addTextChangedListener(updateButtonsWatcher)
+        moonPhaseMinEdit.addTextChangedListener(updateButtonsWatcher)
+        moonPhaseMaxEdit.addTextChangedListener(updateButtonsWatcher)
+        moonAltitudeMinEdit.addTextChangedListener(updateButtonsWatcher)
+        moonAltitudeMaxEdit.addTextChangedListener(updateButtonsWatcher)
 
         startDateButton.setOnClickListener { showDatePicker(true) }
         endDateButton.setOnClickListener { showDatePicker(false) }
@@ -559,6 +592,8 @@ class FilterActivity : AppCompatActivity() {
         annualEndTimeButton.setOnClickListener { showTimePicker(false, isAnnual = true) }
 
         selectAreaButton.setOnClickListener {
+            if (!validateMoonFilterInputs()) return@setOnClickListener
+
             // Tehtävä 2: aseta tarvittaessa heat map-ruutujen ja reittien näyttäminen pois päältä ennen rajauskartan näyttämistä.
             getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
                 .putBoolean("heatmap_enabled", false)
@@ -604,6 +639,11 @@ class FilterActivity : AppCompatActivity() {
             pressureMaxEdit.setText("")
             waterTempMinEdit.setText("")
             waterTempMaxEdit.setText("")
+            moonPhaseMinEdit.setText("")
+            moonPhaseMaxEdit.setText("")
+            moonAltitudeMinEdit.setText("")
+            moonAltitudeMaxEdit.setText("")
+            updateMoonPhasePreviews()
             onlyCaughtFishCheckBox.isChecked = false
             onlyFishPointsCheckBox.isChecked = false
             onlyNonFishPointsCheckBox.isChecked = false
@@ -658,6 +698,45 @@ class FilterActivity : AppCompatActivity() {
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
+    private fun validateMoonFilterInputs(): Boolean {
+        var valid = true
+
+        fun validateValue(edit: EditText, min: Float, max: Float, errorMessage: Int): Float? {
+            val text = edit.text.toString().trim()
+            if (text.isEmpty()) {
+                edit.error = null
+                return null
+            }
+
+            val value = text.toFloatOrNull()
+            if (value == null || value < min || value > max) {
+                edit.error = getString(errorMessage)
+                valid = false
+            } else {
+                edit.error = null
+            }
+            return value
+        }
+
+        validateValue(moonPhaseMinEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
+        validateValue(moonPhaseMaxEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
+        val altitudeMin = validateValue(moonAltitudeMinEdit, -90f, 90f, R.string.moon_altitude_filter_range_error)
+        val altitudeMax = validateValue(moonAltitudeMaxEdit, -90f, 90f, R.string.moon_altitude_filter_range_error)
+
+        if ((altitudeMin == null) != (altitudeMax == null)) {
+            moonAltitudeMinEdit.error = getString(R.string.moon_altitude_filter_both_error)
+            moonAltitudeMaxEdit.error = getString(R.string.moon_altitude_filter_both_error)
+            valid = false
+        }
+        if (altitudeMin != null && altitudeMax != null && altitudeMin >= altitudeMax) {
+            moonAltitudeMinEdit.error = getString(R.string.moon_altitude_filter_order_error)
+            moonAltitudeMaxEdit.error = getString(R.string.moon_altitude_filter_order_error)
+            valid = false
+        }
+
+        return valid
+    }
+
     private fun showAnnualDatePicker(isStart: Boolean) {
         val cal = Calendar.getInstance()
         val m = if (isStart) currentFilters.annualStartMonth ?: cal.get(Calendar.MONTH) else currentFilters.annualEndMonth ?: cal.get(Calendar.MONTH)
@@ -706,6 +785,10 @@ class FilterActivity : AppCompatActivity() {
         val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
+        val moonPhaseMin = moonPhaseMinEdit.text.toString().toFloatOrNull()
+        val moonPhaseMax = moonPhaseMaxEdit.text.toString().toFloatOrNull()
+        val moonAltitudeMin = moonAltitudeMinEdit.text.toString().toFloatOrNull()
+        val moonAltitudeMax = moonAltitudeMaxEdit.text.toString().toFloatOrNull()
         val weightMin = weightMinEdit.text.toString().toLongOrNull()
         val weightMax = weightMaxEdit.text.toString().toLongOrNull()
         val lengthMin = lengthMinEdit.text.toString().toLongOrNull()
@@ -762,6 +845,10 @@ class FilterActivity : AppCompatActivity() {
             pressureMax = pressureMax,
             waterTempMin = waterTempMin,
             waterTempMax = waterTempMax,
+            moonPhaseMin = moonPhaseMin,
+            moonPhaseMax = moonPhaseMax,
+            moonAltitudeMin = moonAltitudeMin,
+            moonAltitudeMax = moonAltitudeMax,
             weightMin = weightMin,
             weightMax = weightMax,
             lengthMin = lengthMin,
@@ -772,6 +859,8 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun saveAndFinish() {
+        if (!validateMoonFilterInputs()) return
+
         val newFilters = saveFiltersToManager()
         
         val settingsPrefs = getSharedPreferences("settings", MODE_PRIVATE)
