@@ -32,15 +32,13 @@ class ImportExportManager(
 
     private var pendingExportCatches: List<FishCatch>? = null
     private var pendingExportPlaces: List<PlaceOfInterest>? = null
-    private var pendingExportDiaryPages: List<fi.anssi.kalakartta.data.FishDiaryPage>? = null
 
     private val exportLauncher = activity.registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        uri?.let { exportToJson(it, pendingExportCatches, pendingExportPlaces, pendingExportDiaryPages) }
+        uri?.let { exportToJson(it, pendingExportCatches, pendingExportPlaces) }
         pendingExportCatches = null
         pendingExportPlaces = null
-        pendingExportDiaryPages = null
     }
 
     private val exportSpeciesLauncher = activity.registerForActivityResult(
@@ -97,10 +95,9 @@ class ImportExportManager(
         uri?.let { importMediaFromZip(it) }
     }
 
-    fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null, diaryPages: List<fi.anssi.kalakartta.data.FishDiaryPage>? = null) {
+    fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null) {
         pendingExportCatches = catches
         pendingExportPlaces = places
-        pendingExportDiaryPages = diaryPages
         exportLauncher.launch("kalakartta.json")
     }
 
@@ -560,13 +557,12 @@ class ImportExportManager(
         }.start()
     }
 
-    private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null, manualDiaryPages: List<fi.anssi.kalakartta.data.FishDiaryPage>? = null) {
+    private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {
         Thread {
             val catches = manualCatches ?: db.fishCatchDao().getAll()
             val places = manualPlaces ?: db.placeOfInterestDao().getAll()
-            val diaryPages = manualDiaryPages ?: db.fishDiaryPageDao().getAll()
-            jsonService.export(activity.contentResolver, uri, catches, places, diaryPages)
-            showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa, ${diaryPages.size} päiväkirjan sivua).")
+            jsonService.export(activity.contentResolver, uri, catches, places)
+            showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
         }.start()
     }
 

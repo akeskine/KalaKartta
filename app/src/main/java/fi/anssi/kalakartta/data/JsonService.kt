@@ -264,18 +264,15 @@ class JsonService {
         return results
     }
 
-    fun exportCatchesAndPlaces(catches: List<FishCatch>, places: List<PlaceOfInterest>, diaryPages: List<FishDiaryPage> = emptyList()): JSONObject {
+    fun exportCatchesAndPlaces(catches: List<FishCatch>, places: List<PlaceOfInterest>): JSONObject {
         val root = JSONObject()
         root.put("catches", catchesToJson(catches))
         root.put("places", placesToJson(places))
-        if (diaryPages.isNotEmpty()) {
-            root.put("diaryPages", diaryPagesToJson(diaryPages))
-        }
         return root
     }
 
-    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>, diaryPages: List<FishDiaryPage> = emptyList()) {
-        val root = exportCatchesAndPlaces(catches, places, diaryPages)
+    fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
+        val root = exportCatchesAndPlaces(catches, places)
 
         contentResolver.openOutputStream(uri)?.use { out ->
             out.write(root.toString(4).toByteArray())

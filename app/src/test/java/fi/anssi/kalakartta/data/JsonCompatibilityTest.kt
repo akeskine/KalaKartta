@@ -9,6 +9,14 @@ import java.util.*
 class JsonCompatibilityTest {
 
     @Test
+    fun testPointsExportDoesNotContainDiaryPages() {
+        val service = JsonService()
+        val root = service.exportCatchesAndPlaces(emptyList(), emptyList())
+
+        assertFalse(root.has("diaryPages"))
+    }
+
+    @Test
     fun testExportWithTwoCatchesHavingPressureSamples() {
         val service = JsonService()
         val samples1 = listOf(PressureSample(1000L, 1010.0))

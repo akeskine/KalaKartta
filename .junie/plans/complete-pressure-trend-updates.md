@@ -202,7 +202,7 @@ Update `C:\kehitys\anssi\kalakartta-aineistot\pisteet.json` using the same endpo
 - Validate the resulting JSON and verify that only the targeted `pressureTurningTrend` fields changed.
 
 ### ✓ Step 11: Add pressure-development filters and configurable thresholds
-Add filter selectors for `pressureTrend` and `pressureTurningTrend`, with symmetric configurable thresholds in `Yleiset / Kehittäjätyökalut`.
+Add filter selectors for `pressureTrend` and `pressureTurningTrend`, with symmetric configurable thresholds in `Yleiset / Kehittäjäasetukset`.
 
 - Use the analyzed defaults `±0.10 hPa/h` for pressure trend and `±0.20 hPa/h` for turning trend.
 - Persist the selections with the existing `FilterManager` filter preferences and apply them to `FishCatch` values, excluding catches whose selected value is missing.

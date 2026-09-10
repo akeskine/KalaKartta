@@ -1249,9 +1249,9 @@ class SettingsManager(
         }
         layout.addView(iconSizesLink)
         
-        // Kehittäjätyökalut -linkki
+        // Kehittäjäasetukset-linkki
         val developerToolsLink = TextView(activity).apply {
-            text = "Kehittäjätyökalut"
+            text = "Kehittäjäasetukset"
             textSize = 16f
             setTextColor(primaryTextColor)
             setPadding(0, 20, 0, 40)
@@ -1593,7 +1593,7 @@ class SettingsManager(
         }
 
         val dialog = AlertDialog.Builder(activity)
-            .setTitle("Kehittäjätyökalut")
+            .setTitle("Kehittäjäasetukset")
             .setView(layout)
             .setPositiveButton("Tallenna") { _, _ ->
                 val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: 50000

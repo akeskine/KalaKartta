@@ -162,7 +162,7 @@ Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa ole
     - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Säätämällä reittipisteiden määrän minimi- ja maksimiarvoja ruutua kohden voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.<br><br>
     - **Nopeussuodatus:** Voit suodattaa heat mapia reittipisteen nopeuden perusteella.<br><br>
     - **Siirtymäpisteet:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heat map -ruudut vai myös reittipisteet kartalta. Voit myös valita, kuinka suuri nopeus reittipisteessä tekee reittipisteestä siirtymäpisteeksi tulkittavan.<br><br>
-- **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heat map -ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Rajoitusarvoja on mahdollista muuttaa **Kehittäjätyökalut**-valikosta.
+- **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heat map -ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Rajoitusarvoja on mahdollista muuttaa **Kehittäjäasetukset**-valikosta.
 
 ## 15. Puhuva kello
 
