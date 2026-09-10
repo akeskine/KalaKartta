@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -25,7 +24,7 @@ class WeatherErrorLogActivity : AppCompatActivity() {
 
     private lateinit var db: AppDatabase
     private lateinit var recyclerView: RecyclerView
-    private lateinit var showMoreButton: Button
+    private lateinit var showMoreButton: TextView
     private val errorList = mutableListOf<WeatherError>()
     private lateinit var adapter: ErrorAdapter
     private var currentOffset = 0

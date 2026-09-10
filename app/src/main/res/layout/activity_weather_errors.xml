@@ -19,11 +19,19 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <Button
+    <TextView
         android:id="@+id/showMoreButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Näytä lisää"
-        android:layout_marginTop="8dp" />
+        android:textSize="18sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp" />
 
 </LinearLayout>
