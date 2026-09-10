@@ -83,4 +83,20 @@ class PressureCatchTest {
         )
         assertNull(fishCatch.calculatePressureTrend())
     }
+
+    @Test
+    fun testPressureTrendReturnsNullWhenSamplesHaveSameTimestamp() {
+        val fishCatch = FishCatch(
+            species = "AHVEN",
+            latitude = 60.0,
+            longitude = 24.0,
+            caughtAt = 0L,
+            pressureSamples = listOf(
+                PressureSample(1000L, 1000.0),
+                PressureSample(1000L, 1001.0)
+            )
+        )
+
+        assertNull(fishCatch.calculatePressureTrend())
+    }
 }

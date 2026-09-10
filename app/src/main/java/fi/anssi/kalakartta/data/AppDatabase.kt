@@ -9,8 +9,8 @@ import android.content.Context
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [FishCatch::class, FishSpecies::class, WeatherError::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class, FishDiaryPage::class],
-    version = 21,
+    entities = [FishCatch::class, FishSpecies::class, WeatherError::class, WeatherUpdateAttempt::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class, FishDiaryPage::class],
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(PressureConverter::class)
@@ -18,6 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fishCatchDao(): FishCatchDao
     abstract fun fishSpeciesDao(): FishSpeciesDao
     abstract fun weatherErrorDao(): WeatherErrorDao
+    abstract fun weatherUpdateAttemptDao(): WeatherUpdateAttemptDao
     abstract fun placeOfInterestDao(): PlaceOfInterestDao
     abstract fun placeOfInterestTypeDao(): PlaceOfInterestTypeDao
     abstract fun fishingSessionDao(): FishingSessionDao
@@ -106,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kalakartta-db"
                 )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .allowMainThreadQueries()
                 .build()
                 INSTANCE = instance
@@ -120,6 +121,12 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE FishCatch ADD COLUMN pressureSamples TEXT NOT NULL DEFAULT '[]'")
                 db.execSQL("ALTER TABLE FishCatch ADD COLUMN moonPhase REAL")
                 db.execSQL("ALTER TABLE FishCatch ADD COLUMN moonAltitude REAL")
+            }
+        }
+
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `WeatherUpdateAttempt` (`catchId` INTEGER NOT NULL, `attemptedAt` INTEGER NOT NULL, `succeeded` INTEGER NOT NULL, `errorMessage` TEXT, PRIMARY KEY(`catchId`))")
             }
         }
 

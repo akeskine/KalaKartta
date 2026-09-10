@@ -38,7 +38,7 @@ class JsonCompatibilityTest {
     fun testExportWithNewFields() {
         val service = JsonService()
         val samples = listOf(
-            PressureSample(1000L, 1013.25),
+            PressureSample(1000L, 1013.25123456),
             PressureSample(2000L, 1012.0)
         )
         val fishCatch = FishCatch(
@@ -46,7 +46,7 @@ class JsonCompatibilityTest {
             latitude = 60.12345,
             longitude = 24.54321,
             caughtAt = 1672531200000L, // 2023-01-01 00:00:00 UTC
-            pressureTrend = 1.5,
+            pressureTrend = 1.500006,
             pressureSamples = samples,
             moonPhase = 0.5,
             moonAltitude = 45.0
@@ -57,14 +57,37 @@ class JsonCompatibilityTest {
         val catchesArray = root.getJSONArray("catches")
         val obj = catchesArray.getJSONObject(0)
         
-        assertEquals(1.5, obj.getDouble("pressureTrend"), 0.001)
+        assertEquals(1.50001, obj.getDouble("pressureTrend"), 0.000001)
         assertEquals(0.5, obj.getDouble("moonPhase"), 0.001)
         assertEquals(45.0, obj.getDouble("moonAltitude"), 0.001)
         
         val samplesArray = obj.getJSONArray("pressureSamples")
         assertEquals(2, samplesArray.length())
-        assertEquals(1013.25, samplesArray.getJSONObject(0).getDouble("pressure"), 0.001)
+        assertEquals(1013.25123, samplesArray.getJSONObject(0).getDouble("pressure"), 0.000001)
         assertEquals(1012.0, samplesArray.getJSONObject(1).getDouble("pressure"), 0.001)
+    }
+
+    @Test
+    fun testPressurePrecisionRoundTrip() {
+        val service = JsonService()
+        val fishCatch = FishCatch(
+            species = "AHVEN",
+            latitude = 60.0,
+            longitude = 24.0,
+            caughtAt = 1000L,
+            pressureTrend = -0.1234567,
+            pressureSamples = listOf(
+                PressureSample(1000L, 1000.1234567),
+                PressureSample(2000L, 1001.9876543)
+            )
+        )
+
+        val json = service.exportCatchesAndPlaces(listOf(fishCatch), emptyList()).toString()
+        val imported = service.parseImportData(json).catches.single()
+
+        assertEquals(-0.12346, imported.pressureTrend!!, 0.000001)
+        assertEquals(1000.12346, imported.pressureSamples[0].pressure, 0.000001)
+        assertEquals(1001.98765, imported.pressureSamples[1].pressure, 0.000001)
     }
 
     @Test
@@ -128,5 +151,26 @@ class JsonCompatibilityTest {
         assertEquals(1010.0, fishCatch.pressureSamples[0].pressure, 0.001)
         assertEquals(0.25, fishCatch.moonPhase!!, 0.001)
         assertEquals(30.0, fishCatch.moonAltitude!!, 0.001)
+    }
+
+    @Test
+    fun testImportNormalizesPressurePrecision() {
+        val service = JsonService()
+        val json = """
+            {
+                "catches": [{
+                    "species": "KUHA",
+                    "pressureTrend": 0.9876543,
+                    "pressureSamples": [
+                        {"time": "2023-01-01T00:00:00Z", "pressure": 1012.3456789}
+                    ]
+                }]
+            }
+        """.trimIndent()
+
+        val fishCatch = service.parseImportData(json).catches.single()
+
+        assertEquals(0.98765, fishCatch.pressureTrend!!, 0.000001)
+        assertEquals(1012.34568, fishCatch.pressureSamples.single().pressure, 0.000001)
     }
 }

@@ -18,6 +18,12 @@ data class WeatherStation(
     val endTime: Long? = null
 )
 
+data class PressureStationResult(
+    val station: WeatherStation,
+    val pressure: Double,
+    val pressureSamples: List<PressureSample>
+)
+
 data class ForecastRow(
     val time: Long,
     val parameters: Map<String, Double>
@@ -396,6 +402,37 @@ class WeatherService(private val context: Context) {
     suspend fun fetchWeatherDataSuspend(fmisid: String, targetTime: Long? = null): Triple<Map<String, Double>?, Long?, String?> {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             fetchWeatherDataSync(fmisid, targetTime)
+        }
+    }
+
+    suspend fun fetchPressureFromMultipleStationsSuspend(
+        latitude: Double,
+        longitude: Double,
+        caughtAt: Long
+    ): PressureStationResult? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val stations = fetchNearestStationsSuspend(latitude, longitude, caughtAt, 5).orEmpty()
+            val sixHoursMillis = 6 * 60 * 60 * 1000L
+            val startTime = caughtAt - sixHoursMillis
+            val endTime = minOf(caughtAt + sixHoursMillis, System.currentTimeMillis())
+
+            for ((index, station) in stations.withIndex()) {
+                android.util.Log.d(
+                    "KalaKartta",
+                    "Kokeillaan paineasemaa #${index + 1}: ${station.fmisid}:${station.name}"
+                )
+
+                val weatherData = fetchWeatherDataSuspend(station.fmisid, caughtAt).first
+                val pressure = weatherData?.get("p_sea") ?: weatherData?.get("p_msl")
+                if (pressure == null || !pressure.isFinite()) continue
+
+                val samples = fetchPressureSamplesSuspend(station.fmisid, startTime, endTime)
+                if (samples.size < 2) continue
+
+                return@withContext PressureStationResult(station, pressure, samples)
+            }
+
+            null
         }
     }
 

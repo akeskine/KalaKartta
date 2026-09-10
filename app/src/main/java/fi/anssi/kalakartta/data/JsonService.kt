@@ -27,6 +27,14 @@ class JsonService {
     val isoFormat: SimpleDateFormat
         get() = isoFormatThreadLocal.get()!!
 
+    private fun normalizePressure(value: Double): Double {
+        return if (value.isFinite()) {
+            String.format(Locale.US, "%.5f", value).toDouble()
+        } else {
+            value
+        }
+    }
+
     fun writeRoutesToWriter(
         writer: android.util.JsonWriter,
         sessions: List<FishingSession>,
@@ -418,13 +426,13 @@ class JsonService {
             if (it.fisherman.isNotBlank()) obj.put("fisherman", it.fisherman.uppercase())
             if (it.otherSpecies != null) obj.put("otherSpecies", it.otherSpecies.uppercase())
             if (it.weatherDataCompleteTime != null) obj.put("weatherDataCompleteTime", it.weatherDataCompleteTime)
-            if (it.pressureTrend != null) obj.put("pressureTrend", it.pressureTrend)
+            if (it.pressureTrend != null) obj.put("pressureTrend", normalizePressure(it.pressureTrend))
             if (it.pressureSamples.isNotEmpty()) {
                 val samplesArray = JSONArray()
                 it.pressureSamples.forEach { sample ->
                     val sampleObj = JSONObject()
                     sampleObj.put("time", isoFormat.format(Date(sample.time)))
-                    sampleObj.put("pressure", sample.pressure)
+                    sampleObj.put("pressure", normalizePressure(sample.pressure))
                     samplesArray.put(sampleObj)
                 }
                 obj.put("pressureSamples", samplesArray)
@@ -724,7 +732,7 @@ class JsonService {
                     fisherman = obj.optString("fisherman", ""),
                     otherSpecies = if (obj.isNull("otherSpecies")) null else obj.optString("otherSpecies", ""),
                     weatherDataCompleteTime = if (obj.isNull("weatherDataCompleteTime")) null else obj.optLong("weatherDataCompleteTime"),
-                    pressureTrend = if (obj.isNull("pressureTrend")) null else obj.optDouble("pressureTrend"),
+                    pressureTrend = if (obj.isNull("pressureTrend")) null else normalizePressure(obj.optDouble("pressureTrend")),
                     pressureSamples = parsePressureSamples(obj.optJSONArray("pressureSamples")),
                     moonPhase = moonPhase,
                     moonAltitude = moonAltitude
@@ -752,7 +760,7 @@ class JsonService {
             } else {
                 obj.optLong("time", 0L)
             }
-            val pressure = obj.optDouble("pressure", 0.0)
+            val pressure = normalizePressure(obj.optDouble("pressure", 0.0))
             result.add(PressureSample(timeMs, pressure))
         }
         return result

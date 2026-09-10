@@ -10,7 +10,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
+import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.WeatherError
+import fi.anssi.kalakartta.data.WeatherUpdateAttempt
+import fi.anssi.kalakartta.data.WeatherUpdateAttemptSelector
 import fi.anssi.kalakartta.utils.WeatherService
 import kotlinx.coroutines.*
 
@@ -83,27 +86,69 @@ class WeatherUpdateActivity : AppCompatActivity() {
         backButton.setOnClickListener { finish() }
     }
 
+    private fun hasMissingWeatherData(fishCatch: FishCatch): Boolean {
+        return fishCatch.weatherDataCompleteTime == null && (
+            fishCatch.airTemp == null ||
+                    fishCatch.cloudiness == null ||
+                    fishCatch.rainHourMm == null ||
+                    fishCatch.windSpeed == null ||
+                    fishCatch.windDirection == null ||
+                    fishCatch.pressure == null ||
+                    fishCatch.weatherSource == "" ||
+                    fishCatch.weatherStation == "" ||
+                    fishCatch.weatherTime == null ||
+                    fishCatch.weatherTime == 0L
+            )
+    }
+
+    private fun isUpdateTarget(fishCatch: FishCatch): Boolean {
+        return (fishCatch.caughtAt ?: 0L) > 0L &&
+                (hasMissingWeatherData(fishCatch) || fishCatch.pressureTrend == null)
+    }
+
+    private fun prioritizeTargets(
+        allCatches: List<FishCatch>,
+        attemptsByCatchId: Map<Long, WeatherUpdateAttempt>
+    ): List<FishCatch> {
+        val targets = allCatches.filter { isUpdateTarget(it) }
+        val catchesById = targets.associateBy { it.id }
+        return WeatherUpdateAttemptSelector
+            .prioritizeCatchIds(targets.map { it.id }, attemptsByCatchId)
+            .mapNotNull { catchesById[it] }
+    }
+
+    private fun formatUpdateStats(
+        totalTargets: Int,
+        totalCatches: Int,
+        failedTargets: Int
+    ): String {
+        return "Päivitettäviä pisteitä: $totalTargets / $totalCatches\n" +
+                "Viime yrityksellä epäonnistuneita $failedTargets kpl"
+    }
+
+    private fun recordAttempt(catchId: Long, succeeded: Boolean, errorMessage: String? = null) {
+        db.weatherUpdateAttemptDao().upsert(
+            WeatherUpdateAttempt(
+                catchId = catchId,
+                attemptedAt = System.currentTimeMillis(),
+                succeeded = succeeded,
+                errorMessage = errorMessage
+            )
+        )
+    }
+
     private fun loadStats() {
         lifecycleScope.launch(Dispatchers.IO) {
             val allCatches = db.fishCatchDao().getAll()
-            val targets = allCatches.filter {
-                val caughtAt = it.caughtAt ?: 0L
-                caughtAt > 0L && it.weatherDataCompleteTime == null && (
-                    it.airTemp == null || 
-                    it.cloudiness == null || 
-                    it.rainHourMm == null || 
-                    it.windSpeed == null || 
-                    it.windDirection == null || 
-                    it.pressure == null ||
-                    it.weatherSource == "" || 
-                    it.weatherStation == "" || 
-                    it.weatherTime == null || 
-                    it.weatherTime == 0L
-                )
-            }
+            val attemptsByCatchId = db.weatherUpdateAttemptDao().getAll().associateBy { it.catchId }
+            val targets = prioritizeTargets(allCatches, attemptsByCatchId)
+            val failedTargets = WeatherUpdateAttemptSelector.countFailedCatchIds(
+                targets.map { it.id },
+                attemptsByCatchId
+            )
             
             withContext(Dispatchers.Main) {
-                pointsToUpdateText.text = "Päivitettäviä pisteitä: ${targets.size} / ${allCatches.size}"
+                pointsToUpdateText.text = formatUpdateStats(targets.size, allCatches.size, failedTargets)
             }
         }
     }
@@ -124,36 +169,14 @@ class WeatherUpdateActivity : AppCompatActivity() {
             var noChanges = 0
             try {
                 val allCatches = db.fishCatchDao().getAll()
-                val targetsAll = allCatches.filter {
-                    val caughtAt = it.caughtAt ?: 0L
-                    caughtAt > 0L && it.weatherDataCompleteTime == null && (
-                        it.airTemp == null || 
-                        it.cloudiness == null || 
-                        it.rainHourMm == null || 
-                        it.windSpeed == null || 
-                        it.windDirection == null || 
-                        it.pressure == null ||
-                        it.weatherSource == "" || 
-                        it.weatherStation == "" || 
-                        it.weatherTime == null || 
-                        it.weatherTime == 0L
-                    )
-                }
+                val attemptsByCatchId = db.weatherUpdateAttemptDao().getAll().associateBy { it.catchId }
+                val targetsAll = prioritizeTargets(allCatches, attemptsByCatchId)
                 
                 val targets = if (maxCount > 0) targetsAll.take(maxCount) else targetsAll
                 
                 if (targets.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         statusText.text = "Ei päivitettäviä pisteitä."
-                        finishUpdate(0, 0, false)
-                    }
-                    return@launch
-                }
-
-                val stations = weatherService.fetchAllStationsSuspend()
-                if (stations == null) {
-                    withContext(Dispatchers.Main) {
-                        statusText.text = "Sääasemia ei voitu ladata."
                         finishUpdate(0, 0, false)
                     }
                     return@launch
@@ -169,6 +192,27 @@ class WeatherUpdateActivity : AppCompatActivity() {
                     android.util.Log.d("KalaKartta", "Tutkitaan pistettä ID: ${fishCatch.id}, originalRef: ${fishCatch.originalRef}")
                     
                     try {
+                        val needsWeatherData = hasMissingWeatherData(fishCatch)
+                        val needsPressureData = fishCatch.pressureTrend == null
+                        val caughtAt = fishCatch.caughtAt ?: 0L
+
+                        val pressureResult = if (needsPressureData) {
+                            weatherService.fetchPressureFromMultipleStationsSuspend(
+                                fishCatch.latitude,
+                                fishCatch.longitude,
+                                caughtAt
+                            )
+                        } else {
+                            null
+                        }
+
+                        val fetchedPressureTrend = pressureResult?.let { result ->
+                            fishCatch.copy(
+                                pressure = result.pressure,
+                                pressureSamples = result.pressureSamples
+                            ).calculatePressureTrend()
+                        }
+
                         val existingData = mutableMapOf<String, Double>()
                         fishCatch.airTemp?.let { existingData["t2m"] = it }
                         fishCatch.cloudiness?.let { existingData["nn_ll01"] = it.toDouble() }
@@ -177,88 +221,106 @@ class WeatherUpdateActivity : AppCompatActivity() {
                         fishCatch.windDirection?.let { existingData["wd_10min"] = it.toDouble() }
                         fishCatch.pressure?.let { existingData["p_sea"] = it }
 
-                        val result = weatherService.fetchWeatherFromMultipleStationsSuspend(
-                            fishCatch.latitude, 
-                            fishCatch.longitude, 
-                            fishCatch.caughtAt ?: 0L,
-                            existingData.ifEmpty { null },
-                            "ID: ${fishCatch.id}, Ref: ${fishCatch.originalRef}"
-                        )
-                        
-                        // Diagnostiikka: Logitetaan jos ei muutoksia
-                        if (result.third.contains("Ei uutta dataa", ignoreCase = true)) {
-                            android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Ei muutoksia 300km säteellä.")
+                        val weatherResult = if (needsWeatherData) {
+                            weatherService.fetchWeatherFromMultipleStationsSuspend(
+                                fishCatch.latitude,
+                                fishCatch.longitude,
+                                caughtAt,
+                                existingData.ifEmpty { null },
+                                "ID: ${fishCatch.id}, Ref: ${fishCatch.originalRef}"
+                            )
+                        } else {
+                            null
                         }
 
-                        if (result.first != null && result.first!!.isNotEmpty()) {
-                            val data = result.first!!
-                            val rainHour = data["r_1h"] ?: data["ri_10min"]
-                            
-                            // Tarkistetaan onko tullut oikeasti jotain uutta
-                            val isActuallyChanged = fishCatch.airTemp != data["t2m"] ||
-                                    fishCatch.cloudiness != (data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong()) ||
-                                    fishCatch.rainHourMm != rainHour ||
-                                    fishCatch.windSpeed != data["ws_10min"] ||
-                                    fishCatch.windDirection != data["wd_10min"]?.toLong() ||
-                                    fishCatch.pressure != (data["p_sea"] ?: data["p_msl"]) ||
-                                    fishCatch.weatherStation != result.third
-                            
-                            if (isActuallyChanged) {
-                                val changedFields = mutableListOf<String>()
-                                if (fishCatch.airTemp != data["t2m"]) changedFields.add("lämpötila")
-                                if (fishCatch.cloudiness != (data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong())) changedFields.add("pilvisyys")
-                                if (fishCatch.rainHourMm != rainHour) changedFields.add("sademäärä")
-                                if (fishCatch.windSpeed != data["ws_10min"]) changedFields.add("tuulen nopeus")
-                                if (fishCatch.windDirection != data["wd_10min"]?.toLong()) changedFields.add("tuulen suunta")
-                                if (fishCatch.pressure != (data["p_sea"] ?: data["p_msl"])) changedFields.add("ilmanpaine")
-                                if (fishCatch.weatherStation != result.third) changedFields.add("sääasema")
+                        val data = weatherResult?.first
+                        val hasWeatherData = data?.isNotEmpty() == true
+                        val fetchedRainHour = data?.get("r_1h") ?: data?.get("ri_10min")
+                        val pressure = pressureResult?.pressure
+                                ?: data?.get("p_sea")
+                                ?: data?.get("p_msl")
+                                ?: fishCatch.pressure
+                        val pressureSamples = pressureResult?.pressureSamples ?: fishCatch.pressureSamples
+                        val pressureTrend = fetchedPressureTrend ?: fishCatch.pressureTrend
 
-                                android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Päivitetty (muuttuneet: ${changedFields.joinToString(", ")})")
+                        val updatedCatch = if (hasWeatherData) {
+                            val airTemp = data?.get("t2m") ?: fishCatch.airTemp
+                            val cloudiness = data?.get("nn_ll01")?.toLong()
+                                    ?: data?.get("n_man")?.toLong()
+                                    ?: fishCatch.cloudiness
+                            val rainHour = fetchedRainHour ?: fishCatch.rainHourMm
+                            val windSpeed = data?.get("ws_10min") ?: fishCatch.windSpeed
+                            val windDirection = data?.get("wd_10min")?.toLong() ?: fishCatch.windDirection
+                            val isNowComplete = airTemp != null &&
+                                    cloudiness != null &&
+                                    rainHour != null &&
+                                    windSpeed != null &&
+                                    windDirection != null &&
+                                    pressure != null
+                            val station = weatherResult?.third?.takeIf {
+                                it.isNotBlank() && it != "EI_MUUTOKSIA"
+                            } ?: fishCatch.weatherStation
 
-                                val airTemp = data["t2m"]
-                                val cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong()
-                                val windSpeed = data["ws_10min"]
-                                val windDirection = data["wd_10min"]?.toLong()
-                                val pressure = data["p_sea"] ?: data["p_msl"]
+                            fishCatch.copy(
+                                airTemp = airTemp,
+                                cloudiness = cloudiness,
+                                rainHourMm = rainHour,
+                                windSpeed = windSpeed,
+                                windDirection = windDirection,
+                                pressure = pressure,
+                                weatherSource = "FMI",
+                                weatherTime = weatherResult?.second ?: fishCatch.weatherTime,
+                                weatherStation = station,
+                                weatherDataCompleteTime = if (isNowComplete) null else System.currentTimeMillis(),
+                                pressureSamples = pressureSamples,
+                                pressureTrend = pressureTrend
+                            )
+                        } else if (pressureResult != null) {
+                            fishCatch.copy(
+                                pressure = pressureResult.pressure,
+                                pressureSamples = pressureResult.pressureSamples,
+                                pressureTrend = pressureTrend
+                            )
+                        } else {
+                            fishCatch
+                        }
 
-                                val isNowComplete = airTemp != null &&
-                                        cloudiness != null &&
-                                        rainHour != null &&
-                                        windSpeed != null &&
-                                        windDirection != null &&
-                                        pressure != null
-
-                                val updatedCatch = fishCatch.copy(
-                                    airTemp = airTemp,
-                                    cloudiness = cloudiness,
-                                    rainHourMm = rainHour,
-                                    windSpeed = windSpeed,
-                                    windDirection = windDirection,
-                                    pressure = pressure,
-                                    weatherSource = "FMI",
-                                    weatherTime = result.second ?: fishCatch.weatherTime,
-                                    weatherStation = result.third,
-                                    weatherDataCompleteTime = if (isNowComplete) null else System.currentTimeMillis()
-                                )
+                        val updateCompleted = (!needsWeatherData || hasWeatherData) &&
+                                (!needsPressureData || fetchedPressureTrend != null)
+                        if (hasWeatherData || pressureResult != null) {
+                            if (updatedCatch != fishCatch) {
                                 db.fishCatchDao().update(updatedCatch)
-                                successful++
+                            }
+
+                            if (updateCompleted) {
+                                recordAttempt(fishCatch.id, succeeded = true)
+                                if (updatedCatch != fishCatch) {
+                                    successful++
+                                } else {
+                                    noChanges++
+                                }
                             } else {
-                                android.util.Log.d("KalaKartta", "Catch ID ${fishCatch.id}: Ei muutoksia (haettu data vastasi olemassa olevaa).")
-                                // Jos ei tullut uutta dataa, mutta jotain puuttui yhä, merkitään tarkistetuksi
-                                val updatedCatch = fishCatch.copy(
-                                    weatherDataCompleteTime = System.currentTimeMillis()
-                                )
-                                db.fishCatchDao().update(updatedCatch)
-                                noChanges++
+                                failed++
+                                val message = if (needsPressureData && fetchedPressureTrend == null) {
+                                    "Painehistoriasta ei saatu laskettavaa trendiä."
+                                } else {
+                                    "Ei säädataa saatavilla."
+                                }
+                                recordAttempt(fishCatch.id, succeeded = false, errorMessage = message)
+                                db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = message, catchId = fishCatch.id))
                             }
                         } else {
                             failed++
-                            db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = "Ei säädataa saatavilla.", catchId = fishCatch.id))
+                            val message = "Ei säädataa saatavilla."
+                            recordAttempt(fishCatch.id, succeeded = false, errorMessage = message)
+                            db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = message, catchId = fishCatch.id))
                         }
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e
                         failed++
-                        db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = e.message ?: "Tuntematon virhe", catchId = fishCatch.id))
+                        val message = e.message ?: "Tuntematon virhe"
+                        recordAttempt(fishCatch.id, succeeded = false, errorMessage = message)
+                        db.weatherErrorDao().insert(WeatherError(timestamp = System.currentTimeMillis(), message = message, catchId = fishCatch.id))
                     }
 
                     withContext(Dispatchers.Main) {
@@ -268,7 +330,6 @@ class WeatherUpdateActivity : AppCompatActivity() {
                         statsText.text = "Yritetty: $attempted / $total\nOnnistuneet: $successful\nEi muutoksia: $noChanges\nEpäonnistuneet: $failed"
                     }
                     
-                    delay(500)
                 }
 
                 withContext(NonCancellable + Dispatchers.Main) {
