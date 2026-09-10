@@ -50,6 +50,48 @@ interface TrackPointDao {
     fun getPointsForHeatmapRangeAndArea(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): List<TrackPointHeatmapData>
 
     @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getAllForRoutes(minSessionStart: Long): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND tp.latitude BETWEEN :latSouth AND :latNorth
+          AND tp.longitude BETWEEN :lonWest AND :lonEast
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getPointsForRoutesArea(minSessionStart: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND tp.timestamp >= :startDate AND tp.timestamp <= :endDate
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getPointsForRoutesRange(minSessionStart: Long, startDate: Long, endDate: Long): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND tp.timestamp >= :startDate AND tp.timestamp <= :endDate
+          AND tp.latitude BETWEEN :latSouth AND :latNorth
+          AND tp.longitude BETWEEN :lonWest AND :lonEast
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getPointsForRoutesRangeAndArea(minSessionStart: Long, startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double): List<TrackPointHeatmapData>
+
+    @Query("""
         SELECT 
             CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
             CAST((latitude * :latDegreeMeters / :gridSizeMeters) AS INTEGER) as y,
@@ -175,6 +217,22 @@ interface TrackPointDao {
     ): Int
 
     @Query("""
+        SELECT COUNT(*)
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND (:checkRange = 0 OR (tp.timestamp >= :startDate AND tp.timestamp <= :endDate))
+          AND (:checkArea = 0 OR (tp.latitude BETWEEN :latSouth AND :latNorth AND tp.longitude BETWEEN :lonWest AND :lonEast))
+          AND (:removeTransitions = 0 OR tp.speed <= :maxSpeed)
+    """)
+    fun getCountFilteredForRoutes(
+        minSessionStart: Long,
+        checkRange: Boolean, startDate: Long, endDate: Long,
+        checkArea: Boolean, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double,
+        removeTransitions: Boolean, maxSpeed: Float
+    ): Int
+
+    @Query("""
         SELECT COUNT(*) FROM (
             SELECT 
                 CAST((longitude * :lonDegreeMeters / :gridSizeMeters) AS INTEGER) as x,
@@ -272,6 +330,52 @@ interface TrackPointDao {
         ORDER BY fishingSessionId, timestamp
     """)
     fun getPointsForHeatmapRangeAndAreaSampled(startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND (tp.rowid % :step) = 0
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getAllForRoutesSampled(minSessionStart: Long, step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND tp.latitude BETWEEN :latSouth AND :latNorth
+          AND tp.longitude BETWEEN :lonWest AND :lonEast
+          AND (tp.rowid % :step) = 0
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getPointsForRoutesAreaSampled(minSessionStart: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND tp.timestamp >= :startDate AND tp.timestamp <= :endDate
+          AND (tp.rowid % :step) = 0
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getPointsForRoutesRangeSampled(minSessionStart: Long, startDate: Long, endDate: Long, step: Int): List<TrackPointHeatmapData>
+
+    @Query("""
+        SELECT tp.fishingSessionId, tp.latitude, tp.longitude, tp.timestamp, tp.speed
+        FROM TrackPoint AS tp
+        INNER JOIN FishingSession AS fs ON tp.fishingSessionId = fs.id
+        WHERE fs.startedAt > :minSessionStart
+          AND tp.timestamp >= :startDate AND tp.timestamp <= :endDate
+          AND tp.latitude BETWEEN :latSouth AND :latNorth
+          AND tp.longitude BETWEEN :lonWest AND :lonEast
+          AND (tp.rowid % :step) = 0
+        ORDER BY tp.fishingSessionId, tp.timestamp
+    """)
+    fun getPointsForRoutesRangeAndAreaSampled(minSessionStart: Long, startDate: Long, endDate: Long, latSouth: Double, latNorth: Double, lonWest: Double, lonEast: Double, step: Int): List<TrackPointHeatmapData>
 }
 
 data class TrackPointHeatmapData(

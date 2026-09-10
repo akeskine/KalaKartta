@@ -46,7 +46,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var routesEnabled = false
     private var heatmapFilterEnabled = false
     private var routesFilterEnabled = false
-    private var routesFadeEnabled = false
+    private var routesFadeEnabled = true
     private var routesFadeStartLimitDays = 365
     private var routesFadeFullLimitDays = 30
     private var calculationMethod = ""
@@ -92,7 +92,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
         heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
         routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
-        routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", false)
+        routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", true)
         routesFadeStartLimitDays = prefs.getInt("routes_fade_start_days", 365)
         routesFadeFullLimitDays = prefs.getInt("routes_fade_full_days", 30)
         calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_points)) ?: context.getString(R.string.heatmap_method_points)
@@ -159,6 +159,69 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         }
     }
 
+    private fun getRoutePoints(
+        f: fi.anssi.kalakartta.ui.FilterManager.Filters,
+        hasAreaFilter: Boolean,
+        minSessionStart: Long,
+        latSouth: Double? = null,
+        latNorth: Double? = null,
+        lonWest: Double? = null,
+        lonEast: Double? = null
+    ): List<TrackPointHeatmapData> {
+        val useBBox = latSouth != null && latNorth != null && lonWest != null && lonEast != null
+        val lS = if (useBBox) latSouth!! else f.latSouth ?: 0.0
+        val lN = if (useBBox) latNorth!! else f.latNorth ?: 0.0
+        val lW = if (useBBox) lonWest!! else f.lonWest ?: 0.0
+        val lE = if (useBBox) lonEast!! else f.lonEast ?: 0.0
+        val areaActive = hasAreaFilter || useBBox
+        val hasRange = f.startDate != null || f.endDate != null
+
+        val totalCount = db.trackPointDao().getCountFilteredForRoutes(
+            minSessionStart = minSessionStart,
+            checkRange = hasRange,
+            startDate = f.startDate ?: 0L,
+            endDate = f.endDate ?: Long.MAX_VALUE,
+            checkArea = areaActive,
+            latSouth = lS,
+            latNorth = lN,
+            lonWest = lW,
+            lonEast = lE,
+            removeTransitions = false,
+            maxSpeed = 0f
+        )
+        val step = if (totalCount > maxTrackPoints) (totalCount / maxTrackPoints) + 1 else 1
+
+        return when {
+            hasRange && areaActive -> {
+                if (step > 1) db.trackPointDao().getPointsForRoutesRangeAndAreaSampled(
+                    minSessionStart, f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE,
+                    lS, lN, lW, lE, step
+                ) else db.trackPointDao().getPointsForRoutesRangeAndArea(
+                    minSessionStart, f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE,
+                    lS, lN, lW, lE
+                )
+            }
+            hasRange -> {
+                if (step > 1) db.trackPointDao().getPointsForRoutesRangeSampled(
+                    minSessionStart, f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE, step
+                ) else db.trackPointDao().getPointsForRoutesRange(
+                    minSessionStart, f.startDate ?: 0L, f.endDate ?: Long.MAX_VALUE
+                )
+            }
+            areaActive -> {
+                if (step > 1) db.trackPointDao().getPointsForRoutesAreaSampled(
+                    minSessionStart, lS, lN, lW, lE, step
+                ) else db.trackPointDao().getPointsForRoutesArea(
+                    minSessionStart, lS, lN, lW, lE
+                )
+            }
+            else -> {
+                if (step > 1) db.trackPointDao().getAllForRoutesSampled(minSessionStart, step)
+                else db.trackPointDao().getAllForRoutes(minSessionStart)
+            }
+        }
+    }
+
     fun refreshData(bbox: BoundingBox? = null) {
         refreshSettings()
         dataJob?.cancel()
@@ -185,6 +248,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val latN = bbox?.let { it.latNorth + (it.latNorth - it.latSouth) * marginFactor }
                 val lonW = bbox?.let { it.lonWest - (it.lonEast - it.lonWest) * marginFactor }
                 val lonE = bbox?.let { it.lonEast + (it.lonEast - it.lonWest) * marginFactor }
+
+                val routeSessionStartLimit = if (routesFadeEnabled) {
+                    val dayMillis = 1000L * 60 * 60 * 24
+                    val fadeLimitDays = routesFadeStartLimitDays.coerceAtLeast(0).toLong()
+                    System.currentTimeMillis() - (fadeLimitDays + 1L) * dayMillis
+                } else {
+                    Long.MIN_VALUE
+                }
                 
                 val resultData: Map<Pair<Int, Int>, Int> = if (heatmapEnabled) {
                     if (heatmapFilterEnabled && (hasAnnualDateFilter || hasTimeFilter || hasAnnualTimeFilter)) {
@@ -357,9 +428,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val newRouteData = mutableListOf<RouteWithBounds>()
                 if (routesEnabled) {
                     val rawPoints = if (routesFilterEnabled) {
-                        getPoints(f, hasAreaFilter, latS, latN, lonW, lonE)
+                        getRoutePoints(f, hasAreaFilter, routeSessionStartLimit, latS, latN, lonW, lonE)
                     } else {
-                        getPoints(f, false, latS, latN, lonW, lonE)
+                        getRoutePoints(f, false, routeSessionStartLimit, latS, latN, lonW, lonE)
                     }
 
                     if (rawPoints.isNotEmpty()) {

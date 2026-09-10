@@ -959,7 +959,7 @@ class SettingsManager(
         val fadeEnabledCheckbox = CheckBox(activity).apply {
             text = "Häivytä vanhat reittiviitat"
             setTextColor(primaryTextColor)
-            isChecked = prefs.getBoolean("routes_fade_enabled", false)
+            isChecked = prefs.getBoolean("routes_fade_enabled", true)
             setPadding(20, 20, 20, 20)
         }
         layout.addView(fadeEnabledCheckbox)
@@ -1303,6 +1303,14 @@ class SettingsManager(
             val removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
             val baseRemoveTransitions = providedRemoveTransitions ?: prefs.getBoolean("heatmap_remove_transitions", false)
             val maxSpeed = providedMaxSpeed ?: prefs.getFloat("heatmap_max_speed", 10.0f)
+            val routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", true)
+            val routesFadeStartDays = prefs.getInt("routes_fade_start_days", 365).coerceAtLeast(0).toLong()
+            val routeSessionStartLimit = if (routesFadeEnabled) {
+                val dayMillis = 1000L * 60 * 60 * 24
+                System.currentTimeMillis() - (routesFadeStartDays + 1L) * dayMillis
+            } else {
+                Long.MIN_VALUE
+            }
 
             lifecycleScope.launch(Dispatchers.IO) {
                 var error: String? = null
@@ -1314,13 +1322,15 @@ class SettingsManager(
                     val removeTransitionsRoutes = if (removeTransitionsMode == 1) baseRemoveTransitions else false
                     
                     val count = if (routesFilterEnabled) {
-                        db.trackPointDao().getCountFiltered(
+                        db.trackPointDao().getCountFilteredForRoutes(
+                            routeSessionStartLimit,
                             hasRangeFilter, filters.startDate ?: 0L, filters.endDate ?: Long.MAX_VALUE,
                             hasAreaFilter, filters.latSouth ?: 0.0, filters.latNorth ?: 0.0, filters.lonWest ?: 0.0, filters.lonEast ?: 0.0,
                             removeTransitionsRoutes, maxSpeed
                         )
                     } else {
-                        db.trackPointDao().getCountFiltered(
+                        db.trackPointDao().getCountFilteredForRoutes(
+                            routeSessionStartLimit,
                             false, 0L, Long.MAX_VALUE,
                             false, 0.0, 0.0, 0.0, 0.0,
                             removeTransitionsRoutes, maxSpeed
@@ -1548,11 +1558,22 @@ class SettingsManager(
             val routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
             val removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
             val maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
+            val routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", true)
+            val routesFadeStartDays = prefs.getInt("routes_fade_start_days", 365).coerceAtLeast(0).toLong()
+            val routeSessionStartLimit = if (routesFadeEnabled) {
+                val dayMillis = 1000L * 60 * 60 * 24
+                System.currentTimeMillis() - (routesFadeStartDays + 1L) * dayMillis
+            } else {
+                Long.MIN_VALUE
+            }
+            val removeTransitionsForRoutes = removeTransitions &&
+                    prefs.getInt("heatmap_remove_transitions_mode", 0) == 1
             
             val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
             
             // Reittipisteet
-            val pointCount = db.trackPointDao().getCountFiltered(
+            val pointCount = db.trackPointDao().getCountFilteredForRoutes(
+                minSessionStart = routeSessionStartLimit,
                 checkRange = routesFilterEnabled && (filters.startDate != null || filters.endDate != null),
                 startDate = filters.startDate ?: 0L,
                 endDate = filters.endDate ?: Long.MAX_VALUE,
@@ -1561,7 +1582,7 @@ class SettingsManager(
                 latNorth = filters.latNorth ?: 0.0,
                 lonWest = filters.lonWest ?: 0.0,
                 lonEast = filters.lonEast ?: 0.0,
-                removeTransitions = removeTransitions,
+                removeTransitions = removeTransitionsForRoutes,
                 maxSpeed = maxSpeed
             )
 
