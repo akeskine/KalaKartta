@@ -29,6 +29,52 @@ data class ForecastRow(
     val parameters: Map<String, Double>
 )
 
+internal fun buildPressureSamplesUrl(
+    observationsUrl: String,
+    fmisid: String,
+    startTime: String,
+    endTime: String,
+    includeTimestep: Boolean
+): String {
+    val url = "$observationsUrl$fmisid&starttime=$startTime&endtime=$endTime"
+    return if (includeTimestep) "$url&timestep=60" else url
+}
+
+internal fun extrapolatePressureSampleIntoCompletionWindow(
+    samples: List<PressureSample>,
+    startTime: Long,
+    endTime: Long
+): List<PressureSample> {
+    val sixHoursMillis = 6 * 60 * 60 * 1000L
+    val fiveHoursMillis = 5 * 60 * 60 * 1000L
+    val caughtAt = startTime + sixHoursMillis
+    val completionWindowStart = caughtAt + fiveHoursMillis
+    val completionWindowEnd = caughtAt + sixHoursMillis
+    if (endTime < completionWindowStart) return samples
+
+    val validSamples = samples
+        .filter { it.pressure.isFinite() }
+        .sortedBy { it.time }
+    val availableWindowEnd = minOf(endTime, completionWindowEnd)
+    if (validSamples.any { it.time in completionWindowStart..availableWindowEnd }) return samples
+
+    val lastTwo = validSamples.takeLast(2)
+    if (lastTwo.size < 2) return samples
+
+    val first = lastTwo[0]
+    val last = lastTwo[1]
+    val elapsedMillis = last.time - first.time
+    if (elapsedMillis <= 0L) return samples
+
+    val targetTime = availableWindowEnd
+    val elapsedHours = elapsedMillis.toDouble() / (60 * 60 * 1000)
+    val rate = (last.pressure - first.pressure) / elapsedHours
+    val projectedPressure = last.pressure + rate * (targetTime - last.time).toDouble() / (60 * 60 * 1000)
+    if (!projectedPressure.isFinite()) return samples
+
+    return (samples + PressureSample(targetTime, projectedPressure)).sortedBy { it.time }
+}
+
 class WeatherService(private val context: Context) {
 
     companion object {
@@ -453,38 +499,62 @@ class WeatherService(private val context: Context) {
                 val startStr = isoFormat.format(java.util.Date(startTime))
                 val endStr = isoFormat.format(java.util.Date(endTime))
                 
-                val urlString = OBSERVATIONS_URL + fmisid + "&starttime=$startStr&endtime=$endStr&timestep=60"
-                android.util.Log.i("KalaKartta", "Haetaan ilmanpainehistoria FMI:ltä: $urlString")
-                
-                val url = URL(urlString)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
+                val urlStrings = listOf(
+                    buildPressureSamplesUrl(OBSERVATIONS_URL, fmisid, startStr, endStr, includeTimestep = true),
+                    buildPressureSamplesUrl(OBSERVATIONS_URL, fmisid, startStr, endStr, includeTimestep = false)
+                )
 
-                if (connection.responseCode != 200) {
-                    android.util.Log.e("KalaKartta", "FMI-haku epäonnistui: ${connection.responseCode} ${connection.responseMessage}")
-                    return@withContext emptyList<PressureSample>()
-                }
+                for ((attempt, urlString) in urlStrings.withIndex()) {
+                    try {
+                        android.util.Log.i(
+                            "KalaKartta",
+                            "Haetaan ilmanpainehistoria FMI:ltä (yritys ${attempt + 1}/${urlStrings.size}): $urlString"
+                        )
 
-                val observations = connection.inputStream.use { 
-                    parseAllWeatherObservations(it)
-                }
-                
-                val samples = observations.mapNotNull { (time, params) ->
-                    val pressure = params["p_sea"] ?: params["p_msl"]
-                    if (pressure != null) {
-                        PressureSample(time, pressure)
-                    } else {
-                        null
+                        val url = URL(urlString)
+                        val connection = url.openConnection() as HttpURLConnection
+                        connection.connectTimeout = 10000
+                        connection.readTimeout = 10000
+
+                        if (connection.responseCode != 200) {
+                            android.util.Log.e(
+                                "KalaKartta",
+                                "FMI-haku epäonnistui: ${connection.responseCode} ${connection.responseMessage}"
+                            )
+                            continue
+                        }
+
+                        val observations = connection.inputStream.use {
+                            parseAllWeatherObservations(it)
+                        }
+
+                        val samples = observations.mapNotNull { (time, params) ->
+                            val pressure = params["p_sea"] ?: params["p_msl"]
+                            if (pressure != null) {
+                                PressureSample(time, pressure)
+                            } else {
+                                null
+                            }
+                        }.sortedBy { it.time }
+
+                        android.util.Log.d("KalaKartta", "Löydetty ${samples.size} ilmanpainenäytettä asemalta $fmisid")
+                        samples.forEach {
+                            android.util.Log.d("KalaKartta", "  Sample: time=${it.time}, pressure=${it.pressure}")
+                        }
+
+                        if (samples.isNotEmpty()) {
+                            return@withContext extrapolatePressureSampleIntoCompletionWindow(
+                                samples,
+                                startTime,
+                                endTime
+                            )
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("KalaKartta", "Virhe painenäytteiden haussa: ${e.message}", e)
                     }
-                }.sortedBy { it.time }
-                
-                android.util.Log.d("KalaKartta", "Löydetty ${samples.size} ilmanpainenäytettä asemalta $fmisid")
-                samples.forEach { 
-                    android.util.Log.d("KalaKartta", "  Sample: time=${it.time}, pressure=${it.pressure}")
                 }
-                
-                samples
+
+                emptyList()
             } catch (e: Exception) {
                 android.util.Log.e("KalaKartta", "Virhe painenäytteiden haussa: ${e.message}", e)
                 emptyList<PressureSample>()

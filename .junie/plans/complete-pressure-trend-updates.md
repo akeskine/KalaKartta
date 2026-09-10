@@ -215,3 +215,11 @@ Include old catches in the missing-weather update when their pressure history do
 - Extend the shared update-target predicate in `WeatherUpdateActivity` for catches older than six hours whose pressure samples lack a valid observation in the `+5…+6 h` interval.
 - Preserve the existing pressure-only update behavior and let the normal nearest-station fallback refill the history from the catch-time station.
 - Add focused unit coverage for complete, incomplete, recent, and missing-history cases, then run the relevant JVM tests and compilation.
+
+### ✓ Step 13: Add a fallback FMI pressure-history request
+Allow automatic pressure-history requests to receive and complete observations when FMI returns no data for the initial explicit `timestep=60` parameter.
+
+- Keep the current `timestep=60` request as the first attempt and retry without it when the response is unsuccessful or has no pressure samples.
+- When the successful history has sparse three-hour observations, extrapolate a pressure sample into the available `+5…+6 h` window for old catches so the same point is not requeued unnecessarily.
+- Keep the existing station fallback and response parsing behavior unchanged.
+- Add or update focused coverage for the request variants and run the relevant tests and compilation.
