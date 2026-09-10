@@ -743,6 +743,7 @@ class EditCatchActivity : AppCompatActivity() {
             fishCatch = fishCatch?.copy(caughtAt = null)
             updateDateTimeButtonText()
             updateMoonData()
+            pressureGraph.visibility = View.GONE
             autoWeatherCheckBox.visibility = View.GONE
             refreshDiaryLinks()
         }
@@ -921,8 +922,30 @@ class EditCatchActivity : AppCompatActivity() {
                 val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
                 autoWeatherCheckBox.visibility = if (isWeatherEnabled) View.VISIBLE else View.GONE
                 if (autoWeatherCheckBox.isChecked) fetchWeatherForDisplay()
+                else fetchPressureHistoryForCurrentTime()
             }, selectedCalendar.get(Calendar.HOUR_OF_DAY), selectedCalendar.get(Calendar.MINUTE), true).show()
         }, selectedCalendar.get(Calendar.YEAR), selectedCalendar.get(Calendar.MONTH), selectedCalendar.get(Calendar.DAY_OF_MONTH)).show()
+    }
+
+    private fun fetchPressureHistoryForCurrentTime() {
+        if (isPlace) return
+
+        val caughtAt = selectedCalendar.timeInMillis
+        val lat = latEditText.text.toString().toDoubleSafe()
+        val lon = lonEditText.text.toString().toDoubleSafe()
+        weatherService.fetchNearestStation(lat, lon, caughtAt) { station, error ->
+            runOnUiThread {
+                if (!isTimeSetManually || selectedCalendar.timeInMillis != caughtAt) return@runOnUiThread
+
+                if (station != null) {
+                    nearestStation = station
+                    fetchPressureHistory(caughtAt, station.fmisid)
+                } else {
+                    pressureGraph.visibility = View.GONE
+                    android.util.Log.w("KalaKartta", "fetchPressureHistoryForCurrentTime: asemaa ei löytynyt: $error")
+                }
+            }
+        }
     }
 
     private fun saveChanges() {
@@ -1167,6 +1190,13 @@ class EditCatchActivity : AppCompatActivity() {
                 val samples = weatherService.fetchPressureSamplesSuspend(fmisid, startTime, endTime)
                 android.util.Log.d("KalaKartta", "fetchPressureHistory: saatiin ${samples.size} näytettä asemalta $fmisid")
                 withContext(Dispatchers.Main) {
+                    val currentCaughtAt = if (!isPlace && (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L)) {
+                        selectedCalendar.timeInMillis
+                    } else {
+                        null
+                    }
+                    if (currentCaughtAt != caughtAt) return@withContext
+
                     if (samples.isNotEmpty()) {
                         fishCatch = fishCatch?.copy(pressureSamples = samples)
                         pressureGraph.setData(samples, caughtAt)
