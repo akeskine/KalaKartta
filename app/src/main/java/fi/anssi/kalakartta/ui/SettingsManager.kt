@@ -2337,19 +2337,14 @@ class SettingsManager(
         }
         contentLayout.addView(checkBox)
 
-        val typedValue = android.util.TypedValue()
-        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-        val primaryTextColor = if (typedValue.resourceId != 0) {
-            activity.getColor(typedValue.resourceId)
-        } else {
-            typedValue.data
-        }
-
         val textView = TextView(activity).apply {
             text = "Päivitä puuttuvat säätiedot"
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 30, 0, 0)
+            textSize = 18f
+            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setPadding(0, 20, 0, 40)
+            val outValue = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            setBackgroundResource(outValue.resourceId)
             setOnClickListener {
                 val intent = android.content.Intent(activity, WeatherUpdateActivity::class.java)
                 activity.startActivityForResult(intent, 1003)
