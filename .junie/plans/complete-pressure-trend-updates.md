@@ -19,7 +19,7 @@ Laajennetaan **Päivitä puuttuvat säätiedot** -toiminto täydentämään `Fis
 
 #### Out of scope
 - Sovelluksen tietokannan olemassa olevien pisteiden erillinen `pressureTurningTrend`-migraatio- tai massalaskenta; erillisen JSON-viennin kertaluonteinen korjaus käsitellään Step 10:nä.
-- Uuden käyttöliittymän lisääminen; käytetään nykyistä päivitysnäkymää ja laskuria.
+- Muiden kuin painekehityksen suodatusten tai kehittäjäasetusten käyttöliittymien muuttaminen.
 - Muiden automaattisten sääpäivityspolkujen muuttaminen kuin niiden kanssa jaettavan sääasemalogiiikan tarpeelliset sisäiset muutokset.
 
 #### Yritysseurannan lisäys
@@ -200,3 +200,11 @@ Update `C:\kehitys\anssi\kalakartta-aineistot\pisteet.json` using the same endpo
 - Recalculate `pressureTurningTrend` for every catch with a non-empty `pressureSamples` list, including catches with an existing value.
 - Keep catches with insufficient samples without a calculated value and preserve every other JSON field and formatting.
 - Validate the resulting JSON and verify that only the targeted `pressureTurningTrend` fields changed.
+
+### ✓ Step 11: Add pressure-development filters and configurable thresholds
+Add filter selectors for `pressureTrend` and `pressureTurningTrend`, with symmetric configurable thresholds in `Yleiset / Kehittäjätyökalut`.
+
+- Use the analyzed defaults `±0.10 hPa/h` for pressure trend and `±0.20 hPa/h` for turning trend.
+- Persist the selections with the existing `FilterManager` filter preferences and apply them to `FishCatch` values, excluding catches whose selected value is missing.
+- Add both threshold values to the existing developer-tools dialog and include the new filters in the active-filter description.
+- Add focused unit coverage for the three-way classification boundaries and run the relevant JVM tests plus compilation.

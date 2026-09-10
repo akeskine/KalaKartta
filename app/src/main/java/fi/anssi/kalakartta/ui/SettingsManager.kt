@@ -1481,6 +1481,58 @@ class SettingsManager(
         row4.addView(refLatHint)
         layout.addView(row4)
 
+        // Rivi 5: Ilmanpaineen kehityksen raja-arvo
+        val pressureTrendThresholdRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val pressureTrendThresholdLabel = TextView(activity).apply {
+            text = "Ilmanpaineen kehityksen raja-arvo (hPa/h):"
+        }
+        val pressureTrendThresholdEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(
+                prefs.getFloat(
+                    FilterManager.PRESSURE_TREND_THRESHOLD_KEY,
+                    FilterManager.DEFAULT_PRESSURE_TREND_THRESHOLD
+                ).toString()
+            )
+        }
+        val pressureTrendThresholdHint = TextView(activity).apply {
+            text = "Oletus ${FilterManager.DEFAULT_PRESSURE_TREND_THRESHOLD} (sama raja-arvo laskevalle ja nousevalle)."
+            textSize = 12f
+        }
+        pressureTrendThresholdRow.addView(pressureTrendThresholdLabel)
+        pressureTrendThresholdRow.addView(pressureTrendThresholdEdit)
+        pressureTrendThresholdRow.addView(pressureTrendThresholdHint)
+        layout.addView(pressureTrendThresholdRow)
+
+        // Rivi 6: Ilmanpaineen kehityksen muutoksen raja-arvo
+        val pressureTurningTrendThresholdRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val pressureTurningTrendThresholdLabel = TextView(activity).apply {
+            text = "Ilmanpaineen kehityksen muutoksen raja-arvo (hPa/h):"
+        }
+        val pressureTurningTrendThresholdEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(
+                prefs.getFloat(
+                    FilterManager.PRESSURE_TURNING_TREND_THRESHOLD_KEY,
+                    FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
+                ).toString()
+            )
+        }
+        val pressureTurningTrendThresholdHint = TextView(activity).apply {
+            text = "Oletus ${FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD} (sama raja-arvo ala- ja ylöspäin kääntyvälle)."
+            textSize = 12f
+        }
+        pressureTurningTrendThresholdRow.addView(pressureTurningTrendThresholdLabel)
+        pressureTurningTrendThresholdRow.addView(pressureTurningTrendThresholdEdit)
+        pressureTurningTrendThresholdRow.addView(pressureTurningTrendThresholdHint)
+        layout.addView(pressureTurningTrendThresholdRow)
+
         // Tulostus: Näkyvät määrät
         val statusText = TextView(activity).apply {
             text = "Lasketaan..."
@@ -1549,12 +1601,34 @@ class SettingsManager(
                 val minZoom = minZoomEdit.text.toString().toFloatOrNull() ?: 10.0f
                 val refLatInput = refLatEdit.text.toString().toFloatOrNull()
                 val refLat = if (refLatInput != null && refLatInput in 0f..180f) refLatInput else 64.7f
+                val pressureTrendThresholdInput = pressureTrendThresholdEdit.text.toString().toFloatOrNull()
+                val pressureTrendThreshold = if (pressureTrendThresholdInput != null &&
+                    pressureTrendThresholdInput > 0f &&
+                    !pressureTrendThresholdInput.isNaN() &&
+                    !pressureTrendThresholdInput.isInfinite()
+                ) {
+                    pressureTrendThresholdInput
+                } else {
+                    FilterManager.DEFAULT_PRESSURE_TREND_THRESHOLD
+                }
+                val pressureTurningTrendThresholdInput = pressureTurningTrendThresholdEdit.text.toString().toFloatOrNull()
+                val pressureTurningTrendThreshold = if (pressureTurningTrendThresholdInput != null &&
+                    pressureTurningTrendThresholdInput > 0f &&
+                    !pressureTurningTrendThresholdInput.isNaN() &&
+                    !pressureTurningTrendThresholdInput.isInfinite()
+                ) {
+                    pressureTurningTrendThresholdInput
+                } else {
+                    FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
+                }
                 
                 prefs.edit().apply {
                     putInt("max_track_points", maxPoints)
                     putInt("max_heatmap_cells", maxCells)
                     putFloat("heatmap_min_zoom", minZoom)
                     putFloat("heatmap_reference_latitude", refLat)
+                    putFloat(FilterManager.PRESSURE_TREND_THRESHOLD_KEY, pressureTrendThreshold)
+                    putFloat(FilterManager.PRESSURE_TURNING_TREND_THRESHOLD_KEY, pressureTurningTrendThreshold)
                     apply()
                 }
                 openGeneralSettings()

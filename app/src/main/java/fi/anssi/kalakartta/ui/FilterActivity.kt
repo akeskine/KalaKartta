@@ -64,6 +64,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var windDirectionPreview: WindDirectionView
     private lateinit var pressureMinEdit: EditText
     private lateinit var pressureMaxEdit: EditText
+    private lateinit var pressureTrendSpinner: Spinner
+    private lateinit var pressureTurningTrendSpinner: Spinner
     private lateinit var waterTempMinEdit: EditText
     private lateinit var waterTempMaxEdit: EditText
     private lateinit var moonPhaseMinEdit: EditText
@@ -262,6 +264,25 @@ class FilterActivity : AppCompatActivity() {
         windDirectionPreview = findViewById(R.id.windDirectionPreview)
         pressureMinEdit = findViewById(R.id.pressureMinEdit)
         pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
+        pressureTrendSpinner = findViewById(R.id.pressureTrendSpinner)
+        pressureTurningTrendSpinner = findViewById(R.id.pressureTurningTrendSpinner)
+
+        val pressureTrendAdapter = ArrayAdapter(
+            this,
+            R.layout.spinner_item,
+            resources.getStringArray(R.array.pressure_trend_filter_options).toList()
+        )
+        pressureTrendAdapter.setDropDownViewResource(R.layout.spinner_item)
+        pressureTrendSpinner.adapter = pressureTrendAdapter
+
+        val pressureTurningTrendAdapter = ArrayAdapter(
+            this,
+            R.layout.spinner_item,
+            resources.getStringArray(R.array.pressure_turning_trend_filter_options).toList()
+        )
+        pressureTurningTrendAdapter.setDropDownViewResource(R.layout.spinner_item)
+        pressureTurningTrendSpinner.adapter = pressureTurningTrendAdapter
+
         waterTempMinEdit = findViewById(R.id.waterTempMinEdit)
         waterTempMaxEdit = findViewById(R.id.waterTempMaxEdit)
         moonPhaseMinEdit = findViewById(R.id.moonPhaseMinEdit)
@@ -352,6 +373,22 @@ class FilterActivity : AppCompatActivity() {
 
         pressureMinEdit.setText(currentFilters.pressureMin?.toString() ?: "")
         pressureMaxEdit.setText(currentFilters.pressureMax?.toString() ?: "")
+        pressureTrendSpinner.setSelection(
+            when (currentFilters.pressureTrendDirection) {
+                FilterManager.PRESSURE_TREND_FALLING -> 1
+                FilterManager.PRESSURE_TREND_FLAT -> 2
+                FilterManager.PRESSURE_TREND_RISING -> 3
+                else -> 0
+            }
+        )
+        pressureTurningTrendSpinner.setSelection(
+            when (currentFilters.pressureTurningTrendDirection) {
+                FilterManager.PRESSURE_TURNING_TREND_FALLING -> 1
+                FilterManager.PRESSURE_TURNING_TREND_FLAT -> 2
+                FilterManager.PRESSURE_TURNING_TREND_RISING -> 3
+                else -> 0
+            }
+        )
         waterTempMinEdit.setText(currentFilters.waterTempMin?.toString() ?: "")
         waterTempMaxEdit.setText(currentFilters.waterTempMax?.toString() ?: "")
         moonPhaseMinEdit.setText(currentFilters.moonPhaseMin?.toString() ?: "")
@@ -432,6 +469,8 @@ class FilterActivity : AppCompatActivity() {
                 f.annualStartTimeMinutes != null || f.annualEndTimeMinutes != null ||
                 windMin != null || windMax != null ||
                 pressureMin != null || pressureMax != null ||
+                pressureTrendSpinner.selectedItemPosition > 0 ||
+                pressureTurningTrendSpinner.selectedItemPosition > 0 ||
                 waterTempMin != null || waterTempMax != null ||
                 moonPhaseMin != null || moonPhaseMax != null ||
                 moonAltitudeMin != null || moonAltitudeMax != null ||
@@ -535,6 +574,17 @@ class FilterActivity : AppCompatActivity() {
                 updateButtons()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        val pressureTrendSpinners = listOf(pressureTrendSpinner, pressureTurningTrendSpinner)
+        pressureTrendSpinners.forEach { spinner ->
+            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    updateButtons()
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
         }
 
         onlyCaughtFishCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
@@ -642,6 +692,8 @@ class FilterActivity : AppCompatActivity() {
             updateWindPreview()
             pressureMinEdit.setText("")
             pressureMaxEdit.setText("")
+            pressureTrendSpinner.setSelection(0)
+            pressureTurningTrendSpinner.setSelection(0)
             waterTempMinEdit.setText("")
             waterTempMaxEdit.setText("")
             moonPhaseMinEdit.setText("")
@@ -793,6 +845,18 @@ class FilterActivity : AppCompatActivity() {
         val windMax = windMaxEdit.text.toString().toFloatOrNull()
         val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
         val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
+        val pressureTrendDirection = when (pressureTrendSpinner.selectedItemPosition) {
+            1 -> FilterManager.PRESSURE_TREND_FALLING
+            2 -> FilterManager.PRESSURE_TREND_FLAT
+            3 -> FilterManager.PRESSURE_TREND_RISING
+            else -> null
+        }
+        val pressureTurningTrendDirection = when (pressureTurningTrendSpinner.selectedItemPosition) {
+            1 -> FilterManager.PRESSURE_TURNING_TREND_FALLING
+            2 -> FilterManager.PRESSURE_TURNING_TREND_FLAT
+            3 -> FilterManager.PRESSURE_TURNING_TREND_RISING
+            else -> null
+        }
         val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
         val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
         val moonPhaseMin = moonPhaseMinEdit.text.toString().toFloatOrNull()
@@ -853,6 +917,8 @@ class FilterActivity : AppCompatActivity() {
             windMax = windMax,
             pressureMin = pressureMin,
             pressureMax = pressureMax,
+            pressureTrendDirection = pressureTrendDirection,
+            pressureTurningTrendDirection = pressureTurningTrendDirection,
             waterTempMin = waterTempMin,
             waterTempMax = waterTempMax,
             moonPhaseMin = moonPhaseMin,

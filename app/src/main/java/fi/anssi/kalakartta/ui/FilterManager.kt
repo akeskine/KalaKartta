@@ -28,6 +28,8 @@ class FilterManager(private val context: Context) {
         val windMax: Float? = null,
         val pressureMin: Float? = null,
         val pressureMax: Float? = null,
+        val pressureTrendDirection: String? = null,
+        val pressureTurningTrendDirection: String? = null,
         val waterTempMin: Float? = null,
         val waterTempMax: Float? = null,
         val moonPhaseMin: Float? = null,
@@ -54,6 +56,19 @@ class FilterManager(private val context: Context) {
     )
 
     companion object {
+        const val PRESSURE_TREND_FALLING = "FALLING"
+        const val PRESSURE_TREND_FLAT = "FLAT"
+        const val PRESSURE_TREND_RISING = "RISING"
+
+        const val PRESSURE_TURNING_TREND_FALLING = "TURNING_FALLING"
+        const val PRESSURE_TURNING_TREND_FLAT = "TURNING_FLAT"
+        const val PRESSURE_TURNING_TREND_RISING = "TURNING_RISING"
+
+        const val PRESSURE_TREND_THRESHOLD_KEY = "pressure_trend_threshold"
+        const val PRESSURE_TURNING_TREND_THRESHOLD_KEY = "pressure_turning_trend_threshold"
+        const val DEFAULT_PRESSURE_TREND_THRESHOLD = 0.10f
+        const val DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD = 0.20f
+
         fun isValueInRange(value: Double, min: Double?, max: Double?, wraps: Boolean): Boolean {
             if (min != null && max != null && wraps && min > max) {
                 return value >= min || value <= max
@@ -61,6 +76,21 @@ class FilterManager(private val context: Context) {
             if (min != null && value < min) return false
             if (max != null && value > max) return false
             return true
+        }
+
+        fun matchesPressureTrend(value: Double?, direction: String?, threshold: Double): Boolean {
+            if (direction == null) return true
+            if (value == null || !threshold.isFinite() || threshold <= 0.0) return false
+
+            return when (direction) {
+                PRESSURE_TREND_FALLING,
+                PRESSURE_TURNING_TREND_FALLING -> value < -threshold
+                PRESSURE_TREND_FLAT,
+                PRESSURE_TURNING_TREND_FLAT -> value >= -threshold && value <= threshold
+                PRESSURE_TREND_RISING,
+                PRESSURE_TURNING_TREND_RISING -> value > threshold
+                else -> true
+            }
         }
     }
 
@@ -79,6 +109,8 @@ class FilterManager(private val context: Context) {
         val windMax = if (prefs.contains("windMax")) prefs.getFloat("windMax", 0f) else null
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
+        val pressureTrendDirection = prefs.getString("pressureTrendDirection", null)
+        val pressureTurningTrendDirection = prefs.getString("pressureTurningTrendDirection", null)
         val waterTempMin = if (prefs.contains("waterTempMin")) prefs.getFloat("waterTempMin", 0f) else null
         val waterTempMax = if (prefs.contains("waterTempMax")) prefs.getFloat("waterTempMax", 0f) else null
         val moonPhaseMin = if (prefs.contains("moonPhaseMin")) prefs.getFloat("moonPhaseMin", 0f) else null
@@ -111,6 +143,7 @@ class FilterManager(private val context: Context) {
             annualStartTimeMinutes, annualEndTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
+            pressureTrendDirection, pressureTurningTrendDirection,
             waterTempMin, waterTempMax,
             moonPhaseMin, moonPhaseMax,
             moonAltitudeMin, moonAltitudeMax,
@@ -140,6 +173,8 @@ class FilterManager(private val context: Context) {
             if (filters.windMax != null) putFloat("windMax", filters.windMax) else remove("windMax")
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
+            if (filters.pressureTrendDirection != null) putString("pressureTrendDirection", filters.pressureTrendDirection) else remove("pressureTrendDirection")
+            if (filters.pressureTurningTrendDirection != null) putString("pressureTurningTrendDirection", filters.pressureTurningTrendDirection) else remove("pressureTurningTrendDirection")
             if (filters.waterTempMin != null) putFloat("waterTempMin", filters.waterTempMin) else remove("waterTempMin")
             if (filters.waterTempMax != null) putFloat("waterTempMax", filters.waterTempMax) else remove("waterTempMax")
             if (filters.moonPhaseMin != null) putFloat("moonPhaseMin", filters.moonPhaseMin) else remove("moonPhaseMin")
@@ -176,6 +211,7 @@ class FilterManager(private val context: Context) {
                 f.annualStartTimeMinutes != null || f.annualEndTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
+                f.pressureTrendDirection != null || f.pressureTurningTrendDirection != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
                 f.moonPhaseMin != null || f.moonPhaseMax != null ||
                 f.moonAltitudeMin != null || f.moonAltitudeMax != null ||
@@ -187,6 +223,15 @@ class FilterManager(private val context: Context) {
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
         if (!hasActiveFilters()) return catches
         val f = getFilters()
+        val settingsPrefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val pressureTrendThreshold = settingsPrefs.getFloat(
+            PRESSURE_TREND_THRESHOLD_KEY,
+            DEFAULT_PRESSURE_TREND_THRESHOLD
+        ).toDouble()
+        val pressureTurningTrendThreshold = settingsPrefs.getFloat(
+            PRESSURE_TURNING_TREND_THRESHOLD_KEY,
+            DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
+        ).toDouble()
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
 
         return catches.filter { fish ->
@@ -266,6 +311,9 @@ class FilterManager(private val context: Context) {
             if (f.pressureMin != null && fish.pressure != null && fish.pressure < f.pressureMin) return@filter false
             if (f.pressureMax != null && fish.pressure != null && fish.pressure > f.pressureMax) return@filter false
             if ((f.pressureMin != null || f.pressureMax != null) && fish.pressure == null) return@filter false
+
+            if (!matchesPressureTrend(fish.pressureTrend, f.pressureTrendDirection, pressureTrendThreshold)) return@filter false
+            if (!matchesPressureTrend(fish.pressureTurningTrend, f.pressureTurningTrendDirection, pressureTurningTrendThreshold)) return@filter false
 
             // Water Temp Range
             if (f.waterTempMin != null && fish.waterTemp != null && fish.waterTemp < f.waterTempMin) return@filter false
@@ -549,6 +597,18 @@ class FilterManager(private val context: Context) {
             } else {
                 parts.add("paine $min-$max hPa")
             }
+        }
+
+        when (f.pressureTrendDirection) {
+            PRESSURE_TREND_FALLING -> parts.add("painekehitys: Laskeva")
+            PRESSURE_TREND_FLAT -> parts.add("painekehitys: Tasainen")
+            PRESSURE_TREND_RISING -> parts.add("painekehitys: Nouseva")
+        }
+
+        when (f.pressureTurningTrendDirection) {
+            PRESSURE_TURNING_TREND_FALLING -> parts.add("paineen muutos: Kääntyy alaspäin")
+            PRESSURE_TURNING_TREND_FLAT -> parts.add("paineen muutos: Ei selvää kääntymistä")
+            PRESSURE_TURNING_TREND_RISING -> parts.add("paineen muutos: Kääntyy ylöspäin")
         }
 
         if (f.waterTempMin != null || f.waterTempMax != null) {

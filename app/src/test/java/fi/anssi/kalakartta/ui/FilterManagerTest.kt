@@ -34,4 +34,79 @@ class FilterManagerTest {
         assertTrue(FilterManager.isValueInRange(-10.0, null, 20.0, wraps = false))
         assertFalse(FilterManager.isValueInRange(0.2, 0.5, null, wraps = true))
     }
+
+    @Test
+    fun pressureTrendUsesSymmetricThresholds() {
+        val threshold = 0.10
+
+        assertTrue(
+            FilterManager.matchesPressureTrend(
+                -0.11,
+                FilterManager.PRESSURE_TREND_FALLING,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesPressureTrend(
+                0.10,
+                FilterManager.PRESSURE_TREND_FLAT,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesPressureTrend(
+                0.11,
+                FilterManager.PRESSURE_TREND_RISING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesPressureTrend(
+                -0.10,
+                FilterManager.PRESSURE_TREND_FALLING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesPressureTrend(
+                null,
+                FilterManager.PRESSURE_TREND_FLAT,
+                threshold
+            )
+        )
+    }
+
+    @Test
+    fun pressureTurningTrendUsesItsThreeWayClassification() {
+        val threshold = 0.20
+
+        assertTrue(
+            FilterManager.matchesPressureTrend(
+                -0.21,
+                FilterManager.PRESSURE_TURNING_TREND_FALLING,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesPressureTrend(
+                0.0,
+                FilterManager.PRESSURE_TURNING_TREND_FLAT,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesPressureTrend(
+                0.21,
+                FilterManager.PRESSURE_TURNING_TREND_RISING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesPressureTrend(
+                0.19,
+                FilterManager.PRESSURE_TURNING_TREND_RISING,
+                threshold
+            )
+        )
+    }
 }
