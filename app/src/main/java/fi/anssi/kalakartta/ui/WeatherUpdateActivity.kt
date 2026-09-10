@@ -17,6 +17,19 @@ import fi.anssi.kalakartta.data.WeatherUpdateAttemptSelector
 import fi.anssi.kalakartta.utils.WeatherService
 import kotlinx.coroutines.*
 
+private const val SIX_HOURS_MILLIS = 6 * 60 * 60 * 1000L
+
+internal fun needsPressureHistoryUpdate(fishCatch: FishCatch, now: Long): Boolean {
+    val caughtAt = fishCatch.caughtAt ?: return false
+    if (now - caughtAt <= SIX_HOURS_MILLIS) return false
+
+    val completionWindowStart = caughtAt + 5 * 60 * 60 * 1000L
+    val completionWindowEnd = caughtAt + SIX_HOURS_MILLIS
+    return fishCatch.pressureSamples.none { sample ->
+        sample.time in completionWindowStart..completionWindowEnd && sample.pressure.isFinite()
+    }
+}
+
 class WeatherUpdateActivity : AppCompatActivity() {
 
     private lateinit var db: AppDatabase
@@ -103,7 +116,9 @@ class WeatherUpdateActivity : AppCompatActivity() {
 
     private fun isUpdateTarget(fishCatch: FishCatch): Boolean {
         return (fishCatch.caughtAt ?: 0L) > 0L &&
-                (hasMissingWeatherData(fishCatch) || fishCatch.pressureTrend == null)
+                (hasMissingWeatherData(fishCatch) ||
+                        fishCatch.pressureTrend == null ||
+                        needsPressureHistoryUpdate(fishCatch, System.currentTimeMillis()))
     }
 
     private fun prioritizeTargets(
@@ -193,7 +208,8 @@ class WeatherUpdateActivity : AppCompatActivity() {
                     
                     try {
                         val needsWeatherData = hasMissingWeatherData(fishCatch)
-                        val needsPressureData = fishCatch.pressureTrend == null
+                        val needsPressureData = fishCatch.pressureTrend == null ||
+                                needsPressureHistoryUpdate(fishCatch, System.currentTimeMillis())
                         val caughtAt = fishCatch.caughtAt ?: 0L
 
                         val pressureResult = if (needsPressureData) {
@@ -294,8 +310,13 @@ class WeatherUpdateActivity : AppCompatActivity() {
                             fishCatch
                         }
 
+                        val pressureHistoryComplete = !needsPressureHistoryUpdate(
+                            updatedCatch,
+                            System.currentTimeMillis()
+                        )
                         val updateCompleted = (!needsWeatherData || hasWeatherData) &&
-                                (!needsPressureData || fetchedPressureTrend != null)
+                                (!needsPressureData || fetchedPressureTrend != null) &&
+                                pressureHistoryComplete
                         if (hasWeatherData || pressureResult != null) {
                             if (updatedCatch != fishCatch) {
                                 db.fishCatchDao().update(updatedCatch)
@@ -312,6 +333,8 @@ class WeatherUpdateActivity : AppCompatActivity() {
                                 failed++
                                 val message = if (needsPressureData && fetchedPressureTrend == null) {
                                     "Painehistoriasta ei saatu laskettavaa trendiä."
+                                } else if (!pressureHistoryComplete) {
+                                    "Painehistoria ei ulotu saantihetken jälkeiseen ikkunaan."
                                 } else {
                                     "Ei säädataa saatavilla."
                                 }

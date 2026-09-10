@@ -415,6 +415,7 @@ class WeatherService(private val context: Context) {
             val sixHoursMillis = 6 * 60 * 60 * 1000L
             val startTime = caughtAt - sixHoursMillis
             val endTime = minOf(caughtAt + sixHoursMillis, System.currentTimeMillis())
+            val requiresCompleteHistory = System.currentTimeMillis() - caughtAt > sixHoursMillis
 
             for ((index, station) in stations.withIndex()) {
                 android.util.Log.d(
@@ -428,6 +429,12 @@ class WeatherService(private val context: Context) {
 
                 val samples = fetchPressureSamplesSuspend(station.fmisid, startTime, endTime)
                 if (samples.size < 2) continue
+                if (requiresCompleteHistory && samples.none { sample ->
+                        sample.time in (caughtAt + 5 * 60 * 60 * 1000L)..(caughtAt + sixHoursMillis) &&
+                                sample.pressure.isFinite()
+                    }) {
+                    continue
+                }
 
                 return@withContext PressureStationResult(station, pressure, samples)
             }

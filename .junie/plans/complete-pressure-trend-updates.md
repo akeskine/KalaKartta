@@ -208,3 +208,10 @@ Add filter selectors for `pressureTrend` and `pressureTurningTrend`, with symmet
 - Persist the selections with the existing `FilterManager` filter preferences and apply them to `FishCatch` values, excluding catches whose selected value is missing.
 - Add both threshold values to the existing developer-tools dialog and include the new filters in the active-filter description.
 - Add focused unit coverage for the three-way classification boundaries and run the relevant JVM tests plus compilation.
+
+### ✓ Step 12: Requeue incomplete pressure-history windows
+Include old catches in the missing-weather update when their pressure history does not yet reach the expected `+5…+6 h` window.
+
+- Extend the shared update-target predicate in `WeatherUpdateActivity` for catches older than six hours whose pressure samples lack a valid observation in the `+5…+6 h` interval.
+- Preserve the existing pressure-only update behavior and let the normal nearest-station fallback refill the history from the catch-time station.
+- Add focused unit coverage for complete, incomplete, recent, and missing-history cases, then run the relevant JVM tests and compilation.
