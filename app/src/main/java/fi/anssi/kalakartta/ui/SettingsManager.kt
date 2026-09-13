@@ -86,7 +86,7 @@ class SettingsManager(
             activity = activity,
             settingsStore = settingsStore,
             onMapSettingsChanged = onMapSettingsChanged,
-            onOpenSettings = { openSettings() },
+            onOpenSettings = { generalSettingsDialog.show() },
             onShowDialog = ::showDialog
         )
     }
@@ -95,7 +95,7 @@ class SettingsManager(
             activity = activity,
             settingsStore = settingsStore,
             onWeatherSettingsChanged = onWeatherSettingsChanged,
-            onOpenSettings = { openGeneralSettings() },
+            onOpenSettings = { generalSettingsDialog.show() },
             onShowDialog = ::showDialog
         )
     }
@@ -103,7 +103,21 @@ class SettingsManager(
         TalkingClockSettingsDialog(
             activity = activity,
             settingsStore = settingsStore,
-            onOpenSettings = { openGeneralSettings() },
+            onOpenSettings = { generalSettingsDialog.show() },
+            onShowDialog = ::showDialog
+        )
+    }
+    private val generalSettingsDialog: GeneralSettingsDialog by lazy {
+        GeneralSettingsDialog(
+            activity = activity,
+            onOpenDefaultFisherman = ::openDefaultFishermanSettings,
+            onOpenWeather = { weatherSettingsDialog.show() },
+            onOpenScale = { mapDisplaySettingsDialog.showScaleSettings() },
+            onOpenAutoCenter = { mapDisplaySettingsDialog.showAutoCenterSettings() },
+            onOpenTalkingClock = ::openTalkingClockSettingsIfPermissionsOk,
+            onOpenIconSizes = { mapDisplaySettingsDialog.showIconSizeSettings() },
+            onOpenDeveloperTools = ::openDeveloperTools,
+            onOpenSettings = { openSettings() },
             onShowDialog = ::showDialog
         )
     }
@@ -235,7 +249,7 @@ class SettingsManager(
                                 filteredPlaces = filteredPlaces
                             )
                             7 -> openSpeciesSettings()
-                            8 -> openGeneralSettings()
+                            8 -> generalSettingsDialog.show()
                         }
                     }
                     .setPositiveButton("Takaisin", null)
@@ -408,136 +422,6 @@ class SettingsManager(
 
 
 
-    private fun openGeneralSettings() {
-        val typedValue = android.util.TypedValue()
-        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-        val primaryTextColor = if (typedValue.resourceId != 0) {
-            activity.getColor(typedValue.resourceId)
-        } else {
-            typedValue.data
-        }
-
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
-        // Oletuskalastaja -linkki
-        val fishermanLink = TextView(activity).apply {
-            text = "Oletuskalastaja"
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                openDefaultFishermanSettings()
-            }
-        }
-        layout.addView(fishermanLink)
-
-        // Sää -linkki
-        val weatherLink = TextView(activity).apply {
-            text = "Sää"
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                weatherSettingsDialog.show()
-            }
-        }
-        layout.addView(weatherLink)
-
-        // Mittakaava -linkki
-        val scaleLink = TextView(activity).apply {
-            text = activity.getString(R.string.scale_bar)
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                mapDisplaySettingsDialog.showScaleSettings()
-            }
-        }
-        layout.addView(scaleLink)
-
-        // Automaattinen kohdistus -linkki
-        val autoCenterLink = TextView(activity).apply {
-            text = activity.getString(R.string.auto_center)
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                mapDisplaySettingsDialog.showAutoCenterSettings()
-            }
-        }
-        layout.addView(autoCenterLink)
-        
-        // Puhuva kello -linkki
-        val talkingClockLink = TextView(activity).apply {
-            text = activity.getString(R.string.talking_clock)
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                openTalkingClockSettingsIfPermissionsOk()
-            }
-        }
-        layout.addView(talkingClockLink)
-        
-        // Kuvakkeiden koot -linkki
-        val iconSizesLink = TextView(activity).apply {
-            text = activity.getString(R.string.icon_sizes)
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                mapDisplaySettingsDialog.showIconSizeSettings()
-            }
-        }
-        layout.addView(iconSizesLink)
-        
-        // Kehittäjäasetukset-linkki
-        val developerToolsLink = TextView(activity).apply {
-            text = "Kehittäjäasetukset"
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                openDeveloperTools()
-            }
-        }
-        layout.addView(developerToolsLink)
-
-        val scrollView = ScrollView(activity).apply {
-            addView(layout)
-        }
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.general_settings))
-            .setView(scrollView)
-            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
-            .create()
-        showDialog(dialog)
-    }
 
     companion object {
         fun checkLimits(
@@ -919,9 +803,9 @@ class SettingsManager(
                 settingsStore.heatmapReferenceLatitude = refLat
                 settingsStore.pressureTrendThreshold = pressureTrendThreshold
                 settingsStore.pressureTurningTrendThreshold = pressureTurningTrendThreshold
-                openGeneralSettings()
+                generalSettingsDialog.show()
             }
-            .setNegativeButton("Takaisin") { _, _ -> openGeneralSettings() }
+            .setNegativeButton("Takaisin") { _, _ -> generalSettingsDialog.show() }
             .create()
         showDialog(dialog)
     }
@@ -1950,7 +1834,7 @@ class SettingsManager(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Oletuskalastaja")
             .setView(layout)
-            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
+            .setPositiveButton("Takaisin") { _, _ -> generalSettingsDialog.show() }
             .create()
         showDialog(dialog)
     }
