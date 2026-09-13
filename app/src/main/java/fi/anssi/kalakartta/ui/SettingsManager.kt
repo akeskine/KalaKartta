@@ -348,8 +348,8 @@ class SettingsManager(
     private fun disableHeatmapAndRoutes() {
         val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
         prefs.edit()
-            .putBoolean("heatmap_enabled", false)
-            .putBoolean("fishing_routes_enabled", false)
+            .putBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
+            .putBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
             .apply()
         onMapSettingsChanged()
     }
@@ -364,20 +364,20 @@ class SettingsManager(
 
         val heatmapEnabledCb = CheckBox(activity).apply {
             text = activity.getString(R.string.show_fishing_heatmap)
-            isChecked = prefs.getBoolean("heatmap_enabled", false)
+            isChecked = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked) {
                     checkLimits(true, false) { success ->
                         if (success) {
-                            prefs.edit().putBoolean("heatmap_enabled", true).apply()
+                            prefs.edit().putBoolean(SettingsKeys.HEATMAP_ENABLED, true).apply()
                             onMapSettingsChanged()
                         } else {
                             this.isChecked = false
                         }
                     }
                 } else {
-                    prefs.edit().putBoolean("heatmap_enabled", false).apply()
+                    prefs.edit().putBoolean(SettingsKeys.HEATMAP_ENABLED, false).apply()
                     onMapSettingsChanged()
                 }
             }
@@ -386,20 +386,20 @@ class SettingsManager(
 
         val routesEnabledCb = CheckBox(activity).apply {
             text = activity.getString(R.string.show_fishing_routes)
-            isChecked = prefs.getBoolean("fishing_routes_enabled", false)
+            isChecked = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked) {
                     checkLimits(false, true) { success ->
                         if (success) {
-                            prefs.edit().putBoolean("fishing_routes_enabled", true).apply()
+                            prefs.edit().putBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, true).apply()
                             onMapSettingsChanged()
                         } else {
                             this.isChecked = false
                         }
                     }
                 } else {
-                    prefs.edit().putBoolean("fishing_routes_enabled", false).apply()
+                    prefs.edit().putBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, false).apply()
                     onMapSettingsChanged()
                 }
             }
@@ -408,22 +408,22 @@ class SettingsManager(
 
         val heatmapFilterEnabledCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_filter_enabled)
-            isChecked = prefs.getBoolean("heatmap_filter_enabled", false)
+            isChecked = prefs.getBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, SettingsDefaults.HEATMAP_FILTER_ENABLED)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                val heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
                 if (!isChecked && heatmapEnabled) {
                     // Jos kytketään suodatus pois ja heatmap on päällä, tarkistetaan rajat (kaikki pisteet)
                     checkLimits(true, false, providedFilters = FilterManager.Filters()) { success ->
                         if (success) {
-                            prefs.edit().putBoolean("heatmap_filter_enabled", false).apply()
+                            prefs.edit().putBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, false).apply()
                             onMapSettingsChanged()
                         } else {
                             this.isChecked = true
                         }
                     }
                 } else {
-                    prefs.edit().putBoolean("heatmap_filter_enabled", isChecked).apply()
+                    prefs.edit().putBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, isChecked).apply()
                     onMapSettingsChanged()
                 }
             }
@@ -432,22 +432,22 @@ class SettingsManager(
 
         val routesFilterEnabledCb = CheckBox(activity).apply {
             text = activity.getString(R.string.routes_filter_enabled)
-            isChecked = prefs.getBoolean("routes_filter_enabled", false)
+            isChecked = prefs.getBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, SettingsDefaults.ROUTES_FILTER_ENABLED)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                val routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
                 if (!isChecked && routesEnabled) {
                     // Jos kytketään suodatus pois ja reitit on päällä, tarkistetaan rajat (kaikki pisteet)
                     checkLimits(false, true, providedFilters = FilterManager.Filters()) { success ->
                         if (success) {
-                            prefs.edit().putBoolean("routes_filter_enabled", false).apply()
+                            prefs.edit().putBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, false).apply()
                             onMapSettingsChanged()
                         } else {
                             this.isChecked = true
                         }
                     }
                 } else {
-                    prefs.edit().putBoolean("routes_filter_enabled", isChecked).apply()
+                    prefs.edit().putBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, isChecked).apply()
                     onMapSettingsChanged()
                 }
             }
@@ -479,13 +479,13 @@ class SettingsManager(
         shortcutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         shortcutSpinner.adapter = shortcutAdapter
 
-        if (!prefs.contains("heatmap_shortcut_mode")) {
-            val oldVal = prefs.getBoolean("show_heatmap_shortcut", false)
+        if (!prefs.contains(SettingsKeys.HEATMAP_SHORTCUT_MODE)) {
+            val oldVal = prefs.getBoolean(SettingsKeys.SHOW_HEATMAP_SHORTCUT, SettingsDefaults.SHOW_HEATMAP_SHORTCUT)
             val newVal = if (oldVal) 3 else 0
-            prefs.edit().putInt("heatmap_shortcut_mode", newVal).apply()
+            prefs.edit().putInt(SettingsKeys.HEATMAP_SHORTCUT_MODE, newVal).apply()
         }
         
-        shortcutSpinner.setSelection(prefs.getInt("heatmap_shortcut_mode", 0))
+        shortcutSpinner.setSelection(prefs.getInt(SettingsKeys.HEATMAP_SHORTCUT_MODE, SettingsDefaults.HEATMAP_SHORTCUT_MODE))
         shortcutSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             private var isInitialSelection = true
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -493,7 +493,7 @@ class SettingsManager(
                     isInitialSelection = false
                     return
                 }
-                prefs.edit().putInt("heatmap_shortcut_mode", position).apply()
+                prefs.edit().putInt(SettingsKeys.HEATMAP_SHORTCUT_MODE, position).apply()
                 onMapSettingsChanged()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -552,7 +552,7 @@ class SettingsManager(
             activity.getString(R.string.color_purple),
             activity.getString(R.string.color_green)
         )
-        val currentColor = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
+        val currentColor = prefs.getString(SettingsKeys.HEATMAP_COLOR, activity.getString(R.string.color_red))
         val gradientView = View(activity).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 100).apply {
                 topMargin = 20
@@ -578,11 +578,11 @@ class SettingsManager(
         }
         updateGradient(currentColor)
         gradientView.setOnClickListener {
-            val current = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
+            val current = prefs.getString(SettingsKeys.HEATMAP_COLOR, activity.getString(R.string.color_red))
             val currentIndex = colors.indexOf(current).coerceAtLeast(0)
             val nextIndex = (currentIndex + 1) % colors.size
             val nextColor = colors[nextIndex]
-            prefs.edit().putString("heatmap_color", nextColor).apply()
+            prefs.edit().putString(SettingsKeys.HEATMAP_COLOR, nextColor).apply()
             updateGradient(nextColor)
             onMapSettingsChanged()
         }
@@ -594,7 +594,10 @@ class SettingsManager(
         }
         val midText = TextView(activity).apply {
             id = View.generateViewId()
-            val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
+            val method = prefs.getString(
+                SettingsKeys.HEATMAP_CALCULATION_METHOD,
+                activity.getString(R.string.heatmap_method_points)
+            )
             text = if (method == activity.getString(R.string.heatmap_method_points)) {
                 activity.getString(R.string.heatmap_points_in_grid)
             } else {
@@ -605,7 +608,9 @@ class SettingsManager(
         val minEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("heatmap_min_points", 1).toString())
+            setText(
+                prefs.getInt(SettingsKeys.HEATMAP_MIN_POINTS, SettingsDefaults.HEATMAP_MIN_POINTS).toString()
+            )
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -615,14 +620,17 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    if (prefs.getBoolean("heatmap_auto_configure", true)) return
-                    val value = s.toString().toIntOrNull() ?: 1
-                    prefs.edit().putInt("heatmap_min_points", value).apply()
-                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
+                    if (prefs.getBoolean(SettingsKeys.HEATMAP_AUTO_CONFIGURE, SettingsDefaults.HEATMAP_AUTO_CONFIGURE)) return
+                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.HEATMAP_MIN_POINTS
+                    prefs.edit().putInt(SettingsKeys.HEATMAP_MIN_POINTS, value).apply()
+                    val method = prefs.getString(
+                        SettingsKeys.HEATMAP_CALCULATION_METHOD,
+                        activity.getString(R.string.heatmap_method_points)
+                    )
                     if (method == activity.getString(R.string.heatmap_method_points)) {
-                        prefs.edit().putInt("heatmap_min_points_by_points", value).apply()
+                        prefs.edit().putInt(SettingsKeys.HEATMAP_MIN_POINTS_BY_POINTS, value).apply()
                     } else {
-                        prefs.edit().putInt("heatmap_min_points_by_sessions", value).apply()
+                        prefs.edit().putInt(SettingsKeys.HEATMAP_MIN_POINTS_BY_SESSIONS, value).apply()
                     }
                     onMapSettingsChanged()
                 }
@@ -632,7 +640,9 @@ class SettingsManager(
         val maxEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("heatmap_max_points", 50).toString())
+            setText(
+                prefs.getInt(SettingsKeys.HEATMAP_MAX_POINTS, SettingsDefaults.HEATMAP_MAX_POINTS).toString()
+            )
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(120, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -642,14 +652,17 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    if (prefs.getBoolean("heatmap_auto_configure", true)) return
-                    val value = s.toString().toIntOrNull() ?: 50
-                    prefs.edit().putInt("heatmap_max_points", value).apply()
-                    val method = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
+                    if (prefs.getBoolean(SettingsKeys.HEATMAP_AUTO_CONFIGURE, SettingsDefaults.HEATMAP_AUTO_CONFIGURE)) return
+                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.HEATMAP_MAX_POINTS
+                    prefs.edit().putInt(SettingsKeys.HEATMAP_MAX_POINTS, value).apply()
+                    val method = prefs.getString(
+                        SettingsKeys.HEATMAP_CALCULATION_METHOD,
+                        activity.getString(R.string.heatmap_method_points)
+                    )
                     if (method == activity.getString(R.string.heatmap_method_points)) {
-                        prefs.edit().putInt("heatmap_max_points_by_points", value).apply()
+                        prefs.edit().putInt(SettingsKeys.HEATMAP_MAX_POINTS_BY_POINTS, value).apply()
                     } else {
-                        prefs.edit().putInt("heatmap_max_points_by_sessions", value).apply()
+                        prefs.edit().putInt(SettingsKeys.HEATMAP_MAX_POINTS_BY_SESSIONS, value).apply()
                     }
                     onMapSettingsChanged()
                 }
@@ -665,12 +678,12 @@ class SettingsManager(
 
         val autoConfigureCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_auto_configure)
-            isChecked = prefs.getBoolean("heatmap_auto_configure", true)
+            isChecked = prefs.getBoolean(SettingsKeys.HEATMAP_AUTO_CONFIGURE, SettingsDefaults.HEATMAP_AUTO_CONFIGURE)
             textSize = 16f
             minEdit.isEnabled = !isChecked
             maxEdit.isEnabled = !isChecked
             setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean("heatmap_auto_configure", checked).apply()
+                prefs.edit().putBoolean(SettingsKeys.HEATMAP_AUTO_CONFIGURE, checked).apply()
                 minEdit.isEnabled = !checked
                 maxEdit.isEnabled = !checked
                 if (checked) {
@@ -684,15 +697,15 @@ class SettingsManager(
         layout.addView(autoConfigureCb)
 
         val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
-            if (key == "heatmap_min_points" || key == "heatmap_max_points") {
+            if (key == SettingsKeys.HEATMAP_MIN_POINTS || key == SettingsKeys.HEATMAP_MAX_POINTS) {
                 activity.runOnUiThread {
-                    if (key == "heatmap_min_points") {
-                        val newVal = p.getInt("heatmap_min_points", 1).toString()
+                    if (key == SettingsKeys.HEATMAP_MIN_POINTS) {
+                        val newVal = p.getInt(SettingsKeys.HEATMAP_MIN_POINTS, SettingsDefaults.HEATMAP_MIN_POINTS).toString()
                         if (minEdit.text.toString() != newVal) {
                             minEdit.setText(newVal)
                         }
-                    } else if (key == "heatmap_max_points") {
-                        val newVal = p.getInt("heatmap_max_points", 50).toString()
+                    } else if (key == SettingsKeys.HEATMAP_MAX_POINTS) {
+                        val newVal = p.getInt(SettingsKeys.HEATMAP_MAX_POINTS, SettingsDefaults.HEATMAP_MAX_POINTS).toString()
                         if (maxEdit.text.toString() != newVal) {
                             maxEdit.setText(newVal)
                         }
@@ -733,7 +746,7 @@ class SettingsManager(
                     return
                 }
                 if (newValue == oldValue) return
-                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
+                val heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
                 if (heatmapEnabled) {
                     checkLimits(true, false, newValue.toDouble()) { success ->
                         if (success) {
@@ -773,28 +786,46 @@ class SettingsManager(
         val methodAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, methods)
         methodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         methodSpinner.adapter = methodAdapter
-        val currentMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
+        val currentMethod = prefs.getString(
+            SettingsKeys.HEATMAP_CALCULATION_METHOD,
+            activity.getString(R.string.heatmap_method_points)
+        )
         val methodIndex = methods.indexOf(currentMethod).coerceAtLeast(0)
         methodSpinner.setSelection(methodIndex)
         methodSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedMethod = methods[position]
-                val oldMethod = prefs.getString("heatmap_calculation_method", activity.getString(R.string.heatmap_method_points))
+                val oldMethod = prefs.getString(
+                    SettingsKeys.HEATMAP_CALCULATION_METHOD,
+                    activity.getString(R.string.heatmap_method_points)
+                )
                 if (selectedMethod != oldMethod) {
-                    prefs.edit().putString("heatmap_calculation_method", selectedMethod).apply()
+                    prefs.edit().putString(SettingsKeys.HEATMAP_CALCULATION_METHOD, selectedMethod).apply()
                     val newMin: Int
                     val newMax: Int
                     if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
-                        newMin = prefs.getInt("heatmap_min_points_by_points", 1)
-                        newMax = prefs.getInt("heatmap_max_points_by_points", 50)
+                        newMin = prefs.getInt(
+                            SettingsKeys.HEATMAP_MIN_POINTS_BY_POINTS,
+                            SettingsDefaults.HEATMAP_MIN_POINTS_BY_POINTS
+                        )
+                        newMax = prefs.getInt(
+                            SettingsKeys.HEATMAP_MAX_POINTS_BY_POINTS,
+                            SettingsDefaults.HEATMAP_MAX_POINTS_BY_POINTS
+                        )
                     } else {
-                        newMin = prefs.getInt("heatmap_min_points_by_sessions", 1)
-                        newMax = prefs.getInt("heatmap_max_points_by_sessions", 5)
+                        newMin = prefs.getInt(
+                            SettingsKeys.HEATMAP_MIN_POINTS_BY_SESSIONS,
+                            SettingsDefaults.HEATMAP_MIN_POINTS_BY_SESSIONS
+                        )
+                        newMax = prefs.getInt(
+                            SettingsKeys.HEATMAP_MAX_POINTS_BY_SESSIONS,
+                            SettingsDefaults.HEATMAP_MAX_POINTS_BY_SESSIONS
+                        )
                     }
                     minEdit.setText(newMin.toString())
                     maxEdit.setText(newMax.toString())
-                    prefs.edit().putInt("heatmap_min_points", newMin).apply()
-                    prefs.edit().putInt("heatmap_max_points", newMax).apply()
+                    prefs.edit().putInt(SettingsKeys.HEATMAP_MIN_POINTS, newMin).apply()
+                    prefs.edit().putInt(SettingsKeys.HEATMAP_MAX_POINTS, newMax).apply()
                     midText.text = if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
                         activity.getString(R.string.heatmap_points_in_grid)
                     } else {
@@ -811,7 +842,10 @@ class SettingsManager(
         // Siirtymäpisteiden poisto siirretty tänne
         val removeTransitionsCb = CheckBox(activity).apply {
             text = activity.getString(R.string.heatmap_remove_transitions)
-            isChecked = prefs.getBoolean("heatmap_remove_transitions", false)
+            isChecked = prefs.getBoolean(
+                SettingsKeys.HEATMAP_REMOVE_TRANSITIONS,
+                SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
+            )
             textSize = 18f
         }
         val removalModeLayout = LinearLayout(activity).apply {
@@ -833,22 +867,33 @@ class SettingsManager(
             val removalModeAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, modes)
             removalModeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             adapter = removalModeAdapter
-            setSelection(prefs.getInt("heatmap_remove_transitions_mode", 0))
+            setSelection(
+                prefs.getInt(
+                    SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE,
+                    SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
+                )
+            )
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    if (prefs.getInt("heatmap_remove_transitions_mode", 0) == position) return
-                    val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                    if (prefs.getInt(
+                            SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE,
+                            SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
+                        ) == position) return
+                    val routesEnabled = prefs.getBoolean(
+                        SettingsKeys.FISHING_ROUTES_ENABLED,
+                        SettingsDefaults.FISHING_ROUTES_ENABLED
+                    )
                     if (position == 0 && routesEnabled) {
                          checkLimits(false, routesEnabled, providedRemoveTransitions = false) { success ->
                             if (success) {
-                                prefs.edit().putInt("heatmap_remove_transitions_mode", position).apply()
+                                prefs.edit().putInt(SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE, position).apply()
                                 onMapSettingsChanged()
                             } else {
                                 setSelection(1)
                             }
                         }
                     } else {
-                        prefs.edit().putInt("heatmap_remove_transitions_mode", position).apply()
+                        prefs.edit().putInt(SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE, position).apply()
                         onMapSettingsChanged()
                     }
                 }
@@ -881,8 +926,8 @@ class SettingsManager(
                     val value = s.toString().replace(",", ".").toFloatOrNull() ?: SettingsDefaults.HEATMAP_MAX_SPEED
                     val oldSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
                     if (value == oldSpeed) return
-                    val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
-                    val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                    val heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
+                    val routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
                     if ((heatmapEnabled || routesEnabled) && value > oldSpeed) {
                         checkLimits(heatmapEnabled, routesEnabled, providedMaxSpeed = value) { success ->
                             if (success) {
@@ -901,14 +946,17 @@ class SettingsManager(
         }
         speedInputLayout.addView(speedEdit)
         removeTransitionsCb.setOnCheckedChangeListener { _, isChecked ->
-            val wasChecked = prefs.getBoolean("heatmap_remove_transitions", false)
+            val wasChecked = prefs.getBoolean(
+                SettingsKeys.HEATMAP_REMOVE_TRANSITIONS,
+                SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
+            )
             if (wasChecked && !isChecked) {
-                val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
-                val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
+                val heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
+                val routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
                 if (heatmapEnabled || routesEnabled) {
                     checkLimits(heatmapEnabled, routesEnabled, providedRemoveTransitions = false) { success ->
                         if (success) {
-                            prefs.edit().putBoolean("heatmap_remove_transitions", false).apply()
+                            prefs.edit().putBoolean(SettingsKeys.HEATMAP_REMOVE_TRANSITIONS, false).apply()
                             speedInputLayout.visibility = View.GONE
                             removalModeLayout.visibility = View.GONE
                             onMapSettingsChanged()
@@ -919,7 +967,7 @@ class SettingsManager(
                     return@setOnCheckedChangeListener
                 }
             }
-            prefs.edit().putBoolean("heatmap_remove_transitions", isChecked).apply()
+            prefs.edit().putBoolean(SettingsKeys.HEATMAP_REMOVE_TRANSITIONS, isChecked).apply()
             speedInputLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             removalModeLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             onMapSettingsChanged()
@@ -983,7 +1031,7 @@ class SettingsManager(
                 topMargin = 40
                 bottomMargin = 10
             }
-            val colorStr = prefs.getString("heatmap_color", activity.getString(R.string.color_red))
+            val colorStr = prefs.getString(SettingsKeys.HEATMAP_COLOR, activity.getString(R.string.color_red))
             val baseColor = when (colorStr) {
                 activity.getString(R.string.color_purple) -> Color.rgb(128, 0, 128)
                 activity.getString(R.string.color_green) -> Color.GREEN
@@ -1313,11 +1361,25 @@ class SettingsManager(
             
             // Selvitä käytetäänkö suodatusta heatmapille/reiteille
             // Jos providedFilters on annettu, oletetaan että testataan suodatuksen vaikutusta
-            val heatmapFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("heatmap_filter_enabled", false)
-            val routesFilterEnabled = if (providedFilters != null) true else prefs.getBoolean("routes_filter_enabled", false)
+            val heatmapFilterEnabled = if (providedFilters != null) {
+                true
+            } else {
+                prefs.getBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, SettingsDefaults.HEATMAP_FILTER_ENABLED)
+            }
+            val routesFilterEnabled = if (providedFilters != null) {
+                true
+            } else {
+                prefs.getBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, SettingsDefaults.ROUTES_FILTER_ENABLED)
+            }
             
-            val removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
-            val baseRemoveTransitions = providedRemoveTransitions ?: prefs.getBoolean("heatmap_remove_transitions", false)
+            val removeTransitionsMode = prefs.getInt(
+                SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE,
+                SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
+            )
+            val baseRemoveTransitions = providedRemoveTransitions ?: prefs.getBoolean(
+                SettingsKeys.HEATMAP_REMOVE_TRANSITIONS,
+                SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
+            )
             val maxSpeed = providedMaxSpeed ?: prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
             val routesFadeEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FADE_ENABLED, SettingsDefaults.ROUTES_FADE_ENABLED)
             val routesFadeStartDays = prefs.getInt(
@@ -1581,9 +1643,12 @@ class SettingsManager(
         activity.lifecycleScope.launch(Dispatchers.IO) {
             if (!isActive) return@launch
             val filters = FilterManager(activity).getFilters()
-            val heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
-            val routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
-            val removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
+            val heatmapFilterEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, SettingsDefaults.HEATMAP_FILTER_ENABLED)
+            val routesFilterEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, SettingsDefaults.ROUTES_FILTER_ENABLED)
+            val removeTransitions = prefs.getBoolean(
+                SettingsKeys.HEATMAP_REMOVE_TRANSITIONS,
+                SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
+            )
             val maxSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
             val routesFadeEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FADE_ENABLED, SettingsDefaults.ROUTES_FADE_ENABLED)
             val routesFadeStartDays = prefs.getInt(
@@ -1597,7 +1662,10 @@ class SettingsManager(
                 Long.MIN_VALUE
             }
             val removeTransitionsForRoutes = removeTransitions &&
-                    prefs.getInt("heatmap_remove_transitions_mode", 0) == 1
+                    prefs.getInt(
+                        SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE,
+                        SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
+                    ) == 1
             
             val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
             

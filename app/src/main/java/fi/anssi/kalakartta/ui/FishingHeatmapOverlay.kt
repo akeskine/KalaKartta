@@ -38,24 +38,24 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     
     private val rect = RectF()
     
-    private var minPoints = 1
-    private var maxPoints = 5
-    private var autoConfigure = false
+    private var minPoints = SettingsDefaults.HEATMAP_MIN_POINTS
+    private var maxPoints = SettingsDefaults.HEATMAP_MAX_POINTS
+    private var autoConfigure = SettingsDefaults.HEATMAP_AUTO_CONFIGURE
     private var baseColor = Color.RED
-    private var heatmapEnabled = false
-    private var routesEnabled = false
-    private var heatmapFilterEnabled = false
-    private var routesFilterEnabled = false
+    private var heatmapEnabled = SettingsDefaults.HEATMAP_ENABLED
+    private var routesEnabled = SettingsDefaults.FISHING_ROUTES_ENABLED
+    private var heatmapFilterEnabled = SettingsDefaults.HEATMAP_FILTER_ENABLED
+    private var routesFilterEnabled = SettingsDefaults.ROUTES_FILTER_ENABLED
     private var routesFadeEnabled = true
     private var routesFadeStartLimitDays = SettingsDefaults.ROUTES_FADE_START_DAYS
     private var routesFadeFullLimitDays = SettingsDefaults.ROUTES_FADE_FULL_DAYS
     private var calculationMethod = ""
-    private var removeTransitions = false
-    private var removeTransitionsMode = 0
+    private var removeTransitions = SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
+    private var removeTransitionsMode = SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
     private var maxSpeed = SettingsDefaults.HEATMAP_MAX_SPEED
-    private var minZoomLevel = 10.0
+    private var minZoomLevel = SettingsDefaults.HEATMAP_MIN_ZOOM.toDouble()
     private var maxTrackPoints = SettingsDefaults.MAX_TRACK_POINTS
-    private var referenceLatitude = 64.7
+    private var referenceLatitude = SettingsDefaults.HEATMAP_REFERENCE_LATITUDE.toDouble()
 
     private data class RouteWithBounds(
         val points: List<TrackPointHeatmapData>,
@@ -88,13 +88,18 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             SettingsKeys.HEATMAP_GRID_SIZE,
             SettingsDefaults.HEATMAP_GRID_SIZE
         ).toDouble().coerceAtLeast(1.0)
-        autoConfigure = prefs.getBoolean("heatmap_auto_configure", true)
-        minPoints = if (autoConfigure) 1 else prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
-        maxPoints = prefs.getInt("heatmap_max_points", 50).coerceAtLeast(minPoints + 1)
-        heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
-        routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
-        heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
-        routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
+        autoConfigure = prefs.getBoolean(SettingsKeys.HEATMAP_AUTO_CONFIGURE, SettingsDefaults.HEATMAP_AUTO_CONFIGURE)
+        minPoints = if (autoConfigure) {
+            SettingsDefaults.HEATMAP_MIN_POINTS
+        } else {
+            prefs.getInt(SettingsKeys.HEATMAP_MIN_POINTS, SettingsDefaults.HEATMAP_MIN_POINTS).coerceAtLeast(1)
+        }
+        maxPoints = prefs.getInt(SettingsKeys.HEATMAP_MAX_POINTS, SettingsDefaults.HEATMAP_MAX_POINTS)
+            .coerceAtLeast(minPoints + 1)
+        heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
+        routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
+        heatmapFilterEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, SettingsDefaults.HEATMAP_FILTER_ENABLED)
+        routesFilterEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, SettingsDefaults.ROUTES_FILTER_ENABLED)
         routesFadeEnabled = prefs.getBoolean(
             SettingsKeys.ROUTES_FADE_ENABLED,
             SettingsDefaults.ROUTES_FADE_ENABLED
@@ -107,9 +112,18 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             SettingsKeys.ROUTES_FADE_FULL_DAYS,
             SettingsDefaults.ROUTES_FADE_FULL_DAYS
         )
-        calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_points)) ?: context.getString(R.string.heatmap_method_points)
-        removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
-        removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
+        calculationMethod = prefs.getString(
+            SettingsKeys.HEATMAP_CALCULATION_METHOD,
+            context.getString(R.string.heatmap_method_points)
+        ) ?: context.getString(R.string.heatmap_method_points)
+        removeTransitions = prefs.getBoolean(
+            SettingsKeys.HEATMAP_REMOVE_TRANSITIONS,
+            SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
+        )
+        removeTransitionsMode = prefs.getInt(
+            SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE,
+            SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
+        )
         maxSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
         minZoomLevel = prefs.getFloat(SettingsKeys.HEATMAP_MIN_ZOOM, SettingsDefaults.HEATMAP_MIN_ZOOM).toDouble()
         maxTrackPoints = prefs.getInt(SettingsKeys.MAX_TRACK_POINTS, SettingsDefaults.MAX_TRACK_POINTS)
@@ -118,7 +132,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
         ).toDouble()
 
-        val colorStr = prefs.getString("heatmap_color", "Punainen")
+        val colorStr = prefs.getString(SettingsKeys.HEATMAP_COLOR, "Punainen")
         baseColor = when (colorStr) {
             "Violetti" -> Color.rgb(128, 0, 128)
             "Vihreä" -> Color.GREEN
@@ -550,8 +564,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 // Tallennetaan lasketut arvot, jotta SettingsManager voi näyttää ne
                 val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
                 prefs.edit()
-                    .putInt("heatmap_min_points", minPoints)
-                    .putInt("heatmap_max_points", maxPoints)
+                    .putInt(SettingsKeys.HEATMAP_MIN_POINTS, minPoints)
+                    .putInt(SettingsKeys.HEATMAP_MAX_POINTS, maxPoints)
                     .apply()
             }
             
