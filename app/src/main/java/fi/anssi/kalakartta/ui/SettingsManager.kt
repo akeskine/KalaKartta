@@ -26,7 +26,6 @@ import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.utils.enlargeButtons
-import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.service.TalkingClockService
 import fi.anssi.kalakartta.service.FishingSessionService
@@ -89,6 +88,15 @@ class SettingsManager(
             settingsStore = settingsStore,
             onMapSettingsChanged = onMapSettingsChanged,
             onOpenSettings = { openSettings() },
+            onShowDialog = ::showDialog
+        )
+    }
+    private val weatherSettingsDialog: WeatherSettingsDialog by lazy {
+        WeatherSettingsDialog(
+            activity = activity,
+            settingsStore = settingsStore,
+            onWeatherSettingsChanged = onWeatherSettingsChanged,
+            onOpenSettings = { openGeneralSettings() },
             onShowDialog = ::showDialog
         )
     }
@@ -432,7 +440,7 @@ class SettingsManager(
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
             setOnClickListener {
-                openWeatherSettings()
+                weatherSettingsDialog.show()
             }
         }
         layout.addView(weatherLink)
@@ -1272,60 +1280,6 @@ class SettingsManager(
     }
 
 
-    private fun openWeatherSettings() {
-        val isEnabledInitial = settingsStore.weatherEnabled
-        var isEnabledCurrent = isEnabledInitial
-        
-        val contentLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 10)
-        }
-
-        val scrollView = ScrollView(activity).apply {
-            addView(contentLayout)
-        }
-
-        val checkBox = CheckBox(activity).apply {
-            text = "Säädatan automaattinen haku"
-            isChecked = isEnabledInitial
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                isEnabledCurrent = isChecked
-                if (isEnabledCurrent != settingsStore.weatherEnabled) {
-                    settingsStore.weatherEnabled = isEnabledCurrent
-                    if (isEnabledCurrent) {
-                        WeatherService(activity).fetchAllStations()
-                    }
-                    onWeatherSettingsChanged(isEnabledCurrent)
-                }
-            }
-        }
-        contentLayout.addView(checkBox)
-
-        val textView = TextView(activity).apply {
-            text = "Päivitä puuttuvat säätiedot"
-            textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
-            setPadding(0, 20, 0, 40)
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            setBackgroundResource(outValue.resourceId)
-            setOnClickListener {
-                val intent = android.content.Intent(activity, WeatherUpdateActivity::class.java)
-                activity.startActivityForResult(intent, 1003)
-            }
-        }
-        contentLayout.addView(textView)
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle("Sääasetukset")
-            .setView(scrollView)
-            .setPositiveButton("Takaisin") { _, _ ->
-                openGeneralSettings()
-            }
-            .create()
-        showDialog(dialog)
-    }
 
     // Poistettu updateMissingWeatherData metodit ja siirretty WeatherUpdateActivityyn
 
