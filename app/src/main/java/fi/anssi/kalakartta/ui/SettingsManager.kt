@@ -83,6 +83,15 @@ class SettingsManager(
             onShowDialog = ::showDialog
         )
     }
+    private val mapDisplaySettingsDialog: MapDisplaySettingsDialog by lazy {
+        MapDisplaySettingsDialog(
+            activity = activity,
+            settingsStore = settingsStore,
+            onMapSettingsChanged = onMapSettingsChanged,
+            onOpenSettings = { openSettings() },
+            onShowDialog = ::showDialog
+        )
+    }
 
     fun closeSettings() {
         currentDialog?.dismiss()
@@ -383,83 +392,6 @@ class SettingsManager(
     }
 
 
-    private fun openIconSizeSettings() {
-        val typedValue = android.util.TypedValue()
-        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-        val primaryTextColor = if (typedValue.resourceId != 0) {
-            activity.getColor(typedValue.resourceId)
-        } else {
-            typedValue.data
-        }
-
-        val fishIconScale = settingsStore.fishIconScale
-        val otherIconScale = settingsStore.otherIconScale
-
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
-        val options = arrayOf("0.2", "0.3", "0.4", "0.5", "0.75", "1.0", "1.25", "1.5")
-        val optionValues = arrayOf(0.2f, 0.3f, 0.4f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
-
-        // Kalakuvakkeiden koko
-        layout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.fish_icon_size)
-            setTextColor(primaryTextColor)
-            setPadding(0, 20, 0, 10)
-        })
-
-        val fishSpinner = Spinner(activity).apply {
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, options)
-            val currentPos = optionValues.indexOf(fishIconScale).let { if (it == -1) 2 else it } // oletus 1.0 jos ei löydy
-            setSelection(currentPos)
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    (view as? TextView)?.setTextColor(primaryTextColor)
-                    val newValue = optionValues[position]
-                    if (settingsStore.fishIconScale != newValue) {
-                        settingsStore.fishIconScale = newValue
-                        onMapSettingsChanged()
-                    }
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        layout.addView(fishSpinner)
-
-        // Muu paikka -kuvakkeiden koko
-        layout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.other_icon_size)
-            setTextColor(primaryTextColor)
-            setPadding(0, 40, 0, 10)
-        })
-
-        val otherSpinner = Spinner(activity).apply {
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, options)
-            val currentPos = optionValues.indexOf(otherIconScale).let { if (it == -1) 2 else it } // oletus 1.0 jos ei löydy
-            setSelection(currentPos)
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    (view as? TextView)?.setTextColor(primaryTextColor)
-                    val newValue = optionValues[position]
-                    if (settingsStore.otherIconScale != newValue) {
-                        settingsStore.otherIconScale = newValue
-                        onMapSettingsChanged()
-                    }
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        layout.addView(otherSpinner)
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.icon_sizes))
-            .setView(ScrollView(activity).apply { addView(layout) })
-            .setPositiveButton(activity.getString(R.string.back)) { _, _ -> openGeneralSettings() }
-            .create()
-        showDialog(dialog)
-    }
 
     private fun openGeneralSettings() {
         val typedValue = android.util.TypedValue()
@@ -515,7 +447,7 @@ class SettingsManager(
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
             setOnClickListener {
-                openScaleSettings()
+                mapDisplaySettingsDialog.showScaleSettings()
             }
         }
         layout.addView(scaleLink)
@@ -530,7 +462,7 @@ class SettingsManager(
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
             setOnClickListener {
-                openAutoCenterSettings()
+                mapDisplaySettingsDialog.showAutoCenterSettings()
             }
         }
         layout.addView(autoCenterLink)
@@ -560,7 +492,7 @@ class SettingsManager(
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
             setOnClickListener {
-                openIconSizeSettings()
+                mapDisplaySettingsDialog.showIconSizeSettings()
             }
         }
         layout.addView(iconSizesLink)
@@ -1339,65 +1271,6 @@ class SettingsManager(
         showDialog(dialog!!)
     }
 
-    private fun openScaleSettings() {
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
-        val showScaleCheckbox = CheckBox(activity).apply {
-            text = activity.getString(R.string.show_scale_bar)
-            isChecked = settingsStore.showScaleBar
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                settingsStore.showScaleBar = isChecked
-                onMapSettingsChanged()
-            }
-        }
-        layout.addView(showScaleCheckbox)
-
-        val showMeasurementToolCheckbox = CheckBox(activity).apply {
-            text = activity.getString(R.string.show_measurement_tool)
-            isChecked = settingsStore.showMeasurementTool
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                settingsStore.showMeasurementTool = isChecked
-                onMapSettingsChanged()
-            }
-        }
-        layout.addView(showMeasurementToolCheckbox)
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.scale_bar))
-            .setView(layout)
-            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .create()
-        showDialog(dialog)
-    }
-
-    private fun openAutoCenterSettings() {
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
-        val autoCenterCheckbox = CheckBox(activity).apply {
-            text = activity.getString(R.string.auto_center_on_start)
-            isChecked = settingsStore.autoCenterOnStart
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                settingsStore.autoCenterOnStart = isChecked
-            }
-        }
-        layout.addView(autoCenterCheckbox)
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.auto_center))
-            .setView(layout)
-            .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .create()
-        showDialog(dialog)
-    }
 
     private fun openWeatherSettings() {
         val isEnabledInitial = settingsStore.weatherEnabled
