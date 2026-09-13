@@ -52,6 +52,34 @@ class SettingsManager(
 
     private var currentDialog: AlertDialog? = null
     private val settingsStore = SettingsStore(activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE))
+    private val heatmapSettingsDialog by lazy {
+        HeatmapSettingsDialog(
+            activity = activity,
+            settingsStore = settingsStore,
+            checkLimits = { checkHeatmap, checkRoutes, providedFilters, onResult ->
+                checkLimits(
+                    checkHeatmap = checkHeatmap,
+                    checkRoutes = checkRoutes,
+                    providedFilters = providedFilters,
+                    onResult = onResult
+                )
+            },
+            onMapSettingsChanged = onMapSettingsChanged,
+            onOpenAdvancedSettings = ::openFishingHeatmapAdvancedSettings,
+            onOpenRouteAdvancedSettings = ::openFishingRouteAdvancedSettings,
+            onOpenSettings = { openSettings() },
+            onShowDialog = ::showDialog
+        )
+    }
+    private val mapSettingsDialog by lazy {
+        MapSettingsDialog(
+            activity = activity,
+            settingsStore = settingsStore,
+            onMapSettingsChanged = onMapSettingsChanged,
+            onOpenSettings = { openSettings() },
+            onShowDialog = ::showDialog
+        )
+    }
 
     fun closeSettings() {
         currentDialog?.dismiss()
@@ -160,9 +188,9 @@ class SettingsManager(
                     .setCustomTitle(titleView)
                     .setItems(arrayOf("Taustakartta", "Kalastussessiot", "Kalastetut alueet", "Tiedon suodatus", "Yhteenveto", "Kalapäiväkirja", "Tiedonsiirto", activity.getString(R.string.fish_species_settings), "Yleiset")) { _, which ->
                         when (which) {
-                            0 -> openMapSettings()
+                            0 -> mapSettingsDialog.show()
                             1 -> openFishingSessionSettings()
-                            2 -> openFishingHeatmapSettings()
+                            2 -> heatmapSettingsDialog.show()
                             3 -> openFilterSettings()
                             4 -> openSummary()
                             5 -> openDiary()
@@ -349,192 +377,6 @@ class SettingsManager(
         settingsStore.heatmapEnabled = SettingsDefaults.HEATMAP_ENABLED
         settingsStore.fishingRoutesEnabled = SettingsDefaults.FISHING_ROUTES_ENABLED
         onMapSettingsChanged()
-    }
-
-    private fun openFishingHeatmapSettings() {
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        
-        val layout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
-        val heatmapEnabledCb = CheckBox(activity).apply {
-            text = activity.getString(R.string.show_fishing_heatmap)
-            isChecked = settingsStore.heatmapEnabled
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) {
-                    checkLimits(true, false) { success ->
-                        if (success) {
-                            settingsStore.heatmapEnabled = true
-                            onMapSettingsChanged()
-                        } else {
-                            this.isChecked = false
-                        }
-                    }
-                } else {
-                    settingsStore.heatmapEnabled = false
-                    onMapSettingsChanged()
-                }
-            }
-        }
-        layout.addView(heatmapEnabledCb)
-
-        val routesEnabledCb = CheckBox(activity).apply {
-            text = activity.getString(R.string.show_fishing_routes)
-            isChecked = settingsStore.fishingRoutesEnabled
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) {
-                    checkLimits(false, true) { success ->
-                        if (success) {
-                            settingsStore.fishingRoutesEnabled = true
-                            onMapSettingsChanged()
-                        } else {
-                            this.isChecked = false
-                        }
-                    }
-                } else {
-                    settingsStore.fishingRoutesEnabled = false
-                    onMapSettingsChanged()
-                }
-            }
-        }
-        layout.addView(routesEnabledCb)
-
-        val heatmapFilterEnabledCb = CheckBox(activity).apply {
-            text = activity.getString(R.string.heatmap_filter_enabled)
-            isChecked = settingsStore.heatmapFilterEnabled
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                val heatmapEnabled = settingsStore.heatmapEnabled
-                if (!isChecked && heatmapEnabled) {
-                    // Jos kytketään suodatus pois ja heatmap on päällä, tarkistetaan rajat (kaikki pisteet)
-                    checkLimits(true, false, providedFilters = FilterManager.Filters()) { success ->
-                        if (success) {
-                            settingsStore.heatmapFilterEnabled = false
-                            onMapSettingsChanged()
-                        } else {
-                            this.isChecked = true
-                        }
-                    }
-                } else {
-                    settingsStore.heatmapFilterEnabled = isChecked
-                    onMapSettingsChanged()
-                }
-            }
-        }
-        layout.addView(heatmapFilterEnabledCb)
-
-        val routesFilterEnabledCb = CheckBox(activity).apply {
-            text = activity.getString(R.string.routes_filter_enabled)
-            isChecked = settingsStore.routesFilterEnabled
-            textSize = 18f
-            setOnCheckedChangeListener { _, isChecked ->
-                val routesEnabled = settingsStore.fishingRoutesEnabled
-                if (!isChecked && routesEnabled) {
-                    // Jos kytketään suodatus pois ja reitit on päällä, tarkistetaan rajat (kaikki pisteet)
-                    checkLimits(false, true, providedFilters = FilterManager.Filters()) { success ->
-                        if (success) {
-                            settingsStore.routesFilterEnabled = false
-                            onMapSettingsChanged()
-                        } else {
-                            this.isChecked = true
-                        }
-                    }
-                } else {
-                    settingsStore.routesFilterEnabled = isChecked
-                    onMapSettingsChanged()
-                }
-            }
-        }
-        layout.addView(routesFilterEnabledCb)
-
-        val shortcutModeLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, 10, 0, 10)
-        }
-        val shortcutLabel = TextView(activity).apply {
-            text = activity.getString(R.string.show_heatmap_shortcut)
-            textSize = 18f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        shortcutModeLayout.addView(shortcutLabel)
-
-        val shortcutSpinner = Spinner(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        val shortcutOptions = activity.resources.getStringArray(R.array.heatmap_shortcut_options)
-        val shortcutAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, shortcutOptions)
-        shortcutAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        shortcutSpinner.adapter = shortcutAdapter
-
-        if (!settingsStore.hasHeatmapShortcutModeSetting()) {
-            val oldVal = settingsStore.showHeatmapShortcut
-            val newVal = if (oldVal) 3 else 0
-            settingsStore.heatmapShortcutMode = newVal
-        }
-        
-        shortcutSpinner.setSelection(settingsStore.heatmapShortcutMode)
-        shortcutSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            private var isInitialSelection = true
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (isInitialSelection) {
-                    isInitialSelection = false
-                    return
-                }
-                settingsStore.heatmapShortcutMode = position
-                onMapSettingsChanged()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-        shortcutModeLayout.addView(shortcutSpinner)
-        layout.addView(shortcutModeLayout)
-
-        layout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.heatmap_advanced_settings)
-            textSize = 18f
-            setTextColor(Color.BLUE)
-            setPadding(0, 20, 0, 20)
-            isClickable = true
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            foreground = activity.getDrawable(outValue.resourceId)
-            setOnClickListener {
-                openFishingHeatmapAdvancedSettings()
-            }
-        })
-
-        layout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.route_advanced_settings)
-            textSize = 18f
-            setTextColor(Color.BLUE)
-            setPadding(0, 20, 0, 20)
-            isClickable = true
-            val outValue = android.util.TypedValue()
-            activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-            foreground = activity.getDrawable(outValue.resourceId)
-            setOnClickListener {
-                openFishingRouteAdvancedSettings()
-            }
-        })
-
-        layout.addView(createBackLink {
-            openSettings()
-        })
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle(activity.getString(R.string.action_fishing_heatmap))
-            .setView(ScrollView(activity).apply { addView(layout) })
-            .create()
-        showDialog(dialog)
     }
 
     private fun openFishingHeatmapAdvancedSettings() {
@@ -938,7 +780,7 @@ class SettingsManager(
 
         layout.addView(createBackLink {
             prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
-            openFishingHeatmapSettings()
+            heatmapSettingsDialog.show()
         })
 
         val dialog = AlertDialog.Builder(activity)
@@ -1070,7 +912,7 @@ class SettingsManager(
         }
 
         layout.addView(createBackLink {
-            openFishingHeatmapSettings()
+            heatmapSettingsDialog.show()
         })
 
         val dialog = AlertDialog.Builder(activity)
@@ -2092,242 +1934,6 @@ class SettingsManager(
             .setTitle(activity.getString(R.string.auto_center))
             .setView(layout)
             .setPositiveButton("Takaisin") { _, _ -> openGeneralSettings() }
-            .create()
-        showDialog(dialog)
-    }
-
-
-    private fun openMapSettings() {
-        val currentSource = settingsStore.mapSource
-        val currentApiKey = settingsStore.mmlApiKey
-        var showQuickMapCurrent = settingsStore.showQuickMapSource
-
-        val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom), activity.getString(R.string.map_source_traficom_boating))
-        val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
-        
-        // Luetaan yksittäisten karttapohjien pikavalinta-asetukset
-        val quickSelectEnabled = internalIds.associateWith { id ->
-            // MML-kartat vaativat validin API-avaimen oletuksena
-            val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
-            settingsStore.isQuickMapSourceEnabled(id, default)
-        }.toMutableMap()
-
-        val contentLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(60, 40, 60, 40)
-        }
-
-        val scrollView = ScrollView(activity).apply {
-            addView(contentLayout)
-        }
-
-        // Otsikkorivi
-        val headerLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 0, 0, 20)
-            weightSum = 1f
-        }
-        
-        headerLayout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.map_background)
-            textSize = 16f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
-        })
-        
-        headerLayout.addView(TextView(activity).apply {
-            text = activity.getString(R.string.quick_select)
-            textSize = 16f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            gravity = android.view.Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.3f)
-        })
-        
-        contentLayout.addView(headerLayout)
-
-        val radioButtons = mutableListOf<RadioButton>()
-        val checkBoxes = mutableMapOf<String, CheckBox>()
-
-        for (i in sources.indices) {
-            val id = internalIds[i]
-            val row = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                weightSum = 1f
-                setPadding(0, 10, 0, 10)
-            }
-
-            val rb = RadioButton(activity).apply {
-                text = sources[i]
-                textSize = 18f
-                isChecked = currentSource == id
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.7f)
-                setOnClickListener {
-                    radioButtons.forEach { it.isChecked = false }
-                    isChecked = true
-                    settingsStore.mapSource = id
-                    onMapSettingsChanged()
-                }
-            }
-            radioButtons.add(rb)
-            row.addView(rb)
-
-            val cb = CheckBox(activity).apply {
-                isChecked = quickSelectEnabled[id] ?: true
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.3f)
-                gravity = android.view.Gravity.CENTER
-                setOnCheckedChangeListener { _, isChecked ->
-                    quickSelectEnabled[id] = isChecked
-                    settingsStore.setQuickMapSourceEnabled(id, isChecked)
-                }
-            }
-            checkBoxes[id] = cb
-            row.addView(cb)
-
-            contentLayout.addView(row)
-        }
-
-        val quickMapCheckbox = CheckBox(activity).apply {
-            text = activity.getString(R.string.show_quick_map_source)
-            isChecked = showQuickMapCurrent
-            textSize = 18f
-            setPadding(0, 20, 0, 40)
-            visibility = android.view.View.VISIBLE
-            setOnCheckedChangeListener { _, isChecked ->
-                showQuickMapCurrent = isChecked
-                settingsStore.showQuickMapSource = isChecked
-                onMapSettingsChanged()
-            }
-        }
-
-        val apiKeyLabel = TextView(activity).apply {
-            text = "MML API-avain:"
-            textSize = 16f
-            setPadding(0, 30, 0, 0)
-            val initialSelectedId = internalIds.indexOf(currentSource)
-            visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
-        }
-        contentLayout.addView(apiKeyLabel)
-
-        val apiKeyInput = EditText(activity).apply {
-            setText(currentApiKey)
-            hint = "Syötä API-avain"
-            val initialSelectedId = internalIds.indexOf(currentSource)
-            visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
-            addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: android.text.Editable?) {
-                    settingsStore.mmlApiKey = s.toString()
-                }
-            })
-        }
-        contentLayout.addView(apiKeyInput)
-
-        val setApiKeyButton = Button(activity).apply {
-            text = activity.getString(R.string.set_api_key)
-            val initialSelectedId = internalIds.indexOf(currentSource)
-            visibility = if (initialSelectedId in 1..2) android.view.View.VISIBLE else android.view.View.GONE
-        }
-        contentLayout.addView(setApiKeyButton)
-
-        fun getSelectedId(): Int {
-            return radioButtons.indexOfFirst { it.isChecked }
-        }
-
-        fun validateApiKey(apiKey: String, updateCheckbox: Boolean = true) {
-            if (apiKey.isEmpty()) {
-                return
-            }
-
-            val selectedId = getSelectedId()
-            val layer = if (selectedId == 2) "ortokuva" else "maastokartta"
-
-            activity.lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    val urlString = "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/$layer/default/WGS84_Pseudo-Mercator/0/0/0.png?api-key=$apiKey"
-                    val url = java.net.URL(urlString)
-                    val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.requestMethod = "GET"
-                    connection.connectTimeout = 5000
-                    connection.readTimeout = 5000
-
-                    val responseCode = connection.responseCode
-                    withContext(Dispatchers.Main) {
-                        if (responseCode == 200) {
-                            Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
-                            // Päivitetään MML-pikavalinnat jos avain tuli validiksi
-                            if (apiKey.isNotEmpty()) {
-                                if (checkBoxes["MML_MAASTO"]?.isChecked == false && !settingsStore.hasQuickMapSourceSetting("MML_MAASTO")) checkBoxes["MML_MAASTO"]?.isChecked = true
-                                if (checkBoxes["MML_ILMA"]?.isChecked == false && !settingsStore.hasQuickMapSourceSetting("MML_ILMA")) checkBoxes["MML_ILMA"]?.isChecked = true
-                            }
-                        } else {
-                            Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(activity, "Virhe testatessa: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        }
-
-        setApiKeyButton.setOnClickListener {
-            validateApiKey(apiKeyInput.text.toString())
-        }
-
-        apiKeyInput.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: android.text.Editable?) {
-                // Tallennus tapahtuu jo ylempänä lisätyssä listenerissä
-            }
-        })
-
-        if (currentApiKey.isNotEmpty()) {
-            validateApiKey(currentApiKey)
-        }
-
-        val attributionText = TextView(activity).apply {
-            text = when (currentSource) {
-                "TRAFICOM_SEA", "TRAFICOM_BOATING" -> activity.getString(R.string.traficom_attribution)
-                "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
-                else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
-            }
-            textSize = 12f
-            setPadding(0, 40, 0, 0)
-            alpha = 0.7f
-        }
-        contentLayout.addView(attributionText)
-        contentLayout.addView(quickMapCheckbox)
-
-        radioButtons.forEachIndexed { index, radioButton ->
-            radioButton.setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) {
-                    val id = internalIds[index]
-                    val mmlVisible = if (index in 1..2) android.view.View.VISIBLE else android.view.View.GONE
-                    apiKeyLabel.visibility = mmlVisible
-                    apiKeyInput.visibility = mmlVisible
-                    setApiKeyButton.visibility = mmlVisible
-                    
-                    attributionText.text = when (id) {
-                        "TRAFICOM_SEA", "TRAFICOM_BOATING" -> activity.getString(R.string.traficom_attribution)
-                        "OSM" -> "Lähde: OpenStreetMap-yhteisö. Lisenssi: ODbL."
-                        else -> "Lähde: Maanmittauslaitos / avoin aineisto. Lisenssi: CC BY 4.0."
-                    }
-
-                    if (index in 1..2 && apiKeyInput.text.isNotEmpty()) {
-                        validateApiKey(apiKeyInput.text.toString())
-                    }
-                }
-            }
-        }
-
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle("Taustakartta")
-            .setView(scrollView)
-            .setPositiveButton("Takaisin") { _, _ -> openSettings() }
             .create()
         showDialog(dialog)
     }
