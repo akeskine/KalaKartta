@@ -1855,10 +1855,10 @@ class SettingsManager(
         }
 
         fun getStatusText(): String {
-            val isEnabled = prefs.getBoolean("talking_clock_enabled", false)
+            val isEnabled = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
             if (!isEnabled) return ""
 
-            val interval = prefs.getInt("talking_clock_interval", 30)
+            val interval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
             val status = activity.getString(R.string.talking_clock_running)
             return "$status, ${activity.getString(R.string.talking_clock_interval_info)} $interval ${activity.getString(R.string.unit_min)}"
         }
@@ -1886,7 +1886,7 @@ class SettingsManager(
         layout.addView(statusTextView)
 
         val clockControlLink = TextView(activity).apply {
-            val isEnabled = prefs.getBoolean("talking_clock_enabled", false)
+            val isEnabled = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
             text = activity.getString(if (isEnabled) R.string.talking_clock_stop else R.string.talking_clock_start)
             textSize = 18f
             setTextColor(activity.getColor(android.R.color.holo_blue_dark))
@@ -1896,13 +1896,13 @@ class SettingsManager(
             setBackgroundResource(outValue.resourceId)
             
             setOnClickListener {
-                val newState = !prefs.getBoolean("talking_clock_enabled", false)
-                prefs.edit().putBoolean("talking_clock_enabled", newState).apply()
+                val newState = !prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
+                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, newState).apply()
                 text = activity.getString(if (newState) R.string.talking_clock_stop else R.string.talking_clock_start)
                 updateTitle()
                 
                 if (newState) {
-                    val interval = prefs.getInt("talking_clock_interval", 30)
+                    val interval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
                     val intent = Intent(activity, TalkingClockService::class.java).apply {
                         putExtra("interval", interval)
                         action = "START_IMMEDIATELY"
@@ -1921,10 +1921,10 @@ class SettingsManager(
 
         val onlyFishingCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_only_fishing)
-            isChecked = prefs.getBoolean("talking_clock_only_fishing", false)
+            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, SettingsDefaults.TALKING_CLOCK_ONLY_FISHING)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("talking_clock_only_fishing", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, isChecked).apply()
             }
         }
         layout.addView(onlyFishingCheckbox)
@@ -1941,17 +1941,17 @@ class SettingsManager(
         })
 
         val intervals = arrayOf("1", "2", "5", "10", "15", "20", "30", "60")
-        val currentInterval = prefs.getInt("talking_clock_interval", 30).toString()
+        val currentInterval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL).toString()
         val intervalSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, intervals)
             setSelection(intervals.indexOf(currentInterval).let { if (it == -1) 4 else it }) // Oletus 30 min
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     val interval = intervals[position].toInt()
-                    prefs.edit().putInt("talking_clock_interval", interval).apply()
+                    prefs.edit().putInt(SettingsKeys.TALKING_CLOCK_INTERVAL, interval).apply()
                     updateTitle()
                     
-                    if (prefs.getBoolean("talking_clock_enabled", false)) {
+                    if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)) {
                         val intent = Intent(activity, TalkingClockService::class.java).apply {
                             putExtra("interval", interval)
                         }
@@ -1979,12 +1979,12 @@ class SettingsManager(
             setPadding(0, 10, 0, 0)
         })
         val salutationEdit = EditText(activity).apply {
-            setText(prefs.getString("talking_clock_salutation", ""))
+            setText(prefs.getString(SettingsKeys.TALKING_CLOCK_SALUTATION, SettingsDefaults.TALKING_CLOCK_SALUTATION))
             textSize = 18f
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    prefs.edit().putString("talking_clock_salutation", s?.toString() ?: "").apply()
+                    prefs.edit().putString(SettingsKeys.TALKING_CLOCK_SALUTATION, s?.toString() ?: SettingsDefaults.TALKING_CLOCK_SALUTATION).apply()
                 }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
@@ -1994,11 +1994,11 @@ class SettingsManager(
         // Akun varaus
         val batteryCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_battery_status)
-            isChecked = prefs.getBoolean("talking_clock_battery", false)
+            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, SettingsDefaults.TALKING_CLOCK_BATTERY)
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("talking_clock_battery", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, isChecked).apply()
             }
         }
         layout.addView(batteryCheckbox)
@@ -2006,16 +2006,16 @@ class SettingsManager(
         val weatherHoursLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(80, 0, 0, 10)
-            visibility = if (prefs.getBoolean("talking_clock_weather", false)) View.VISIBLE else View.GONE
+            visibility = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, SettingsDefaults.TALKING_CLOCK_WEATHER)) View.VISIBLE else View.GONE
         }
         val weatherHourOptions = listOf(
-            1 to "talking_clock_weather_1h",
-            3 to "talking_clock_weather_3h",
-            6 to "talking_clock_weather_6h",
-            12 to "talking_clock_weather_12h"
+            1 to SettingsKeys.talkingClockWeather(1),
+            3 to SettingsKeys.talkingClockWeather(3),
+            6 to SettingsKeys.talkingClockWeather(6),
+            12 to SettingsKeys.talkingClockWeather(12)
         )
         weatherHourOptions.forEach { (hours, key) ->
-            val defaultChecked = hours == 3
+            val defaultChecked = hours == SettingsDefaults.TALKING_CLOCK_WEATHER_DEFAULT_HOURS
             if (!prefs.contains(key)) {
                 prefs.edit().putBoolean(key, defaultChecked).apply()
             }
@@ -2031,11 +2031,11 @@ class SettingsManager(
 
         val weatherCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_weather)
-            isChecked = prefs.getBoolean("talking_clock_weather", false)
+            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, SettingsDefaults.TALKING_CLOCK_WEATHER)
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("talking_clock_weather", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, isChecked).apply()
                 weatherHoursLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
         }
@@ -2047,20 +2047,20 @@ class SettingsManager(
             orientation = LinearLayout.HORIZONTAL
             setPadding(80, 0, 0, 10)
             gravity = android.view.Gravity.CENTER_VERTICAL
-            visibility = if (prefs.getBoolean("talking_clock_sunset", false)) View.VISIBLE else View.GONE
+            visibility = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, SettingsDefaults.TALKING_CLOCK_SUNSET)) View.VISIBLE else View.GONE
         }
         sunsetLimitLayout.addView(TextView(activity).apply {
             text = activity.getString(R.string.talking_clock_sunset_limit)
             textSize = 18f
         })
         val sunsetHours = arrayOf("1", "2", "3", "4", "5", "6", "12", "24")
-        val currentSunsetLimit = prefs.getInt("talking_clock_sunset_limit", 2).toString()
+        val currentSunsetLimit = prefs.getInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNSET_LIMIT).toString()
         val sunsetSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunsetHours)
             setSelection(sunsetHours.indexOf(currentSunsetLimit).let { if (it == -1) 1 else it })
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    prefs.edit().putInt("talking_clock_sunset_limit", sunsetHours[position].toInt()).apply()
+                    prefs.edit().putInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, sunsetHours[position].toInt()).apply()
                 }
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
@@ -2073,11 +2073,11 @@ class SettingsManager(
 
         val sunsetCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_sunset)
-            isChecked = prefs.getBoolean("talking_clock_sunset", false)
+            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, SettingsDefaults.TALKING_CLOCK_SUNSET)
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("talking_clock_sunset", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, isChecked).apply()
                 sunsetLimitLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
         }
@@ -2089,20 +2089,20 @@ class SettingsManager(
             orientation = LinearLayout.HORIZONTAL
             setPadding(80, 0, 0, 10)
             gravity = android.view.Gravity.CENTER_VERTICAL
-            visibility = if (prefs.getBoolean("talking_clock_sunrise", false)) View.VISIBLE else View.GONE
+            visibility = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, SettingsDefaults.TALKING_CLOCK_SUNRISE)) View.VISIBLE else View.GONE
         }
         sunriseLimitLayout.addView(TextView(activity).apply {
             text = activity.getString(R.string.talking_clock_sunrise_limit)
             textSize = 18f
         })
         val sunriseHours = arrayOf("1", "2", "3", "4", "6", "12", "24")
-        val currentSunriseLimit = prefs.getInt("talking_clock_sunrise_limit", 2).toString()
+        val currentSunriseLimit = prefs.getInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNRISE_LIMIT).toString()
         val sunriseSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunriseHours)
             setSelection(sunriseHours.indexOf(currentSunriseLimit).let { if (it == -1) 1 else it })
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    prefs.edit().putInt("talking_clock_sunrise_limit", sunriseHours[position].toInt()).apply()
+                    prefs.edit().putInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, sunriseHours[position].toInt()).apply()
                 }
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
@@ -2115,11 +2115,11 @@ class SettingsManager(
 
         val sunriseCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_sunrise)
-            isChecked = prefs.getBoolean("talking_clock_sunrise", false)
+            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, SettingsDefaults.TALKING_CLOCK_SUNRISE)
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("talking_clock_sunrise", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, isChecked).apply()
                 sunriseLimitLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
         }
@@ -2144,10 +2144,10 @@ class SettingsManager(
 
         val showScaleCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.show_scale_bar)
-            isChecked = prefs.getBoolean("show_scale_bar", false)
+            isChecked = prefs.getBoolean(SettingsKeys.SHOW_SCALE_BAR, SettingsDefaults.SHOW_SCALE_BAR)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("show_scale_bar", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.SHOW_SCALE_BAR, isChecked).apply()
                 onMapSettingsChanged()
             }
         }
@@ -2155,10 +2155,10 @@ class SettingsManager(
 
         val showMeasurementToolCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.show_measurement_tool)
-            isChecked = prefs.getBoolean("show_measurement_tool", false)
+            isChecked = prefs.getBoolean(SettingsKeys.SHOW_MEASUREMENT_TOOL, SettingsDefaults.SHOW_MEASUREMENT_TOOL)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("show_measurement_tool", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.SHOW_MEASUREMENT_TOOL, isChecked).apply()
                 onMapSettingsChanged()
             }
         }
@@ -2182,10 +2182,10 @@ class SettingsManager(
 
         val autoCenterCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.auto_center_on_start)
-            isChecked = prefs.getBoolean("auto_center_on_start", true)
+            isChecked = prefs.getBoolean(SettingsKeys.AUTO_CENTER_ON_START, SettingsDefaults.AUTO_CENTER_ON_START)
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("auto_center_on_start", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.AUTO_CENTER_ON_START, isChecked).apply()
             }
         }
         layout.addView(autoCenterCheckbox)
@@ -2201,9 +2201,9 @@ class SettingsManager(
 
     private fun openMapSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
-        val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
-        var showQuickMapCurrent = prefs.getBoolean("show_quick_map_source", false)
+        val currentSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE) ?: SettingsDefaults.MAP_SOURCE
+        val currentApiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
+        var showQuickMapCurrent = prefs.getBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
 
         val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom), activity.getString(R.string.map_source_traficom_boating))
         val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
@@ -2212,7 +2212,7 @@ class SettingsManager(
         val quickSelectEnabled = internalIds.associateWith { id ->
             // MML-kartat vaativat validin API-avaimen oletuksena
             val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
-            prefs.getBoolean("quick_select_$id", default)
+            prefs.getBoolean(SettingsKeys.quickSelect(id), default)
         }.toMutableMap()
 
         val contentLayout = LinearLayout(activity).apply {
@@ -2268,7 +2268,7 @@ class SettingsManager(
                 setOnClickListener {
                     radioButtons.forEach { it.isChecked = false }
                     isChecked = true
-                    prefs.edit().putString("map_source", id).apply()
+                    prefs.edit().putString(SettingsKeys.MAP_SOURCE, id).apply()
                     onMapSettingsChanged()
                 }
             }
@@ -2281,7 +2281,7 @@ class SettingsManager(
                 gravity = android.view.Gravity.CENTER
                 setOnCheckedChangeListener { _, isChecked ->
                     quickSelectEnabled[id] = isChecked
-                    prefs.edit().putBoolean("quick_select_$id", isChecked).apply()
+                    prefs.edit().putBoolean(SettingsKeys.quickSelect(id), isChecked).apply()
                 }
             }
             checkBoxes[id] = cb
@@ -2298,7 +2298,7 @@ class SettingsManager(
             visibility = android.view.View.VISIBLE
             setOnCheckedChangeListener { _, isChecked ->
                 showQuickMapCurrent = isChecked
-                prefs.edit().putBoolean("show_quick_map_source", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, isChecked).apply()
                 onMapSettingsChanged()
             }
         }
@@ -2321,7 +2321,7 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    prefs.edit().putString("mml_api_key", s.toString()).apply()
+                    prefs.edit().putString(SettingsKeys.MML_API_KEY, s.toString()).apply()
                 }
             })
         }
@@ -2361,8 +2361,8 @@ class SettingsManager(
                             Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
                             // Päivitetään MML-pikavalinnat jos avain tuli validiksi
                             if (apiKey.isNotEmpty()) {
-                                if (checkBoxes["MML_MAASTO"]?.isChecked == false && !prefs.contains("quick_select_MML_MAASTO")) checkBoxes["MML_MAASTO"]?.isChecked = true
-                                if (checkBoxes["MML_ILMA"]?.isChecked == false && !prefs.contains("quick_select_MML_ILMA")) checkBoxes["MML_ILMA"]?.isChecked = true
+                                if (checkBoxes["MML_MAASTO"]?.isChecked == false && !prefs.contains(SettingsKeys.quickSelect("MML_MAASTO"))) checkBoxes["MML_MAASTO"]?.isChecked = true
+                                if (checkBoxes["MML_ILMA"]?.isChecked == false && !prefs.contains(SettingsKeys.quickSelect("MML_ILMA"))) checkBoxes["MML_ILMA"]?.isChecked = true
                             }
                         } else {
                             Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
@@ -2437,7 +2437,7 @@ class SettingsManager(
 
     private fun openWeatherSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        val isEnabledInitial = prefs.getBoolean("weather_enabled", true)
+        val isEnabledInitial = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
         var isEnabledCurrent = isEnabledInitial
         
         val contentLayout = LinearLayout(activity).apply {
@@ -2455,8 +2455,8 @@ class SettingsManager(
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
                 isEnabledCurrent = isChecked
-                if (isEnabledCurrent != prefs.getBoolean("weather_enabled", true)) {
-                    prefs.edit().putBoolean("weather_enabled", isEnabledCurrent).apply()
+                if (isEnabledCurrent != prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)) {
+                    prefs.edit().putBoolean(SettingsKeys.WEATHER_ENABLED, isEnabledCurrent).apply()
                     if (isEnabledCurrent) {
                         WeatherService(activity).fetchAllStations()
                     }
@@ -3020,10 +3020,10 @@ class SettingsManager(
             val showLiveRouteCb = CheckBox(activity).apply {
                 text = "Näytä tallennettavan session reitti"
                 val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                isChecked = prefs.getBoolean("show_live_session_route", true)
+                isChecked = prefs.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
                 textSize = 16f
                 setOnCheckedChangeListener { _, isChecked ->
-                    prefs.edit().putBoolean("show_live_session_route", isChecked).apply()
+                    prefs.edit().putBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, isChecked).apply()
                     mainActivity?.updateSessionLine()
                 }
             }
@@ -3047,10 +3047,10 @@ class SettingsManager(
                 layoutParams = params
                 setOnClickListener {
                     val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-                    val locInt = prefs.getInt("location_check_interval", 10)
-                    val minInt = prefs.getInt("min_track_point_interval", 30)
-                    val maxInt = prefs.getInt("max_track_point_interval", 300)
-                    val minDist = prefs.getInt("min_track_point_distance", 20)
+                    val locInt = prefs.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
+                    val minInt = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
+                    val maxInt = prefs.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
+                    val minDist = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
                     
                     mainActivity?.startFishingSession(locInt, minInt, maxInt, minDist)
                     dialog?.dismiss()
@@ -3160,10 +3160,10 @@ class SettingsManager(
             val showLiveRouteCb = CheckBox(activity).apply {
                 text = "Näytä tallennettavan session reitti"
                 val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                isChecked = prefs.getBoolean("show_live_session_route", true)
+                isChecked = prefs.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
                 textSize = 16f
                 setOnCheckedChangeListener { _, isChecked ->
-                    prefs.edit().putBoolean("show_live_session_route", isChecked).apply()
+                    prefs.edit().putBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, isChecked).apply()
                     mainActivity?.updateSessionLine()
                 }
             }
@@ -3230,10 +3230,10 @@ class SettingsManager(
         val maxIntervals = arrayOf("60", "120", "300", "600")
         val minDistances = arrayOf("10", "20", "50", "100", "200")
 
-        var currentLocationInterval = prefs.getInt("location_check_interval", 10).toString()
-        var currentMinInterval = prefs.getInt("min_track_point_interval", 30).toString()
-        var currentMaxInterval = prefs.getInt("max_track_point_interval", 300).toString()
-        var currentMinDistance = prefs.getInt("min_track_point_distance", 20).toString()
+        var currentLocationInterval = prefs.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL).toString()
+        var currentMinInterval = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL).toString()
+        var currentMaxInterval = prefs.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL).toString()
+        var currentMinDistance = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE).toString()
 
         if (currentLocationInterval !in locationIntervals) currentLocationInterval = "10"
         if (currentMinInterval !in minIntervals) currentMinInterval = "30"
@@ -3253,14 +3253,14 @@ class SettingsManager(
             if (maxVal < minVal) {
                 currentMinInterval = currentMaxInterval
                 minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
-                prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
+                prefs.edit().putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, currentMinInterval.toInt()).apply()
             }
             
             val newMinVal = currentMinInterval.toInt()
             if (newMinVal < locVal) {
                 currentLocationInterval = currentMinInterval
                 locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
-                prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
+                prefs.edit().putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, currentLocationInterval.toInt()).apply()
             }
         }
 
@@ -3299,7 +3299,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentLocationInterval = locationIntervals[pos]
-                    prefs.edit().putInt("location_check_interval", currentLocationInterval.toInt()).apply()
+                prefs.edit().putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, currentLocationInterval.toInt()).apply()
                     updateSpinners()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -3314,7 +3314,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentMinInterval = minIntervals[pos]
-                    prefs.edit().putInt("min_track_point_interval", currentMinInterval.toInt()).apply()
+                    prefs.edit().putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, currentMinInterval.toInt()).apply()
                     updateSpinners()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -3329,7 +3329,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentMaxInterval = maxIntervals[pos]
-                    prefs.edit().putInt("max_track_point_interval", currentMaxInterval.toInt()).apply()
+                prefs.edit().putInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, currentMaxInterval.toInt()).apply()
                     updateSpinners()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -3344,7 +3344,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentMinDistance = minDistances[pos]
-                    prefs.edit().putInt("min_track_point_distance", currentMinDistance.toInt()).apply()
+                prefs.edit().putInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, currentMinDistance.toInt()).apply()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
             }
@@ -3374,10 +3374,10 @@ class SettingsManager(
                 currentMinDistance = "20"
                 
                 prefs.edit()
-                    .putInt("location_check_interval", 10)
-                    .putInt("min_track_point_interval", 30)
-                    .putInt("max_track_point_interval", 300)
-                    .putInt("min_track_point_distance", 20)
+                    .putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
+                    .putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
+                    .putInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
+                    .putInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
                     .apply()
 
                 locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
@@ -3397,8 +3397,8 @@ class SettingsManager(
 
     private fun openDefaultFishermanSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
-        val showOnMap = prefs.getBoolean("show_fisherman_on_map", false)
+        val currentFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+        val showOnMap = prefs.getBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, SettingsDefaults.SHOW_FISHERMAN_ON_MAP)
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -3421,7 +3421,7 @@ class SettingsManager(
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    prefs.edit().putString("default_fisherman", s?.toString()?.trim() ?: "").apply()
+                    prefs.edit().putString(SettingsKeys.DEFAULT_FISHERMAN, s?.toString()?.trim() ?: SettingsDefaults.DEFAULT_FISHERMAN).apply()
                     onMapSettingsChanged()
                 }
                 override fun afterTextChanged(s: android.text.Editable?) {}
@@ -3434,7 +3434,7 @@ class SettingsManager(
             isChecked = showOnMap
             setPadding(0, 20, 0, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("show_fisherman_on_map", isChecked).apply()
+                prefs.edit().putBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, isChecked).apply()
                 onMapSettingsChanged()
             }
         }

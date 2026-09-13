@@ -532,7 +532,7 @@ class EditCatchActivity : AppCompatActivity() {
                 originalWeatherStation = fc.weatherStation ?: ""
                 
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
+                val isWeatherEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
                 
                 if (isWeatherEnabled && fc.caughtAt != null && fc.caughtAt!! > 0L) {
                     autoWeatherCheckBox.visibility = View.VISIBLE
@@ -840,7 +840,7 @@ class EditCatchActivity : AppCompatActivity() {
     private fun setupWeatherForNewCatch(lat: Double, lon: Double) {
         android.util.Log.d("KalaKartta", "setupWeatherForNewCatch: lat=$lat, lon=$lon")
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        if (prefs.getBoolean("weather_enabled", true)) {
+        if (prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)) {
             autoWeatherCheckBox.visibility = View.VISIBLE
             autoWeatherCheckBox.isChecked = true
             weatherService.fetchNearestStations(lat, lon, selectedCalendar.timeInMillis, 1) { stations, _ ->
@@ -919,7 +919,7 @@ class EditCatchActivity : AppCompatActivity() {
                 updateMoonData()
                 refreshDiaryLinks()
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val isWeatherEnabled = prefs.getBoolean("weather_enabled", true)
+                val isWeatherEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
                 autoWeatherCheckBox.visibility = if (isWeatherEnabled) View.VISIBLE else View.GONE
                 if (autoWeatherCheckBox.isChecked) fetchWeatherForDisplay()
                 else fetchPressureHistoryForCurrentTime()

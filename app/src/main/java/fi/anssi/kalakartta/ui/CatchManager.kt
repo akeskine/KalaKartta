@@ -384,7 +384,7 @@ class CatchManager(
         val caughtAt = System.currentTimeMillis()
         
         val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val defaultFisherman = prefs.getString("default_fisherman", "") ?: ""
+        val defaultFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
 
         val fish = FishCatch(
             species = speciesId,
@@ -410,7 +410,7 @@ class CatchManager(
 
             // Haetaan säätiedot automaattisesti jos asetus on päällä
             val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-            val weatherEnabled = prefs.getBoolean("weather_enabled", true)
+        val weatherEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
             if (weatherEnabled) {
                 val catchInfo = "ID: $id (uusi)"
                 weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt, null, catchInfo) { data, obsTime, _, stations ->

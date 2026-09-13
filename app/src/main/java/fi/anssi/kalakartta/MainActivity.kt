@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
 
     fun updateSessionLine() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val showLiveRoute = prefs.getBoolean("show_live_session_route", true)
+        val showLiveRoute = prefs.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
         
         val sessionId = fishingService?.getCurrentSessionId() ?: -1L
         if (sessionId != -1L && showLiveRoute) {
@@ -661,7 +661,7 @@ class MainActivity : AppCompatActivity() {
                 "fi.anssi.kalakartta.SESSION_STARTED" -> {
                     // Päivitetään paikallinen väli siltä varalta että se on muuttunut palvelussa
                     val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                    recordingIntervalSeconds = prefs.getInt("min_track_point_interval", 30)
+                    recordingIntervalSeconds = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
                     updateRecordingStatusUI()
                 }
             }
@@ -1071,15 +1071,15 @@ class MainActivity : AppCompatActivity() {
 
             findViewById<MaterialButton>(R.id.quickMapSourceButton).setOnClickListener {
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val currentApiKey = prefs.getString("mml_api_key", "") ?: ""
-                val currentSource = prefs.getString("map_source", "OSM") ?: "OSM"
+                val currentApiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
+                val currentSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE) ?: SettingsDefaults.MAP_SOURCE
 
                 val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
 
                 // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
                 val enabledSources = internalIds.filter { id ->
                     val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
-                    prefs.getBoolean("quick_select_$id", default)
+                    prefs.getBoolean(SettingsKeys.quickSelect(id), default)
                 }
 
                 if (enabledSources.isNotEmpty()) {
@@ -1087,7 +1087,7 @@ class MainActivity : AppCompatActivity() {
                     val nextIndex = (currentIndex + 1) % enabledSources.size
                     val nextSource = enabledSources[nextIndex]
 
-                    prefs.edit().putString("map_source", nextSource).apply()
+                    prefs.edit().putString(SettingsKeys.MAP_SOURCE, nextSource).apply()
                     updateMapTileSource()
                 }
             }
@@ -1229,7 +1229,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Automaattinen kohdistus sovelluksen avauksessa
-            val autoCenter = prefs.getBoolean("auto_center_on_start", true)
+            val autoCenter = prefs.getBoolean(SettingsKeys.AUTO_CENTER_ON_START, SettingsDefaults.AUTO_CENTER_ON_START)
 
             // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
             val lastVersionName = prefs.getString("last_version_name", "") ?: ""
@@ -1240,7 +1240,7 @@ class MainActivity : AppCompatActivity() {
                 ""
             }
 
-            val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+            val currentFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
             if (currentVersionName != lastVersionName) {
                 if (currentFisherman.isEmpty()) {
                     checkDefaultFisherman()
@@ -1273,8 +1273,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateMapTileSource() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val mapSource = prefs.getString("map_source", "OSM")
-        val apiKey = prefs.getString("mml_api_key", "") ?: ""
+        val mapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
+        val apiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
 
         when (mapSource) {
             "TRAFICOM_SEA" -> {
@@ -1304,11 +1304,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateScaleBar() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val showScale = prefs.getBoolean("show_scale_bar", false)
-        val showMeasurement = prefs.getBoolean("show_measurement_tool", false)
-        val apiKey = prefs.getString("mml_api_key", "") ?: ""
-        val showQuickMap = prefs.getBoolean("show_quick_map_source", false)
-        val mapSource = prefs.getString("map_source", "OSM")
+        val showScale = prefs.getBoolean(SettingsKeys.SHOW_SCALE_BAR, SettingsDefaults.SHOW_SCALE_BAR)
+        val showMeasurement = prefs.getBoolean(SettingsKeys.SHOW_MEASUREMENT_TOOL, SettingsDefaults.SHOW_MEASUREMENT_TOOL)
+        val apiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
+        val showQuickMap = prefs.getBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
+        val mapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
         val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA" || mapSource == "TRAFICOM_BOATING"
 
         val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
@@ -1478,7 +1478,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkDefaultFisherman() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val currentFisherman = prefs.getString("default_fisherman", "") ?: ""
+        val currentFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
 
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
@@ -1501,7 +1501,7 @@ class MainActivity : AppCompatActivity() {
             .setView(layout)
             .setPositiveButton("Tallenna") { _, _ ->
                 val newFisherman = input.text.toString().trim()
-                prefs.edit().putString("default_fisherman", newFisherman).apply()
+                prefs.edit().putString(SettingsKeys.DEFAULT_FISHERMAN, newFisherman).apply()
                 updateDefaultFishermanUI()
             }
             .setNegativeButton("Ohita", null)
@@ -1510,8 +1510,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateDefaultFishermanUI() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val rawFisherman = prefs.getString("default_fisherman", "") ?: ""
-        val showOnMap = prefs.getBoolean("show_fisherman_on_map", false)
+        val rawFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+        val showOnMap = prefs.getBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, SettingsDefaults.SHOW_FISHERMAN_ON_MAP)
         val textView = findViewById<TextView>(R.id.defaultFishermanText) ?: return
 
         if (showOnMap && rawFisherman.isNotEmpty()) {
@@ -1524,7 +1524,7 @@ class MainActivity : AppCompatActivity() {
             textView.visibility = android.view.View.VISIBLE
             textView.text = fisherman
 
-            val mapSource = prefs.getString("map_source", "OSM")
+            val mapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
             val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
             val color = if (useBlack) {
                 ContextCompat.getColor(this, android.R.color.black)
@@ -1552,7 +1552,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val isEnabled = prefs.getBoolean("weather_enabled", true)
+        val isEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
         if (!isEnabled) return
 
         // Haetaan kaikki sääasemat muistiin taustalla, jos niitä ei vielä ole
@@ -1625,7 +1625,7 @@ class MainActivity : AppCompatActivity() {
             shortcutButton.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             
             // Palautetaan normaali reunusväri karttapohjan mukaan
-            val currentMapSource = prefs.getString("map_source", "OSM")
+            val currentMapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
             val useBlack = currentMapSource == "MML_MAASTO" || currentMapSource == "MML_ILMA" || currentMapSource == "TRAFICOM_SEA" || currentMapSource == "TRAFICOM_BOATING"
             val color = if (useBlack) {
                 ContextCompat.getColor(this, android.R.color.black)
@@ -1681,7 +1681,7 @@ class MainActivity : AppCompatActivity() {
         
         // Luetaan tallennusväli asetuksista
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        recordingIntervalSeconds = prefs.getInt("min_track_point_interval", 30)
+        recordingIntervalSeconds = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
 
         // Yhdistetään FishingSessionServiceen
         Intent(this, FishingSessionService::class.java).also { intent ->
@@ -1767,10 +1767,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun continueFishingSession(session: FishingSession) {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val locInt = prefs.getInt("location_check_interval", 10)
-        val minInt = prefs.getInt("min_track_point_interval", 30)
-        val maxInt = prefs.getInt("max_track_point_interval", 300)
-        val minDist = prefs.getInt("min_track_point_distance", 20)
+        val locInt = prefs.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
+        val minInt = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
+        val maxInt = prefs.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
+        val minDist = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
 
         val intent = Intent(this, FishingSessionService::class.java).apply {
             putExtra("LOCATION_CHECK_INTERVAL", locInt)
@@ -2093,7 +2093,7 @@ class MainActivity : AppCompatActivity() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_ON) {
                     val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                    if (prefs.getBoolean("auto_center_on_start", true) && !isSelectionMode) {
+                    if (prefs.getBoolean(SettingsKeys.AUTO_CENTER_ON_START, SettingsDefaults.AUTO_CENTER_ON_START) && !isSelectionMode) {
                         val myLocation = locationOverlay.myLocation
                         if (myLocation != null) {
                             map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
