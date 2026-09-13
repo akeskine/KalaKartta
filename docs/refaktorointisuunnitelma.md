@@ -71,6 +71,66 @@ Hyväksymiskriteerit:
 
 Huomio: tarkoitus ei ole rakentaa täydellistä käyttöliittymätestistöä ennen ensimmäistä refaktorointia. Ensin suojataan liiketoimintakäyttäytymisen ja pysyvän datan rajapinnat.
 
+### Vaiheen 0 toteutustilanne
+
+13.9.2026 lisätty testiturvaverkko kattaa seuraavat kokonaisuudet:
+
+- oletuslajien ja kiinnostavien paikkatyyppien identiteetit, järjestyksen ja ikonit
+- `FilterManager`-suodattimien kaikkien kenttien tallennus/luku sekä tyhjennys
+- Room-tietokannan käyttödatan tyhjennys ja oletusreferenssidatan palautus
+- reitti- ja heatmap-kyselyiden aika-, alue- ja nopeusrajat
+- aiemmat JSON-yhteensopivuustestit säilyvät osana yksikkötestikokonaisuutta
+
+Varmistetut komennot:
+
+```text
+.\gradlew.bat :app:testDebugUnitTest --no-daemon
+.\gradlew.bat :app:connectedDebugAndroidTest --no-daemon
+```
+
+Molemmat komennot menevät läpi. Instrumentointitestejä ajettiin yhteensä 9 Android 16 -laitteella; uusia testitapauksia näistä on 8.
+
+Vaiheessa tarkoituksella dokumentoidut aukot:
+
+- `SettingsManager`in koko UI-polun oletusarvoja ei testata suoraan, koska asetusten luku on hajautunut Activity-sidonnaiseen UI-koodiin. Tämä on vaiheiden 1–2 tavoite: ensin avaimet ja oletusarvot keskitetään testattavaan rajapintaan.
+- Importin duplikaattien konfliktitilat ovat `ImportExportManager`in Activity-sidonnaista sisäistä logiikkaa. Niille tehdään erillinen testattava rajapinta ennen import-logiikan refaktorointia; nykyiset JSON-serialisoinnin ja -yhteensopivuuden testit toimivat turvaverkon perustana.
+- Manuaalinen käyttöliittymän smoke-testi jää laite/emulaattorikohtaiseksi tarkistuslistaksi, ei automaattisen vaiheen 0 testiksi.
+
+Käännöksessä raportoidaan edelleen `SettingsManager.kt`:n vanhentuneet `getColor`- ja `startActivityForResult`-kutsut. Ne ovat vaiheeseen 1 kuuluvaa teknistä velkaa, eivätkä tässä vaiheessa aiheuttaneet toiminnallista testivirhettä.
+
+Keskeinen `settings`-preferenssien inventaario ennen keskittämistä:
+
+| Avain | Oletus | Pääasiallinen käyttö |
+|---|---:|---|
+| `heatmap_enabled` | `false` | Heatmap |
+| `fishing_routes_enabled` | `false` | Reitit |
+| `heatmap_filter_enabled` / `routes_filter_enabled` | `false` | Suodatuksen käyttö |
+| `heatmap_auto_configure` | `true` | Heatmapin pistealue |
+| `heatmap_grid_size` | `300.0` m | Heatmap-solun koko |
+| `heatmap_min_points` / `heatmap_max_points` | `1` / `50` | Heatmapin piste-/solurajat |
+| `max_track_points` / `max_heatmap_cells` | `50000` / `10000` | Laskennan turvarajat |
+| `heatmap_remove_transitions` | `false` | Siirtymien poisto |
+| `heatmap_remove_transitions_mode` | `0` | Poiston kohde |
+| `heatmap_max_speed` | `10.0` | Nopeusraja |
+| `heatmap_min_zoom` | `10.0` | Näkyvyysraja |
+| `heatmap_reference_latitude` | `64.7` | Metri-/aste-muunnos |
+| `routes_fade_enabled` | `true` | Reittien häivytys |
+| `routes_fade_start_days` / `routes_fade_full_days` | `365` / `30` | Häivytysrajat |
+| `map_source` | `OSM` | Taustakartta |
+| `mml_api_key` | `""` | MML-karttojen avain |
+| `weather_enabled` | `true` | Säätietojen haku |
+| `show_live_session_route` | `true` | Aktiivisen session reitti |
+| `location_check_interval` | `10` s | Sijaintipäivitys |
+| `min_track_point_interval` / `max_track_point_interval` | `30` / `300` s | Reittipisteiden aikarajat |
+| `min_track_point_distance` | `20` m | Reittipisteiden etäisyysraja |
+| `show_scale_bar` / `show_measurement_tool` | `false` / `false` | Kartan työkalut |
+| `auto_center_on_start` | `true` | Kartan aloituskeskitys |
+| `talking_clock_enabled` | `false` | Puhuva kello |
+| `talking_clock_interval` | `30` min | Puhuvan kellon väli |
+| `fish_icon_scale` / `other_icon_scale` | `1.0` / `1.0` | Markerien koko |
+
+Suodattimet ovat erillisessä `filters`-preferenssissä. Niiden tyhjä oletustila on `FilterManager.Filters()`, ja `weightLengthOperator`-oletus on `OR`. Koordinaatit tallennetaan nykyisessä toteutuksessa `Float`-arvoina; tämä säilytetään yhteensopivuussyistä, kunnes erillinen muutos arvioi tarkkuuden.
+
 ## Vaihe 1: Matalan riskin rakenteelliset parannukset
 
 **Riski:** matala  
