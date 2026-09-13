@@ -59,6 +59,25 @@ class SettingsStoreTest {
         assertEquals(2, store.talkingClockSunsetLimit)
         assertEquals(2, store.talkingClockSunriseLimit)
         assertFalse(store.isTalkingClockWeatherEnabled(3))
+        assertFalse(store.heatmapEnabled)
+        assertFalse(store.fishingRoutesEnabled)
+        assertFalse(store.heatmapFilterEnabled)
+        assertFalse(store.routesFilterEnabled)
+        assertFalse(store.showHeatmapShortcut)
+        assertEquals(0, store.heatmapShortcutMode)
+        assertEquals(300.0f, store.heatmapGridSize)
+        assertTrue(store.heatmapAutoConfigure)
+        assertEquals(1, store.heatmapMinPoints)
+        assertEquals(1, store.heatmapMinPointsByPoints)
+        assertEquals(1, store.heatmapMinPointsBySessions)
+        assertEquals(50, store.heatmapMaxPoints)
+        assertEquals(50, store.heatmapMaxPointsByPoints)
+        assertEquals(5, store.heatmapMaxPointsBySessions)
+        assertEquals(10.0f, store.heatmapMaxSpeed)
+        assertEquals(10.0f, store.heatmapMinZoom)
+        assertEquals(50_000, store.maxTrackPoints)
+        assertEquals(10_000, store.maxHeatmapCells)
+        assertEquals(64.7f, store.heatmapReferenceLatitude)
         assertTrue(store.isQuickMapSourceEnabled("OSM", true))
     }
 
@@ -91,6 +110,31 @@ class SettingsStoreTest {
         store.talkingClockSunsetLimit = 4
         store.talkingClockSunriseLimit = 6
         store.setTalkingClockWeatherEnabled(3, true)
+        store.heatmapEnabled = true
+        store.fishingRoutesEnabled = true
+        store.heatmapFilterEnabled = true
+        store.routesFilterEnabled = true
+        store.heatmapShortcutMode = 2
+        store.heatmapGridSize = 500.0f
+        store.heatmapAutoConfigure = false
+        store.heatmapMinPoints = 3
+        store.heatmapMinPointsByPoints = 4
+        store.heatmapMinPointsBySessions = 5
+        store.heatmapMaxPoints = 100
+        store.heatmapMaxPointsByPoints = 110
+        store.heatmapMaxPointsBySessions = 120
+        store.routesFadeEnabled = false
+        store.routesFadeStartDays = 100
+        store.routesFadeFullDays = 20
+        store.heatmapRemoveTransitions = true
+        store.heatmapRemoveTransitionsMode = 1
+        store.heatmapMaxSpeed = 12.5f
+        store.heatmapMinZoom = 8.0f
+        store.maxTrackPoints = 20_000
+        store.maxHeatmapCells = 5_000
+        store.heatmapReferenceLatitude = 60.2f
+        store.setHeatmapColor("Violetti")
+        store.setHeatmapCalculationMethod("Sessions")
         store.setQuickMapSourceEnabled("MML_MAASTO", true)
 
         assertTrue(store.showScaleBar)
@@ -120,6 +164,31 @@ class SettingsStoreTest {
         assertEquals(4, store.talkingClockSunsetLimit)
         assertEquals(6, store.talkingClockSunriseLimit)
         assertTrue(store.isTalkingClockWeatherEnabled(3))
+        assertTrue(store.heatmapEnabled)
+        assertTrue(store.fishingRoutesEnabled)
+        assertTrue(store.heatmapFilterEnabled)
+        assertTrue(store.routesFilterEnabled)
+        assertEquals(2, store.heatmapShortcutMode)
+        assertEquals(500.0f, store.heatmapGridSize)
+        assertFalse(store.heatmapAutoConfigure)
+        assertEquals(3, store.heatmapMinPoints)
+        assertEquals(4, store.heatmapMinPointsByPoints)
+        assertEquals(5, store.heatmapMinPointsBySessions)
+        assertEquals(100, store.heatmapMaxPoints)
+        assertEquals(110, store.heatmapMaxPointsByPoints)
+        assertEquals(120, store.heatmapMaxPointsBySessions)
+        assertFalse(store.routesFadeEnabled)
+        assertEquals(100, store.routesFadeStartDays)
+        assertEquals(20, store.routesFadeFullDays)
+        assertTrue(store.heatmapRemoveTransitions)
+        assertEquals(1, store.heatmapRemoveTransitionsMode)
+        assertEquals(12.5f, store.heatmapMaxSpeed)
+        assertEquals(8.0f, store.heatmapMinZoom)
+        assertEquals(20_000, store.maxTrackPoints)
+        assertEquals(5_000, store.maxHeatmapCells)
+        assertEquals(60.2f, store.heatmapReferenceLatitude)
+        assertEquals("Violetti", store.getHeatmapColor("Punainen"))
+        assertEquals("Sessions", store.getHeatmapCalculationMethod("Points"))
         assertTrue(store.isQuickMapSourceEnabled("MML_MAASTO", false))
     }
 }

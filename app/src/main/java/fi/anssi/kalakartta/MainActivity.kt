@@ -828,22 +828,16 @@ class MainActivity : AppCompatActivity() {
             })
 
             // Tehtävä 1: Sovelluksen käynnistyessä aseta aina heat map-ruutujen ja reittien näyttäminen pois päältä.
-            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
             if (savedInstanceState == null) {
-                prefs.edit()
-                    .putBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
-                    .putBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
-                    .apply()
+                settingsStore.heatmapEnabled = SettingsDefaults.HEATMAP_ENABLED
+                settingsStore.fishingRoutesEnabled = SettingsDefaults.FISHING_ROUTES_ENABLED
             }
 
             // Migraatio vanhasta pikanäppäin-asetuksesta
-            if (!prefs.contains(SettingsKeys.HEATMAP_SHORTCUT_MODE)) {
-                val oldVal = prefs.getBoolean(
-                    SettingsKeys.SHOW_HEATMAP_SHORTCUT,
-                    SettingsDefaults.SHOW_HEATMAP_SHORTCUT
-                )
+            if (!settingsStore.hasHeatmapShortcutModeSetting()) {
+                val oldVal = settingsStore.showHeatmapShortcut
                 val newVal = if (oldVal) 3 else 0
-                prefs.edit().putInt(SettingsKeys.HEATMAP_SHORTCUT_MODE, newVal).apply()
+                settingsStore.heatmapShortcutMode = newVal
             }
 
             markerManager = MarkerManager(this, map, db) { marker ->
@@ -942,13 +936,9 @@ class MainActivity : AppCompatActivity() {
             }
 
             findViewById<MaterialButton>(R.id.heatmapShortcutButton).setOnClickListener {
-                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val shortcutMode = prefs.getInt(
-                    SettingsKeys.HEATMAP_SHORTCUT_MODE,
-                    SettingsDefaults.HEATMAP_SHORTCUT_MODE
-                )
-                val heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
-                val routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
+                val shortcutMode = settingsStore.heatmapShortcutMode
+                val heatmapEnabled = settingsStore.heatmapEnabled
+                val routesEnabled = settingsStore.fishingRoutesEnabled
 
                 val (newHeatmap, newRoutes) = when (shortcutMode) {
                     1 -> Pair(!heatmapEnabled, routesEnabled) // Kalastetut alueet: kytkee heat mapin päälle/pois
@@ -969,18 +959,14 @@ class MainActivity : AppCompatActivity() {
                 if (checkingHeatmap || checkingRoutes) {
                     settingsManager.checkLimits(checkingHeatmap, checkingRoutes) { success ->
                         if (success) {
-                            prefs.edit().apply {
-                                putBoolean(SettingsKeys.HEATMAP_ENABLED, newHeatmap)
-                                putBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, newRoutes)
-                            }.apply()
+                            settingsStore.heatmapEnabled = newHeatmap
+                            settingsStore.fishingRoutesEnabled = newRoutes
                             updateFishingHeatmap()
                         }
                     }
                 } else {
-                    prefs.edit().apply {
-                        putBoolean(SettingsKeys.HEATMAP_ENABLED, newHeatmap)
-                        putBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, newRoutes)
-                    }.apply()
+                    settingsStore.heatmapEnabled = newHeatmap
+                    settingsStore.fishingRoutesEnabled = newRoutes
                     updateFishingHeatmap()
                 }
             }
@@ -1233,6 +1219,7 @@ class MainActivity : AppCompatActivity() {
 
             // Automaattinen kohdistus sovelluksen avauksessa
             val autoCenter = settingsStore.autoCenterOnStart
+            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
 
             // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
             val lastVersionName = prefs.getString("last_version_name", "") ?: ""
@@ -1305,7 +1292,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateScaleBar() {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val showScale = settingsStore.showScaleBar
         val showMeasurement = settingsStore.showMeasurementTool
         val showQuickMap = settingsStore.showQuickMapSource
@@ -1397,10 +1383,7 @@ class MainActivity : AppCompatActivity() {
         myLocationButton.requestLayout()
         addCatchButton.requestLayout()
         updateDefaultFishermanUI()
-        val shortcutMode = prefs.getInt(
-            SettingsKeys.HEATMAP_SHORTCUT_MODE,
-            SettingsDefaults.HEATMAP_SHORTCUT_MODE
-        )
+        val shortcutMode = settingsStore.heatmapShortcutMode
         findViewById<MaterialButton>(R.id.heatmapShortcutButton).visibility = 
             if (shortcutMode > 0) android.view.View.VISIBLE else android.view.View.GONE
 
@@ -1588,9 +1571,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateFishingHeatmap() {
         if (!::db.isInitialized) return
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
-        val routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
+        val heatmapEnabled = settingsStore.heatmapEnabled
+        val routesEnabled = settingsStore.fishingRoutesEnabled
 
         if (heatmapEnabled || routesEnabled) {
             if (heatmapOverlay == null) {
@@ -1608,7 +1590,7 @@ class MainActivity : AppCompatActivity() {
         
         val shortcutButton = findViewById<MaterialButton>(R.id.heatmapShortcutButton)
         if (heatmapEnabled || routesEnabled) {
-            val colorStr = prefs.getString(SettingsKeys.HEATMAP_COLOR, "Punainen")
+            val colorStr = settingsStore.getHeatmapColor("Punainen")
             val baseColor = when (colorStr) {
                 "Violetti" -> Color.rgb(128, 0, 128)
                 "Vihreä" -> Color.GREEN

@@ -24,6 +24,7 @@ import kotlin.math.roundToInt
 class FishingHeatmapOverlay(private val context: Context, private val db: AppDatabase, private val mapView: MapView) : Overlay() {
 
     private val scope = CoroutineScope(Dispatchers.Main)
+    private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     private var dataJob: Job? = null
     
     // Ruudun koko metreinä
@@ -73,7 +74,6 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     }
 
     fun refreshSettings(): Boolean {
-        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val oldGridSize = gridSizeMeters
         val oldHeatmapEnabled = heatmapEnabled
         val oldRoutesEnabled = routesEnabled
@@ -84,55 +84,31 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val oldRoutesFadeStartLimitDays = routesFadeStartLimitDays
         val oldRoutesFadeFullLimitDays = routesFadeFullLimitDays
 
-        gridSizeMeters = prefs.getFloat(
-            SettingsKeys.HEATMAP_GRID_SIZE,
-            SettingsDefaults.HEATMAP_GRID_SIZE
-        ).toDouble().coerceAtLeast(1.0)
-        autoConfigure = prefs.getBoolean(SettingsKeys.HEATMAP_AUTO_CONFIGURE, SettingsDefaults.HEATMAP_AUTO_CONFIGURE)
+        gridSizeMeters = settingsStore.heatmapGridSize.toDouble().coerceAtLeast(1.0)
+        autoConfigure = settingsStore.heatmapAutoConfigure
         minPoints = if (autoConfigure) {
             SettingsDefaults.HEATMAP_MIN_POINTS
         } else {
-            prefs.getInt(SettingsKeys.HEATMAP_MIN_POINTS, SettingsDefaults.HEATMAP_MIN_POINTS).coerceAtLeast(1)
+            settingsStore.heatmapMinPoints.coerceAtLeast(1)
         }
-        maxPoints = prefs.getInt(SettingsKeys.HEATMAP_MAX_POINTS, SettingsDefaults.HEATMAP_MAX_POINTS)
+        maxPoints = settingsStore.heatmapMaxPoints
             .coerceAtLeast(minPoints + 1)
-        heatmapEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_ENABLED, SettingsDefaults.HEATMAP_ENABLED)
-        routesEnabled = prefs.getBoolean(SettingsKeys.FISHING_ROUTES_ENABLED, SettingsDefaults.FISHING_ROUTES_ENABLED)
-        heatmapFilterEnabled = prefs.getBoolean(SettingsKeys.HEATMAP_FILTER_ENABLED, SettingsDefaults.HEATMAP_FILTER_ENABLED)
-        routesFilterEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FILTER_ENABLED, SettingsDefaults.ROUTES_FILTER_ENABLED)
-        routesFadeEnabled = prefs.getBoolean(
-            SettingsKeys.ROUTES_FADE_ENABLED,
-            SettingsDefaults.ROUTES_FADE_ENABLED
-        )
-        routesFadeStartLimitDays = prefs.getInt(
-            SettingsKeys.ROUTES_FADE_START_DAYS,
-            SettingsDefaults.ROUTES_FADE_START_DAYS
-        )
-        routesFadeFullLimitDays = prefs.getInt(
-            SettingsKeys.ROUTES_FADE_FULL_DAYS,
-            SettingsDefaults.ROUTES_FADE_FULL_DAYS
-        )
-        calculationMethod = prefs.getString(
-            SettingsKeys.HEATMAP_CALCULATION_METHOD,
-            context.getString(R.string.heatmap_method_points)
-        ) ?: context.getString(R.string.heatmap_method_points)
-        removeTransitions = prefs.getBoolean(
-            SettingsKeys.HEATMAP_REMOVE_TRANSITIONS,
-            SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS
-        )
-        removeTransitionsMode = prefs.getInt(
-            SettingsKeys.HEATMAP_REMOVE_TRANSITIONS_MODE,
-            SettingsDefaults.HEATMAP_REMOVE_TRANSITIONS_MODE
-        )
-        maxSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
-        minZoomLevel = prefs.getFloat(SettingsKeys.HEATMAP_MIN_ZOOM, SettingsDefaults.HEATMAP_MIN_ZOOM).toDouble()
-        maxTrackPoints = prefs.getInt(SettingsKeys.MAX_TRACK_POINTS, SettingsDefaults.MAX_TRACK_POINTS)
-        referenceLatitude = prefs.getFloat(
-            SettingsKeys.HEATMAP_REFERENCE_LATITUDE,
-            SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
-        ).toDouble()
+        heatmapEnabled = settingsStore.heatmapEnabled
+        routesEnabled = settingsStore.fishingRoutesEnabled
+        heatmapFilterEnabled = settingsStore.heatmapFilterEnabled
+        routesFilterEnabled = settingsStore.routesFilterEnabled
+        routesFadeEnabled = settingsStore.routesFadeEnabled
+        routesFadeStartLimitDays = settingsStore.routesFadeStartDays
+        routesFadeFullLimitDays = settingsStore.routesFadeFullDays
+        calculationMethod = settingsStore.getHeatmapCalculationMethod(context.getString(R.string.heatmap_method_points))
+        removeTransitions = settingsStore.heatmapRemoveTransitions
+        removeTransitionsMode = settingsStore.heatmapRemoveTransitionsMode
+        maxSpeed = settingsStore.heatmapMaxSpeed
+        minZoomLevel = settingsStore.heatmapMinZoom.toDouble()
+        maxTrackPoints = settingsStore.maxTrackPoints
+        referenceLatitude = settingsStore.heatmapReferenceLatitude.toDouble()
 
-        val colorStr = prefs.getString(SettingsKeys.HEATMAP_COLOR, "Punainen")
+        val colorStr = settingsStore.getHeatmapColor("Punainen")
         baseColor = when (colorStr) {
             "Violetti" -> Color.rgb(128, 0, 128)
             "Vihreä" -> Color.GREEN
@@ -562,11 +538,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 minPoints = 1
                 
                 // Tallennetaan lasketut arvot, jotta SettingsManager voi näyttää ne
-                val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                prefs.edit()
-                    .putInt(SettingsKeys.HEATMAP_MIN_POINTS, minPoints)
-                    .putInt(SettingsKeys.HEATMAP_MAX_POINTS, maxPoints)
-                    .apply()
+                settingsStore.heatmapMinPoints = minPoints
+                settingsStore.heatmapMaxPoints = maxPoints
             }
             
             mapView.invalidate()
