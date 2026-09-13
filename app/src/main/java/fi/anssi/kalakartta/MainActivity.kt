@@ -1553,7 +1553,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val isEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
+        val isEnabled = settingsStore.weatherEnabled
         if (!isEnabled) return
 
         // Haetaan kaikki sääasemat muistiin taustalla, jos niitä ei vielä ole

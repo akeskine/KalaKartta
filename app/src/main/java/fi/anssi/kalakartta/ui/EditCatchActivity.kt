@@ -40,6 +40,10 @@ import java.util.*
 
 class EditCatchActivity : AppCompatActivity() {
 
+    private val settingsStore by lazy {
+        SettingsStore(getSharedPreferences("settings", MODE_PRIVATE))
+    }
+
     private lateinit var db: AppDatabase
     private var fishCatch: FishCatch? = null
     private var placeOfInterest: PlaceOfInterest? = null
@@ -531,8 +535,7 @@ class EditCatchActivity : AppCompatActivity() {
                 originalWeatherTime = fc.weatherTime ?: 0L
                 originalWeatherStation = fc.weatherStation ?: ""
                 
-                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val isWeatherEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
+                val isWeatherEnabled = settingsStore.weatherEnabled
                 
                 if (isWeatherEnabled && fc.caughtAt != null && fc.caughtAt!! > 0L) {
                     autoWeatherCheckBox.visibility = View.VISIBLE
@@ -839,8 +842,7 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun setupWeatherForNewCatch(lat: Double, lon: Double) {
         android.util.Log.d("KalaKartta", "setupWeatherForNewCatch: lat=$lat, lon=$lon")
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        if (prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)) {
+        if (settingsStore.weatherEnabled) {
             autoWeatherCheckBox.visibility = View.VISIBLE
             autoWeatherCheckBox.isChecked = true
             weatherService.fetchNearestStations(lat, lon, selectedCalendar.timeInMillis, 1) { stations, _ ->
@@ -918,8 +920,7 @@ class EditCatchActivity : AppCompatActivity() {
                 updateDateTimeButtonText()
                 updateMoonData()
                 refreshDiaryLinks()
-                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val isWeatherEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
+                val isWeatherEnabled = settingsStore.weatherEnabled
                 autoWeatherCheckBox.visibility = if (isWeatherEnabled) View.VISIBLE else View.GONE
                 if (autoWeatherCheckBox.isChecked) fetchWeatherForDisplay()
                 else fetchPressureHistoryForCurrentTime()

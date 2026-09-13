@@ -70,6 +70,50 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, SettingsDefaults.SHOW_FISHERMAN_ON_MAP)
         set(value) { preferences.edit().putBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, value).apply() }
 
+    var weatherEnabled: Boolean
+        get() = preferences.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.WEATHER_ENABLED, value).apply() }
+
+    var talkingClockEnabled: Boolean
+        get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, value).apply() }
+
+    var talkingClockOnlyFishing: Boolean
+        get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, SettingsDefaults.TALKING_CLOCK_ONLY_FISHING)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, value).apply() }
+
+    var talkingClockInterval: Int
+        get() = preferences.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
+        set(value) { preferences.edit().putInt(SettingsKeys.TALKING_CLOCK_INTERVAL, value).apply() }
+
+    var talkingClockSalutation: String
+        get() = preferences.getString(SettingsKeys.TALKING_CLOCK_SALUTATION, SettingsDefaults.TALKING_CLOCK_SALUTATION) ?: SettingsDefaults.TALKING_CLOCK_SALUTATION
+        set(value) { preferences.edit().putString(SettingsKeys.TALKING_CLOCK_SALUTATION, value).apply() }
+
+    var talkingClockBattery: Boolean
+        get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, SettingsDefaults.TALKING_CLOCK_BATTERY)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, value).apply() }
+
+    var talkingClockWeather: Boolean
+        get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, SettingsDefaults.TALKING_CLOCK_WEATHER)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, value).apply() }
+
+    var talkingClockSunset: Boolean
+        get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, SettingsDefaults.TALKING_CLOCK_SUNSET)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, value).apply() }
+
+    var talkingClockSunrise: Boolean
+        get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, SettingsDefaults.TALKING_CLOCK_SUNRISE)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, value).apply() }
+
+    var talkingClockSunsetLimit: Int
+        get() = preferences.getInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNSET_LIMIT)
+        set(value) { preferences.edit().putInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, value).apply() }
+
+    var talkingClockSunriseLimit: Int
+        get() = preferences.getInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNRISE_LIMIT)
+        set(value) { preferences.edit().putInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, value).apply() }
+
     fun isQuickMapSourceEnabled(mapSourceId: String, default: Boolean): Boolean =
         preferences.getBoolean(SettingsKeys.quickSelect(mapSourceId), default)
 
@@ -79,4 +123,14 @@ class SettingsStore(private val preferences: SharedPreferences) {
 
     fun hasQuickMapSourceSetting(mapSourceId: String): Boolean =
         preferences.contains(SettingsKeys.quickSelect(mapSourceId))
+
+    fun isTalkingClockWeatherEnabled(hours: Int, default: Boolean = SettingsDefaults.TALKING_CLOCK_WEATHER_OPTION_ENABLED): Boolean =
+        preferences.getBoolean(SettingsKeys.talkingClockWeather(hours), default)
+
+    fun setTalkingClockWeatherEnabled(hours: Int, enabled: Boolean) {
+        preferences.edit().putBoolean(SettingsKeys.talkingClockWeather(hours), enabled).apply()
+    }
+
+    fun hasTalkingClockWeatherSetting(hours: Int): Boolean =
+        preferences.contains(SettingsKeys.talkingClockWeather(hours))
 }

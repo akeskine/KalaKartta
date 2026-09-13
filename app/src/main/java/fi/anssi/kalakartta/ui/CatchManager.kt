@@ -409,8 +409,7 @@ class CatchManager(
             }
 
             // Haetaan säätiedot automaattisesti jos asetus on päällä
-            val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val weatherEnabled = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
+            val weatherEnabled = settingsStore.weatherEnabled
             if (weatherEnabled) {
                 val catchInfo = "ID: $id (uusi)"
                 weatherService.fetchWeatherFromMultipleStations(point.latitude, point.longitude, caughtAt, null, catchInfo) { data, obsTime, _, stations ->

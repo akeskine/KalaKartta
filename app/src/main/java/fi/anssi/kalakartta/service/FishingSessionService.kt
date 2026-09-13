@@ -197,9 +197,9 @@ class FishingSessionService : Service() {
                 requestLocationUpdates()
                 
                 // Käynnistetään kello jos asetus päällä
-                if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, SettingsDefaults.TALKING_CLOCK_ONLY_FISHING)) {
-                    prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, true).apply()
-                    val interval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
+                if (settingsStore.talkingClockOnlyFishing) {
+                    settingsStore.talkingClockEnabled = true
+                    val interval = settingsStore.talkingClockInterval
                     val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
                         putExtra("interval", interval)
                         action = "SESSION_STARTED"
@@ -255,9 +255,10 @@ class FishingSessionService : Service() {
 
                 // Käynnistetään kello jos asetus päällä
                 val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, SettingsDefaults.TALKING_CLOCK_ONLY_FISHING)) {
-                    prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, true).apply()
-                    val interval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
+                val settingsStore = SettingsStore(prefs)
+                if (settingsStore.talkingClockOnlyFishing) {
+                    settingsStore.talkingClockEnabled = true
+                    val interval = settingsStore.talkingClockInterval
                     val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
                         putExtra("interval", interval)
                         action = "SESSION_STARTED"
@@ -308,8 +309,9 @@ class FishingSessionService : Service() {
                 
                 // Pysäytetään kello jos asetus päällä
                 val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, SettingsDefaults.TALKING_CLOCK_ONLY_FISHING)) {
-                    prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, false).apply()
+                val settingsStore = SettingsStore(prefs)
+                if (settingsStore.talkingClockOnlyFishing) {
+                    settingsStore.talkingClockEnabled = false
                     val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
                         action = "SESSION_ENDED"
                         putExtra("duration_ms", durationMs)

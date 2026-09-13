@@ -47,6 +47,18 @@ class SettingsStoreTest {
         assertEquals(20, store.minTrackPointDistance)
         assertEquals("", store.defaultFisherman)
         assertFalse(store.showFishermanOnMap)
+        assertTrue(store.weatherEnabled)
+        assertFalse(store.talkingClockEnabled)
+        assertFalse(store.talkingClockOnlyFishing)
+        assertEquals(30, store.talkingClockInterval)
+        assertEquals("", store.talkingClockSalutation)
+        assertFalse(store.talkingClockBattery)
+        assertFalse(store.talkingClockWeather)
+        assertFalse(store.talkingClockSunset)
+        assertFalse(store.talkingClockSunrise)
+        assertEquals(2, store.talkingClockSunsetLimit)
+        assertEquals(2, store.talkingClockSunriseLimit)
+        assertFalse(store.isTalkingClockWeatherEnabled(3))
         assertTrue(store.isQuickMapSourceEnabled("OSM", true))
     }
 
@@ -67,6 +79,18 @@ class SettingsStoreTest {
         store.minTrackPointDistance = 100
         store.defaultFisherman = "Test Fisherman"
         store.showFishermanOnMap = true
+        store.weatherEnabled = false
+        store.talkingClockEnabled = true
+        store.talkingClockOnlyFishing = true
+        store.talkingClockInterval = 10
+        store.talkingClockSalutation = "Hei"
+        store.talkingClockBattery = true
+        store.talkingClockWeather = true
+        store.talkingClockSunset = true
+        store.talkingClockSunrise = true
+        store.talkingClockSunsetLimit = 4
+        store.talkingClockSunriseLimit = 6
+        store.setTalkingClockWeatherEnabled(3, true)
         store.setQuickMapSourceEnabled("MML_MAASTO", true)
 
         assertTrue(store.showScaleBar)
@@ -84,6 +108,18 @@ class SettingsStoreTest {
         assertEquals(100, store.minTrackPointDistance)
         assertEquals("Test Fisherman", store.defaultFisherman)
         assertTrue(store.showFishermanOnMap)
+        assertFalse(store.weatherEnabled)
+        assertTrue(store.talkingClockEnabled)
+        assertTrue(store.talkingClockOnlyFishing)
+        assertEquals(10, store.talkingClockInterval)
+        assertEquals("Hei", store.talkingClockSalutation)
+        assertTrue(store.talkingClockBattery)
+        assertTrue(store.talkingClockWeather)
+        assertTrue(store.talkingClockSunset)
+        assertTrue(store.talkingClockSunrise)
+        assertEquals(4, store.talkingClockSunsetLimit)
+        assertEquals(6, store.talkingClockSunriseLimit)
+        assertTrue(store.isTalkingClockWeatherEnabled(3))
         assertTrue(store.isQuickMapSourceEnabled("MML_MAASTO", false))
     }
 }

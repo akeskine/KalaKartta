@@ -31,6 +31,7 @@ import fi.anssi.kalakartta.utils.SunService
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsKeys
+import fi.anssi.kalakartta.ui.SettingsStore
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 
@@ -361,29 +362,29 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         val hour = now.get(Calendar.HOUR_OF_DAY)
         val minute = now.get(Calendar.MINUTE)
         
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val salutation = prefs.getString(SettingsKeys.TALKING_CLOCK_SALUTATION, SettingsDefaults.TALKING_CLOCK_SALUTATION) ?: SettingsDefaults.TALKING_CLOCK_SALUTATION
+        val settingsStore = SettingsStore(getSharedPreferences("settings", Context.MODE_PRIVATE))
+        val salutation = settingsStore.talkingClockSalutation
         
         var text = formatTimeFinnish(hour, minute)
         if (salutation.isNotEmpty()) {
             text = "$salutation $text"
         }
 
-        val sunText = getSunTimeSpeech(lastKnownLocation, prefs)
+        val sunText = getSunTimeSpeech(lastKnownLocation, settingsStore)
         if (sunText.isNotEmpty()) {
             text = "$text $sunText"
         }
 
-        if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, SettingsDefaults.TALKING_CLOCK_BATTERY)) {
+        if (settingsStore.talkingClockBattery) {
             val batteryLevel = getBatteryLevel()
             if (batteryLevel != -1) {
                 text = "$text Akun varaus on $batteryLevel prosenttia."
             }
         }
 
-        val targetHours = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, SettingsDefaults.TALKING_CLOCK_WEATHER)) {
+        val targetHours = if (settingsStore.talkingClockWeather) {
             listOf(1, 3, 6, 12).filter { hours ->
-                prefs.getBoolean(SettingsKeys.talkingClockWeather(hours), SettingsDefaults.TALKING_CLOCK_WEATHER_OPTION_ENABLED)
+                settingsStore.isTalkingClockWeatherEnabled(hours)
             }
         } else {
             emptyList()
@@ -413,8 +414,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     private fun speakSessionStarted() {
         if (!isTtsInitialized || isEnding) return
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val salutation = prefs.getString(SettingsKeys.TALKING_CLOCK_SALUTATION, SettingsDefaults.TALKING_CLOCK_SALUTATION) ?: SettingsDefaults.TALKING_CLOCK_SALUTATION
+        val settingsStore = SettingsStore(getSharedPreferences("settings", Context.MODE_PRIVATE))
+        val salutation = settingsStore.talkingClockSalutation
         var text = getString(R.string.talking_clock_session_started, intervalMinutes)
         if (salutation.isNotEmpty()) {
             text = "$salutation, $text"
@@ -424,8 +425,8 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     private fun speakSessionEnded(durationMs: Long, distanceM: Double) {
         if (!isTtsInitialized) return
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val salutation = prefs.getString(SettingsKeys.TALKING_CLOCK_SALUTATION, SettingsDefaults.TALKING_CLOCK_SALUTATION) ?: SettingsDefaults.TALKING_CLOCK_SALUTATION
+        val settingsStore = SettingsStore(getSharedPreferences("settings", Context.MODE_PRIVATE))
+        val salutation = settingsStore.talkingClockSalutation
         
         val durationText = formatDurationFinnish(durationMs)
         val distanceKm = distanceM / 1000.0
@@ -513,17 +514,17 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun getSunTimeSpeech(location: Location?, prefs: android.content.SharedPreferences): String {
+    private fun getSunTimeSpeech(location: Location?, settingsStore: SettingsStore): String {
         if (location == null) return ""
         
         val now = Calendar.getInstance()
-        val tellSunrise = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, SettingsDefaults.TALKING_CLOCK_SUNRISE)
-        val tellSunset = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, SettingsDefaults.TALKING_CLOCK_SUNSET)
+        val tellSunrise = settingsStore.talkingClockSunrise
+        val tellSunset = settingsStore.talkingClockSunset
         
         if (!tellSunrise && !tellSunset) return ""
 
-        val sunriseLimitMs = prefs.getInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNRISE_LIMIT) * 3600000L
-        val sunsetLimitMs = prefs.getInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNSET_LIMIT) * 3600000L
+        val sunriseLimitMs = settingsStore.talkingClockSunriseLimit * 3600000L
+        val sunsetLimitMs = settingsStore.talkingClockSunsetLimit * 3600000L
         
         val validEvents = mutableListOf<Pair<Long, String>>()
         

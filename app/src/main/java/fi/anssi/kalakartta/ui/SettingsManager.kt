@@ -1855,10 +1855,10 @@ class SettingsManager(
         }
 
         fun getStatusText(): String {
-            val isEnabled = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
+            val isEnabled = settingsStore.talkingClockEnabled
             if (!isEnabled) return ""
 
-            val interval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
+            val interval = settingsStore.talkingClockInterval
             val status = activity.getString(R.string.talking_clock_running)
             return "$status, ${activity.getString(R.string.talking_clock_interval_info)} $interval ${activity.getString(R.string.unit_min)}"
         }
@@ -1886,7 +1886,7 @@ class SettingsManager(
         layout.addView(statusTextView)
 
         val clockControlLink = TextView(activity).apply {
-            val isEnabled = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
+            val isEnabled = settingsStore.talkingClockEnabled
             text = activity.getString(if (isEnabled) R.string.talking_clock_stop else R.string.talking_clock_start)
             textSize = 18f
             setTextColor(activity.getColor(android.R.color.holo_blue_dark))
@@ -1896,13 +1896,13 @@ class SettingsManager(
             setBackgroundResource(outValue.resourceId)
             
             setOnClickListener {
-                val newState = !prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
-                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, newState).apply()
+                val newState = !settingsStore.talkingClockEnabled
+                settingsStore.talkingClockEnabled = newState
                 text = activity.getString(if (newState) R.string.talking_clock_stop else R.string.talking_clock_start)
                 updateTitle()
                 
                 if (newState) {
-                    val interval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL)
+                    val interval = settingsStore.talkingClockInterval
                     val intent = Intent(activity, TalkingClockService::class.java).apply {
                         putExtra("interval", interval)
                         action = "START_IMMEDIATELY"
@@ -1921,10 +1921,10 @@ class SettingsManager(
 
         val onlyFishingCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_only_fishing)
-            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, SettingsDefaults.TALKING_CLOCK_ONLY_FISHING)
+            isChecked = settingsStore.talkingClockOnlyFishing
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ONLY_FISHING, isChecked).apply()
+                settingsStore.talkingClockOnlyFishing = isChecked
             }
         }
         layout.addView(onlyFishingCheckbox)
@@ -1941,17 +1941,17 @@ class SettingsManager(
         })
 
         val intervals = arrayOf("1", "2", "5", "10", "15", "20", "30", "60")
-        val currentInterval = prefs.getInt(SettingsKeys.TALKING_CLOCK_INTERVAL, SettingsDefaults.TALKING_CLOCK_INTERVAL).toString()
+        val currentInterval = settingsStore.talkingClockInterval.toString()
         val intervalSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, intervals)
             setSelection(intervals.indexOf(currentInterval).let { if (it == -1) 4 else it }) // Oletus 30 min
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     val interval = intervals[position].toInt()
-                    prefs.edit().putInt(SettingsKeys.TALKING_CLOCK_INTERVAL, interval).apply()
+                    settingsStore.talkingClockInterval = interval
                     updateTitle()
                     
-                    if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)) {
+                    if (settingsStore.talkingClockEnabled) {
                         val intent = Intent(activity, TalkingClockService::class.java).apply {
                             putExtra("interval", interval)
                         }
@@ -1979,12 +1979,12 @@ class SettingsManager(
             setPadding(0, 10, 0, 0)
         })
         val salutationEdit = EditText(activity).apply {
-            setText(prefs.getString(SettingsKeys.TALKING_CLOCK_SALUTATION, SettingsDefaults.TALKING_CLOCK_SALUTATION))
+            setText(settingsStore.talkingClockSalutation)
             textSize = 18f
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    prefs.edit().putString(SettingsKeys.TALKING_CLOCK_SALUTATION, s?.toString() ?: SettingsDefaults.TALKING_CLOCK_SALUTATION).apply()
+                    settingsStore.talkingClockSalutation = s?.toString() ?: SettingsDefaults.TALKING_CLOCK_SALUTATION
                 }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
@@ -1994,11 +1994,11 @@ class SettingsManager(
         // Akun varaus
         val batteryCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_battery_status)
-            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, SettingsDefaults.TALKING_CLOCK_BATTERY)
+            isChecked = settingsStore.talkingClockBattery
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_BATTERY, isChecked).apply()
+                settingsStore.talkingClockBattery = isChecked
             }
         }
         layout.addView(batteryCheckbox)
@@ -2006,36 +2006,31 @@ class SettingsManager(
         val weatherHoursLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(80, 0, 0, 10)
-            visibility = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, SettingsDefaults.TALKING_CLOCK_WEATHER)) View.VISIBLE else View.GONE
+            visibility = if (settingsStore.talkingClockWeather) View.VISIBLE else View.GONE
         }
-        val weatherHourOptions = listOf(
-            1 to SettingsKeys.talkingClockWeather(1),
-            3 to SettingsKeys.talkingClockWeather(3),
-            6 to SettingsKeys.talkingClockWeather(6),
-            12 to SettingsKeys.talkingClockWeather(12)
-        )
-        weatherHourOptions.forEach { (hours, key) ->
+        val weatherHourOptions = listOf(1, 3, 6, 12)
+        weatherHourOptions.forEach { hours ->
             val defaultChecked = hours == SettingsDefaults.TALKING_CLOCK_WEATHER_DEFAULT_HOURS
-            if (!prefs.contains(key)) {
-                prefs.edit().putBoolean(key, defaultChecked).apply()
+            if (!settingsStore.hasTalkingClockWeatherSetting(hours)) {
+                settingsStore.setTalkingClockWeatherEnabled(hours, defaultChecked)
             }
             weatherHoursLayout.addView(CheckBox(activity).apply {
                 text = "$hours h päähän"
                 textSize = 18f
-                isChecked = prefs.getBoolean(key, defaultChecked)
+                isChecked = settingsStore.isTalkingClockWeatherEnabled(hours, defaultChecked)
                 setOnCheckedChangeListener { _, isChecked ->
-                    prefs.edit().putBoolean(key, isChecked).apply()
+                    settingsStore.setTalkingClockWeatherEnabled(hours, isChecked)
                 }
             })
         }
 
         val weatherCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_weather)
-            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, SettingsDefaults.TALKING_CLOCK_WEATHER)
+            isChecked = settingsStore.talkingClockWeather
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_WEATHER, isChecked).apply()
+                settingsStore.talkingClockWeather = isChecked
                 weatherHoursLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
         }
@@ -2047,20 +2042,20 @@ class SettingsManager(
             orientation = LinearLayout.HORIZONTAL
             setPadding(80, 0, 0, 10)
             gravity = android.view.Gravity.CENTER_VERTICAL
-            visibility = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, SettingsDefaults.TALKING_CLOCK_SUNSET)) View.VISIBLE else View.GONE
+            visibility = if (settingsStore.talkingClockSunset) View.VISIBLE else View.GONE
         }
         sunsetLimitLayout.addView(TextView(activity).apply {
             text = activity.getString(R.string.talking_clock_sunset_limit)
             textSize = 18f
         })
         val sunsetHours = arrayOf("1", "2", "3", "4", "5", "6", "12", "24")
-        val currentSunsetLimit = prefs.getInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNSET_LIMIT).toString()
+        val currentSunsetLimit = settingsStore.talkingClockSunsetLimit.toString()
         val sunsetSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunsetHours)
             setSelection(sunsetHours.indexOf(currentSunsetLimit).let { if (it == -1) 1 else it })
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    prefs.edit().putInt(SettingsKeys.TALKING_CLOCK_SUNSET_LIMIT, sunsetHours[position].toInt()).apply()
+                    settingsStore.talkingClockSunsetLimit = sunsetHours[position].toInt()
                 }
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
@@ -2073,11 +2068,11 @@ class SettingsManager(
 
         val sunsetCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_sunset)
-            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, SettingsDefaults.TALKING_CLOCK_SUNSET)
+            isChecked = settingsStore.talkingClockSunset
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_SUNSET, isChecked).apply()
+                settingsStore.talkingClockSunset = isChecked
                 sunsetLimitLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
         }
@@ -2089,20 +2084,20 @@ class SettingsManager(
             orientation = LinearLayout.HORIZONTAL
             setPadding(80, 0, 0, 10)
             gravity = android.view.Gravity.CENTER_VERTICAL
-            visibility = if (prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, SettingsDefaults.TALKING_CLOCK_SUNRISE)) View.VISIBLE else View.GONE
+            visibility = if (settingsStore.talkingClockSunrise) View.VISIBLE else View.GONE
         }
         sunriseLimitLayout.addView(TextView(activity).apply {
             text = activity.getString(R.string.talking_clock_sunrise_limit)
             textSize = 18f
         })
         val sunriseHours = arrayOf("1", "2", "3", "4", "6", "12", "24")
-        val currentSunriseLimit = prefs.getInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, SettingsDefaults.TALKING_CLOCK_SUNRISE_LIMIT).toString()
+        val currentSunriseLimit = settingsStore.talkingClockSunriseLimit.toString()
         val sunriseSpinner = Spinner(activity).apply {
             adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, sunriseHours)
             setSelection(sunriseHours.indexOf(currentSunriseLimit).let { if (it == -1) 1 else it })
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    prefs.edit().putInt(SettingsKeys.TALKING_CLOCK_SUNRISE_LIMIT, sunriseHours[position].toInt()).apply()
+                    settingsStore.talkingClockSunriseLimit = sunriseHours[position].toInt()
                 }
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
@@ -2115,11 +2110,11 @@ class SettingsManager(
 
         val sunriseCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.talking_clock_sunrise)
-            isChecked = prefs.getBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, SettingsDefaults.TALKING_CLOCK_SUNRISE)
+            isChecked = settingsStore.talkingClockSunrise
             textSize = 18f
             setPadding(paddingLeft, 10, paddingRight, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.TALKING_CLOCK_SUNRISE, isChecked).apply()
+                settingsStore.talkingClockSunrise = isChecked
                 sunriseLimitLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
         }
@@ -2431,8 +2426,7 @@ class SettingsManager(
     }
 
     private fun openWeatherSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        val isEnabledInitial = prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
+        val isEnabledInitial = settingsStore.weatherEnabled
         var isEnabledCurrent = isEnabledInitial
         
         val contentLayout = LinearLayout(activity).apply {
@@ -2450,8 +2444,8 @@ class SettingsManager(
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
                 isEnabledCurrent = isChecked
-                if (isEnabledCurrent != prefs.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)) {
-                    prefs.edit().putBoolean(SettingsKeys.WEATHER_ENABLED, isEnabledCurrent).apply()
+                if (isEnabledCurrent != settingsStore.weatherEnabled) {
+                    settingsStore.weatherEnabled = isEnabledCurrent
                     if (isEnabledCurrent) {
                         WeatherService(activity).fetchAllStations()
                     }
