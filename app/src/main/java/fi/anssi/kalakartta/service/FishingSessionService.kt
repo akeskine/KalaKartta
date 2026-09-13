@@ -21,6 +21,7 @@ import fi.anssi.kalakartta.data.TrackPoint
 import fi.anssi.kalakartta.service.TalkingClockService
 import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsKeys
+import fi.anssi.kalakartta.ui.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -186,7 +187,8 @@ class FishingSessionService : Service() {
 
         serviceScope.launch {
             val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-            val defaultFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+            val settingsStore = SettingsStore(prefs)
+            val defaultFisherman = settingsStore.defaultFisherman
             val session = FishingSession(startedAt = startedAt, fisherman = defaultFisherman.uppercase())
             currentSessionId = db.fishingSessionDao().insert(session)
             

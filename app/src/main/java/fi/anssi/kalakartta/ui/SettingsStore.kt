@@ -42,6 +42,34 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getFloat(SettingsKeys.OTHER_ICON_SCALE, SettingsDefaults.OTHER_ICON_SCALE)
         set(value) { preferences.edit().putFloat(SettingsKeys.OTHER_ICON_SCALE, value).apply() }
 
+    var showLiveSessionRoute: Boolean
+        get() = preferences.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, value).apply() }
+
+    var locationCheckInterval: Int
+        get() = preferences.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
+        set(value) { preferences.edit().putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, value).apply() }
+
+    var minTrackPointInterval: Int
+        get() = preferences.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
+        set(value) { preferences.edit().putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, value).apply() }
+
+    var maxTrackPointInterval: Int
+        get() = preferences.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
+        set(value) { preferences.edit().putInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, value).apply() }
+
+    var minTrackPointDistance: Int
+        get() = preferences.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
+        set(value) { preferences.edit().putInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, value).apply() }
+
+    var defaultFisherman: String
+        get() = preferences.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+        set(value) { preferences.edit().putString(SettingsKeys.DEFAULT_FISHERMAN, value).apply() }
+
+    var showFishermanOnMap: Boolean
+        get() = preferences.getBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, SettingsDefaults.SHOW_FISHERMAN_ON_MAP)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, value).apply() }
+
     fun isQuickMapSourceEnabled(mapSourceId: String, default: Boolean): Boolean =
         preferences.getBoolean(SettingsKeys.quickSelect(mapSourceId), default)
 

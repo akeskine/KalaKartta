@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity() {
 
     fun updateSessionLine() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val showLiveRoute = prefs.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
+        val showLiveRoute = settingsStore.showLiveSessionRoute
         
         val sessionId = fishingService?.getCurrentSessionId() ?: -1L
         if (sessionId != -1L && showLiveRoute) {
@@ -665,8 +665,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 "fi.anssi.kalakartta.SESSION_STARTED" -> {
                     // Päivitetään paikallinen väli siltä varalta että se on muuttunut palvelussa
-                    val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                    recordingIntervalSeconds = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
+                    recordingIntervalSeconds = settingsStore.minTrackPointInterval
                     updateRecordingStatusUI()
                 }
             }
@@ -1244,7 +1243,7 @@ class MainActivity : AppCompatActivity() {
                 ""
             }
 
-            val currentFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+            val currentFisherman = settingsStore.defaultFisherman
             if (currentVersionName != lastVersionName) {
                 if (currentFisherman.isEmpty()) {
                     checkDefaultFisherman()
@@ -1480,7 +1479,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkDefaultFisherman() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val currentFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+        val currentFisherman = settingsStore.defaultFisherman
 
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
@@ -1503,7 +1502,7 @@ class MainActivity : AppCompatActivity() {
             .setView(layout)
             .setPositiveButton("Tallenna") { _, _ ->
                 val newFisherman = input.text.toString().trim()
-                prefs.edit().putString(SettingsKeys.DEFAULT_FISHERMAN, newFisherman).apply()
+                settingsStore.defaultFisherman = newFisherman
                 updateDefaultFishermanUI()
             }
             .setNegativeButton("Ohita", null)
@@ -1512,8 +1511,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateDefaultFishermanUI() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val rawFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
-        val showOnMap = prefs.getBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, SettingsDefaults.SHOW_FISHERMAN_ON_MAP)
+        val rawFisherman = settingsStore.defaultFisherman
+        val showOnMap = settingsStore.showFishermanOnMap
         val textView = findViewById<TextView>(R.id.defaultFishermanText) ?: return
 
         if (showOnMap && rawFisherman.isNotEmpty()) {
@@ -1683,7 +1682,7 @@ class MainActivity : AppCompatActivity() {
         
         // Luetaan tallennusväli asetuksista
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        recordingIntervalSeconds = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
+        recordingIntervalSeconds = settingsStore.minTrackPointInterval
 
         // Yhdistetään FishingSessionServiceen
         Intent(this, FishingSessionService::class.java).also { intent ->
@@ -1769,10 +1768,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun continueFishingSession(session: FishingSession) {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val locInt = prefs.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
-        val minInt = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
-        val maxInt = prefs.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
-        val minDist = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
+        val locInt = settingsStore.locationCheckInterval
+        val minInt = settingsStore.minTrackPointInterval
+        val maxInt = settingsStore.maxTrackPointInterval
+        val minDist = settingsStore.minTrackPointDistance
 
         val intent = Intent(this, FishingSessionService::class.java).apply {
             putExtra("LOCATION_CHECK_INTERVAL", locInt)

@@ -383,8 +383,8 @@ class CatchManager(
         val point = map.mapCenter as GeoPoint
         val caughtAt = System.currentTimeMillis()
         
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val defaultFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
+        val settingsStore = SettingsStore(activity.getSharedPreferences("settings", Context.MODE_PRIVATE))
+        val defaultFisherman = settingsStore.defaultFisherman
 
         val fish = FishCatch(
             species = speciesId,

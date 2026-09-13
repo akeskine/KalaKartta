@@ -40,6 +40,13 @@ class SettingsStoreTest {
         assertFalse(store.showQuickMapSource)
         assertEquals(1.0f, store.fishIconScale)
         assertEquals(1.0f, store.otherIconScale)
+        assertTrue(store.showLiveSessionRoute)
+        assertEquals(10, store.locationCheckInterval)
+        assertEquals(30, store.minTrackPointInterval)
+        assertEquals(300, store.maxTrackPointInterval)
+        assertEquals(20, store.minTrackPointDistance)
+        assertEquals("", store.defaultFisherman)
+        assertFalse(store.showFishermanOnMap)
         assertTrue(store.isQuickMapSourceEnabled("OSM", true))
     }
 
@@ -53,6 +60,13 @@ class SettingsStoreTest {
         store.showQuickMapSource = true
         store.fishIconScale = 1.5f
         store.otherIconScale = 0.5f
+        store.showLiveSessionRoute = false
+        store.locationCheckInterval = 60
+        store.minTrackPointInterval = 60
+        store.maxTrackPointInterval = 600
+        store.minTrackPointDistance = 100
+        store.defaultFisherman = "Test Fisherman"
+        store.showFishermanOnMap = true
         store.setQuickMapSourceEnabled("MML_MAASTO", true)
 
         assertTrue(store.showScaleBar)
@@ -63,6 +77,13 @@ class SettingsStoreTest {
         assertTrue(store.showQuickMapSource)
         assertEquals(1.5f, store.fishIconScale)
         assertEquals(0.5f, store.otherIconScale)
+        assertFalse(store.showLiveSessionRoute)
+        assertEquals(60, store.locationCheckInterval)
+        assertEquals(60, store.minTrackPointInterval)
+        assertEquals(600, store.maxTrackPointInterval)
+        assertEquals(100, store.minTrackPointDistance)
+        assertEquals("Test Fisherman", store.defaultFisherman)
+        assertTrue(store.showFishermanOnMap)
         assertTrue(store.isQuickMapSourceEnabled("MML_MAASTO", false))
     }
 }

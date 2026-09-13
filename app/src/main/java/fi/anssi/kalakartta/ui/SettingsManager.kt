@@ -3015,10 +3015,10 @@ class SettingsManager(
             val showLiveRouteCb = CheckBox(activity).apply {
                 text = "Näytä tallennettavan session reitti"
                 val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                isChecked = prefs.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
+                isChecked = settingsStore.showLiveSessionRoute
                 textSize = 16f
                 setOnCheckedChangeListener { _, isChecked ->
-                    prefs.edit().putBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, isChecked).apply()
+                    settingsStore.showLiveSessionRoute = isChecked
                     mainActivity?.updateSessionLine()
                 }
             }
@@ -3042,10 +3042,10 @@ class SettingsManager(
                 layoutParams = params
                 setOnClickListener {
                     val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-                    val locInt = prefs.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
-                    val minInt = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
-                    val maxInt = prefs.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
-                    val minDist = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
+                    val locInt = settingsStore.locationCheckInterval
+                    val minInt = settingsStore.minTrackPointInterval
+                    val maxInt = settingsStore.maxTrackPointInterval
+                    val minDist = settingsStore.minTrackPointDistance
                     
                     mainActivity?.startFishingSession(locInt, minInt, maxInt, minDist)
                     dialog?.dismiss()
@@ -3155,10 +3155,10 @@ class SettingsManager(
             val showLiveRouteCb = CheckBox(activity).apply {
                 text = "Näytä tallennettavan session reitti"
                 val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                isChecked = prefs.getBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
+                isChecked = settingsStore.showLiveSessionRoute
                 textSize = 16f
                 setOnCheckedChangeListener { _, isChecked ->
-                    prefs.edit().putBoolean(SettingsKeys.SHOW_LIVE_SESSION_ROUTE, isChecked).apply()
+                    settingsStore.showLiveSessionRoute = isChecked
                     mainActivity?.updateSessionLine()
                 }
             }
@@ -3225,10 +3225,10 @@ class SettingsManager(
         val maxIntervals = arrayOf("60", "120", "300", "600")
         val minDistances = arrayOf("10", "20", "50", "100", "200")
 
-        var currentLocationInterval = prefs.getInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL).toString()
-        var currentMinInterval = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL).toString()
-        var currentMaxInterval = prefs.getInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL).toString()
-        var currentMinDistance = prefs.getInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE).toString()
+        var currentLocationInterval = settingsStore.locationCheckInterval.toString()
+        var currentMinInterval = settingsStore.minTrackPointInterval.toString()
+        var currentMaxInterval = settingsStore.maxTrackPointInterval.toString()
+        var currentMinDistance = settingsStore.minTrackPointDistance.toString()
 
         if (currentLocationInterval !in locationIntervals) currentLocationInterval = "10"
         if (currentMinInterval !in minIntervals) currentMinInterval = "30"
@@ -3248,14 +3248,14 @@ class SettingsManager(
             if (maxVal < minVal) {
                 currentMinInterval = currentMaxInterval
                 minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
-                prefs.edit().putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, currentMinInterval.toInt()).apply()
+                settingsStore.minTrackPointInterval = currentMinInterval.toInt()
             }
             
             val newMinVal = currentMinInterval.toInt()
             if (newMinVal < locVal) {
                 currentLocationInterval = currentMinInterval
                 locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
-                prefs.edit().putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, currentLocationInterval.toInt()).apply()
+                settingsStore.locationCheckInterval = currentLocationInterval.toInt()
             }
         }
 
@@ -3294,7 +3294,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentLocationInterval = locationIntervals[pos]
-                prefs.edit().putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, currentLocationInterval.toInt()).apply()
+                settingsStore.locationCheckInterval = currentLocationInterval.toInt()
                     updateSpinners()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -3309,7 +3309,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentMinInterval = minIntervals[pos]
-                    prefs.edit().putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, currentMinInterval.toInt()).apply()
+                    settingsStore.minTrackPointInterval = currentMinInterval.toInt()
                     updateSpinners()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -3324,7 +3324,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentMaxInterval = maxIntervals[pos]
-                prefs.edit().putInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, currentMaxInterval.toInt()).apply()
+                settingsStore.maxTrackPointInterval = currentMaxInterval.toInt()
                     updateSpinners()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
@@ -3339,7 +3339,7 @@ class SettingsManager(
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     currentMinDistance = minDistances[pos]
-                prefs.edit().putInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, currentMinDistance.toInt()).apply()
+                settingsStore.minTrackPointDistance = currentMinDistance.toInt()
                 }
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
             }
@@ -3368,12 +3368,10 @@ class SettingsManager(
                 currentMaxInterval = "300"
                 currentMinDistance = "20"
                 
-                prefs.edit()
-                    .putInt(SettingsKeys.LOCATION_CHECK_INTERVAL, SettingsDefaults.LOCATION_CHECK_INTERVAL)
-                    .putInt(SettingsKeys.MIN_TRACK_POINT_INTERVAL, SettingsDefaults.MIN_TRACK_POINT_INTERVAL)
-                    .putInt(SettingsKeys.MAX_TRACK_POINT_INTERVAL, SettingsDefaults.MAX_TRACK_POINT_INTERVAL)
-                    .putInt(SettingsKeys.MIN_TRACK_POINT_DISTANCE, SettingsDefaults.MIN_TRACK_POINT_DISTANCE)
-                    .apply()
+                settingsStore.locationCheckInterval = SettingsDefaults.LOCATION_CHECK_INTERVAL
+                settingsStore.minTrackPointInterval = SettingsDefaults.MIN_TRACK_POINT_INTERVAL
+                settingsStore.maxTrackPointInterval = SettingsDefaults.MAX_TRACK_POINT_INTERVAL
+                settingsStore.minTrackPointDistance = SettingsDefaults.MIN_TRACK_POINT_DISTANCE
 
                 locationSpinner.setSelection(locationIntervals.indexOf(currentLocationInterval))
                 minIntervalSpinner.setSelection(minIntervals.indexOf(currentMinInterval))
@@ -3392,8 +3390,8 @@ class SettingsManager(
 
     private fun openDefaultFishermanSettings() {
         val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        val currentFisherman = prefs.getString(SettingsKeys.DEFAULT_FISHERMAN, SettingsDefaults.DEFAULT_FISHERMAN) ?: SettingsDefaults.DEFAULT_FISHERMAN
-        val showOnMap = prefs.getBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, SettingsDefaults.SHOW_FISHERMAN_ON_MAP)
+        val currentFisherman = settingsStore.defaultFisherman
+        val showOnMap = settingsStore.showFishermanOnMap
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -3416,7 +3414,7 @@ class SettingsManager(
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    prefs.edit().putString(SettingsKeys.DEFAULT_FISHERMAN, s?.toString()?.trim() ?: SettingsDefaults.DEFAULT_FISHERMAN).apply()
+                    settingsStore.defaultFisherman = s?.toString()?.trim() ?: SettingsDefaults.DEFAULT_FISHERMAN
                     onMapSettingsChanged()
                 }
                 override fun afterTextChanged(s: android.text.Editable?) {}
@@ -3429,7 +3427,7 @@ class SettingsManager(
             isChecked = showOnMap
             setPadding(0, 20, 0, 0)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.SHOW_FISHERMAN_ON_MAP, isChecked).apply()
+                settingsStore.showFishermanOnMap = isChecked
                 onMapSettingsChanged()
             }
         }
