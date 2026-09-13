@@ -51,6 +51,7 @@ class SettingsManager(
 ) {
 
     private var currentDialog: AlertDialog? = null
+    private val settingsStore = SettingsStore(activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE))
 
     fun closeSettings() {
         currentDialog?.dismiss()
@@ -1139,9 +1140,8 @@ class SettingsManager(
             typedValue.data
         }
 
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val fishIconScale = prefs.getFloat("fish_icon_scale", 1.0f)
-        val otherIconScale = prefs.getFloat("other_icon_scale", 1.0f)
+        val fishIconScale = settingsStore.fishIconScale
+        val otherIconScale = settingsStore.otherIconScale
 
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -1166,8 +1166,8 @@ class SettingsManager(
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     (view as? TextView)?.setTextColor(primaryTextColor)
                     val newValue = optionValues[position]
-                    if (prefs.getFloat("fish_icon_scale", 1.0f) != newValue) {
-                        prefs.edit().putFloat("fish_icon_scale", newValue).apply()
+                    if (settingsStore.fishIconScale != newValue) {
+                        settingsStore.fishIconScale = newValue
                         onMapSettingsChanged()
                     }
                 }
@@ -1191,8 +1191,8 @@ class SettingsManager(
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     (view as? TextView)?.setTextColor(primaryTextColor)
                     val newValue = optionValues[position]
-                    if (prefs.getFloat("other_icon_scale", 1.0f) != newValue) {
-                        prefs.edit().putFloat("other_icon_scale", newValue).apply()
+                    if (settingsStore.otherIconScale != newValue) {
+                        settingsStore.otherIconScale = newValue
                         onMapSettingsChanged()
                     }
                 }
@@ -2135,8 +2135,6 @@ class SettingsManager(
     }
 
     private fun openScaleSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -2144,10 +2142,10 @@ class SettingsManager(
 
         val showScaleCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.show_scale_bar)
-            isChecked = prefs.getBoolean(SettingsKeys.SHOW_SCALE_BAR, SettingsDefaults.SHOW_SCALE_BAR)
+            isChecked = settingsStore.showScaleBar
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.SHOW_SCALE_BAR, isChecked).apply()
+                settingsStore.showScaleBar = isChecked
                 onMapSettingsChanged()
             }
         }
@@ -2155,10 +2153,10 @@ class SettingsManager(
 
         val showMeasurementToolCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.show_measurement_tool)
-            isChecked = prefs.getBoolean(SettingsKeys.SHOW_MEASUREMENT_TOOL, SettingsDefaults.SHOW_MEASUREMENT_TOOL)
+            isChecked = settingsStore.showMeasurementTool
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.SHOW_MEASUREMENT_TOOL, isChecked).apply()
+                settingsStore.showMeasurementTool = isChecked
                 onMapSettingsChanged()
             }
         }
@@ -2173,8 +2171,6 @@ class SettingsManager(
     }
 
     private fun openAutoCenterSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -2182,10 +2178,10 @@ class SettingsManager(
 
         val autoCenterCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.auto_center_on_start)
-            isChecked = prefs.getBoolean(SettingsKeys.AUTO_CENTER_ON_START, SettingsDefaults.AUTO_CENTER_ON_START)
+            isChecked = settingsStore.autoCenterOnStart
             textSize = 18f
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean(SettingsKeys.AUTO_CENTER_ON_START, isChecked).apply()
+                settingsStore.autoCenterOnStart = isChecked
             }
         }
         layout.addView(autoCenterCheckbox)
@@ -2200,10 +2196,9 @@ class SettingsManager(
 
 
     private fun openMapSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        val currentSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE) ?: SettingsDefaults.MAP_SOURCE
-        val currentApiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
-        var showQuickMapCurrent = prefs.getBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
+        val currentSource = settingsStore.mapSource
+        val currentApiKey = settingsStore.mmlApiKey
+        var showQuickMapCurrent = settingsStore.showQuickMapSource
 
         val sources = arrayOf("OpenStreetMap", "MML Maastokartta", "MML Ilmakuva", activity.getString(R.string.map_source_traficom), activity.getString(R.string.map_source_traficom_boating))
         val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
@@ -2212,7 +2207,7 @@ class SettingsManager(
         val quickSelectEnabled = internalIds.associateWith { id ->
             // MML-kartat vaativat validin API-avaimen oletuksena
             val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
-            prefs.getBoolean(SettingsKeys.quickSelect(id), default)
+            settingsStore.isQuickMapSourceEnabled(id, default)
         }.toMutableMap()
 
         val contentLayout = LinearLayout(activity).apply {
@@ -2268,7 +2263,7 @@ class SettingsManager(
                 setOnClickListener {
                     radioButtons.forEach { it.isChecked = false }
                     isChecked = true
-                    prefs.edit().putString(SettingsKeys.MAP_SOURCE, id).apply()
+                    settingsStore.mapSource = id
                     onMapSettingsChanged()
                 }
             }
@@ -2281,7 +2276,7 @@ class SettingsManager(
                 gravity = android.view.Gravity.CENTER
                 setOnCheckedChangeListener { _, isChecked ->
                     quickSelectEnabled[id] = isChecked
-                    prefs.edit().putBoolean(SettingsKeys.quickSelect(id), isChecked).apply()
+                    settingsStore.setQuickMapSourceEnabled(id, isChecked)
                 }
             }
             checkBoxes[id] = cb
@@ -2298,7 +2293,7 @@ class SettingsManager(
             visibility = android.view.View.VISIBLE
             setOnCheckedChangeListener { _, isChecked ->
                 showQuickMapCurrent = isChecked
-                prefs.edit().putBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, isChecked).apply()
+                settingsStore.showQuickMapSource = isChecked
                 onMapSettingsChanged()
             }
         }
@@ -2321,7 +2316,7 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    prefs.edit().putString(SettingsKeys.MML_API_KEY, s.toString()).apply()
+                    settingsStore.mmlApiKey = s.toString()
                 }
             })
         }
@@ -2361,8 +2356,8 @@ class SettingsManager(
                             Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
                             // Päivitetään MML-pikavalinnat jos avain tuli validiksi
                             if (apiKey.isNotEmpty()) {
-                                if (checkBoxes["MML_MAASTO"]?.isChecked == false && !prefs.contains(SettingsKeys.quickSelect("MML_MAASTO"))) checkBoxes["MML_MAASTO"]?.isChecked = true
-                                if (checkBoxes["MML_ILMA"]?.isChecked == false && !prefs.contains(SettingsKeys.quickSelect("MML_ILMA"))) checkBoxes["MML_ILMA"]?.isChecked = true
+                                if (checkBoxes["MML_MAASTO"]?.isChecked == false && !settingsStore.hasQuickMapSourceSetting("MML_MAASTO")) checkBoxes["MML_MAASTO"]?.isChecked = true
+                                if (checkBoxes["MML_ILMA"]?.isChecked == false && !settingsStore.hasQuickMapSourceSetting("MML_ILMA")) checkBoxes["MML_ILMA"]?.isChecked = true
                             }
                         } else {
                             Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()

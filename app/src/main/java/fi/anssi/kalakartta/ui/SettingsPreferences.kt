@@ -20,6 +20,8 @@ object SettingsKeys {
     const val MIN_TRACK_POINT_DISTANCE = "min_track_point_distance"
     const val DEFAULT_FISHERMAN = "default_fisherman"
     const val SHOW_FISHERMAN_ON_MAP = "show_fisherman_on_map"
+    const val FISH_ICON_SCALE = "fish_icon_scale"
+    const val OTHER_ICON_SCALE = "other_icon_scale"
     const val WEATHER_ENABLED = "weather_enabled"
     const val TALKING_CLOCK_ENABLED = "talking_clock_enabled"
     const val TALKING_CLOCK_ONLY_FISHING = "talking_clock_only_fishing"
@@ -77,6 +79,8 @@ object SettingsDefaults {
     const val MIN_TRACK_POINT_DISTANCE = 20
     const val DEFAULT_FISHERMAN = ""
     const val SHOW_FISHERMAN_ON_MAP = false
+    const val FISH_ICON_SCALE = 1.0f
+    const val OTHER_ICON_SCALE = 1.0f
     const val WEATHER_ENABLED = true
     const val TALKING_CLOCK_ENABLED = false
     const val TALKING_CLOCK_ONLY_FISHING = false

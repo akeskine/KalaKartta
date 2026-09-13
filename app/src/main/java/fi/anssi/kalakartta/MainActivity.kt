@@ -50,6 +50,7 @@ import fi.anssi.kalakartta.ui.FilterManager
 import fi.anssi.kalakartta.ui.FishingHeatmapOverlay
 import fi.anssi.kalakartta.ui.SettingsKeys
 import fi.anssi.kalakartta.ui.SettingsDefaults
+import fi.anssi.kalakartta.ui.SettingsStore
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.MMLTileSource
@@ -74,6 +75,10 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : AppCompatActivity() {
+
+    private val settingsStore by lazy {
+        SettingsStore(getSharedPreferences("settings", MODE_PRIVATE))
+    }
 
     private val requestNotificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -1070,16 +1075,15 @@ class MainActivity : AppCompatActivity() {
             }
 
             findViewById<MaterialButton>(R.id.quickMapSourceButton).setOnClickListener {
-                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val currentApiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
-                val currentSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE) ?: SettingsDefaults.MAP_SOURCE
+                val currentApiKey = settingsStore.mmlApiKey
+                val currentSource = settingsStore.mapSource
 
                 val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
 
                 // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
                 val enabledSources = internalIds.filter { id ->
                     val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
-                    prefs.getBoolean(SettingsKeys.quickSelect(id), default)
+                    settingsStore.isQuickMapSourceEnabled(id, default)
                 }
 
                 if (enabledSources.isNotEmpty()) {
@@ -1087,7 +1091,7 @@ class MainActivity : AppCompatActivity() {
                     val nextIndex = (currentIndex + 1) % enabledSources.size
                     val nextSource = enabledSources[nextIndex]
 
-                    prefs.edit().putString(SettingsKeys.MAP_SOURCE, nextSource).apply()
+                    settingsStore.mapSource = nextSource
                     updateMapTileSource()
                 }
             }
@@ -1229,7 +1233,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Automaattinen kohdistus sovelluksen avauksessa
-            val autoCenter = prefs.getBoolean(SettingsKeys.AUTO_CENTER_ON_START, SettingsDefaults.AUTO_CENTER_ON_START)
+            val autoCenter = settingsStore.autoCenterOnStart
 
             // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
             val lastVersionName = prefs.getString("last_version_name", "") ?: ""
@@ -1272,9 +1276,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMapTileSource() {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val mapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
-        val apiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
+        val mapSource = settingsStore.mapSource
+        val apiKey = settingsStore.mmlApiKey
 
         when (mapSource) {
             "TRAFICOM_SEA" -> {
@@ -1304,11 +1307,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateScaleBar() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val showScale = prefs.getBoolean(SettingsKeys.SHOW_SCALE_BAR, SettingsDefaults.SHOW_SCALE_BAR)
-        val showMeasurement = prefs.getBoolean(SettingsKeys.SHOW_MEASUREMENT_TOOL, SettingsDefaults.SHOW_MEASUREMENT_TOOL)
-        val apiKey = prefs.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
-        val showQuickMap = prefs.getBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
-        val mapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
+        val showScale = settingsStore.showScaleBar
+        val showMeasurement = settingsStore.showMeasurementTool
+        val showQuickMap = settingsStore.showQuickMapSource
+        val mapSource = settingsStore.mapSource
         val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA" || mapSource == "TRAFICOM_BOATING"
 
         val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
@@ -1524,7 +1526,7 @@ class MainActivity : AppCompatActivity() {
             textView.visibility = android.view.View.VISIBLE
             textView.text = fisherman
 
-            val mapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
+            val mapSource = settingsStore.mapSource
             val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA"
             val color = if (useBlack) {
                 ContextCompat.getColor(this, android.R.color.black)
@@ -1625,7 +1627,7 @@ class MainActivity : AppCompatActivity() {
             shortcutButton.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             
             // Palautetaan normaali reunusväri karttapohjan mukaan
-            val currentMapSource = prefs.getString(SettingsKeys.MAP_SOURCE, SettingsDefaults.MAP_SOURCE)
+            val currentMapSource = settingsStore.mapSource
             val useBlack = currentMapSource == "MML_MAASTO" || currentMapSource == "MML_ILMA" || currentMapSource == "TRAFICOM_SEA" || currentMapSource == "TRAFICOM_BOATING"
             val color = if (useBlack) {
                 ContextCompat.getColor(this, android.R.color.black)
@@ -2093,7 +2095,7 @@ class MainActivity : AppCompatActivity() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_ON) {
                     val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                    if (prefs.getBoolean(SettingsKeys.AUTO_CENTER_ON_START, SettingsDefaults.AUTO_CENTER_ON_START) && !isSelectionMode) {
+                    if (settingsStore.autoCenterOnStart && !isSelectionMode) {
                         val myLocation = locationOverlay.myLocation
                         if (myLocation != null) {
                             map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)

@@ -60,6 +60,7 @@ class MarkerManager(
     private val onDeleteConfirmed: (Marker) -> Unit
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     private var rebuildJob: Job? = null
     
     private val defaultPointsFolder = FolderOverlay()
@@ -82,9 +83,8 @@ class MarkerManager(
     }
 
     private fun loadSettings() {
-        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        fishIconScale = prefs.getFloat("fish_icon_scale", 1.0f)
-        otherIconScale = prefs.getFloat("other_icon_scale", 1.0f)
+        fishIconScale = settingsStore.fishIconScale
+        otherIconScale = settingsStore.otherIconScale
     }
     
     // Marker-olioiden kierrätys
