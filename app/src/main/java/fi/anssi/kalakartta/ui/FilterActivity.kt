@@ -31,6 +31,9 @@ class FilterActivity : AppCompatActivity() {
 
     private lateinit var filterManager: FilterManager
     private lateinit var db: AppDatabase
+    private val settingsStore by lazy {
+        SettingsStore(getSharedPreferences("settings", MODE_PRIVATE))
+    }
     private var currentFilters: FilterManager.Filters = FilterManager.Filters()
     private var speciesList: List<FishSpecies> = emptyList()
     private var placeTypeList: List<PlaceOfInterestType> = emptyList()
@@ -650,10 +653,8 @@ class FilterActivity : AppCompatActivity() {
             if (!validateMoonFilterInputs()) return@setOnClickListener
 
             // Tehtävä 2: aseta tarvittaessa heat map-ruutujen ja reittien näyttäminen pois päältä ennen rajauskartan näyttämistä.
-            getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
-                .putBoolean("heatmap_enabled", false)
-                .putBoolean("fishing_routes_enabled", false)
-                .apply()
+            settingsStore.heatmapEnabled = false
+            settingsStore.fishingRoutesEnabled = false
 
             // Tallennetaan suodattimet ennen siirtymistä MainActivityyn, jotta ne säilyvät
             val newFilters = saveFiltersToManager()
@@ -939,11 +940,10 @@ class FilterActivity : AppCompatActivity() {
 
         val newFilters = saveFiltersToManager()
         
-        val settingsPrefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val heatmapEnabled = settingsPrefs.getBoolean("heatmap_enabled", false)
-        val routesEnabled = settingsPrefs.getBoolean("fishing_routes_enabled", false)
-        val heatmapFilterEnabled = settingsPrefs.getBoolean("heatmap_filter_enabled", false)
-        val routesFilterEnabled = settingsPrefs.getBoolean("routes_filter_enabled", false)
+        val heatmapEnabled = settingsStore.heatmapEnabled
+        val routesEnabled = settingsStore.fishingRoutesEnabled
+        val heatmapFilterEnabled = settingsStore.heatmapFilterEnabled
+        val routesFilterEnabled = settingsStore.routesFilterEnabled
         
         val checkHeatmap = heatmapEnabled && heatmapFilterEnabled
         val checkRoutes = routesEnabled && routesFilterEnabled

@@ -267,13 +267,12 @@ class SettingsManager(
     }
 
     fun checkShowUserManual() {
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val lastVersionCode = prefs.getInt("last_version_code", -1)
+        val lastVersionCode = settingsStore.lastVersionCode
         val currentVersionCode = BuildConfig.VERSION_CODE
 
         if (lastVersionCode < currentVersionCode) {
             showUserManual(isStartup = true)
-            prefs.edit().putInt("last_version_code", currentVersionCode).apply()
+            settingsStore.lastVersionCode = currentVersionCode
         }
     }
 
@@ -953,7 +952,6 @@ class SettingsManager(
     }
 
     private fun openFishingRouteAdvancedSettings() {
-        val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -1424,8 +1422,6 @@ class SettingsManager(
     }
 
     private fun openDeveloperTools() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -1528,10 +1524,7 @@ class SettingsManager(
         val pressureTrendThresholdEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             setText(
-                prefs.getFloat(
-                    FilterManager.PRESSURE_TREND_THRESHOLD_KEY,
-                    FilterManager.DEFAULT_PRESSURE_TREND_THRESHOLD
-                ).toString()
+                settingsStore.pressureTrendThreshold.toString()
             )
         }
         val pressureTrendThresholdHint = TextView(activity).apply {
@@ -1554,10 +1547,7 @@ class SettingsManager(
         val pressureTurningTrendThresholdEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             setText(
-                prefs.getFloat(
-                    FilterManager.PRESSURE_TURNING_TREND_THRESHOLD_KEY,
-                    FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
-                ).toString()
+                settingsStore.pressureTurningTrendThreshold.toString()
             )
         }
         val pressureTurningTrendThresholdHint = TextView(activity).apply {
@@ -1677,11 +1667,8 @@ class SettingsManager(
                 settingsStore.maxHeatmapCells = maxCells
                 settingsStore.heatmapMinZoom = minZoom
                 settingsStore.heatmapReferenceLatitude = refLat
-                prefs.edit().apply {
-                    putFloat(FilterManager.PRESSURE_TREND_THRESHOLD_KEY, pressureTrendThreshold)
-                    putFloat(FilterManager.PRESSURE_TURNING_TREND_THRESHOLD_KEY, pressureTurningTrendThreshold)
-                    apply()
-                }
+                settingsStore.pressureTrendThreshold = pressureTrendThreshold
+                settingsStore.pressureTurningTrendThreshold = pressureTurningTrendThreshold
                 openGeneralSettings()
             }
             .setNegativeButton("Takaisin") { _, _ -> openGeneralSettings() }
@@ -1767,8 +1754,6 @@ class SettingsManager(
     }
 
     private fun openTalkingClockSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-
         var dialog: AlertDialog? = null
         var statusTextView: TextView? = null
 
@@ -2930,7 +2915,6 @@ class SettingsManager(
 
             val showLiveRouteCb = CheckBox(activity).apply {
                 text = "Näytä tallennettavan session reitti"
-                val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
                 isChecked = settingsStore.showLiveSessionRoute
                 textSize = 16f
                 setOnCheckedChangeListener { _, isChecked ->
@@ -2957,7 +2941,6 @@ class SettingsManager(
                 params.setMargins(0, 10, 0, 10)
                 layoutParams = params
                 setOnClickListener {
-                    val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
                     val locInt = settingsStore.locationCheckInterval
                     val minInt = settingsStore.minTrackPointInterval
                     val maxInt = settingsStore.maxTrackPointInterval
@@ -3070,7 +3053,6 @@ class SettingsManager(
 
             val showLiveRouteCb = CheckBox(activity).apply {
                 text = "Näytä tallennettavan session reitti"
-                val prefs = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
                 isChecked = settingsStore.showLiveSessionRoute
                 textSize = 16f
                 setOnCheckedChangeListener { _, isChecked ->
@@ -3117,8 +3099,6 @@ class SettingsManager(
     }
 
     private fun openTrackingIntervalSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
-        
         val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -3305,7 +3285,6 @@ class SettingsManager(
     }
 
     private fun openDefaultFishermanSettings() {
-        val prefs = activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE)
         val currentFisherman = settingsStore.defaultFisherman
         val showOnMap = settingsStore.showFishermanOnMap
 

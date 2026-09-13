@@ -12,6 +12,7 @@ import java.util.*
 
 class FilterManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("filters", Context.MODE_PRIVATE)
+    private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
 
     data class Filters(
         val startDate: Long? = null,
@@ -64,10 +65,10 @@ class FilterManager(private val context: Context) {
         const val PRESSURE_TURNING_TREND_FLAT = "TURNING_FLAT"
         const val PRESSURE_TURNING_TREND_RISING = "TURNING_RISING"
 
-        const val PRESSURE_TREND_THRESHOLD_KEY = "pressure_trend_threshold"
-        const val PRESSURE_TURNING_TREND_THRESHOLD_KEY = "pressure_turning_trend_threshold"
-        const val DEFAULT_PRESSURE_TREND_THRESHOLD = 0.10f
-        const val DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD = 0.20f
+        const val PRESSURE_TREND_THRESHOLD_KEY = SettingsKeys.PRESSURE_TREND_THRESHOLD
+        const val PRESSURE_TURNING_TREND_THRESHOLD_KEY = SettingsKeys.PRESSURE_TURNING_TREND_THRESHOLD
+        const val DEFAULT_PRESSURE_TREND_THRESHOLD = SettingsDefaults.PRESSURE_TREND_THRESHOLD
+        const val DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD = SettingsDefaults.PRESSURE_TURNING_TREND_THRESHOLD
 
         fun isValueInRange(value: Double, min: Double?, max: Double?, wraps: Boolean): Boolean {
             if (min != null && max != null && wraps && min > max) {
@@ -223,15 +224,8 @@ class FilterManager(private val context: Context) {
     fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
         if (!hasActiveFilters()) return catches
         val f = getFilters()
-        val settingsPrefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val pressureTrendThreshold = settingsPrefs.getFloat(
-            PRESSURE_TREND_THRESHOLD_KEY,
-            DEFAULT_PRESSURE_TREND_THRESHOLD
-        ).toDouble()
-        val pressureTurningTrendThreshold = settingsPrefs.getFloat(
-            PRESSURE_TURNING_TREND_THRESHOLD_KEY,
-            DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
-        ).toDouble()
+        val pressureTrendThreshold = settingsStore.pressureTrendThreshold.toDouble()
+        val pressureTurningTrendThreshold = settingsStore.pressureTurningTrendThreshold.toDouble()
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
 
         return catches.filter { fish ->

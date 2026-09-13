@@ -158,7 +158,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun updateSessionLine() {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val showLiveRoute = settingsStore.showLiveSessionRoute
         
         val sessionId = fishingService?.getCurrentSessionId() ?: -1L
@@ -1219,10 +1218,9 @@ class MainActivity : AppCompatActivity() {
 
             // Automaattinen kohdistus sovelluksen avauksessa
             val autoCenter = settingsStore.autoCenterOnStart
-            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
 
             // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
-            val lastVersionName = prefs.getString("last_version_name", "") ?: ""
+            val lastVersionName = settingsStore.lastVersionName
             val currentVersionName = try {
                 val pInfo = packageManager.getPackageInfo(packageName, 0)
                 pInfo.versionName ?: ""
@@ -1235,7 +1233,7 @@ class MainActivity : AppCompatActivity() {
                 if (currentFisherman.isEmpty()) {
                     checkDefaultFisherman()
                 }
-                prefs.edit().putString("last_version_name", currentVersionName).apply()
+                settingsStore.lastVersionName = currentVersionName
             }
 
             if (autoCenter && !isSelectionMode) {
@@ -1461,7 +1459,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkDefaultFisherman() {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val currentFisherman = settingsStore.defaultFisherman
 
         val layout = android.widget.LinearLayout(this).apply {
@@ -1493,7 +1490,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateDefaultFishermanUI() {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val rawFisherman = settingsStore.defaultFisherman
         val showOnMap = settingsStore.showFishermanOnMap
         val textView = findViewById<TextView>(R.id.defaultFishermanText) ?: return
@@ -1535,7 +1531,6 @@ class MainActivity : AppCompatActivity() {
             weatherCheckDone = false
         }
 
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val isEnabled = settingsStore.weatherEnabled
         if (!isEnabled) return
 
@@ -1663,7 +1658,6 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         
         // Luetaan tallennusväli asetuksista
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         recordingIntervalSeconds = settingsStore.minTrackPointInterval
 
         // Yhdistetään FishingSessionServiceen
@@ -1749,7 +1743,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun continueFishingSession(session: FishingSession) {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val locInt = settingsStore.locationCheckInterval
         val minInt = settingsStore.minTrackPointInterval
         val maxInt = settingsStore.maxTrackPointInterval
@@ -2075,7 +2068,6 @@ class MainActivity : AppCompatActivity() {
         screenReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_ON) {
-                    val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                     if (settingsStore.autoCenterOnStart && !isSelectionMode) {
                         val myLocation = locationOverlay.myLocation
                         if (myLocation != null) {

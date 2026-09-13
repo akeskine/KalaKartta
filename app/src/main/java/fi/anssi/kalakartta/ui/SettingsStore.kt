@@ -210,6 +210,26 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getFloat(SettingsKeys.HEATMAP_REFERENCE_LATITUDE, SettingsDefaults.HEATMAP_REFERENCE_LATITUDE)
         set(value) { preferences.edit().putFloat(SettingsKeys.HEATMAP_REFERENCE_LATITUDE, value).apply() }
 
+    var pressureTrendThreshold: Float
+        get() = preferences.getFloat(SettingsKeys.PRESSURE_TREND_THRESHOLD, SettingsDefaults.PRESSURE_TREND_THRESHOLD)
+        set(value) { preferences.edit().putFloat(SettingsKeys.PRESSURE_TREND_THRESHOLD, value).apply() }
+
+    var pressureTurningTrendThreshold: Float
+        get() = preferences.getFloat(
+            SettingsKeys.PRESSURE_TURNING_TREND_THRESHOLD,
+            SettingsDefaults.PRESSURE_TURNING_TREND_THRESHOLD
+        )
+        set(value) { preferences.edit().putFloat(SettingsKeys.PRESSURE_TURNING_TREND_THRESHOLD, value).apply() }
+
+    var lastVersionName: String
+        get() = preferences.getString(SettingsKeys.LAST_VERSION_NAME, SettingsDefaults.LAST_VERSION_NAME)
+            ?: SettingsDefaults.LAST_VERSION_NAME
+        set(value) { preferences.edit().putString(SettingsKeys.LAST_VERSION_NAME, value).apply() }
+
+    var lastVersionCode: Int
+        get() = preferences.getInt(SettingsKeys.LAST_VERSION_CODE, SettingsDefaults.LAST_VERSION_CODE)
+        set(value) { preferences.edit().putInt(SettingsKeys.LAST_VERSION_CODE, value).apply() }
+
     fun getHeatmapColor(default: String): String =
         preferences.getString(SettingsKeys.HEATMAP_COLOR, default) ?: default
 

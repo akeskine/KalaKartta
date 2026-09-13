@@ -78,6 +78,10 @@ class SettingsStoreTest {
         assertEquals(50_000, store.maxTrackPoints)
         assertEquals(10_000, store.maxHeatmapCells)
         assertEquals(64.7f, store.heatmapReferenceLatitude)
+        assertEquals(0.10f, store.pressureTrendThreshold)
+        assertEquals(0.20f, store.pressureTurningTrendThreshold)
+        assertEquals("", store.lastVersionName)
+        assertEquals(-1, store.lastVersionCode)
         assertTrue(store.isQuickMapSourceEnabled("OSM", true))
     }
 
@@ -133,6 +137,10 @@ class SettingsStoreTest {
         store.maxTrackPoints = 20_000
         store.maxHeatmapCells = 5_000
         store.heatmapReferenceLatitude = 60.2f
+        store.pressureTrendThreshold = 0.15f
+        store.pressureTurningTrendThreshold = 0.25f
+        store.lastVersionName = "1.2.3"
+        store.lastVersionCode = 123
         store.setHeatmapColor("Violetti")
         store.setHeatmapCalculationMethod("Sessions")
         store.setQuickMapSourceEnabled("MML_MAASTO", true)
@@ -187,6 +195,10 @@ class SettingsStoreTest {
         assertEquals(20_000, store.maxTrackPoints)
         assertEquals(5_000, store.maxHeatmapCells)
         assertEquals(60.2f, store.heatmapReferenceLatitude)
+        assertEquals(0.15f, store.pressureTrendThreshold)
+        assertEquals(0.25f, store.pressureTurningTrendThreshold)
+        assertEquals("1.2.3", store.lastVersionName)
+        assertEquals(123, store.lastVersionCode)
         assertEquals("Violetti", store.getHeatmapColor("Punainen"))
         assertEquals("Sessions", store.getHeatmapCalculationMethod("Points"))
         assertTrue(store.isQuickMapSourceEnabled("MML_MAASTO", false))

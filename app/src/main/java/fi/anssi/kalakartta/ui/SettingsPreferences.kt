@@ -59,6 +59,10 @@ object SettingsKeys {
     const val ROUTES_FADE_ENABLED = "routes_fade_enabled"
     const val ROUTES_FADE_START_DAYS = "routes_fade_start_days"
     const val ROUTES_FADE_FULL_DAYS = "routes_fade_full_days"
+    const val PRESSURE_TREND_THRESHOLD = "pressure_trend_threshold"
+    const val PRESSURE_TURNING_TREND_THRESHOLD = "pressure_turning_trend_threshold"
+    const val LAST_VERSION_NAME = "last_version_name"
+    const val LAST_VERSION_CODE = "last_version_code"
 
     fun quickSelect(mapSourceId: String): String = "quick_select_$mapSourceId"
 
@@ -118,4 +122,8 @@ object SettingsDefaults {
     const val ROUTES_FADE_ENABLED = true
     const val ROUTES_FADE_START_DAYS = 365
     const val ROUTES_FADE_FULL_DAYS = 30
+    const val PRESSURE_TREND_THRESHOLD = 0.10f
+    const val PRESSURE_TURNING_TREND_THRESHOLD = 0.20f
+    const val LAST_VERSION_NAME = ""
+    const val LAST_VERSION_CODE = -1
 }
