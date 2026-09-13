@@ -717,14 +717,17 @@ class SettingsManager(
         val gridAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, gridSizes)
         gridAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         gridSizeSpinner.adapter = gridAdapter
-        val currentGridSize = prefs.getFloat("heatmap_grid_size", 300.0f).toInt().toString()
+        val currentGridSize = prefs.getFloat(
+            SettingsKeys.HEATMAP_GRID_SIZE,
+            SettingsDefaults.HEATMAP_GRID_SIZE
+        ).toInt().toString()
         val gridIndex = gridSizes.indexOf(currentGridSize).coerceAtLeast(0)
         gridSizeSpinner.setSelection(gridIndex)
         gridSizeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             private var isInitialSelection = true
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val newValue = gridSizes[position].toFloatOrNull() ?: 300.0f
-                val oldValue = prefs.getFloat("heatmap_grid_size", 300.0f)
+                val newValue = gridSizes[position].toFloatOrNull() ?: SettingsDefaults.HEATMAP_GRID_SIZE
+                val oldValue = prefs.getFloat(SettingsKeys.HEATMAP_GRID_SIZE, SettingsDefaults.HEATMAP_GRID_SIZE)
                 if (isInitialSelection) {
                     isInitialSelection = false
                     return
@@ -734,7 +737,7 @@ class SettingsManager(
                 if (heatmapEnabled) {
                     checkLimits(true, false, newValue.toDouble()) { success ->
                         if (success) {
-                            prefs.edit().putFloat("heatmap_grid_size", newValue).apply()
+                            prefs.edit().putFloat(SettingsKeys.HEATMAP_GRID_SIZE, newValue).apply()
                             onMapSettingsChanged()
                         } else {
                             val oldGridSizeStr = oldValue.toInt().toString()
@@ -743,7 +746,7 @@ class SettingsManager(
                         }
                     }
                 } else {
-                    prefs.edit().putFloat("heatmap_grid_size", newValue).apply()
+                    prefs.edit().putFloat(SettingsKeys.HEATMAP_GRID_SIZE, newValue).apply()
                     onMapSettingsChanged()
                 }
             }
@@ -866,7 +869,7 @@ class SettingsManager(
         speedInputLayout.addView(speedLabel)
         val speedEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setText(prefs.getFloat("heatmap_max_speed", 10.0f).toString())
+            setText(prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED).toString())
             textSize = 16f
             layoutParams = LinearLayout.LayoutParams(150, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 leftMargin = 20
@@ -875,15 +878,15 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().replace(",", ".").toFloatOrNull() ?: 10.0f
-                    val oldSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
+                    val value = s.toString().replace(",", ".").toFloatOrNull() ?: SettingsDefaults.HEATMAP_MAX_SPEED
+                    val oldSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
                     if (value == oldSpeed) return
                     val heatmapEnabled = prefs.getBoolean("heatmap_enabled", false)
                     val routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
                     if ((heatmapEnabled || routesEnabled) && value > oldSpeed) {
                         checkLimits(heatmapEnabled, routesEnabled, providedMaxSpeed = value) { success ->
                             if (success) {
-                                prefs.edit().putFloat("heatmap_max_speed", value).apply()
+                                prefs.edit().putFloat(SettingsKeys.HEATMAP_MAX_SPEED, value).apply()
                                 onMapSettingsChanged()
                             } else {
                                 setText(oldSpeed.toString())
@@ -891,7 +894,7 @@ class SettingsManager(
                         }
                         return
                     }
-                    prefs.edit().putFloat("heatmap_max_speed", value).apply()
+                    prefs.edit().putFloat(SettingsKeys.HEATMAP_MAX_SPEED, value).apply()
                     onMapSettingsChanged()
                 }
             })
@@ -959,7 +962,10 @@ class SettingsManager(
         val fadeEnabledCheckbox = CheckBox(activity).apply {
             text = "Häivytä vanhat reittiviitat"
             setTextColor(primaryTextColor)
-            isChecked = prefs.getBoolean("routes_fade_enabled", true)
+            isChecked = prefs.getBoolean(
+                SettingsKeys.ROUTES_FADE_ENABLED,
+                SettingsDefaults.ROUTES_FADE_ENABLED
+            )
             setPadding(20, 20, 20, 20)
         }
         layout.addView(fadeEnabledCheckbox)
@@ -1000,7 +1006,12 @@ class SettingsManager(
         val startLimitEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("routes_fade_start_days", 365).toString())
+            setText(
+                prefs.getInt(
+                    SettingsKeys.ROUTES_FADE_START_DAYS,
+                    SettingsDefaults.ROUTES_FADE_START_DAYS
+                ).toString()
+            )
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(150, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -1010,8 +1021,8 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().toIntOrNull() ?: 365
-                    prefs.edit().putInt("routes_fade_start_days", value).apply()
+                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.ROUTES_FADE_START_DAYS
+                    prefs.edit().putInt(SettingsKeys.ROUTES_FADE_START_DAYS, value).apply()
                     onMapSettingsChanged()
                 }
             })
@@ -1021,7 +1032,12 @@ class SettingsManager(
         val fullLimitEdit = EditText(activity).apply {
             id = View.generateViewId()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("routes_fade_full_days", 30).toString())
+            setText(
+                prefs.getInt(
+                    SettingsKeys.ROUTES_FADE_FULL_DAYS,
+                    SettingsDefaults.ROUTES_FADE_FULL_DAYS
+                ).toString()
+            )
             textSize = 14f
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             layoutParams = RelativeLayout.LayoutParams(150, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -1031,8 +1047,8 @@ class SettingsManager(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().toIntOrNull() ?: 30
-                    prefs.edit().putInt("routes_fade_full_days", value).apply()
+                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.ROUTES_FADE_FULL_DAYS
+                    prefs.edit().putInt(SettingsKeys.ROUTES_FADE_FULL_DAYS, value).apply()
                     onMapSettingsChanged()
                 }
             })
@@ -1050,7 +1066,7 @@ class SettingsManager(
         })
 
         fadeEnabledCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean("routes_fade_enabled", isChecked).apply()
+            prefs.edit().putBoolean(SettingsKeys.ROUTES_FADE_ENABLED, isChecked).apply()
             fadeSettingsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             onMapSettingsChanged()
         }
@@ -1290,8 +1306,8 @@ class SettingsManager(
             onResult: (success: Boolean) -> Unit
         ) {
             val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-            val maxPoints = prefs.getInt("max_track_points", 50000)
-            val maxCells = prefs.getInt("max_heatmap_cells", 10000)
+            val maxPoints = prefs.getInt(SettingsKeys.MAX_TRACK_POINTS, SettingsDefaults.MAX_TRACK_POINTS)
+            val maxCells = prefs.getInt(SettingsKeys.MAX_HEATMAP_CELLS, SettingsDefaults.MAX_HEATMAP_CELLS)
             
             val filters = providedFilters ?: FilterManager(context).getFilters()
             
@@ -1302,9 +1318,12 @@ class SettingsManager(
             
             val removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
             val baseRemoveTransitions = providedRemoveTransitions ?: prefs.getBoolean("heatmap_remove_transitions", false)
-            val maxSpeed = providedMaxSpeed ?: prefs.getFloat("heatmap_max_speed", 10.0f)
-            val routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", true)
-            val routesFadeStartDays = prefs.getInt("routes_fade_start_days", 365).coerceAtLeast(0).toLong()
+            val maxSpeed = providedMaxSpeed ?: prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
+            val routesFadeEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FADE_ENABLED, SettingsDefaults.ROUTES_FADE_ENABLED)
+            val routesFadeStartDays = prefs.getInt(
+                SettingsKeys.ROUTES_FADE_START_DAYS,
+                SettingsDefaults.ROUTES_FADE_START_DAYS
+            ).coerceAtLeast(0).toLong()
             val routeSessionStartLimit = if (routesFadeEnabled) {
                 val dayMillis = 1000L * 60 * 60 * 24
                 System.currentTimeMillis() - (routesFadeStartDays + 1L) * dayMillis
@@ -1343,7 +1362,10 @@ class SettingsManager(
                 }
                 
                 if (error == null && checkHeatmap) {
-                    val gridSize = newGridSize ?: prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
+                    val gridSize = newGridSize ?: prefs.getFloat(
+                        SettingsKeys.HEATMAP_GRID_SIZE,
+                        SettingsDefaults.HEATMAP_GRID_SIZE
+                    ).toDouble().coerceAtLeast(1.0)
                     val latDegreeMeters = 111320.0
                     val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
                     
@@ -1427,7 +1449,7 @@ class SettingsManager(
         }
         val maxPointsEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("max_track_points", 50000).toString())
+            setText(prefs.getInt(SettingsKeys.MAX_TRACK_POINTS, SettingsDefaults.MAX_TRACK_POINTS).toString())
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         row1.addView(maxPointsLabel)
@@ -1445,7 +1467,7 @@ class SettingsManager(
         }
         val maxCellsEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setText(prefs.getInt("max_heatmap_cells", 10000).toString())
+            setText(prefs.getInt(SettingsKeys.MAX_HEATMAP_CELLS, SettingsDefaults.MAX_HEATMAP_CELLS).toString())
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         row2.addView(maxCellsLabel)
@@ -1463,7 +1485,7 @@ class SettingsManager(
         }
         val minZoomEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setText(prefs.getFloat("heatmap_min_zoom", 10.0f).toString())
+            setText(prefs.getFloat(SettingsKeys.HEATMAP_MIN_ZOOM, SettingsDefaults.HEATMAP_MIN_ZOOM).toString())
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         row3.addView(minZoomLabel)
@@ -1480,7 +1502,12 @@ class SettingsManager(
         }
         val refLatEdit = EditText(activity).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setText(prefs.getFloat("heatmap_reference_latitude", 64.7f).toString())
+            setText(
+                prefs.getFloat(
+                    SettingsKeys.HEATMAP_REFERENCE_LATITUDE,
+                    SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
+                ).toString()
+            )
         }
         val refLatHint = TextView(activity).apply {
             text = "Määrittää pituuspiirien välisen etäisyyden. Oletus: 64.7 (Suomen keskipiste). Arvoalue 0-180."
@@ -1557,9 +1584,12 @@ class SettingsManager(
             val heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
             val routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
             val removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
-            val maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
-            val routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", true)
-            val routesFadeStartDays = prefs.getInt("routes_fade_start_days", 365).coerceAtLeast(0).toLong()
+            val maxSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
+            val routesFadeEnabled = prefs.getBoolean(SettingsKeys.ROUTES_FADE_ENABLED, SettingsDefaults.ROUTES_FADE_ENABLED)
+            val routesFadeStartDays = prefs.getInt(
+                SettingsKeys.ROUTES_FADE_START_DAYS,
+                SettingsDefaults.ROUTES_FADE_START_DAYS
+            ).coerceAtLeast(0).toLong()
             val routeSessionStartLimit = if (routesFadeEnabled) {
                 val dayMillis = 1000L * 60 * 60 * 24
                 System.currentTimeMillis() - (routesFadeStartDays + 1L) * dayMillis
@@ -1587,8 +1617,14 @@ class SettingsManager(
             )
 
             // Heatmap ruudut
-            val gridSize = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
-            val refLat = prefs.getFloat("heatmap_reference_latitude", 64.7f).toDouble()
+            val gridSize = prefs.getFloat(
+                SettingsKeys.HEATMAP_GRID_SIZE,
+                SettingsDefaults.HEATMAP_GRID_SIZE
+            ).toDouble().coerceAtLeast(1.0)
+            val refLat = prefs.getFloat(
+                SettingsKeys.HEATMAP_REFERENCE_LATITUDE,
+                SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
+            ).toDouble()
             val latDegreeMeters = 111320.0
             val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(refLat))
             
@@ -1617,11 +1653,15 @@ class SettingsManager(
             .setTitle("Kehittäjäasetukset")
             .setView(layout)
             .setPositiveButton("Tallenna") { _, _ ->
-                val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: 50000
-                val maxCells = maxCellsEdit.text.toString().toIntOrNull() ?: 10000
-                val minZoom = minZoomEdit.text.toString().toFloatOrNull() ?: 10.0f
+                val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: SettingsDefaults.MAX_TRACK_POINTS
+                val maxCells = maxCellsEdit.text.toString().toIntOrNull() ?: SettingsDefaults.MAX_HEATMAP_CELLS
+                val minZoom = minZoomEdit.text.toString().toFloatOrNull() ?: SettingsDefaults.HEATMAP_MIN_ZOOM
                 val refLatInput = refLatEdit.text.toString().toFloatOrNull()
-                val refLat = if (refLatInput != null && refLatInput in 0f..180f) refLatInput else 64.7f
+                val refLat = if (refLatInput != null && refLatInput in 0f..180f) {
+                    refLatInput
+                } else {
+                    SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
+                }
                 val pressureTrendThresholdInput = pressureTrendThresholdEdit.text.toString().toFloatOrNull()
                 val pressureTrendThreshold = if (pressureTrendThresholdInput != null &&
                     pressureTrendThresholdInput > 0f &&
@@ -1644,10 +1684,10 @@ class SettingsManager(
                 }
                 
                 prefs.edit().apply {
-                    putInt("max_track_points", maxPoints)
-                    putInt("max_heatmap_cells", maxCells)
-                    putFloat("heatmap_min_zoom", minZoom)
-                    putFloat("heatmap_reference_latitude", refLat)
+                    putInt(SettingsKeys.MAX_TRACK_POINTS, maxPoints)
+                    putInt(SettingsKeys.MAX_HEATMAP_CELLS, maxCells)
+                    putFloat(SettingsKeys.HEATMAP_MIN_ZOOM, minZoom)
+                    putFloat(SettingsKeys.HEATMAP_REFERENCE_LATITUDE, refLat)
                     putFloat(FilterManager.PRESSURE_TREND_THRESHOLD_KEY, pressureTrendThreshold)
                     putFloat(FilterManager.PRESSURE_TURNING_TREND_THRESHOLD_KEY, pressureTurningTrendThreshold)
                     apply()

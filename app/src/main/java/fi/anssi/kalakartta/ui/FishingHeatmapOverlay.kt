@@ -47,14 +47,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var heatmapFilterEnabled = false
     private var routesFilterEnabled = false
     private var routesFadeEnabled = true
-    private var routesFadeStartLimitDays = 365
-    private var routesFadeFullLimitDays = 30
+    private var routesFadeStartLimitDays = SettingsDefaults.ROUTES_FADE_START_DAYS
+    private var routesFadeFullLimitDays = SettingsDefaults.ROUTES_FADE_FULL_DAYS
     private var calculationMethod = ""
     private var removeTransitions = false
     private var removeTransitionsMode = 0
-    private var maxSpeed = 10.0f
+    private var maxSpeed = SettingsDefaults.HEATMAP_MAX_SPEED
     private var minZoomLevel = 10.0
-    private var maxTrackPoints = 50000
+    private var maxTrackPoints = SettingsDefaults.MAX_TRACK_POINTS
     private var referenceLatitude = 64.7
 
     private data class RouteWithBounds(
@@ -84,7 +84,10 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val oldRoutesFadeStartLimitDays = routesFadeStartLimitDays
         val oldRoutesFadeFullLimitDays = routesFadeFullLimitDays
 
-        gridSizeMeters = prefs.getFloat("heatmap_grid_size", 300.0f).toDouble().coerceAtLeast(1.0)
+        gridSizeMeters = prefs.getFloat(
+            SettingsKeys.HEATMAP_GRID_SIZE,
+            SettingsDefaults.HEATMAP_GRID_SIZE
+        ).toDouble().coerceAtLeast(1.0)
         autoConfigure = prefs.getBoolean("heatmap_auto_configure", true)
         minPoints = if (autoConfigure) 1 else prefs.getInt("heatmap_min_points", 1).coerceAtLeast(1)
         maxPoints = prefs.getInt("heatmap_max_points", 50).coerceAtLeast(minPoints + 1)
@@ -92,16 +95,28 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         routesEnabled = prefs.getBoolean("fishing_routes_enabled", false)
         heatmapFilterEnabled = prefs.getBoolean("heatmap_filter_enabled", false)
         routesFilterEnabled = prefs.getBoolean("routes_filter_enabled", false)
-        routesFadeEnabled = prefs.getBoolean("routes_fade_enabled", true)
-        routesFadeStartLimitDays = prefs.getInt("routes_fade_start_days", 365)
-        routesFadeFullLimitDays = prefs.getInt("routes_fade_full_days", 30)
+        routesFadeEnabled = prefs.getBoolean(
+            SettingsKeys.ROUTES_FADE_ENABLED,
+            SettingsDefaults.ROUTES_FADE_ENABLED
+        )
+        routesFadeStartLimitDays = prefs.getInt(
+            SettingsKeys.ROUTES_FADE_START_DAYS,
+            SettingsDefaults.ROUTES_FADE_START_DAYS
+        )
+        routesFadeFullLimitDays = prefs.getInt(
+            SettingsKeys.ROUTES_FADE_FULL_DAYS,
+            SettingsDefaults.ROUTES_FADE_FULL_DAYS
+        )
         calculationMethod = prefs.getString("heatmap_calculation_method", context.getString(R.string.heatmap_method_points)) ?: context.getString(R.string.heatmap_method_points)
         removeTransitions = prefs.getBoolean("heatmap_remove_transitions", false)
         removeTransitionsMode = prefs.getInt("heatmap_remove_transitions_mode", 0)
-        maxSpeed = prefs.getFloat("heatmap_max_speed", 10.0f)
-        minZoomLevel = prefs.getFloat("heatmap_min_zoom", 10.0f).toDouble()
-        maxTrackPoints = prefs.getInt("max_track_points", 50000)
-        referenceLatitude = prefs.getFloat("heatmap_reference_latitude", 64.7f).toDouble()
+        maxSpeed = prefs.getFloat(SettingsKeys.HEATMAP_MAX_SPEED, SettingsDefaults.HEATMAP_MAX_SPEED)
+        minZoomLevel = prefs.getFloat(SettingsKeys.HEATMAP_MIN_ZOOM, SettingsDefaults.HEATMAP_MIN_ZOOM).toDouble()
+        maxTrackPoints = prefs.getInt(SettingsKeys.MAX_TRACK_POINTS, SettingsDefaults.MAX_TRACK_POINTS)
+        referenceLatitude = prefs.getFloat(
+            SettingsKeys.HEATMAP_REFERENCE_LATITUDE,
+            SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
+        ).toDouble()
 
         val colorStr = prefs.getString("heatmap_color", "Punainen")
         baseColor = when (colorStr) {
