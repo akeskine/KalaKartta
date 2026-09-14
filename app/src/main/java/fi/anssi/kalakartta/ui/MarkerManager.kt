@@ -1,8 +1,8 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -78,11 +78,7 @@ class MarkerManager(
     private val catchesFolder = FolderOverlay()
     private val placesFolder = FolderOverlay()
     private val markersFolder = FolderOverlay()
-    private val iconCache = mutableMapOf<Pair<Int, Int>, BitmapDrawable>()
-    private val pathIconCache = mutableMapOf<Pair<String, Int>, BitmapDrawable>()
-    private val touchIconCache = mutableMapOf<Triple<Int, Int, Int>, BitmapDrawable>()
-    private val labelIconCache = mutableMapOf<Triple<Int, Int, String>, BitmapDrawable>()
-    private val clusterIconCache = mutableMapOf<Any, BitmapDrawable>()
+    private val iconFactory = MarkerIconFactory(context)
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
     
@@ -332,13 +328,13 @@ class MarkerManager(
 
         marker.icon = if (drawableId == R.drawable.default_point) {
             val key = Triple(drawableId, finalVisibleSize, 48)
-            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, finalVisibleSize, 48) }
+            iconFactory.getTouchIcon(drawableId, finalVisibleSize, 48)
         } else if (iconPath != null) {
             val key = Pair(iconPath, finalIconSize)
-            pathIconCache.getOrPut(key) { getScaledMarkerIcon(iconPath, finalIconSize) }
+            iconFactory.getScaledIcon(iconPath, finalIconSize)
         } else {
             val key = Pair(drawableId, finalIconSize)
-            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, finalIconSize) }
+            iconFactory.getScaledIcon(drawableId, finalIconSize)
         }
         marker.relatedObject = fish
     }
@@ -499,11 +495,7 @@ class MarkerManager(
         loadSettings()
         if (forceRefreshSpecies) {
             speciesCache.clear()
-            iconCache.clear()
-            pathIconCache.clear()
-            touchIconCache.clear()
-            labelIconCache.clear()
-            clusterIconCache.clear()
+            iconFactory.clear()
             
             // Ladataan lajit uudelleen välimuistiin
             scope.launch(Dispatchers.IO) {
@@ -598,7 +590,7 @@ class MarkerManager(
                     }
                     activeIndividualMarkers.clear()
                     activePlaceMarkers.clear()
-                    labelIconCache.clear()
+                    iconFactory.clear()
                     
                     defaultPointsFolder.items.clear()
                     catchesFolder.items.clear()
@@ -861,13 +853,13 @@ class MarkerManager(
 
         marker.icon = if (drawableId == R.drawable.default_point) {
             val key = Triple(drawableId, finalVisibleSize, 48)
-            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, finalVisibleSize, 48) }
+            iconFactory.getTouchIcon(drawableId, finalVisibleSize, 48)
         } else if (iconPath != null) {
             val key = Pair(iconPath, finalIconSize)
-            pathIconCache.getOrPut(key) { getScaledMarkerIcon(iconPath, finalIconSize) }
+            iconFactory.getScaledIcon(iconPath, finalIconSize)
         } else {
             val key = Pair(drawableId, finalIconSize)
-            iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, finalIconSize) }
+            iconFactory.getScaledIcon(drawableId, finalIconSize)
         }
         marker.relatedObject = fish
         marker.infoWindow = placeInfoWindow
@@ -911,7 +903,7 @@ class MarkerManager(
         marker.icon = if (drawableId == R.drawable.default_place_point) {
             val scaledVisibleSize = (visibleSize * otherIconScale).toInt()
             val key = Triple(drawableId, scaledVisibleSize, touchSize)
-            touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, scaledVisibleSize, touchSize) }
+            iconFactory.getTouchIcon(drawableId, scaledVisibleSize, touchSize)
         } else {
             var iconSize = (40 * otherIconScale).toInt()
             when (place.typeId) {
@@ -922,10 +914,10 @@ class MarkerManager(
             
             if (zoom >= 16.5 && place.name.isNotEmpty()) {
                 val key = Triple(drawableId, iconSize, place.name)
-                labelIconCache.getOrPut(key) { getIconWithLabel(drawableId, iconSize, place.name) }
+                iconFactory.getLabelIcon(drawableId, iconSize, place.name)
             } else {
                 val key = Pair(drawableId, iconSize)
-                iconCache.getOrPut(key) { getScaledMarkerIcon(drawableId, iconSize) }
+                iconFactory.getScaledIcon(drawableId, iconSize)
             }
         }
 
@@ -1158,7 +1150,7 @@ class MarkerManager(
 
         if (speciesId == "UNKNOWN" && (eventType == null || eventType == FishCatch.CAUGHT_FISH)) {
             val key = Triple(drawableId, iconSize, 48)
-            marker.icon = touchIconCache.getOrPut(key) { getSmallIconWithLargeTouchArea(drawableId, iconSize, 48) }
+            marker.icon = iconFactory.getTouchIcon(drawableId, iconSize, 48)
             marker.title = "Tuntematon laji"
         } else {
             // Ryhmämerkissä käytetään base kokoa 40dp jos se on skaalattu oletuksesta
@@ -1181,12 +1173,10 @@ class MarkerManager(
                 }
             }
 
-            marker.icon = clusterIconCache.getOrPut(key) { 
-                if (iconPath != null) {
-                    getClusteredMarkerIcon(iconPath, iconSize, count)
-                } else {
-                    getClusteredMarkerIcon(drawableId, iconSize, count)
-                }
+            marker.icon = if (iconPath != null) {
+                iconFactory.getClusterIcon(iconPath, iconSize, count)
+            } else {
+                iconFactory.getClusterIcon(drawableId, iconSize, count)
             }
             
             val speciesName = species?.name ?: speciesId
@@ -1301,7 +1291,7 @@ class MarkerManager(
         markerPool.addAll(allActive)
         activeIndividualMarkers.clear()
         activePlaceMarkers.clear()
-        labelIconCache.clear()
+        iconFactory.clear()
 
         defaultPointsFolder.items.clear()
         catchesFolder.items.clear()

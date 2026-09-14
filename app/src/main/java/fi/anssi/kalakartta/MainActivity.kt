@@ -75,6 +75,7 @@ import android.os.IBinder
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import fi.anssi.kalakartta.ui.SessionReplayResult
+import fi.anssi.kalakartta.ui.SessionReplayController
 
 class MainActivity : AppCompatActivity() {
 
@@ -156,14 +157,9 @@ class MainActivity : AppCompatActivity() {
     private var sessionPolyline: Polyline? = null
     private var archivedSessionPolyline: Polyline? = null
     private var heatmapOverlay: FishingHeatmapOverlay? = null
+    private val replayController = SessionReplayController()
     private var replayJob: Job? = null
     private var visibleArchivedSessionId: Long = -1L
-    private var isReplayPlaying = true
-    private var replaySpeed = 60
-    private var currentReplayTime = 0L
-    private var replayStartTime = 0L
-    private var replayEndTime = 0L
-    private var replayPoints = listOf<TrackPoint>()
     private var isOnlySessionCatchesMode = false
     private val recordingHandler = Handler(Looper.getMainLooper())
     private var recordingDotVisible = true
@@ -288,14 +284,14 @@ class MainActivity : AppCompatActivity() {
             if (points.isEmpty() || session == null) return@launch
 
             withContext(Dispatchers.Main) {
-                replayPoints = points
-                replayStartTime = session.startedAt
-                replayEndTime = session.endedAt ?: points.last().timestamp
-                currentReplayTime = replayStartTime
-                isReplayPlaying = false
+                replayController.load(
+                    points = points,
+                    startTime = session.startedAt,
+                    endTime = session.endedAt ?: points.last().timestamp
+                )
                 
                 initReplayUI()
-                updateSessionInfoText(replayStartTime, replayEndTime)
+                updateSessionInfoText(replayController.startTime, replayController.endTime)
                 
                 if (archivedSessionPolyline != null) {
                     map.overlays.remove(archivedSessionPolyline)
@@ -346,9 +342,9 @@ class MainActivity : AppCompatActivity() {
                     map.zoomToBoundingBox(finalBox, true, 100)
                 }
                 
-                markerManager.setMaxTimestamp(replayStartTime)
+                markerManager.setMaxTimestamp(replayController.startTime)
                 if (isOnlySessionCatchesMode) {
-                    markerManager.setTimeRange(replayStartTime, replayStartTime, true)
+                    markerManager.setTimeRange(replayController.startTime, replayController.startTime, true)
                 }
                 
                 updateReplayUI()
@@ -363,16 +359,20 @@ class MainActivity : AppCompatActivity() {
             if (points.isEmpty() || session == null) return@launch
 
             withContext(Dispatchers.Main) {
-                replayPoints = points
-                replayStartTime = session.startedAt
-                replayEndTime = session.endedAt ?: points.last().timestamp
-                // currentReplayTime, replaySpeed ja isReplayPlaying on jo palautettu
+                replayController.load(
+                    points = points,
+                    startTime = session.startedAt,
+                    endTime = session.endedAt ?: points.last().timestamp,
+                    currentTime = replayController.currentTime,
+                    speed = replayController.speed,
+                    isPlaying = replayController.isPlaying
+                )
                 
                 initReplayUI()
-                updateSessionInfoText(replayStartTime, replayEndTime)
+                updateSessionInfoText(replayController.startTime, replayController.endTime)
                 
                 val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
-                val speedIndex = speedOptions.indexOf("${replaySpeed}x")
+                val speedIndex = speedOptions.indexOf("${replayController.speed}x")
                 if (speedIndex != -1) {
                     findViewById<android.widget.Spinner>(R.id.replaySpeedSpinner).setSelection(speedIndex)
                 }
@@ -397,7 +397,7 @@ class MainActivity : AppCompatActivity() {
                 updateReplayFrame()
                 updateReplayUI()
                 
-                if (isReplayPlaying) {
+                if (replayController.isPlaying) {
                     startReplayLoop()
                 } else {
                     updateReplayPlayPauseIcon()
@@ -428,17 +428,17 @@ class MainActivity : AppCompatActivity() {
         updateMyLocationButtonVisibility()
 
         playPauseButton.setOnClickListener {
-            isReplayPlaying = !isReplayPlaying
+            replayController.setPlaying(!replayController.isPlaying)
             updateReplayPlayPauseIcon()
-            if (isReplayPlaying) startReplayLoop()
+            if (replayController.isPlaying) startReplayLoop()
         }
 
-        seekBar.max = (replayEndTime - replayStartTime).toInt()
-        seekBar.progress = 0
+        seekBar.max = (replayController.endTime - replayController.startTime).toInt()
+        seekBar.progress = (replayController.currentTime - replayController.startTime).toInt()
         seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    currentReplayTime = replayStartTime + progress
+                    replayController.seek(replayController.startTime + progress)
                     updateReplayFrame()
                 }
             }
@@ -459,7 +459,7 @@ class MainActivity : AppCompatActivity() {
         
         speedSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                replaySpeed = speedOptions[position].replace("x", "").toIntOrNull() ?: 60
+                replayController.setSpeed(speedOptions[position].replace("x", "").toIntOrNull() ?: SessionReplayController.DEFAULT_SPEED)
                 (view as? android.widget.TextView)?.setTextColor(android.graphics.Color.WHITE)
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
@@ -480,41 +480,34 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateReplayPlayPauseIcon() {
         val playPauseButton = findViewById<android.widget.ImageButton>(R.id.replayPlayPauseButton)
-        playPauseButton.setImageResource(if (isReplayPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+        playPauseButton.setImageResource(if (replayController.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
     }
 
     private fun startReplayLoop() {
         replayJob?.cancel()
         replayJob = lifecycleScope.launch(Dispatchers.Main) {
-            val stepMs = 100L
-            while (isActive && isReplayPlaying && currentReplayTime < replayEndTime) {
-                val simStepMs = stepMs * replaySpeed
-                currentReplayTime += simStepMs
-                if (currentReplayTime > replayEndTime) currentReplayTime = replayEndTime
-                
+            while (isActive && replayController.isPlaying) {
+                replayController.advance()
                 updateReplayFrame()
                 updateReplayUI()
                 
-                if (currentReplayTime >= replayEndTime) {
-                    isReplayPlaying = false
+                if (!replayController.isPlaying) {
                     updateReplayPlayPauseIcon()
                     break
                 }
-                delay(stepMs)
+                delay(SessionReplayController.DEFAULT_STEP_MILLIS)
             }
         }
     }
 
-    private fun updateReplayFrame() {
-        val currentTime = currentReplayTime
-        val visiblePoints = replayPoints.filter { it.timestamp <= currentTime }
-        val geoPoints = visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
+    private fun updateReplayFrame(frame: SessionReplayController.Frame = replayController.frame()) {
+        val geoPoints = frame.visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
         
         archivedSessionPolyline?.setPoints(geoPoints)
         if (isOnlySessionCatchesMode) {
-            markerManager.setTimeRange(replayStartTime, currentTime, true)
+            markerManager.setTimeRange(replayController.startTime, frame.currentTime, true)
         } else {
-            markerManager.setMaxTimestamp(currentTime)
+            markerManager.setMaxTimestamp(frame.currentTime)
         }
         map.invalidate()
     }
@@ -523,11 +516,11 @@ class MainActivity : AppCompatActivity() {
         val seekBar = findViewById<android.widget.SeekBar>(R.id.replaySeekBar)
         val timeText = findViewById<android.widget.TextView>(R.id.replayTimeText)
         
-        seekBar.progress = (currentReplayTime - replayStartTime).toInt()
+        seekBar.progress = (replayController.currentTime - replayController.startTime).toInt()
         
         val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-        val currentStr = sdf.format(java.util.Date(currentReplayTime))
-        val endStr = sdf.format(java.util.Date(replayEndTime))
+        val currentStr = sdf.format(java.util.Date(replayController.currentTime))
+        val endStr = sdf.format(java.util.Date(replayController.endTime))
         timeText.text = "$currentStr / $endStr"
     }
 
@@ -587,69 +580,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun replaySessionOnMap(sessionId: Long, speed: Int) {
-        replayJob?.cancel()
-        replayJob = lifecycleScope.launch(Dispatchers.IO) {
-            val session = db.fishingSessionDao().getById(sessionId)
-            val points = db.trackPointDao().getPointsForSession(sessionId)
-            if (points.isEmpty() || session == null) return@launch
+        replayController.setSpeed(speed)
+        replaySessionOnMap(sessionId, false)
 
-            withContext(Dispatchers.Main) {
-                if (archivedSessionPolyline != null) {
-                    map.overlays.remove(archivedSessionPolyline)
-                }
-                archivedSessionPolyline = Polyline(map).apply {
-                    outlinePaint.color = Color.BLUE
-                    outlinePaint.strokeWidth = 8f
-                    setOnClickListener { _, _, _ -> true }
-                }
-                addOverlayBelowMarkers(archivedSessionPolyline!!)
-                visibleArchivedSessionId = sessionId
-                
-                // Zoomataan session alkuun
-                map.controller.animateTo(GeoPoint(points[0].latitude, points[0].longitude), 15.0, 500L)
-                markerManager.setMaxTimestamp(session.startedAt)
-                map.invalidate()
-            }
-
-            val startTime = session.startedAt
-            val endTime = session.endedAt ?: points.last().timestamp
-            val duration = endTime - startTime
-            
             // Toistoväli esim 100ms välein
-            val stepMs = 100L
-            val simStepMs = stepMs * speed
-            
-            var currentSimTime = startTime
-            
-            while (currentSimTime <= endTime && isActive) {
-                val currentTime = currentSimTime
-                val visiblePoints = points.filter { it.timestamp <= currentTime }
-                val geoPoints = visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
-                
-                withContext(Dispatchers.Main) {
-                    archivedSessionPolyline?.setPoints(geoPoints)
-                    markerManager.setMaxTimestamp(currentTime)
-                    map.invalidate()
-                }
-                
-                delay(stepMs)
-                currentSimTime += simStepMs
-            }
             
             // Varmistetaan lopuksi kaikki pisteet näkyviin
-            if (isActive) {
-                withContext(Dispatchers.Main) {
-                    val allGeoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
-                    archivedSessionPolyline?.setPoints(allGeoPoints)
-                    markerManager.resetTimeRange()
-                    map.invalidate()
-                }
-            }
-        }
     }
 
     fun hideArchivedSession() {
         replayJob?.cancel()
+        replayController.clear()
         isOnlySessionCatchesMode = false
         
         findViewById<android.view.View>(R.id.replayPlayerLayout).visibility = android.view.View.GONE
@@ -737,9 +678,9 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putLong("visibleArchivedSessionId", visibleArchivedSessionId)
-        outState.putLong("currentReplayTime", currentReplayTime)
-        outState.putInt("replaySpeed", replaySpeed)
-        outState.putBoolean("isReplayPlaying", isReplayPlaying)
+        outState.putLong("currentReplayTime", replayController.currentTime)
+        outState.putInt("replaySpeed", replayController.speed)
+        outState.putBoolean("isReplayPlaying", replayController.isPlaying)
         
         val playerContainer = findViewById<android.view.View>(R.id.replayPlayerContainer)
         if (playerContainer != null) {
@@ -1030,9 +971,11 @@ class MainActivity : AppCompatActivity() {
             if (savedInstanceState != null) {
                 val sessionId = savedInstanceState.getLong("visibleArchivedSessionId", -1L)
                 if (sessionId != -1L) {
-                    currentReplayTime = savedInstanceState.getLong("currentReplayTime", 0L)
-                    replaySpeed = savedInstanceState.getInt("replaySpeed", 60)
-                    isReplayPlaying = savedInstanceState.getBoolean("isReplayPlaying", false)
+                    replayController.restorePlaybackState(
+                        currentTime = savedInstanceState.getLong("currentReplayTime", 0L),
+                        speed = savedInstanceState.getInt("replaySpeed", SessionReplayController.DEFAULT_SPEED),
+                        isPlaying = savedInstanceState.getBoolean("isReplayPlaying", false)
+                    )
                     val minimized = savedInstanceState.getBoolean("replayMinimized", false)
                     
                     // Ladataan sessio uudelleen ja asetetaan tila
