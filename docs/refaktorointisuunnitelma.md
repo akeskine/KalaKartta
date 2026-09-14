@@ -274,8 +274,9 @@ Tässä vaiheessa ei saa muuttaa samanaikaisesti importin, session tai weatherin
 - `ImportExportManager`ista poistui raakaa `Thread { ... }.start()` -mallia käyttävä työ.
 - tiedonsiirron "Poista media" -toiminto erotettiin "Poista kaikki tiedot" -toiminnosta.
 - streaming-reittien suuret piste-erät yhdistetään takaisin yhdeksi sessioksi, ja tyhjät sessiot säilyvät.
+- `CatchManager`in paikka- ja kalapisteiden tallennus sekä säätietojen jälkipäivitys käyttävät lifecycle-coroutineja.
 
-Import/exportin vaihe 5 -osuus on valmis. Vaihe 5 jatkuu vielä MainActivityn, CatchManagerin, WeatherServicen, EditCatchActivityn ja muiden raakathread-haarojen osalta.
+Import/exportin ja CatchManagerin vaihe 5 -osuudet ovat valmiit. Vaihe 5 jatkuu vielä MainActivityn, WeatherServicen, EditCatchActivityn ja muiden raakathread-haarojen osalta.
 
 ## Vaihe 6: Suurempien koordinaattorien pilkkominen
 
