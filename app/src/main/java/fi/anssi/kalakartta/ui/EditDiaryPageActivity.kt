@@ -69,11 +69,17 @@ class EditDiaryPageActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState); setContentView(R.layout.activity_edit_diary_page)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         val editorRoot = findViewById<ScrollView>(R.id.editorRoot)
+        val editorContent = findViewById<LinearLayout>(R.id.editorContent)
         val baseBottomPadding = (140 * resources.displayMetrics.density).toInt()
-        ViewCompat.setOnApplyWindowInsetsListener(editorRoot) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(editorRoot) { _, insets ->
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, baseBottomPadding + maxOf(imeBottom, navigationBottom))
+            editorContent.setPadding(
+                editorContent.paddingLeft,
+                editorContent.paddingTop,
+                editorContent.paddingRight,
+                baseBottomPadding + maxOf(imeBottom, navigationBottom)
+            )
             insets
         }
         ViewCompat.requestApplyInsets(editorRoot)

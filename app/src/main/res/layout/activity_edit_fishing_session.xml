@@ -6,11 +6,11 @@
     android:fillViewport="true">
 
     <LinearLayout
+        android:id="@+id/editorContent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingBottom="140dp">
+        android:padding="16dp">
 
         <TextView
             android:id="@+id/sessionTitleText"
@@ -89,11 +89,11 @@
         <EditText
             android:id="@+id/notesInput"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
+            android:layout_height="wrap_content"
+            android:minLines="8"
             android:hint="Kirjoita muistiinpanot tähän..."
             android:inputType="textMultiLine"
-            android:gravity="top"
-            android:scrollbars="vertical" />
+            android:gravity="top" />
 
         <LinearLayout
             android:layout_width="match_parent"

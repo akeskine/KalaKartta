@@ -1,9 +1,11 @@
 package fi.anssi.kalakartta.ui
 
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ScrollView
@@ -55,11 +57,17 @@ class EditFishingSessionActivity : AppCompatActivity() {
         setContentView(R.layout.activity_edit_fishing_session)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         val editorRoot = findViewById<ScrollView>(R.id.editorRoot)
+        val editorContent = findViewById<LinearLayout>(R.id.editorContent)
         val baseBottomPadding = (140 * resources.displayMetrics.density).toInt()
-        ViewCompat.setOnApplyWindowInsetsListener(editorRoot) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(editorRoot) { _, insets ->
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, baseBottomPadding + maxOf(imeBottom, navigationBottom))
+            editorContent.setPadding(
+                editorContent.paddingLeft,
+                editorContent.paddingTop,
+                editorContent.paddingRight,
+                baseBottomPadding + maxOf(imeBottom, navigationBottom)
+            )
             insets
         }
         ViewCompat.requestApplyInsets(editorRoot)
@@ -82,9 +90,10 @@ class EditFishingSessionActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<EditText>(R.id.notesInput).setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) findViewById<EditText>(R.id.notesInput).post {
-                editorRoot.smoothScrollTo(0, findViewById<EditText>(R.id.notesInput).bottom)
+        val notesInput = findViewById<EditText>(R.id.notesInput)
+        notesInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) notesInput.post {
+                notesInput.requestRectangleOnScreen(Rect(0, 0, notesInput.width, notesInput.height), true)
             }
         }
 
