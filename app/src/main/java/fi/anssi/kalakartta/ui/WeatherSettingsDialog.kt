@@ -49,8 +49,8 @@ class WeatherSettingsDialog(
         }
         contentLayout.addView(checkBox)
 
-        val updateLink = actionLinkTextView(activity).apply {
-            text = "Päivitä puuttuvat säätiedot"
+        val updateLink = menuLinkTextView(activity).apply {
+            text = "Puuttuvien säätietojen päivitys"
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)

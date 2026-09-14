@@ -12,3 +12,7 @@ fun actionLinkTextView(context: Context): TextView = TextView(context).apply {
 fun menuLinkTextView(context: Context): TextView = TextView(context).apply {
     TextViewCompat.setTextAppearance(this, R.style.TextAppearance_KalaKartta_MenuLink)
 }
+
+fun compactActionLinkTextView(context: Context): TextView = TextView(context).apply {
+    TextViewCompat.setTextAppearance(this, R.style.TextAppearance_KalaKartta_CompactActionLink)
+}

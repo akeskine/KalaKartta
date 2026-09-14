@@ -10,4 +10,8 @@
     <style name="TextAppearance.KalaKartta.ActionLink" parent="TextAppearance.KalaKartta.MenuLink">
         <item name="android:textColor">@color/link_color</item>
     </style>
+
+    <style name="TextAppearance.KalaKartta.CompactActionLink" parent="TextAppearance.KalaKartta.ActionLink">
+        <item name="android:textSize">14sp</item>
+    </style>
 </resources>

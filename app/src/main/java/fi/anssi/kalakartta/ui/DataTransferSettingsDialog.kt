@@ -145,9 +145,10 @@ class DataTransferSettingsDialog(
             contentLayout.addView(textView)
         }
 
-        val moreLink = actionLinkTextView(activity).apply {
-            text = "Lisää..."
-            setPadding(0, 32, 0, 32)
+        val moreLink = compactActionLinkTextView(activity).apply {
+            text = "(Lisää...)"
+            val indent = (16 * activity.resources.displayMetrics.density).toInt()
+            setPadding(indent, 32, 0, 32)
             isClickable = true
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -218,9 +219,10 @@ class DataTransferSettingsDialog(
             extraOptionsLayout.addView(textView)
         }
 
-        val lessLink = actionLinkTextView(activity).apply {
-            text = "Vähemmän..."
-            setPadding(0, 32, 0, 32)
+        val lessLink = compactActionLinkTextView(activity).apply {
+            text = "(Vähemmän...)"
+            val indent = (16 * activity.resources.displayMetrics.density).toInt()
+            setPadding(indent, 32, 0, 32)
             isClickable = true
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
