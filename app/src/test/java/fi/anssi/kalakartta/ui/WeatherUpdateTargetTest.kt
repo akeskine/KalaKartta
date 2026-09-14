@@ -95,6 +95,16 @@ class WeatherUpdateTargetTest {
         assertEquals("", state.text)
     }
 
+    @Test
+    fun weatherUpdateStartButtonIsHiddenWhenThereAreNoTargets() {
+        assertFalse(shouldShowWeatherUpdateStartButton(0))
+    }
+
+    @Test
+    fun weatherUpdateStartButtonIsShownWhenTargetsExist() {
+        assertTrue(shouldShowWeatherUpdateStartButton(1))
+    }
+
     private fun fishCatchWithTrend(caughtAt: Long, vararg samples: PressureSample): FishCatch {
         return FishCatch(
             species = "AHVEN",

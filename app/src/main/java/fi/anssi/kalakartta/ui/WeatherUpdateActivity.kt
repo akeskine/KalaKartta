@@ -30,6 +30,8 @@ internal fun needsPressureHistoryUpdate(fishCatch: FishCatch, now: Long): Boolea
     }
 }
 
+internal fun shouldShowWeatherUpdateStartButton(targetCount: Int): Boolean = targetCount > 0
+
 class WeatherUpdateActivity : AppCompatActivity() {
 
     private lateinit var db: AppDatabase
@@ -164,6 +166,11 @@ class WeatherUpdateActivity : AppCompatActivity() {
             
             withContext(Dispatchers.Main) {
                 pointsToUpdateText.text = formatUpdateStats(targets.size, allCatches.size, failedTargets)
+                startButton.visibility = if (shouldShowWeatherUpdateStartButton(targets.size)) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
             }
         }
     }
