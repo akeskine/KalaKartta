@@ -8,7 +8,6 @@ import fi.anssi.kalakartta.data.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.cos
 
 /** Tarkistaa lämpökartan ja reittien laskennan piste- ja solmurajat. */
 class HeatmapLimitsChecker(
@@ -48,13 +47,11 @@ class HeatmapLimitsChecker(
         val baseRemoveTransitions = providedRemoveTransitions ?: settingsStore.heatmapRemoveTransitions
         val maxSpeed = providedMaxSpeed ?: settingsStore.heatmapMaxSpeed
         val routesFadeEnabled = settingsStore.routesFadeEnabled
-        val routesFadeStartDays = settingsStore.routesFadeStartDays.coerceAtLeast(0).toLong()
-        val routeSessionStartLimit = if (routesFadeEnabled) {
-            val dayMillis = 1000L * 60 * 60 * 24
-            System.currentTimeMillis() - (routesFadeStartDays + 1L) * dayMillis
-        } else {
-            Long.MIN_VALUE
-        }
+        val routeSessionStartLimit = HeatmapLimitCalculator.routeSessionStartLimit(
+            nowMillis = System.currentTimeMillis(),
+            fadeEnabled = routesFadeEnabled,
+            fadeStartDays = settingsStore.routesFadeStartDays
+        )
 
         lifecycleScope.launch(Dispatchers.IO) {
             var error: String? = null
@@ -63,7 +60,10 @@ class HeatmapLimitsChecker(
                 val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
                 val hasRangeFilter = filters.startDate != null || filters.endDate != null
 
-                val removeTransitionsRoutes = if (removeTransitionsMode == 1) baseRemoveTransitions else false
+                val removeTransitionsRoutes = HeatmapLimitCalculator.removeTransitionsForRoutes(
+                    removeTransitionsMode,
+                    baseRemoveTransitions
+                )
 
                 val count = if (routesFilterEnabled) {
                     db.trackPointDao().getCountFilteredForRoutes(
@@ -87,9 +87,12 @@ class HeatmapLimitsChecker(
             }
 
             if (error == null && checkHeatmap) {
-                val gridSize = newGridSize ?: settingsStore.heatmapGridSize.toDouble().coerceAtLeast(1.0)
-                val latDegreeMeters = 111320.0
-                val lonDegreeMeters = latDegreeMeters * cos(Math.toRadians(60.0))
+                val gridSize = HeatmapLimitCalculator.gridSizeMeters(
+                    newGridSize,
+                    settingsStore.heatmapGridSize.toDouble()
+                )
+                val latDegreeMeters = HeatmapLimitCalculator.latitudeDegreeMeters()
+                val lonDegreeMeters = HeatmapLimitCalculator.longitudeDegreeMeters()
 
                 val hasAreaFilter = filters.latNorth != null && filters.latSouth != null && filters.lonEast != null && filters.lonWest != null
                 val hasRangeFilter = filters.startDate != null || filters.endDate != null
