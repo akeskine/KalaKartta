@@ -1,41 +1,19 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.drawable.BitmapDrawable
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.method.LinkMovementMethod
-import android.text.style.ClickableSpan
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.PopupMenu
 import android.content.Intent
-import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.drawable.toDrawable
-import androidx.core.graphics.createBitmap
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.FishDiaryPage
 import fi.anssi.kalakartta.data.Media
-import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
-import fi.anssi.kalakartta.utils.FishDiaryDialog
 import fi.anssi.kalakartta.utils.FishDiaryPageMatcher
-import fi.anssi.kalakartta.utils.enlargeButtons
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
@@ -79,6 +57,12 @@ class MarkerManager(
     private val placesFolder get() = layerState.placesFolder
     private val markersFolder get() = layerState.markersFolder
     private val iconFactory = MarkerIconFactory(context)
+    private val clusterCalculator = ClusterCalculator()
+    private val clusterMarkerRenderer = ClusterMarkerRenderer(
+        iconFactory = iconFactory,
+        resolveIconParams = ::calculateIconParams,
+        resolveSpeciesName = { speciesCache[it]?.name }
+    )
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
     
@@ -105,7 +89,28 @@ class MarkerManager(
     private val deletedFishIds = mutableSetOf<Long>()
     private val deletedPlaceIds = mutableSetOf<Long>()
     
-    private val mediaService = MediaService(context)
+    private val mediaLoader = MarkerMediaLoader(context)
+    private val deletionHandler = MarkerDeletionHandler(context, map, onDeleteConfirmed)
+    private val placeDetailsDialog = PlaceDetailsDialog(
+        context = context,
+        mediaLoader = mediaLoader,
+        openMedia = ::openMedia,
+        onEdit = ::showEditPlaceDialog,
+        onDelete = ::confirmDeletePlace
+    )
+    private val catchDetailsDialog = CatchDetailsDialog(
+        context = context,
+        mediaLoader = mediaLoader,
+        resolveIconParams = ::calculateIconParams,
+        openMedia = ::openMedia,
+        onEdit = { marker, fish ->
+            val currentFish = fish ?: marker.relatedObject as? FishCatch
+            val intent = Intent(context, EditCatchActivity::class.java)
+            intent.putExtra("EXTRA_CATCH_ID", currentFish?.id)
+            launchActivityForResult(intent, 1001)
+        },
+        onDelete = ::confirmDeleteMarker
+    )
     
     private var lastZoom = -1.0
     private var lastBBox: BoundingBox? = null
@@ -123,17 +128,17 @@ class MarkerManager(
                 scope.launch {
                     val mediaList = withContext(Dispatchers.IO) {
                         when (related) {
-                            is FishCatch -> mediaService.getMediaForPoint(related.latitude, related.longitude, related.caughtAt)
-                            is PlaceOfInterest -> mediaService.getMediaForPoint(related.latitude, related.longitude, null)
+                            is FishCatch -> mediaLoader.getForCatch(related)
+                            is PlaceOfInterest -> mediaLoader.getForPlace(related.latitude, related.longitude)
                             else -> emptyList()
                         }
                     }
                     withContext(Dispatchers.Main) {
                         val firstImage = mediaList.firstOrNull { it.mimeType.startsWith("image/") }
                         if (firstImage != null) {
-                            val file = File(context.filesDir, "media/${firstImage.fileName}")
-                            if (file.exists()) {
-                                image.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                            val bitmap = mediaLoader.decodeBitmap(firstImage)
+                            if (bitmap != null) {
+                                image.setImageBitmap(bitmap)
                                 image.visibility = View.VISIBLE
                             }
                         }
@@ -588,7 +593,7 @@ class MarkerManager(
 
                 // Klusterointi voidaan laskea taustalla
                 val clusters =withContext(Dispatchers.Default) {
-                    calculateClusters(catchesCopy, zoom)
+                    clusterCalculator.calculate(catchesCopy, zoom)
                 }
                 
                 // Markerien luonti on tehtävä Main-säikeessä
@@ -912,7 +917,7 @@ class MarkerManager(
     }
 
     private fun openMedia(media: Media) {
-        val file = File(context.filesDir, "media/${media.fileName}")
+        val file = mediaLoader.fileFor(media)
         if (!file.exists()) return
         
         val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -936,7 +941,7 @@ class MarkerManager(
         val type = placeTypeCache[place.typeId]
         scope.launch {
             val mediaList = withContext(Dispatchers.IO) {
-                mediaService.getMediaForPoint(place.latitude, place.longitude, null)
+                mediaLoader.getForPlace(place.latitude, place.longitude)
             }
             withContext(Dispatchers.Main) {
                 showPlaceDetailsDialogWithMedia(marker, place, type, mediaList)
@@ -950,122 +955,7 @@ class MarkerManager(
         type: PlaceOfInterestType?,
         mediaList: List<Media>
     ) {
-        val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
-        val titleText = if (place.name.isEmpty()) type?.name ?: place.typeId else place.name
-        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = titleText
-
-        val dialogView = android.view.LayoutInflater.from(context).inflate(android.R.layout.select_dialog_item, null)
-        // AlertDialog.Builder(context).setMessage(...) käyttää sisäisesti TextViewiä.
-        // Meidän pitää lisätä media TextViewin jälkeen.
-        
-        val container = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (16 * context.resources.displayMetrics.density).toInt()
-            setPadding(padding, padding / 2, padding, padding)
-        }
-
-        val message = StringBuilder()
-        if (place.name.isEmpty()) {
-            message.append(place.additionalInfo)
-        } else {
-            message.append("${type?.name ?: place.typeId}\n\n${place.additionalInfo}")
-        }
-        
-        if (place.originalRef.isNotEmpty()) {
-            if (message.isNotEmpty()) message.append("\n")
-            message.append("Alkuperäinen viite: ${place.originalRef}")
-        }
-
-        if (message.trim().isNotEmpty()) {
-            val tv = TextView(context).apply {
-                text = message.toString().trim()
-                androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
-                setTextColor(android.graphics.Color.BLACK)
-            }
-            container.addView(tv)
-        }
-
-        // Median haku ja lisäys
-        if (mediaList.isNotEmpty()) {
-            val mediaTitle = TextView(context).apply {
-                text = "\nMedia"
-                androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setTextColor(android.graphics.Color.BLACK)
-            }
-            container.addView(mediaTitle)
-
-            val imageMedia = mediaList.filter { it.mimeType.startsWith("image/") }
-            val otherMedia = mediaList.filter { !it.mimeType.startsWith("image/") }
-
-            imageMedia.forEach { media ->
-                val imageView = ImageView(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        topMargin = (8 * context.resources.displayMetrics.density).toInt()
-                    }
-                    adjustViewBounds = true
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    val file = File(context.filesDir, "media/${media.fileName}")
-                    if (file.exists()) {
-                        setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
-                    }
-                    setOnClickListener { openMedia(media) }
-                }
-                container.addView(imageView)
-            }
-
-            otherMedia.forEach { media ->
-                val linkView = TextView(context).apply {
-                    text = media.originalFileName
-                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setTextColor(android.graphics.Color.BLUE)
-                    val paddingVertical = (8 * context.resources.displayMetrics.density).toInt()
-                    setPadding(0, paddingVertical, 0, paddingVertical)
-                    setOnClickListener { openMedia(media) }
-                }
-                container.addView(linkView)
-            }
-        }
-
-        val scrollView = ScrollView(context).apply {
-            addView(container)
-        }
-
-        val dialog = AlertDialog.Builder(context)
-            .setCustomTitle(titleView)
-            .setView(scrollView)
-            .setPositiveButton(R.string.ok, null)
-            .create()
-
-        val editMenuButton = titleView.findViewById<android.view.View>(R.id.editMenuButton)
-        editMenuButton.setOnClickListener {
-            val popup = PopupMenu(context, editMenuButton)
-            popup.menu.add(0, 0, 0, context.getString(R.string.edit))
-            popup.menu.add(0, 1, 1, context.getString(R.string.delete))
-
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    0 -> {
-                        showEditPlaceDialog(marker, place)
-                        dialog.dismiss()
-                        true
-                    }
-                    1 -> {
-                        dialog.dismiss()
-                        confirmDeletePlace(marker, place)
-                        true
-                    }
-                    else -> false
-                }
-            }
-            popup.show()
-        }
-
-        dialog.show()
-        dialog.enlargeButtons()
+        placeDetailsDialog.show(marker, place, type, mediaList)
     }
 
     private fun showEditPlaceDialog(marker: Marker, place: PlaceOfInterest) {
@@ -1076,87 +966,12 @@ class MarkerManager(
     }
 
     private fun confirmDeletePlace(marker: Marker, place: PlaceOfInterest) {
-        val dialog = AlertDialog.Builder(context)
-            .setTitle(context.getString(R.string.delete))
-            .setMessage("Haluatko varmasti poistaa paikan ${place.name}?")
-            .setPositiveButton(R.string.delete) { _, _ ->
-                val currentRelated = marker.relatedObject
-                if (currentRelated == place) {
-                    onDeleteConfirmed(marker)
-                } else {
-                    val dummyMarker = Marker(map)
-                    dummyMarker.relatedObject = place
-                    onDeleteConfirmed(dummyMarker)
-                }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-        dialog.enlargeButtons()
+        deletionHandler.confirmPlace(marker, place)
     }
 
     private fun createClusterMarker(groupKey: Any, clusterList: List<FishCatch>): Marker? {
-        val avgLat = clusterList.map { it.latitude }.average()
-        val avgLon = clusterList.map { it.longitude }.average()
-        val point = GeoPoint(avgLat, avgLon)
-        
-        val marker = layerState.obtainMarker(map)
-        marker.position = point
-        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        
-        val speciesId = if (groupKey is String) groupKey else (groupKey as Pair<*, *>).first as String
-        val eventType = if (groupKey is Pair<*, *>) groupKey.second as String else null
-
-        val species = speciesCache[speciesId]
-        
-        // Käytetään calculateIconParams -metodia ikoniparametrien hakemiseen (skaalaus mukaan lukien)
-        // Käytetään klusterion ensimmäistä kalaa edustamaan koko ryhmää ikonivalinnassa
-        val iconParams = calculateIconParams(clusterList[0])
-        val drawableId = iconParams.first
-        val iconPath = iconParams.second
-        var iconSize = iconParams.third
-        
-        val count = clusterList.size
-
-        if (speciesId == "UNKNOWN" && (eventType == null || eventType == FishCatch.CAUGHT_FISH)) {
-            val key = Triple(drawableId, iconSize, 48)
-            marker.icon = iconFactory.getTouchIcon(drawableId, iconSize, 48)
-            marker.title = "Tuntematon laji"
-        } else {
-            // Ryhmämerkissä käytetään base kokoa 40dp jos se on skaalattu oletuksesta
-            if (drawableId != R.drawable.default_point && iconSize == 24) {
-                iconSize = 40
-            }
-
-            val key = if (groupKey is String) {
-                if (iconPath != null) {
-                    Triple(iconPath, iconSize, count)
-                } else {
-                    Triple(drawableId, iconSize, count)
-                }
-            } else {
-                // Lisätään eventType avaimeen jotta eri tapahtumatyypit eivät käytä samaa välimuistipaikkaa vahingossa
-                if (iconPath != null) {
-                    Quadruple(iconPath, iconSize, count, eventType)
-                } else {
-                    Quadruple(drawableId, iconSize, count, eventType)
-                }
-            }
-
-            marker.icon = if (iconPath != null) {
-                iconFactory.getClusterIcon(iconPath, iconSize, count)
-            } else {
-                iconFactory.getClusterIcon(drawableId, iconSize, count)
-            }
-            
-            val speciesName = species?.name ?: speciesId
-            marker.title = if (eventType != null && eventType != FishCatch.CAUGHT_FISH) {
-                "${FishCatch.getEventTypeName(eventType)}: $speciesName ($count kpl)"
-            } else {
-                "$speciesName ($count kpl)"
-            }
-        }
-        
-        marker.relatedObject = clusterList
+        val marker = clusterMarkerRenderer.render(layerState.obtainMarker(map), groupKey, clusterList)
+            ?: return null
 
         marker.setOnMarkerClickListener { clickedMarker, _ ->
             val list = (clickedMarker.relatedObject as? List<*>)?.filterIsInstance<FishCatch>()
@@ -1327,7 +1142,7 @@ class MarkerManager(
                     FishDiaryPageMatcher.pagesForCaughtAt(it.caughtAt, db.fishDiaryPageDao().getAll())
                 }.orEmpty()
                 val loadedMedia = fish?.let {
-                    MediaService(context).getMediaForPoint(it.latitude, it.longitude, it.caughtAt)
+                    mediaLoader.getForCatch(it)
                 }.orEmpty()
                 Triple(loadedSpecies, loadedDiaryPages, loadedMedia)
             }
@@ -1452,269 +1267,21 @@ class MarkerManager(
             if (it.originalRef.isNotEmpty()) details.append("Alkuperäinen viite: ${it.originalRef}\n")
         }
 
-        val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
-        val dialogTitle = if (fish?.eventType != null && fish.eventType != FishCatch.CAUGHT_FISH) {
-            FishCatch.getEventTypeName(fish.eventType)
-        } else if (hasSpecies || fish?.species != "UNKNOWN") {
-            "Saaliin tiedot"
-        } else {
-            "Pisteen tiedot"
-        }
-        titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = dialogTitle
+        catchDetailsDialog.show(
+            marker = marker,
+            fish = fish,
+            diaryPages = diaryPages,
+            mediaList = mediaList,
+            detailsText = details.toString().trim(),
+            hasSpecies = hasSpecies
+        )
+        return
 
-        val titleIconView = titleView.findViewById<android.widget.ImageView>(R.id.titleIcon)
-        fish?.let {
-            val params = calculateIconParams(it)
-            val drawableId = params.first
-            val iconPath = params.second
-            val finalIconSize = params.third
-
-            titleIconView.visibility = View.VISIBLE
-            
-            // Asetetaan koko vastaamaan kartalla näkyvää kokoa
-            val layoutParams = titleIconView.layoutParams
-            val density = context.resources.displayMetrics.density
-            layoutParams.width = (finalIconSize * density).toInt()
-            layoutParams.height = (finalIconSize * density).toInt()
-            titleIconView.layoutParams = layoutParams
-
-            if (drawableId != 0 && (drawableId != R.drawable.default_point || fish.species != "UNKNOWN")) {
-                titleIconView.setImageResource(drawableId)
-            } else if (iconPath != null) {
-                val file = if (iconPath.startsWith("/")) File(iconPath) else File(context.filesDir, iconPath)
-                if (file.exists()) {
-                    titleIconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
-                } else {
-                    titleIconView.setImageResource(R.drawable.muukala)
-                }
-            } else if (drawableId == R.drawable.default_point && fish.species == "UNKNOWN") {
-                titleIconView.setImageResource(R.drawable.default_point)
-            } else {
-                titleIconView.setImageResource(R.drawable.muukala)
-            }
-        }
-
-        val messageText = details.toString().trim()
-        val spannableMessage = SpannableString(messageText)
-        
-        fish?.windDirection?.let { direction ->
-            val windMarker = "Tuuli: "
-            val windIndex = messageText.indexOf(windMarker)
-            if (windIndex != -1) {
-                val endOfLine = messageText.indexOf("\n", windIndex)
-                val insertPos = if (endOfLine != -1) endOfLine else messageText.length
-                
-                // Käytetään ImageSpania nuolen lisäämiseen
-                val arrowDrawable = ContextCompat.getDrawable(context, R.drawable.ic_wind_arrow)?.mutate()
-                arrowDrawable?.let { drawable ->
-                    drawable.setBounds(0, 0, (16 * context.resources.displayMetrics.density).toInt(), (16 * context.resources.displayMetrics.density).toInt())
-                    val rotatedDrawable = run {
-                        // Pyöritys on tehtävä dynaamisesti
-                        val bitmap = android.graphics.Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
-                        val canvas = android.graphics.Canvas(bitmap)
-                        canvas.rotate((direction.toFloat() + 180) % 360, bitmap.width / 2f, bitmap.height / 2f)
-                        drawable.draw(canvas)
-                        android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
-                    }
-                    rotatedDrawable.setBounds(0, 0, (16 * context.resources.displayMetrics.density).toInt(), (16 * context.resources.displayMetrics.density).toInt())
-                    
-                    val imageSpan = android.text.style.ImageSpan(rotatedDrawable, android.text.style.ImageSpan.ALIGN_BOTTOM)
-                    // Koska lisäsimme välilyönnin jo aiemmin, korvataan se nuolella
-                    val spacePos = insertPos - 1
-                    if (spacePos >= 0 && messageText[spacePos] == ' ') {
-                        spannableMessage.setSpan(imageSpan, spacePos, insertPos, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    }
-                }
-            }
-        }
-
-        val container = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (16 * context.resources.displayMetrics.density).toInt()
-            setPadding(padding, padding / 2, padding, padding)
-        }
-
-        fun addDetailsText(text: CharSequence) {
-            if (text.isNotBlank()) {
-                val tv = TextView(context).apply {
-                    this.text = text
-                    androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
-                    setTextColor(android.graphics.Color.BLACK)
-                    movementMethod = android.text.method.LinkMovementMethod.getInstance()
-                }
-                container.addView(tv)
-            }
-        }
-
-        fun addPressureGraph(fishCatch: FishCatch) {
-            val pressureGraph = PressureGraphView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    (180 * context.resources.displayMetrics.density).toInt()
-                ).apply {
-                    topMargin = (8 * context.resources.displayMetrics.density).toInt()
-                }
-                setData(fishCatch.pressureSamples, fishCatch.caughtAt!!)
-            }
-            container.addView(pressureGraph)
-        }
-
-        val graphMarkerIndex = messageText.indexOf(pressureGraphMarker)
-        if (graphMarkerIndex >= 0) {
-            val beforeGraphEnd = messageText.substring(0, graphMarkerIndex).trimEnd().length
-            val afterGraphStart = graphMarkerIndex + pressureGraphMarker.length
-            val afterGraphText = messageText.substring(afterGraphStart)
-            val firstAfterGraphCharacter = afterGraphText.indexOfFirst { !it.isWhitespace() }
-            val afterGraphContentStart = if (firstAfterGraphCharacter >= 0) {
-                afterGraphStart + firstAfterGraphCharacter
-            } else {
-                messageText.length
-            }
-
-            addDetailsText(spannableMessage.subSequence(0, beforeGraphEnd))
-            fish?.let { addPressureGraph(it) }
-            addDetailsText(spannableMessage.subSequence(afterGraphContentStart, messageText.length))
-        } else {
-            addDetailsText(spannableMessage)
-        }
-
-        // Median haku ja lisäys
-        addDiaryLinks(container, diaryPages)
-
-        if (mediaList.isNotEmpty()) {
-                val mediaTitle = TextView(context).apply {
-                    text = "\nMedia"
-                    androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setTextColor(android.graphics.Color.BLACK)
-                }
-                container.addView(mediaTitle)
-
-                val imageMedia = mediaList.filter { it.mimeType.startsWith("image/") }
-                val otherMedia = mediaList.filter { !it.mimeType.startsWith("image/") }
-
-                imageMedia.forEach { media ->
-                    val imageView = ImageView(context).apply {
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        ).apply {
-                            topMargin = (8 * context.resources.displayMetrics.density).toInt()
-                        }
-                        adjustViewBounds = true
-                        scaleType = ImageView.ScaleType.FIT_CENTER
-                        val file = File(context.filesDir, "media/${media.fileName}")
-                        if (file.exists()) {
-                            setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
-                        }
-                        setOnClickListener { openMedia(media) }
-                    }
-                    container.addView(imageView)
-                }
-
-                otherMedia.forEach { media ->
-                    val linkView = TextView(context).apply {
-                        text = media.originalFileName
-                        paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                        setTextColor(android.graphics.Color.BLUE)
-                        val paddingVertical = (8 * context.resources.displayMetrics.density).toInt()
-                        setPadding(0, paddingVertical, 0, paddingVertical)
-                        setOnClickListener { openMedia(media) }
-                    }
-                    container.addView(linkView)
-                }
-        }
-
-        val scrollView = ScrollView(context).apply {
-            addView(container)
-        }
-
-        val dialog = AlertDialog.Builder(context)
-            .setCustomTitle(titleView)
-            .setView(scrollView)
-            .setPositiveButton("OK", null)
-            .create()
-
-        val editMenuButton = titleView.findViewById<android.view.View>(R.id.editMenuButton)
-        editMenuButton.setOnClickListener {
-            val popup = PopupMenu(context, editMenuButton)
-            popup.menu.add(0, 0, 0, context.getString(R.string.edit))
-            popup.menu.add(0, 1, 1, context.getString(R.string.delete))
-
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    0 -> {
-                        val currentFish = fish ?: marker.relatedObject as? FishCatch
-                        val intent = Intent(context, EditCatchActivity::class.java)
-                        intent.putExtra("EXTRA_CATCH_ID", currentFish?.id)
-                        launchActivityForResult(intent, 1001)
-                        dialog.dismiss()
-                        true
-                    }
-                    1 -> {
-                        dialog.dismiss()
-                        confirmDeleteMarker(marker, fish)
-                        true
-                    }
-                    else -> false
-                }
-            }
-            popup.show()
-        }
-
-        dialog.show()
-        dialog.enlargeButtons()
-    }
-
-    private fun addDiaryLinks(container: LinearLayout, pages: List<FishDiaryPage>) {
-        if (pages.isEmpty()) return
-
-        pages.forEachIndexed { index, page ->
-            val linkText = if (pages.size == 1) {
-                context.getString(R.string.trip_notes)
-            } else {
-                context.getString(R.string.trip_notes) + " ${index + 1}"
-            }
-            val link = TextView(context).apply {
-                text = linkText
-                setTextColor(ContextCompat.getColor(context, R.color.link_color))
-                paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
-                textSize = 16f
-                setPadding(0, (8 * context.resources.displayMetrics.density).toInt(), 0, 0)
-                setOnClickListener { FishDiaryDialog.show(context, page) }
-            }
-            container.addView(link)
-        }
     }
 
     private fun confirmDeleteMarker(marker: Marker, fishFromDialog: FishCatch?) {
-        val related = marker.relatedObject
-        val fish = fishFromDialog ?: related as? FishCatch
-        val place = if (fish == null) related as? PlaceOfInterest else null
-        
-        if (fish == null && place == null) {
-            android.util.Log.w("MarkerManager", "confirmDeleteMarker: marker has no related object, nothing to delete")
-            return
-        }
-
-        val dialog = AlertDialog.Builder(context)
-            .setTitle("Poista merkki?")
-            .setMessage("Haluatko varmasti poistaa tämän merkin?")
-            .setPositiveButton("Poista") { _, _ ->
-                // Varmistetaan että markerilla on yhä oikea tieto
-                if (marker.relatedObject == (fish ?: place)) {
-                    onDeleteConfirmed(marker)
-                } else {
-                    // Jos marker on jo kierrätetty, luodaan väliaikainen dummy-marker jotta onDeleteConfirmed toimii.
-                    val dummyMarker = Marker(map)
-                    dummyMarker.relatedObject = fish ?: place
-                    onDeleteConfirmed(dummyMarker)
-                }
-            }
-            .setNegativeButton("Peruuta", null)
-            .show()
-
-        dialog.enlargeButtons()
+        deletionHandler.confirmMarker(marker, fishFromDialog)
+        return
     }
 
     @Suppress("DiscouragedApi")
@@ -1725,193 +1292,4 @@ class MarkerManager(
         return id
     }
 
-    private fun calculateClusters(catches: List<FishCatch>, zoom: Double): Map<Any, List<List<FishCatch>>> {
-        val result = mutableMapOf<Any, MutableList<MutableList<FishCatch>>>()
-        
-        // Ryhmitellään avaimen mukaan: laji (+ tapahtumatyyppi, jos ei saatu kala)
-        val grouped = catches.groupBy { fish ->
-            if (fish.species == "UNKNOWN" && (fish.eventType == null || fish.eventType == FishCatch.CAUGHT_FISH)) {
-                // Palautetaan uniikki avain jokaiselle oletuspisteelle, jotta niitä ei klusteroida
-                "UNKNOWN_INDIVIDUAL_${fish.id}"
-            } else if (fish.eventType == null || fish.eventType == FishCatch.CAUGHT_FISH) {
-                fish.species
-            } else {
-                fish.species to fish.eventType
-            }
-        }
-        
-        // Etäisyyskynnys pikseleinä (muunnetaan asteiksi)
-        val threshold = when {
-            zoom < 10 -> 0.5
-            zoom < 12 -> 0.1
-            zoom < 13 -> 0.02
-            zoom < 14 -> 0.01
-            zoom < 15 -> 0.005
-            else -> 0.002
-        }
-        
-        // Jos pisteitä on todella paljon, käytetään grid-pohjaista klusterointia nopeuden takia
-        val useGrid = catches.size > 15000
-
-        grouped.forEach { (groupKey, groupCatches) ->
-            val clusters = mutableListOf<MutableList<FishCatch>>()
-            
-            if (useGrid) {
-                // Grid-pohjainen klusterointi: jaetaan alue ruutuihin
-                val grid = mutableMapOf<Pair<Int, Int>, MutableList<FishCatch>>()
-                groupCatches.forEach { fish ->
-                    val gridX = (fish.longitude / threshold).toInt()
-                    val gridY = (fish.latitude / threshold).toInt()
-                    val key = gridX to gridY
-                    grid.getOrPut(key) { mutableListOf() }.add(fish)
-                }
-                grid.values.forEach { clusters.add(it) }
-            } else {
-                // Alkuperäinen etäisyyteen perustuva klusterointi pienemmille määrille
-                groupCatches.forEach { fish ->
-                    var found = false
-                    for (cluster in clusters) {
-                        val first = cluster[0]
-                        val dist = Math.sqrt(Math.pow(fish.latitude - first.latitude, 2.0) + Math.pow(fish.longitude - first.longitude, 2.0))
-                        if (dist < threshold) {
-                            cluster.add(fish)
-                            found = true
-                            break
-                        }
-                    }
-                    
-                    if (!found) {
-                        clusters.add(mutableListOf(fish))
-                    }
-                }
-            }
-            result[groupKey] = clusters
-        }
-        
-        return result
-    }
-
-    private fun getClusteredMarkerIcon(drawableId: Int, sizeDp: Int, count: Int): BitmapDrawable {
-        val baseIcon = getScaledMarkerIcon(drawableId, sizeDp).bitmap
-        return drawClusterCountOnBitmap(baseIcon, count)
-    }
-
-    private fun getClusteredMarkerIcon(path: String, sizeDp: Int, count: Int): BitmapDrawable {
-        val scaled = getScaledMarkerIcon(path, sizeDp)
-        val baseIcon = scaled.bitmap
-        return drawClusterCountOnBitmap(baseIcon, count)
-    }
-
-    private fun getIconWithLabel(drawableId: Int, sizeDp: Int, label: String): BitmapDrawable {
-        val baseIcon = getScaledMarkerIcon(drawableId, sizeDp).bitmap
-        val density = context.resources.displayMetrics.density
-        
-        val textPaint = Paint().apply {
-            color = Color.BLACK
-            textSize = 12 * density
-            isFakeBoldText = true
-            isAntiAlias = true
-            textAlign = Paint.Align.CENTER
-            // Lisätään varjo jotta teksti erottuu paremmin
-            setShadowLayer(2f, 1f, 1f, Color.WHITE)
-        }
-        
-        val bounds = Rect()
-        textPaint.getTextBounds(label, 0, label.length, bounds)
-        
-        val padding = (4 * density).toInt()
-        val textWidth = bounds.width()
-        val textHeight = bounds.height()
-        
-        // Lasketaan i-pisteen tarkka sijainti ja kääntö
-        val textMetrics = textPaint.fontMetrics
-        val textOffset = textMetrics.descent
-        
-        val bitmapWidth = baseIcon.width.coerceAtLeast(textWidth + padding * 2)
-        val bitmapHeight = baseIcon.height + textHeight + padding * 2
-        
-        val bitmap = createBitmap(bitmapWidth, bitmapHeight, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        
-        // Piirretään ikoni keskelle yläosaa
-        canvas.drawBitmap(baseIcon, (bitmapWidth - baseIcon.width) / 2f, 0f, null)
-        
-        // Piirretään teksti ikonin alapuolelle
-        canvas.drawText(label, bitmapWidth / 2f, (baseIcon.height + textHeight + padding).toFloat() - textOffset, textPaint)
-        
-        return bitmap.toDrawable(context.resources)
-    }
-
-    private fun drawClusterCountOnBitmap(baseIcon: Bitmap, count: Int): BitmapDrawable {
-        val density = context.resources.displayMetrics.density
-        
-        // Luodaan kopio jota muokataan
-        val bitmap = baseIcon.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(bitmap)
-        
-        val paint = Paint().apply {
-            color = Color.RED
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
-        
-        val textPaint = Paint().apply {
-            color = Color.WHITE
-            textSize = 12 * density
-            isFakeBoldText = true
-            isAntiAlias = true
-            textAlign = Paint.Align.CENTER
-        }
-        
-        val text = count.toString()
-        val bounds = Rect()
-        textPaint.getTextBounds(text, 0, text.length, bounds)
-        
-        val radius = (bounds.width().coerceAtLeast(bounds.height()) / 2f) + (4 * density)
-        val centerX = bitmap.width - radius
-        val centerY = radius
-        
-        canvas.drawCircle(centerX, centerY, radius, paint)
-        canvas.drawText(text, centerX, centerY + (bounds.height() / 2f), textPaint)
-        
-        return bitmap.toDrawable(context.resources)
-    }
-
-    private fun getScaledMarkerIcon(drawableId: Int, sizeDp: Int): BitmapDrawable {
-        val drawable = ContextCompat.getDrawable(context, drawableId) ?: ContextCompat.getDrawable(context, R.drawable.default_point)!!
-        val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt()
-        val bitmap = drawable.toBitmap(sizePx, sizePx)
-        return bitmap.toDrawable(context.resources)
-    }
-
-    private fun getScaledMarkerIcon(path: String, sizeDp: Int): BitmapDrawable {
-        val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt()
-        val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
-        val bitmap = try {
-            val original = BitmapFactory.decodeFile(file.absolutePath)
-            Bitmap.createScaledBitmap(original, sizePx, sizePx, true)
-        } catch (e: Exception) {
-            ContextCompat.getDrawable(context, R.drawable.default_point)!!.toBitmap(sizePx, sizePx)
-        }
-        return bitmap.toDrawable(context.resources)
-    }
-
-    private fun getSmallIconWithLargeTouchArea(drawableId: Int, visibleSizeDp: Int, touchSizeDp: Int): BitmapDrawable {
-        val drawable = ContextCompat.getDrawable(context, drawableId) ?: ContextCompat.getDrawable(context, R.drawable.default_point)!!
-        
-        val density = context.resources.displayMetrics.density
-        val visibleSizePx = (visibleSizeDp * density).toInt()
-        val touchSizePx = (touchSizeDp * density).toInt()
-        
-        val bitmap = createBitmap(touchSizePx, touchSizePx, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        
-        val left = (touchSizePx - visibleSizePx) / 2
-        val top = (touchSizePx - visibleSizePx) / 2
-        
-        drawable.setBounds(left, top, left + visibleSizePx, top + visibleSizePx)
-        drawable.draw(canvas)
-        
-        return bitmap.toDrawable(context.resources)
-    }
 }
