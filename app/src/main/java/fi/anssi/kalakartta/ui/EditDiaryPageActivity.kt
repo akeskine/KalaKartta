@@ -1,16 +1,19 @@
 package fi.anssi.kalakartta.ui
 
 import android.app.DatePickerDialog
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
@@ -86,8 +89,8 @@ class EditDiaryPageActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.saveButton).setOnClickListener { save() }
         findViewById<TextView>(R.id.backButton).setOnClickListener { goBack() }
         addMediaButton.setOnClickListener { selectMediaLauncher.launch("*/*") }
-        findViewById<TextView>(R.id.generateCatchButton).setOnClickListener { generateCatchText() }
-        findViewById<TextView>(R.id.generateStoryButton).setOnClickListener { generateStoryText() }
+        setupGenerateButton(findViewById(R.id.generateCatchButton), catchEdit) { generateCatchText() }
+        setupGenerateButton(findViewById(R.id.generateStoryButton), storyEdit) { generateStoryText() }
         multiDayCheckBox.setOnCheckedChangeListener { _, checked -> endDateContainer.visibility = if (checked) View.VISIBLE else View.GONE; changed = true; refreshMediaList() }
         startDateText.setOnClickListener { pickDate(startDate) { startDate = it; updateDates(); changed = true; refreshMediaList() } }
         endDateText.setOnClickListener { pickDate(endDate ?: startDate) { endDate = it; updateDates(); changed = true; refreshMediaList() } }
@@ -95,11 +98,26 @@ class EditDiaryPageActivity : AppCompatActivity() {
             edit.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
                     changed = true
-                    edit.post { editorRoot.smoothScrollTo(0, edit.bottom) }
+                    edit.post {
+                        edit.requestRectangleOnScreen(Rect(0, 0, edit.width, edit.height), true)
+                    }
                 }
             }
         }
         loadPage()
+    }
+
+    private fun setupGenerateButton(button: TextView, edit: EditText, onGenerate: () -> Unit) {
+        button.setOnClickListener { onGenerate() }
+        fun updateVisibility() {
+            button.visibility = if (edit.text.isNullOrBlank()) View.VISIBLE else View.GONE
+        }
+        edit.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) = updateVisibility()
+        })
+        updateVisibility()
     }
 
     private fun loadPage() {
