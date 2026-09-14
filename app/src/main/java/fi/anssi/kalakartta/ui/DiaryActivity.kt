@@ -13,7 +13,11 @@ import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -48,12 +52,26 @@ class DiaryActivity : AppCompatActivity() {
         else @Suppress("DEPRECATION") { window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON) }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_diary)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        val diaryScrollView = findViewById<ScrollView>(R.id.diaryScrollView)
+        val baseBottomPadding = (24 * resources.displayMetrics.density).toInt()
+        ViewCompat.setOnApplyWindowInsetsListener(diaryScrollView) { view, insets ->
+            val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, baseBottomPadding + navigationBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(diaryScrollView)
         db = AppDatabase.getInstance(this)
         calendarGrid = findViewById(R.id.calendarGrid)
         monthYearText = findViewById(R.id.monthYearText)
         diaryPagesContainer = findViewById(R.id.diaryPagesContainer)
         noPagesText = findViewById(R.id.noPagesText)
-        findViewById<View>(R.id.backButton).setOnClickListener { finish() }
+        findViewById<View>(R.id.backButton).setOnClickListener { finishToSettings() }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finishToMap()
+            }
+        })
         findViewById<Button>(R.id.prevMonthButton).setOnClickListener { changeMonth(-1) }
         findViewById<Button>(R.id.nextMonthButton).setOnClickListener { changeMonth(1) }
         monthYearText.setOnClickListener { MonthYearPickerDialog.show(this, currentCalendar) { y, m -> navigateToMonth(y, m) } }
@@ -174,6 +192,16 @@ class DiaryActivity : AppCompatActivity() {
 
     private fun openEditPage(id: Long) {
         editPageLauncher.launch(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_PAGE_ID, id))
+    }
+
+    private fun finishToSettings() {
+        setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
+        finish()
+    }
+
+    private fun finishToMap() {
+        setResult(RESULT_OK)
+        finish()
     }
 
     private fun updateCalendar() {

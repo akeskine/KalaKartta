@@ -8,12 +8,14 @@
     </LinearLayout>
     <GridLayout android:id="@+id/calendarGrid" android:layout_width="match_parent" android:layout_height="wrap_content" android:columnCount="7" android:layout_marginBottom="16dp" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Päiväkirjasivut:" android:textStyle="bold" android:layout_marginBottom="8dp" />
-    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+    <ScrollView android:id="@+id/diaryScrollView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false">
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
             <TextView android:id="@+id/noPagesText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Ei päiväkirjasivuja tälle päivälle." android:padding="20dp" />
             <LinearLayout android:id="@+id/diaryPagesContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
-            <TextView android:id="@+id/addDiaryPageButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Lisää päiväkirjasivu" android:gravity="center" android:padding="16dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
-            <TextView android:id="@+id/backButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/back" android:gravity="center" android:padding="16dp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                <TextView android:id="@+id/addDiaryPageButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lisää päiväkirjasivu" android:singleLine="true" android:gravity="center" android:padding="16dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                <TextView android:id="@+id/backButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/back" android:gravity="center" android:padding="16dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

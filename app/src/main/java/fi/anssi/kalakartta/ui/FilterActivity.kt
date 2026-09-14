@@ -150,7 +150,7 @@ class FilterActivity : AppCompatActivity() {
         loadFilterOptions()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                saveAndFinish()
+                saveAndFinish(returnToSettings = false)
             }
         })
     }
@@ -929,7 +929,7 @@ class FilterActivity : AppCompatActivity() {
         return newFilters
     }
 
-    private fun saveAndFinish() {
+    private fun saveAndFinish(returnToSettings: Boolean = true) {
         if (!validateMoonFilterInputs()) return
 
         val newFilters = saveFiltersToManager()
@@ -946,15 +946,23 @@ class FilterActivity : AppCompatActivity() {
             SettingsManager.checkLimits(this, db, lifecycleScope, checkHeatmap, checkRoutes, providedFilters = newFilters) { success ->
                 if (success) {
                     filterManager.saveFilters(newFilters)
-                    setResult(RESULT_OK)
-                    finish()
+                    if (returnToSettings) finishToSettings() else finishToMap()
                 }
             }
         } else {
             filterManager.saveFilters(newFilters)
-            setResult(RESULT_OK)
-            finish()
+            if (returnToSettings) finishToSettings() else finishToMap()
         }
+    }
+
+    private fun finishToSettings() {
+        setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
+        finish()
+    }
+
+    private fun finishToMap() {
+        setResult(RESULT_OK)
+        finish()
     }
 
 }

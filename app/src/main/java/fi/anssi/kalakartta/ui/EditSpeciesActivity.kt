@@ -14,6 +14,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -61,6 +62,12 @@ class EditSpeciesActivity : AppCompatActivity() {
             val intent = Intent(this, EditSpeciesDetailActivity::class.java)
             startActivity(intent)
         }
+        findViewById<TextView>(R.id.backButton).setOnClickListener { finishToSettings() }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finishToSettings()
+            }
+        })
     }
 
     override fun onResume() {
@@ -170,5 +177,10 @@ class EditSpeciesActivity : AppCompatActivity() {
     private fun getDrawableId(iconName: String): Int {
         if (iconName.isEmpty()) return 0
         return resources.getIdentifier(iconName, "drawable", packageName)
+    }
+
+    private fun finishToSettings() {
+        setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
+        finish()
     }
 }
