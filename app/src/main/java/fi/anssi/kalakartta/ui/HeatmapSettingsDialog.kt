@@ -31,6 +31,8 @@ class HeatmapSettingsDialog(
         providedFilters: FilterManager.Filters?,
         providedRemoveTransitions: Boolean?,
         providedMaxSpeed: Float?,
+        providedRoutesFadeEnabled: Boolean?,
+        providedRoutesFadeStartDays: Int?,
         onResult: (Boolean) -> Unit
     ) -> Unit,
     private val onMapSettingsChanged: () -> Unit,
@@ -47,6 +49,8 @@ class HeatmapSettingsDialog(
         providedFilters: FilterManager.Filters? = null,
         providedRemoveTransitions: Boolean? = null,
         providedMaxSpeed: Float? = null,
+        providedRoutesFadeEnabled: Boolean? = null,
+        providedRoutesFadeStartDays: Int? = null,
         onResult: (Boolean) -> Unit
     ) {
         checkLimitsCallback(
@@ -56,6 +60,8 @@ class HeatmapSettingsDialog(
             providedFilters,
             providedRemoveTransitions,
             providedMaxSpeed,
+            providedRoutesFadeEnabled,
+            providedRoutesFadeStartDays,
             onResult
         )
     }
@@ -753,6 +759,26 @@ class HeatmapSettingsDialog(
                         s,
                         SettingsDefaults.ROUTES_FADE_START_DAYS
                     )
+                    val oldValue = settingsStore.routesFadeStartDays
+                    if (value == oldValue) return
+
+                    if (settingsStore.fishingRoutesEnabled) {
+                        checkLimits(
+                            checkHeatmap = false,
+                            checkRoutes = true,
+                            providedRoutesFadeEnabled = settingsStore.routesFadeEnabled,
+                            providedRoutesFadeStartDays = value
+                        ) { success ->
+                            if (success) {
+                                settingsStore.routesFadeStartDays = value
+                                onMapSettingsChanged()
+                            } else {
+                                setText(oldValue.toString())
+                            }
+                        }
+                        return
+                    }
+
                     settingsStore.routesFadeStartDays = value
                     onMapSettingsChanged()
                 }
@@ -779,6 +805,26 @@ class HeatmapSettingsDialog(
                         s,
                         SettingsDefaults.ROUTES_FADE_FULL_DAYS
                     )
+                    val oldValue = settingsStore.routesFadeFullDays
+                    if (value == oldValue) return
+
+                    if (settingsStore.fishingRoutesEnabled) {
+                        checkLimits(
+                            checkHeatmap = false,
+                            checkRoutes = true,
+                            providedRoutesFadeEnabled = settingsStore.routesFadeEnabled,
+                            providedRoutesFadeStartDays = settingsStore.routesFadeStartDays
+                        ) { success ->
+                            if (success) {
+                                settingsStore.routesFadeFullDays = value
+                                onMapSettingsChanged()
+                            } else {
+                                setText(oldValue.toString())
+                            }
+                        }
+                        return
+                    }
+
                     settingsStore.routesFadeFullDays = value
                     onMapSettingsChanged()
                 }
@@ -797,6 +843,30 @@ class HeatmapSettingsDialog(
         })
 
         fadeEnabledCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            val oldValue = settingsStore.routesFadeEnabled
+            if (isChecked == oldValue) {
+                fadeSettingsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+                return@setOnCheckedChangeListener
+            }
+
+            if (settingsStore.fishingRoutesEnabled) {
+                checkLimits(
+                    checkHeatmap = false,
+                    checkRoutes = true,
+                    providedRoutesFadeEnabled = isChecked,
+                    providedRoutesFadeStartDays = settingsStore.routesFadeStartDays
+                ) { success ->
+                    if (success) {
+                        settingsStore.routesFadeEnabled = isChecked
+                        fadeSettingsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+                        onMapSettingsChanged()
+                    } else {
+                        fadeEnabledCheckbox.isChecked = oldValue
+                    }
+                }
+                return@setOnCheckedChangeListener
+            }
+
             settingsStore.routesFadeEnabled = isChecked
             fadeSettingsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
             onMapSettingsChanged()

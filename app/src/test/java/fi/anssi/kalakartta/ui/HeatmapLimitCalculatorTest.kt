@@ -41,6 +41,19 @@ class HeatmapLimitCalculatorTest {
     }
 
     @Test
+    fun providedRouteFadeValuesOverrideCurrentSettings() {
+        val settings = HeatmapLimitCalculator.effectiveRouteFadeSettings(
+            currentEnabled = false,
+            currentStartDays = 365,
+            providedEnabled = true,
+            providedStartDays = 30
+        )
+
+        assertEquals(true, settings.enabled)
+        assertEquals(30, settings.startDays)
+    }
+
+    @Test
     fun routeTransitionFilteringRequiresModeOneAndEnabledSetting() {
         assertEquals(true, HeatmapLimitCalculator.removeTransitionsForRoutes(1, true))
         assertEquals(false, HeatmapLimitCalculator.removeTransitionsForRoutes(1, false))

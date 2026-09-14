@@ -58,7 +58,7 @@ class SettingsManager(
         HeatmapSettingsDialog(
             activity = activity,
             settingsStore = settingsStore,
-            checkLimitsCallback = { checkHeatmap, checkRoutes, newGridSize, providedFilters, providedRemoveTransitions, providedMaxSpeed, onResult ->
+            checkLimitsCallback = { checkHeatmap, checkRoutes, newGridSize, providedFilters, providedRemoveTransitions, providedMaxSpeed, providedRoutesFadeEnabled, providedRoutesFadeStartDays, onResult ->
                 heatmapLimitsChecker.check(
                     checkHeatmap = checkHeatmap,
                     checkRoutes = checkRoutes,
@@ -66,6 +66,8 @@ class SettingsManager(
                     providedFilters = providedFilters,
                     providedRemoveTransitions = providedRemoveTransitions,
                     providedMaxSpeed = providedMaxSpeed,
+                    providedRoutesFadeEnabled = providedRoutesFadeEnabled,
+                    providedRoutesFadeStartDays = providedRoutesFadeStartDays,
                     onResult = onResult
                 )
             },
@@ -305,6 +307,8 @@ class SettingsManager(
         providedFilters: FilterManager.Filters? = null,
         providedRemoveTransitions: Boolean? = null,
         providedMaxSpeed: Float? = null,
+        providedRoutesFadeEnabled: Boolean? = null,
+        providedRoutesFadeStartDays: Int? = null,
         onResult: (success: Boolean) -> Unit
     ) {
         heatmapLimitsChecker.check(
@@ -314,6 +318,8 @@ class SettingsManager(
             providedFilters,
             providedRemoveTransitions,
             providedMaxSpeed,
+            providedRoutesFadeEnabled,
+            providedRoutesFadeStartDays,
             onResult
         )
     }
@@ -329,6 +335,8 @@ class SettingsManager(
             providedFilters: FilterManager.Filters? = null,
             providedRemoveTransitions: Boolean? = null,
             providedMaxSpeed: Float? = null,
+            providedRoutesFadeEnabled: Boolean? = null,
+            providedRoutesFadeStartDays: Int? = null,
             onResult: (success: Boolean) -> Unit
         ) {
             HeatmapLimitsChecker(context, db, lifecycleScope).check(
@@ -338,6 +346,8 @@ class SettingsManager(
                 providedFilters,
                 providedRemoveTransitions,
                 providedMaxSpeed,
+                providedRoutesFadeEnabled,
+                providedRoutesFadeStartDays,
                 onResult
             )
         }

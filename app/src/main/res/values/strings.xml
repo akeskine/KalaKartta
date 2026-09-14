@@ -219,7 +219,7 @@
     <string name="session_trimmed_info">Session uusi kesto %1$s - %2$s.</string>
     <string name="yes">Kyllä</string>
     <string name="no">Ei</string>
-    <string name="too_many_track_points">Liikaa reittipisteitä (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nRajaathan näytettävää dataa suodattimien avulla.</string>
+    <string name="too_many_track_points">Liikaa reittipisteitä (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nRajaathan näytettävää dataa suodattimien avulla tai aseta reittipisteille häivytys Kalastetut alueet / Reittien lisäasetukset-valikossa.</string>
     <string name="too_many_heatmap_cells">Liikaa heatmap-ruutuja (%1$d).\n\nSallittu enimmäismäärä on %2$d.\n\nSuurenna ruudun kokoa tai rajaa näytettävää dataa suodattimien avulla.</string>
     <string name="warning">Huomio</string>
     <string name="merge_sessions">Yhdistä sessiot</string>

@@ -23,6 +23,8 @@ class HeatmapLimitsChecker(
         providedFilters: FilterManager.Filters? = null,
         providedRemoveTransitions: Boolean? = null,
         providedMaxSpeed: Float? = null,
+        providedRoutesFadeEnabled: Boolean? = null,
+        providedRoutesFadeStartDays: Int? = null,
         onResult: (success: Boolean) -> Unit
     ) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -46,11 +48,16 @@ class HeatmapLimitsChecker(
         val removeTransitionsMode = settingsStore.heatmapRemoveTransitionsMode
         val baseRemoveTransitions = providedRemoveTransitions ?: settingsStore.heatmapRemoveTransitions
         val maxSpeed = providedMaxSpeed ?: settingsStore.heatmapMaxSpeed
-        val routesFadeEnabled = settingsStore.routesFadeEnabled
+        val routeFadeSettings = HeatmapLimitCalculator.effectiveRouteFadeSettings(
+            currentEnabled = settingsStore.routesFadeEnabled,
+            currentStartDays = settingsStore.routesFadeStartDays,
+            providedEnabled = providedRoutesFadeEnabled,
+            providedStartDays = providedRoutesFadeStartDays
+        )
         val routeSessionStartLimit = HeatmapLimitCalculator.routeSessionStartLimit(
             nowMillis = System.currentTimeMillis(),
-            fadeEnabled = routesFadeEnabled,
-            fadeStartDays = settingsStore.routesFadeStartDays
+            fadeEnabled = routeFadeSettings.enabled,
+            fadeStartDays = routeFadeSettings.startDays
         )
 
         lifecycleScope.launch(Dispatchers.IO) {
