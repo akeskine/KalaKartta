@@ -31,6 +31,7 @@ class MarkerManager(
     private val context: Context,
     private val map: MapView,
     private val db: AppDatabase,
+    private val scope: CoroutineScope,
     private val onDeleteConfirmed: (Marker) -> Unit
 ) {
     private fun launchActivityForResult(intent: Intent, requestCode: Int) {
@@ -42,9 +43,10 @@ class MarkerManager(
         }
     }
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     private var rebuildJob: Job? = null
+    @Volatile
+    private var isClosed = false
     
     private val layerState = MarkerLayerState()
     private val overlayController = MarkerOverlayController(map, layerState)
@@ -326,6 +328,8 @@ class MarkerManager(
     }
 
     fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
+        if (isClosed) return
+
         loadSettings()
         if (forceRefreshSpecies) {
             speciesCache.clear()
@@ -333,7 +337,9 @@ class MarkerManager(
             
             // Ladataan lajit uudelleen välimuistiin
             scope.launch(Dispatchers.IO) {
+                if (isClosed) return@launch
                 val speciesList = db.fishSpeciesDao().getAll()
+                if (isClosed) return@launch
                 synchronized(speciesCache) {
                     speciesCache.clear()
                     speciesList.forEach { speciesCache[it.id] = it }
@@ -593,6 +599,8 @@ class MarkerManager(
     }
 
     fun removeMarker(marker: Marker) {
+        if (isClosed) return
+
         // Perutaan välittömästi käynnissä oleva rebuildMarkers, jotta se ei tuo merkkiä takaisin.
         rebuildJob?.cancel()
 
@@ -643,13 +651,24 @@ class MarkerManager(
     }
 
     private fun showCatchDetailsDialog(marker: Marker) {
+        if (isClosed) return
+
         val fish = marker.relatedObject as? FishCatch
         scope.launch {
             val details = withContext(Dispatchers.IO) { detailsLoader.loadCatch(fish) }
+            if (!isActive || isClosed) return@launch
             withContext(Dispatchers.Main) {
-                showCatchDetailsDialog(marker, fish, details.species, details.diaryPages, details.media)
+                if (!isClosed) {
+                    showCatchDetailsDialog(marker, fish, details.species, details.diaryPages, details.media)
+                }
             }
         }
+    }
+
+    fun close() {
+        isClosed = true
+        rebuildJob?.cancel()
+        rebuildJob = null
     }
 
     private fun showCatchDetailsDialog(

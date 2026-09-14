@@ -42,20 +42,26 @@ class ReplayMapController(
 ) {
     private val replayController = SessionReplayController()
     private var replayJob: Job? = null
+    private var loadJob: Job? = null
+    private var requestGeneration = 0L
     private var archivedSessionPolyline: Polyline? = null
     private var visibleArchivedSessionId: Long = -1L
     private var isOnlySessionCatchesMode = false
 
     fun replaySessionOnMap(sessionId: Long, onlySessionCatches: Boolean = false) {
-        replayJob?.cancel()
+        val request = cancelPendingWork()
+        replayController.clear()
         isOnlySessionCatchesMode = onlySessionCatches
+        visibleArchivedSessionId = -1L
 
-        scope.launch(Dispatchers.IO) {
+        loadJob = scope.launch(Dispatchers.IO) {
             val session = database.fishingSessionDao().getById(sessionId)
             val points = database.trackPointDao().getPointsForSession(sessionId)
             if (points.isEmpty() || session == null) return@launch
 
             withContext(Dispatchers.Main) {
+                if (!isCurrentRequest(request)) return@withContext
+
                 replayController.load(
                     points = points,
                     startTime = session.startedAt,
@@ -99,12 +105,25 @@ class ReplayMapController(
     }
 
     fun showArchivedSessionOnMap(sessionId: Long) {
-        scope.launch(Dispatchers.IO) {
+        val request = cancelPendingWork()
+        replayController.clear()
+        isOnlySessionCatchesMode = false
+        visibleArchivedSessionId = -1L
+        activity.findViewById<View>(R.id.replayPlayerLayout).visibility = View.GONE
+        activity.findViewById<View>(R.id.replayPlayerContainer).visibility = View.VISIBLE
+        activity.findViewById<View>(R.id.replayRestoreButton).visibility = View.GONE
+        activity.findViewById<View>(R.id.addCatchButton).visibility = View.VISIBLE
+        onReplayVisibilityChanged()
+        markerManager.resetTimeRange()
+
+        loadJob = scope.launch(Dispatchers.IO) {
             val session = database.fishingSessionDao().getById(sessionId)
             val points = database.trackPointDao().getPointsForSession(sessionId)
             if (points.isEmpty() || session == null) return@launch
 
             withContext(Dispatchers.Main) {
+                if (!isCurrentRequest(request)) return@withContext
+
                 replaceArchivedPolyline()
                 val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
                 archivedSessionPolyline?.setPoints(geoPoints)
@@ -118,7 +137,7 @@ class ReplayMapController(
     }
 
     fun hideArchivedSession() {
-        replayJob?.cancel()
+        cancelPendingWork()
         replayController.clear()
         isOnlySessionCatchesMode = false
 
@@ -130,21 +149,24 @@ class ReplayMapController(
         archivedSessionPolyline?.let {
             map.overlays.remove(it)
             archivedSessionPolyline = null
-            visibleArchivedSessionId = -1L
-            markerManager.resetTimeRange()
             map.invalidate()
         }
+        visibleArchivedSessionId = -1L
+        markerManager.resetTimeRange()
     }
 
     fun getVisibleArchivedSessionId(): Long = visibleArchivedSessionId
 
     private fun restoreReplaySession(sessionId: Long, minimized: Boolean) {
-        scope.launch(Dispatchers.IO) {
+        val request = cancelPendingWork()
+        loadJob = scope.launch(Dispatchers.IO) {
             val session = database.fishingSessionDao().getById(sessionId)
             val points = database.trackPointDao().getPointsForSession(sessionId)
             if (points.isEmpty() || session == null) return@launch
 
             withContext(Dispatchers.Main) {
+                if (!isCurrentRequest(request)) return@withContext
+
                 replayController.load(
                     points = points,
                     startTime = session.startedAt,
@@ -259,6 +281,17 @@ class ReplayMapController(
             }
         }
     }
+
+    private fun cancelPendingWork(): Long {
+        replayJob?.cancel()
+        replayJob = null
+        loadJob?.cancel()
+        loadJob = null
+        requestGeneration += 1
+        return requestGeneration
+    }
+
+    private fun isCurrentRequest(request: Long): Boolean = request == requestGeneration
 
     private fun updateReplayFrame(frame: SessionReplayController.Frame = replayController.frame()) {
         archivedSessionPolyline?.setPoints(frame.visiblePoints.map { GeoPoint(it.latitude, it.longitude) })

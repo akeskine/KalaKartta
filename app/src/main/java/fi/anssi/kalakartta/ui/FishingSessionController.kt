@@ -89,7 +89,7 @@ class FishingSessionController(
             addAction(ACTION_SESSION_ENDED_LOCATION_OFF)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            activity.registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
+            activity.registerReceiver(sessionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("DEPRECATION")
             activity.registerReceiver(sessionReceiver, filter)

@@ -63,4 +63,23 @@ class SessionReplayControllerTest {
         controller.seek(0L)
         assertEquals(1_000L, controller.currentTime)
     }
+
+    @Test
+    fun `clear stops playback and removes replay state`() {
+        val controller = SessionReplayController()
+        controller.load(
+            points = listOf(firstPoint, secondPoint),
+            startTime = 1_000L,
+            endTime = 2_000L,
+            currentTime = 1_500L,
+            isPlaying = true
+        )
+
+        controller.clear()
+
+        assertFalse(controller.isPlaying)
+        assertEquals(emptyList<TrackPoint>(), controller.points)
+        assertEquals(0L, controller.currentTime)
+        assertEquals(emptyList<TrackPoint>(), controller.frame().visiblePoints)
+    }
 }

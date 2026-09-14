@@ -26,6 +26,7 @@ class LocationController(
 ) {
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var screenReceiver: BroadcastReceiver? = null
+    private var locationProviderReceiverRegistered = false
     private var userScrolling = false
     private val locationPermissionLauncher = activity.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -160,8 +161,12 @@ class LocationController(
 
     fun onPause() {
         try {
-            activity.unregisterReceiver(locationProviderReceiver)
+            if (locationProviderReceiverRegistered) {
+                activity.unregisterReceiver(locationProviderReceiver)
+            }
         } catch (_: IllegalArgumentException) {
+        } finally {
+            locationProviderReceiverRegistered = false
         }
         try {
             screenReceiver?.let { activity.unregisterReceiver(it) }
@@ -186,17 +191,22 @@ class LocationController(
         ) == PackageManager.PERMISSION_GRANTED
 
     private fun registerLocationProviderReceiver() {
+        if (locationProviderReceiverRegistered) return
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            activity.registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), Context.RECEIVER_NOT_EXPORTED)
+            activity.registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("DEPRECATION")
             activity.registerReceiver(locationProviderReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
         }
+        locationProviderReceiverRegistered = true
     }
 
     private fun registerScreenReceiver() {
+        if (screenReceiver != null) return
+
         val filter = IntentFilter(Intent.ACTION_SCREEN_ON)
-        screenReceiver = object : BroadcastReceiver() {
+        val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_ON &&
                     settingsStore.autoCenterOnStart &&
@@ -206,11 +216,17 @@ class LocationController(
                 }
             }
         }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            activity.registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            activity.registerReceiver(screenReceiver, filter)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                activity.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.registerReceiver(receiver, filter)
+            }
+            screenReceiver = receiver
+        } catch (e: Exception) {
+            screenReceiver = null
+            throw e
         }
     }
 

@@ -9,6 +9,25 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 
+internal data class WeatherStationUiState(
+    val text: String,
+    val visible: Boolean
+)
+
+internal fun weatherStationUiState(
+    weatherEnabled: Boolean,
+    station: WeatherStation?
+): WeatherStationUiState {
+    return if (weatherEnabled && station != null) {
+        WeatherStationUiState(
+            text = "Sääasema: ${station.name}",
+            visible = true
+        )
+    } else {
+        WeatherStationUiState(text = "", visible = false)
+    }
+}
+
 /** Coordinates weather checks with the map location and weather-related UI. */
 class WeatherController(
     private val activity: AppCompatActivity,
@@ -24,9 +43,15 @@ class WeatherController(
     fun checkWeather(force: Boolean = false) {
         if (force) {
             weatherCheckDone = false
+            lastFoundStation = null
+            updateWeatherUi()
         }
 
-        if (!settingsStore.weatherEnabled) return
+        if (!settingsStore.weatherEnabled) {
+            lastFoundStation = null
+            updateWeatherUi()
+            return
+        }
 
         weatherService.fetchAllStations()
         if (weatherCheckDone) return
@@ -49,7 +74,18 @@ class WeatherController(
     }
 
     fun updateWeatherUi() {
-        activity.findViewById<android.widget.TextView>(R.id.weatherStationText).visibility =
-            android.view.View.GONE
+        if (!settingsStore.weatherEnabled) {
+            lastFoundStation = null
+        }
+
+        val state = weatherStationUiState(settingsStore.weatherEnabled, lastFoundStation)
+        activity.findViewById<android.widget.TextView>(R.id.weatherStationText).apply {
+            text = state.text
+            visibility = if (state.visible) {
+                android.view.View.VISIBLE
+            } else {
+                android.view.View.GONE
+            }
+        }
     }
 }

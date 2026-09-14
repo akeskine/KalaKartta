@@ -130,6 +130,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun initializeDatabase(): Boolean {
+        return try {
+            db = AppDatabase.getInstance(this)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("KalaKartta", "Database initialization failed", e)
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
+            showDatabaseInitializationError(e)
+            false
+        }
+    }
+
+    private fun showDatabaseInitializationError(error: Exception) {
+        AlertDialog.Builder(this)
+            .setTitle("Tietokantavirhe")
+            .setMessage(
+                "Tietokannan avaaminen epäonnistui, joten normaalia käyttöä ei jatketa " +
+                        "tietojen suojaamiseksi. Yritä käynnistää tietokanta uudelleen. " +
+                        "Jos virhe toistuu, sovelluksen poistaminen ja uudelleenasennus " +
+                        "voi korjata migraation, mutta poistaa paikalliset tiedot.\n\n" +
+                        "Virhe: ${error.localizedMessage}"
+            )
+            .setNegativeButton("Sulje") { _, _ -> finish() }
+            .setPositiveButton("Yritä uudelleen") { _, _ -> recreate() }
+            .setCancelable(false)
+            .show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val crashFile = java.io.File(filesDir, "startup-crash.txt")
 
@@ -165,33 +193,14 @@ class MainActivity : AppCompatActivity() {
 
             android.util.Log.d("KalaKartta", "before config init")
             Configuration.getInstance().userAgentValue = packageName
+            android.util.Log.d("KalaKartta", "before db init")
+            if (!initializeDatabase()) return
+            android.util.Log.d("KalaKartta", "after db init")
+
             setContentView(R.layout.activity_main)
 
             android.util.Log.d("KalaKartta", "before map init")
             map = findViewById(R.id.map)
-
-            // Alustetaan tietokanta ja managerit ennen UI-päivityksiä (kuten updateMapTileSource)
-            // jotta ne eivät kaadu lateinit-virheisiin (esim. heatmap)
-            android.util.Log.d("KalaKartta", "before db init")
-            try {
-                db = AppDatabase.getInstance(this)
-            } catch (e: Exception) {
-                android.util.Log.e("KalaKartta", "Database initialization failed", e)
-                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
-
-                AlertDialog.Builder(this)
-                    .setTitle("Tietokantavirhe")
-                    .setMessage("Tietokannan avaaminen epäonnistui. Tämä johtuu yleensä sovelluspäivityksen yhteydessä tapahtuneesta migraatiovirheestä.\n\nVirhe: ${e.localizedMessage}\n\nJos virhe toistuu, voit yrittää poistaa sovelluksen ja asentaa sen uudelleen (huom: tiedot katoavat).")
-                    .setPositiveButton("OK", null)
-                    .show()
-
-                // Luodaan tyhjä in-memory tietokanta, jotta sovellus ei kaadu heti kaikkialla
-                db = androidx.room.Room.inMemoryDatabaseBuilder(
-                    applicationContext,
-                    AppDatabase::class.java
-                ).build()
-            }
-            android.util.Log.d("KalaKartta", "after db init")
 
             filterManager = FilterManager(this)
             locationController = LocationController(
@@ -296,7 +305,7 @@ class MainActivity : AppCompatActivity() {
                 settingsStore.heatmapShortcutMode = newVal
             }
 
-            markerManager = MarkerManager(this, map, db) { marker ->
+            markerManager = MarkerManager(this, map, db, lifecycleScope) { marker ->
                 val fish = marker.relatedObject as? FishCatch
                 val place = marker.relatedObject as? PlaceOfInterest
 
@@ -503,7 +512,6 @@ class MainActivity : AppCompatActivity() {
             updateFilterStatusUI()
             updateDefaultFishermanUI()
 
-            isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
             if (isSelectionMode) {
                 findViewById<android.view.View>(R.id.measurementButton).visibility = android.view.View.GONE
                 // Nollataan aluerajaus valintatilaan mentäessä, jotta nähdään kaikki pisteet
@@ -568,9 +576,6 @@ class MainActivity : AppCompatActivity() {
                     finish()
                 }
             }
-
-            // Automaattinen kohdistus sovelluksen avauksessa
-            val autoCenter = settingsStore.autoCenterOnStart
 
             // Tarkistetaan oletuskalastaja vain jos sovellus on asennettu tai päivitetty
             val lastVersionName = settingsStore.lastVersionName
@@ -748,13 +753,25 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        fishingSessionController.onStart()
+        if (::fishingSessionController.isInitialized) {
+            fishingSessionController.onStart()
+        }
     }
 
     override fun onStop() {
-        fishingSessionController.onStop()
+        if (::fishingSessionController.isInitialized) {
+            fishingSessionController.onStop()
+        }
         super.onStop()
     }
+
+    override fun onDestroy() {
+        if (::markerManager.isInitialized) {
+            markerManager.close()
+        }
+        super.onDestroy()
+    }
+
     fun updateSessionLine() {
         fishingSessionController.updateSessionLine()
     }
@@ -847,11 +864,20 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        mapNavigationController.handleIntent(intent)
+        if (::mapNavigationController.isInitialized) {
+            mapNavigationController.handleIntent(intent)
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::map.isInitialized ||
+            !::mapNavigationController.isInitialized ||
+            !::fishingSessionController.isInitialized ||
+            !::locationController.isInitialized
+        ) {
+            return
+        }
         map.onResume()
         
         intent?.let { mapNavigationController.handleIntent(it) }
@@ -880,15 +906,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        saveMapState()
+        if (::map.isInitialized) {
+            saveMapState()
+        }
         if (::mapDisplayController.isInitialized) {
             mapDisplayController.clearPendingUpdates()
         }
         if (::measurementController.isInitialized) {
             measurementController.clearPendingCallbacks()
         }
-        locationController.onPause()
-        map.onPause()
+        if (::locationController.isInitialized) {
+            locationController.onPause()
+        }
+        if (::map.isInitialized) {
+            map.onPause()
+        }
         super.onPause()
     }
     private fun updateMyLocationButtonVisibility() {
