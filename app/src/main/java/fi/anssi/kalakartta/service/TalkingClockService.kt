@@ -34,6 +34,11 @@ import fi.anssi.kalakartta.ui.SettingsKeys
 import fi.anssi.kalakartta.ui.SettingsStore
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
@@ -49,6 +54,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private val sunService = SunService()
     private val weatherService = WeatherService(this)
     private val weatherRequestId = AtomicLong(0)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var cachedSunTimes: Pair<Calendar, Calendar>? = null
     private var lastCalculationDate: String = ""
     private var lastCalculationLocation: Location? = null
@@ -398,18 +404,16 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
         val requestId = weatherRequestId.incrementAndGet()
         val baseText = text
-        Thread {
-            val forecasts = kotlinx.coroutines.runBlocking {
-                weatherService.fetchForecastSuspend(location.latitude, location.longitude, targetHours)
-            }
-            if (requestId != weatherRequestId.get() || isEnding || !isTtsInitialized) return@Thread
+        serviceScope.launch {
+            val forecasts = weatherService.fetchForecastSuspend(location.latitude, location.longitude, targetHours)
+            if (requestId != weatherRequestId.get() || isEnding || !isTtsInitialized) return@launch
 
             val weatherText = forecasts.mapNotNull { (hours, row) ->
                 fi.anssi.kalakartta.utils.formatForecastSpeech(hours, row)
             }
             val finalText = if (weatherText.isEmpty()) baseText else "$baseText ${weatherText.joinToString(" ")}"
             speakText(finalText)
-        }.start()
+        }
     }
 
     private fun speakSessionStarted() {
@@ -750,6 +754,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         weatherRequestId.incrementAndGet()
+        serviceScope.cancel()
         cancelScheduledTalk()
 
         locationManager?.removeUpdates(locationListener)

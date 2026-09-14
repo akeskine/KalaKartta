@@ -1006,10 +1006,14 @@ class EditCatchActivity : AppCompatActivity() {
                 latitude = latEditText.text.toString().toDoubleSafe(poi.latitude),
                 longitude = lonEditText.text.toString().toDoubleSafe(poi.longitude)
             )
-            Thread {
+            lifecycleScope.launch(Dispatchers.IO) {
                 if (updatedPoi.id == 0L) db.placeOfInterestDao().insert(updatedPoi) else db.placeOfInterestDao().update(updatedPoi)
-                runOnUiThread { Toast.makeText(this, R.string.save_success, Toast.LENGTH_SHORT).show(); setResult(RESULT_OK); finish() }
-            }.start()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@EditCatchActivity, R.string.save_success, Toast.LENGTH_SHORT).show()
+                    setResult(RESULT_OK)
+                    finish()
+                }
+            }
         } else {
             val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
             
@@ -1068,14 +1072,14 @@ class EditCatchActivity : AppCompatActivity() {
                 updated
             }
             android.util.Log.d("KalaKartta", "performFinalSave: tallennetaan ${updatedWithPressureTrends.pressureSamples.size} näytettä")
-            Thread {
+            lifecycleScope.launch(Dispatchers.IO) {
                 if (updatedWithPressureTrends.id == 0L) db.fishCatchDao().insert(updatedWithPressureTrends) else db.fishCatchDao().update(updatedWithPressureTrends)
-                runOnUiThread {
-                    AlertDialog.Builder(this).setMessage(R.string.save_success).setPositiveButton(R.string.ok) { _, _ ->
+                withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(this@EditCatchActivity).setMessage(R.string.save_success).setPositiveButton(R.string.ok) { _, _ ->
                         setResult(RESULT_OK); finish()
                     }.show().enlargeButtons()
                 }
-            }.start()
+            }
         }
     }
 

@@ -1086,9 +1086,9 @@ class MainActivity : AppCompatActivity() {
             android.util.Log.d("KalaKartta", "after db init")
             
             // Esitäyttö taustasäikeessä
-            Thread {
+            lifecycleScope.launch(Dispatchers.IO) {
                 db.initializeDefaults()
-            }.start()
+            }
 
             map.addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean {

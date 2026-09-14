@@ -275,8 +275,10 @@ Tässä vaiheessa ei saa muuttaa samanaikaisesti importin, session tai weatherin
 - tiedonsiirron "Poista media" -toiminto erotettiin "Poista kaikki tiedot" -toiminnosta.
 - streaming-reittien suuret piste-erät yhdistetään takaisin yhdeksi sessioksi, ja tyhjät sessiot säilyvät.
 - `CatchManager`in paikka- ja kalapisteiden tallennus sekä säätietojen jälkipäivitys käyttävät lifecycle-coroutineja.
+- MainActivityn ja EditCatchActivityn tietokantaoperaatiot, TalkingClockServicen sääennuste sekä WeatherServicen vanhat callback-rajapinnat käyttävät coroutine-scopeja raakathreadien sijaan.
+- Sovelluksen tuotantokoodissa ei ole enää suoria `Thread { ... }.start()`- tai `runBlocking`-kutsuja.
 
-Import/exportin ja CatchManagerin vaihe 5 -osuudet ovat valmiit. Vaihe 5 jatkuu vielä MainActivityn, WeatherServicen, EditCatchActivityn ja muiden raakathread-haarojen osalta.
+Vaihe 5:n raakathreadien poisto on valmis. `allowMainThreadQueries()`-asetuksen ja UI:n `runOnUiThread`-kutsujen erillinen siistiminen voidaan tehdä myöhemmin omana muutoksenaan.
 
 ## Vaihe 6: Suurempien koordinaattorien pilkkominen
 

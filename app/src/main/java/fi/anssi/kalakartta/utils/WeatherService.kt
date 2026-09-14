@@ -3,7 +3,13 @@
 import android.content.Context
 import android.location.Location
 import android.util.Xml
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.data.PressureSample
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.xmlpull.v1.XmlPullParser
 import java.net.HttpURLConnection
 import java.net.URL
@@ -87,6 +93,11 @@ class WeatherService(private val context: Context) {
     private val STATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::ef::stations"
     private val OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::observations::weather::simple&fmisid="
     private val FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::harmonie::surface::point::simple"
+    private val requestScope: CoroutineScope = if (context is LifecycleOwner) {
+        context.lifecycleScope
+    } else {
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
 
     suspend fun fetchForecastSuspend(
         latitude: Double,
@@ -128,14 +139,14 @@ class WeatherService(private val context: Context) {
     }
 
     fun fetchWeatherData(fmisid: String, targetTime: Long? = null, callback: (Map<String, Double>?, Long?, String?) -> Unit) {
-        Thread {
+        requestScope.launch(Dispatchers.IO) {
             val result = fetchWeatherDataSync(fmisid, targetTime)
             callback(result.first, result.second, result.third)
-        }.start()
+        }
     }
 
     fun fetchWeatherFromMultipleStations(lat: Double, lon: Double, targetTime: Long? = null, existingData: Map<String, Double>? = null, catchInfo: String = "", callback: (Map<String, Double>?, Long?, String?, String) -> Unit) {
-        Thread {
+        requestScope.launch(Dispatchers.IO) {
             if (catchInfo.isNotEmpty()) {
                 android.util.Log.d("KalaKartta", "Päivitetään säätietoja kohteelle: $catchInfo")
             }
@@ -258,7 +269,7 @@ class WeatherService(private val context: Context) {
                     callback(finalData, bestTime, null, stationInfo)
                 }
             }
-        }.start()
+        }
     }
 
     fun fetchWeatherDataSync(fmisid: String, targetTime: Long? = null): Triple<Map<String, Double>?, Long?, String?> {
@@ -703,7 +714,7 @@ class WeatherService(private val context: Context) {
             isFetchingStations = true
         }
 
-        Thread {
+        requestScope.launch(Dispatchers.IO) {
             try {
                 val url = URL(STATIONS_URL)
                 val connection = url.openConnection() as HttpURLConnection
@@ -719,7 +730,7 @@ class WeatherService(private val context: Context) {
                         pendingCallbacks.clear()
                     }
                     callbacksToNotify.forEach { it(null, error) }
-                    return@Thread
+                    return@launch
                 }
 
                 val stations = connection.inputStream.use { 
@@ -743,7 +754,7 @@ class WeatherService(private val context: Context) {
                 }
                 callbacksToNotify.forEach { it(null, error) }
             }
-        }.start()
+        }
     }
 
     fun fetchNearestStation(currentLat: Double, currentLon: Double, targetTime: Long? = null, callback: (WeatherStation?, String?) -> Unit) {
