@@ -427,14 +427,14 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun updateWindPreview() {
-        val min = windMinEdit.text.toString().toFloatOrNull()
-        val max = windMaxEdit.text.toString().toFloatOrNull()
+        val min = FilterValueParser.floatOrNull(windMinEdit.text)
+        val max = FilterValueParser.floatOrNull(windMaxEdit.text)
         windDirectionPreview.setRange(min, max)
     }
 
     private fun updateMoonPhasePreviews() {
-        val min = moonPhaseMinEdit.text.toString().toDoubleOrNull()
-        val max = moonPhaseMaxEdit.text.toString().toDoubleOrNull()
+        val min = FilterValueParser.doubleOrNull(moonPhaseMinEdit.text)
+        val max = FilterValueParser.doubleOrNull(moonPhaseMaxEdit.text)
 
         moonPhaseMinPreview.isEnabled = min != null
         moonPhaseMaxPreview.isEnabled = max != null
@@ -444,16 +444,16 @@ class FilterActivity : AppCompatActivity() {
 
     private fun hasAnyFilters(): Boolean {
         val f = currentFilters
-        val windMin = windMinEdit.text.toString().toFloatOrNull()
-        val windMax = windMaxEdit.text.toString().toFloatOrNull()
-        val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
-        val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
-        val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
-        val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
-        val moonPhaseMin = moonPhaseMinEdit.text.toString().toFloatOrNull()
-        val moonPhaseMax = moonPhaseMaxEdit.text.toString().toFloatOrNull()
-        val moonAltitudeMin = moonAltitudeMinEdit.text.toString().toFloatOrNull()
-        val moonAltitudeMax = moonAltitudeMaxEdit.text.toString().toFloatOrNull()
+        val windMin = FilterValueParser.floatOrNull(windMinEdit.text)
+        val windMax = FilterValueParser.floatOrNull(windMaxEdit.text)
+        val pressureMin = FilterValueParser.floatOrNull(pressureMinEdit.text)
+        val pressureMax = FilterValueParser.floatOrNull(pressureMaxEdit.text)
+        val waterTempMin = FilterValueParser.floatOrNull(waterTempMinEdit.text)
+        val waterTempMax = FilterValueParser.floatOrNull(waterTempMaxEdit.text)
+        val moonPhaseMin = FilterValueParser.floatOrNull(moonPhaseMinEdit.text)
+        val moonPhaseMax = FilterValueParser.floatOrNull(moonPhaseMaxEdit.text)
+        val moonAltitudeMin = FilterValueParser.floatOrNull(moonAltitudeMinEdit.text)
+        val moonAltitudeMax = FilterValueParser.floatOrNull(moonAltitudeMaxEdit.text)
         val freeText = freeTextEdit.text.toString().let { if (it.isEmpty()) null else it }
         
         val speciesSelected = speciesSpinner.selectedItemPosition > 0
@@ -757,47 +757,40 @@ class FilterActivity : AppCompatActivity() {
     }
 
     private fun validateMoonFilterInputs(): Boolean {
-        var valid = true
+        val result = MoonFilterValidator.validate(
+            moonPhaseMin = moonPhaseMinEdit.text.toString(),
+            moonPhaseMax = moonPhaseMaxEdit.text.toString(),
+            moonAltitudeMin = moonAltitudeMinEdit.text.toString(),
+            moonAltitudeMax = moonAltitudeMaxEdit.text.toString()
+        )
 
-        fun validateValue(edit: EditText, min: Float, max: Float, errorMessage: Int): Float? {
-            val text = edit.text.toString().trim()
-            if (text.isEmpty()) {
-                edit.error = null
-                return null
+        fun errorMessage(error: MoonFilterValidator.Error?, rangeMessage: Int, bothMessage: Int, orderMessage: Int): String? =
+            when (error) {
+                MoonFilterValidator.Error.RANGE -> getString(rangeMessage)
+                MoonFilterValidator.Error.BOTH_REQUIRED -> getString(bothMessage)
+                MoonFilterValidator.Error.ORDER -> getString(orderMessage)
+                null -> null
             }
 
-            val value = text.toFloatOrNull()
-            if (value == null || value < min || value > max) {
-                edit.error = getString(errorMessage)
-                valid = false
-            } else {
-                edit.error = null
-            }
-            return value
-        }
+        val phaseError = errorMessage(
+            result.moonPhase.error,
+            R.string.moon_phase_filter_range_error,
+            R.string.moon_phase_filter_both_error,
+            R.string.moon_phase_filter_range_error
+        )
+        moonPhaseMinEdit.error = phaseError
+        moonPhaseMaxEdit.error = phaseError
 
-        val moonPhaseMin = validateValue(moonPhaseMinEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
-        val moonPhaseMax = validateValue(moonPhaseMaxEdit, 0f, 1f, R.string.moon_phase_filter_range_error)
-        if ((moonPhaseMin == null) != (moonPhaseMax == null)) {
-            moonPhaseMinEdit.error = getString(R.string.moon_phase_filter_both_error)
-            moonPhaseMaxEdit.error = getString(R.string.moon_phase_filter_both_error)
-            valid = false
-        }
-        val altitudeMin = validateValue(moonAltitudeMinEdit, -90f, 90f, R.string.moon_altitude_filter_range_error)
-        val altitudeMax = validateValue(moonAltitudeMaxEdit, -90f, 90f, R.string.moon_altitude_filter_range_error)
+        val altitudeError = errorMessage(
+            result.moonAltitude.error,
+            R.string.moon_altitude_filter_range_error,
+            R.string.moon_altitude_filter_both_error,
+            R.string.moon_altitude_filter_order_error
+        )
+        moonAltitudeMinEdit.error = altitudeError
+        moonAltitudeMaxEdit.error = altitudeError
 
-        if ((altitudeMin == null) != (altitudeMax == null)) {
-            moonAltitudeMinEdit.error = getString(R.string.moon_altitude_filter_both_error)
-            moonAltitudeMaxEdit.error = getString(R.string.moon_altitude_filter_both_error)
-            valid = false
-        }
-        if (altitudeMin != null && altitudeMax != null && altitudeMin >= altitudeMax) {
-            moonAltitudeMinEdit.error = getString(R.string.moon_altitude_filter_order_error)
-            moonAltitudeMaxEdit.error = getString(R.string.moon_altitude_filter_order_error)
-            valid = false
-        }
-
-        return valid
+        return result.isValid
     }
 
     private fun showAnnualDatePicker(isStart: Boolean) {
@@ -842,10 +835,10 @@ class FilterActivity : AppCompatActivity() {
         val fisherman = if (selectedFisherman == getString(R.string.empty_selection)) null else selectedFisherman.uppercase()
         val selectedOther = otherSpeciesList[otherSpeciesSpinner.selectedItemPosition]
         val otherSpecies = if (selectedSpecies.id == "OTHER" && selectedOther != getString(R.string.empty_selection)) selectedOther.uppercase() else null
-        val windMin = windMinEdit.text.toString().toFloatOrNull()
-        val windMax = windMaxEdit.text.toString().toFloatOrNull()
-        val pressureMin = pressureMinEdit.text.toString().toFloatOrNull()
-        val pressureMax = pressureMaxEdit.text.toString().toFloatOrNull()
+        val windMin = FilterValueParser.floatOrNull(windMinEdit.text)
+        val windMax = FilterValueParser.floatOrNull(windMaxEdit.text)
+        val pressureMin = FilterValueParser.floatOrNull(pressureMinEdit.text)
+        val pressureMax = FilterValueParser.floatOrNull(pressureMaxEdit.text)
         val pressureTrendDirection = when (pressureTrendSpinner.selectedItemPosition) {
             1 -> FilterManager.PRESSURE_TREND_FALLING
             2 -> FilterManager.PRESSURE_TREND_FLAT
@@ -858,16 +851,16 @@ class FilterActivity : AppCompatActivity() {
             3 -> FilterManager.PRESSURE_TURNING_TREND_RISING
             else -> null
         }
-        val waterTempMin = waterTempMinEdit.text.toString().toFloatOrNull()
-        val waterTempMax = waterTempMaxEdit.text.toString().toFloatOrNull()
-        val moonPhaseMin = moonPhaseMinEdit.text.toString().toFloatOrNull()
-        val moonPhaseMax = moonPhaseMaxEdit.text.toString().toFloatOrNull()
-        val moonAltitudeMin = moonAltitudeMinEdit.text.toString().toFloatOrNull()
-        val moonAltitudeMax = moonAltitudeMaxEdit.text.toString().toFloatOrNull()
-        val weightMin = weightMinEdit.text.toString().toLongOrNull()
-        val weightMax = weightMaxEdit.text.toString().toLongOrNull()
-        val lengthMin = lengthMinEdit.text.toString().toLongOrNull()
-        val lengthMax = lengthMaxEdit.text.toString().toLongOrNull()
+        val waterTempMin = FilterValueParser.floatOrNull(waterTempMinEdit.text)
+        val waterTempMax = FilterValueParser.floatOrNull(waterTempMaxEdit.text)
+        val moonPhaseMin = FilterValueParser.floatOrNull(moonPhaseMinEdit.text)
+        val moonPhaseMax = FilterValueParser.floatOrNull(moonPhaseMaxEdit.text)
+        val moonAltitudeMin = FilterValueParser.floatOrNull(moonAltitudeMinEdit.text)
+        val moonAltitudeMax = FilterValueParser.floatOrNull(moonAltitudeMaxEdit.text)
+        val weightMin = FilterValueParser.longOrNull(weightMinEdit.text)
+        val weightMax = FilterValueParser.longOrNull(weightMaxEdit.text)
+        val lengthMin = FilterValueParser.longOrNull(lengthMinEdit.text)
+        val lengthMax = FilterValueParser.longOrNull(lengthMaxEdit.text)
         val weightLengthOperator = if (operatorAndRadio.isChecked) "AND" else "OR"
 
         // Päivitetään startDate ja endDate kellonaikojen perusteella ennen tallennusta
