@@ -52,6 +52,22 @@ class SessionReplayControllerTest {
     }
 
     @Test
+    fun `load at session end shows the complete route and is paused`() {
+        val controller = SessionReplayController()
+
+        controller.load(
+            points = listOf(firstPoint, secondPoint),
+            startTime = 1_000L,
+            endTime = 2_000L,
+            currentTime = 2_000L
+        )
+
+        assertEquals(2_000L, controller.currentTime)
+        assertEquals(listOf(firstPoint, secondPoint), controller.frame().visiblePoints)
+        assertFalse(controller.isPlaying)
+    }
+
+    @Test
     fun `seek clamps to session bounds`() {
         val controller = SessionReplayController()
         controller.load(listOf(firstPoint, secondPoint), 1_000L, 2_000L)

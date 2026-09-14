@@ -48,7 +48,11 @@ class ReplayMapController(
     private var visibleArchivedSessionId: Long = -1L
     private var isOnlySessionCatchesMode = false
 
-    fun replaySessionOnMap(sessionId: Long, onlySessionCatches: Boolean = false) {
+    fun replaySessionOnMap(
+        sessionId: Long,
+        onlySessionCatches: Boolean = false,
+        startAtEnd: Boolean = false
+    ) {
         val request = cancelPendingWork()
         replayController.clear()
         isOnlySessionCatchesMode = onlySessionCatches
@@ -58,6 +62,8 @@ class ReplayMapController(
             val session = database.fishingSessionDao().getById(sessionId)
             val points = database.trackPointDao().getPointsForSession(sessionId)
             if (points.isEmpty() || session == null) return@launch
+            val endTime = session.endedAt ?: points.last().timestamp
+            val initialTime = if (startAtEnd) endTime else session.startedAt
 
             withContext(Dispatchers.Main) {
                 if (!isCurrentRequest(request)) return@withContext
@@ -65,7 +71,8 @@ class ReplayMapController(
                 replayController.load(
                     points = points,
                     startTime = session.startedAt,
-                    endTime = session.endedAt ?: points.last().timestamp
+                    endTime = endTime,
+                    currentTime = initialTime
                 )
                 initReplayUi()
                 updateSessionInfoText(replayController.startTime, replayController.endTime)

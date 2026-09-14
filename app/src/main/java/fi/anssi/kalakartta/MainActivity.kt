@@ -881,17 +881,33 @@ class MainActivity : AppCompatActivity() {
 
                 builder.setPositiveButton("Tallenna") { _, _ ->
                     val notes = input.text.toString()
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        val session = db.fishingSessionDao().getById(sessionId)
-                        if (session != null) {
-                            db.fishingSessionDao().update(session.copy(notes = notes))
+                    lifecycleScope.launch {
+                        withContext(Dispatchers.IO) {
+                            val session = db.fishingSessionDao().getById(sessionId)
+                            if (session != null) {
+                                db.fishingSessionDao().update(session.copy(notes = notes))
+                            }
                         }
+                        openSessionReplay(sessionId)
                     }
                 }
-                builder.setNegativeButton("Sulje", null)
+                builder.setNegativeButton("Sulje") { _, _ ->
+                    openSessionReplay(sessionId)
+                }
             }
             dialogOrientationLock.show(builder.create())
         }
+    }
+
+    private fun openSessionReplay(sessionId: Long) {
+        if (isFinishing || isDestroyed) return
+
+        settingsManager.closeSettings()
+        replayMapController.replaySessionOnMap(
+            sessionId = sessionId,
+            onlySessionCatches = true,
+            startAtEnd = true
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
