@@ -42,7 +42,6 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
-import org.osmdroid.views.overlay.FolderOverlay
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -74,10 +73,11 @@ class MarkerManager(
     private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     private var rebuildJob: Job? = null
     
-    private val defaultPointsFolder = FolderOverlay()
-    private val catchesFolder = FolderOverlay()
-    private val placesFolder = FolderOverlay()
-    private val markersFolder = FolderOverlay()
+    private val layerState = MarkerLayerState()
+    private val defaultPointsFolder get() = layerState.defaultPointsFolder
+    private val catchesFolder get() = layerState.catchesFolder
+    private val placesFolder get() = layerState.placesFolder
+    private val markersFolder get() = layerState.markersFolder
     private val iconFactory = MarkerIconFactory(context)
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
@@ -95,9 +95,8 @@ class MarkerManager(
     }
     
     // Marker-olioiden kierrätys
-    private val markerPool = mutableListOf<Marker>()
-    private val activeIndividualMarkers = mutableMapOf<Long, Marker>()
-    private val activePlaceMarkers = mutableMapOf<Long, Marker>()
+    private val activeIndividualMarkers get() = layerState.activeIndividualMarkers
+    private val activePlaceMarkers get() = layerState.activePlaceMarkers
     
     private val allCatches = mutableListOf<FishCatch>()
     private val allPlaces = mutableListOf<PlaceOfInterest>()
@@ -583,19 +582,8 @@ class MarkerManager(
             if (zoom < clusterLimit) {
                 // Kierrätetään vanhat markerit ennen uutta laskentaa
                 withContext(Dispatchers.Main) {
-                    val allActive = (defaultPointsFolder.items + catchesFolder.items + placesFolder.items + markersFolder.items)
-                        .filterIsInstance<Marker>()
-                    if (markerPool.size < 5000) {
-                        markerPool.addAll(allActive)
-                    }
-                    activeIndividualMarkers.clear()
-                    activePlaceMarkers.clear()
+                    layerState.recycleVisibleMarkers()
                     iconFactory.clear()
-                    
-                    defaultPointsFolder.items.clear()
-                    catchesFolder.items.clear()
-                    placesFolder.items.clear()
-                    markersFolder.items.clear()
                 }
 
                 // Klusterointi voidaan laskea taustalla
@@ -680,16 +668,9 @@ class MarkerManager(
             } else {
                 // Kierrätetään vanhat markerit ennen uutta laskentaa
                 withContext(Dispatchers.Main) {
-                    val allActive = (defaultPointsFolder.items + catchesFolder.items + placesFolder.items + markersFolder.items)
-                        .filterIsInstance<Marker>()
-                    
                     // Kerätään ne, joita ei enää käytetä
                     // Rajoitetaan poolin kokoa jotta se ei syö liikaa muistia (esim. 5000 markeria)
-                    if (markerPool.size < 5000) {
-                        markerPool.addAll(allActive)
-                    }
-                    activeIndividualMarkers.clear()
-                    activePlaceMarkers.clear()
+                    layerState.recycleVisibleMarkers()
                     
                     defaultPointsFolder.items.clear()
                     catchesFolder.items.clear()
@@ -827,11 +808,7 @@ class MarkerManager(
         val point = GeoPoint(fish.latitude, fish.longitude)
         
         // Yritetään käyttää olemassa olevaa aktiivista markeria
-        val marker = activeIndividualMarkers[fish.id] ?: if (markerPool.isNotEmpty()) {
-            markerPool.removeAt(markerPool.size - 1)
-        } else {
-            Marker(map)
-        }
+        val marker = activeIndividualMarkers[fish.id] ?: layerState.obtainMarker(map)
         
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -878,11 +855,7 @@ class MarkerManager(
         val point = GeoPoint(place.latitude, place.longitude)
         
         // Yritetään käyttää olemassa olevaa aktiivista markeria
-        val marker = activePlaceMarkers[place.id] ?: if (markerPool.isNotEmpty()) {
-            markerPool.removeAt(markerPool.size - 1)
-        } else {
-            Marker(map)
-        }
+        val marker = activePlaceMarkers[place.id] ?: layerState.obtainMarker(map)
         
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -1126,11 +1099,7 @@ class MarkerManager(
         val avgLon = clusterList.map { it.longitude }.average()
         val point = GeoPoint(avgLat, avgLon)
         
-        val marker = if (markerPool.isNotEmpty()) {
-            markerPool.removeAt(markerPool.size - 1)
-        } else {
-            Marker(map)
-        }
+        val marker = layerState.obtainMarker(map)
         marker.position = point
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         
@@ -1190,7 +1159,7 @@ class MarkerManager(
         marker.relatedObject = clusterList
 
         marker.setOnMarkerClickListener { clickedMarker, _ ->
-            val list = clickedMarker.relatedObject as? List<FishCatch>
+            val list = (clickedMarker.relatedObject as? List<*>)?.filterIsInstance<FishCatch>()
             if (list != null && list.isNotEmpty()) {
                 val minLat = list.minOf { it.latitude }
                 val maxLat = list.maxOf { it.latitude }
@@ -1286,17 +1255,8 @@ class MarkerManager(
         rebuildJob?.cancel()
         
         // Kierrätetään markerit
-        val allActive = (defaultPointsFolder.items + catchesFolder.items + placesFolder.items + markersFolder.items)
-            .filterIsInstance<Marker>()
-        markerPool.addAll(allActive)
-        activeIndividualMarkers.clear()
-        activePlaceMarkers.clear()
+        layerState.recycleVisibleMarkers()
         iconFactory.clear()
-
-        defaultPointsFolder.items.clear()
-        catchesFolder.items.clear()
-        placesFolder.items.clear()
-        markersFolder.items.clear()
         lastZoom = -1.0
         map.invalidate()
     }
@@ -1349,9 +1309,7 @@ class MarkerManager(
             marker.closeInfoWindow()
         }
         
-        if (markerPool.size < 5000) {
-            markerPool.add(marker)
-        }
+        layerState.recycleMarker(marker)
         
         map.invalidate()
 
