@@ -240,35 +240,30 @@ class DeveloperSettingsDialog(
             .setTitle("Kehittäjäasetukset")
             .setView(layout)
             .setPositiveButton("Tallenna") { _, _ ->
-                val maxPoints = maxPointsEdit.text.toString().toIntOrNull() ?: SettingsDefaults.MAX_TRACK_POINTS
-                val maxCells = maxCellsEdit.text.toString().toIntOrNull() ?: SettingsDefaults.MAX_HEATMAP_CELLS
-                val minZoom = minZoomEdit.text.toString().toFloatOrNull() ?: SettingsDefaults.HEATMAP_MIN_ZOOM
-                val refLatInput = refLatEdit.text.toString().toFloatOrNull()
-                val refLat = if (refLatInput != null && refLatInput in 0f..180f) {
-                    refLatInput
-                } else {
+                val maxPoints = SettingsValueValidator.positiveIntOrDefault(
+                    maxPointsEdit.text,
+                    SettingsDefaults.MAX_TRACK_POINTS
+                )
+                val maxCells = SettingsValueValidator.positiveIntOrDefault(
+                    maxCellsEdit.text,
+                    SettingsDefaults.MAX_HEATMAP_CELLS
+                )
+                val minZoom = SettingsValueValidator.nonNegativeFloatOrDefault(
+                    minZoomEdit.text,
+                    SettingsDefaults.HEATMAP_MIN_ZOOM
+                )
+                val refLat = SettingsValueValidator.latitudeOrDefault(
+                    refLatEdit.text,
                     SettingsDefaults.HEATMAP_REFERENCE_LATITUDE
-                }
-                val pressureTrendThresholdInput = pressureTrendThresholdEdit.text.toString().toFloatOrNull()
-                val pressureTrendThreshold = if (pressureTrendThresholdInput != null &&
-                    pressureTrendThresholdInput > 0f &&
-                    !pressureTrendThresholdInput.isNaN() &&
-                    !pressureTrendThresholdInput.isInfinite()
-                ) {
-                    pressureTrendThresholdInput
-                } else {
+                )
+                val pressureTrendThreshold = SettingsValueValidator.positiveFloatOrDefault(
+                    pressureTrendThresholdEdit.text,
                     FilterManager.DEFAULT_PRESSURE_TREND_THRESHOLD
-                }
-                val pressureTurningTrendThresholdInput = pressureTurningTrendThresholdEdit.text.toString().toFloatOrNull()
-                val pressureTurningTrendThreshold = if (pressureTurningTrendThresholdInput != null &&
-                    pressureTurningTrendThresholdInput > 0f &&
-                    !pressureTurningTrendThresholdInput.isNaN() &&
-                    !pressureTurningTrendThresholdInput.isInfinite()
-                ) {
-                    pressureTurningTrendThresholdInput
-                } else {
+                )
+                val pressureTurningTrendThreshold = SettingsValueValidator.positiveFloatOrDefault(
+                    pressureTurningTrendThresholdEdit.text,
                     FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
-                }
+                )
                 
                 settingsStore.maxTrackPoints = maxPoints
                 settingsStore.maxHeatmapCells = maxCells

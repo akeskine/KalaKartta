@@ -8,6 +8,7 @@ import android.widget.*
 import fi.anssi.kalakartta.BuildConfig
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -24,10 +25,19 @@ class SettingsManager(
     private val importExportManager: ImportExportManager,
     private val onWeatherSettingsChanged: (Boolean) -> Unit = {},
     private val onMapSettingsChanged: () -> Unit = {},
+    private val onSettingsActivityResult: (requestCode: Int, resultCode: Int, data: Intent?) -> Unit = { _, _, _ -> },
     private val onDataChanged: (forceRefreshSpecies: Boolean) -> Unit
 ) {
 
     private var currentDialog: AlertDialog? = null
+    private var pendingActivityResultRequestCode: Int? = null
+    private val settingsActivityLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val requestCode = pendingActivityResultRequestCode ?: return@registerForActivityResult
+        pendingActivityResultRequestCode = null
+        onSettingsActivityResult(requestCode, result.resultCode, result.data)
+    }
     private val settingsStore = SettingsStore(activity.getSharedPreferences("settings", AppCompatActivity.MODE_PRIVATE))
     private val heatmapLimitsChecker by lazy {
         HeatmapLimitsChecker(activity, db, activity.lifecycleScope)
@@ -176,6 +186,11 @@ class SettingsManager(
         dialog.enlargeButtons()
     }
 
+    private fun launchSettingsActivity(intent: Intent, requestCode: Int) {
+        pendingActivityResultRequestCode = requestCode
+        settingsActivityLauncher.launch(intent)
+    }
+
     fun openSettings(
         isFiltered: Boolean = false,
         filteredCatches: List<fi.anssi.kalakartta.data.FishCatch>? = null,
@@ -246,9 +261,9 @@ class SettingsManager(
                             0 -> mapSettingsDialog.show()
                             1 -> fishingSessionSettingsDialog.show()
                             2 -> heatmapSettingsDialog.show()
-                            3 -> activity.startActivityForResult(Intent(activity, FilterActivity::class.java), 2001)
-                            4 -> activity.startActivityForResult(Intent(activity, SummaryActivity::class.java), 2002)
-                            5 -> activity.startActivityForResult(Intent(activity, DiaryActivity::class.java), 2003)
+                            3 -> launchSettingsActivity(Intent(activity, FilterActivity::class.java), 2001)
+                            4 -> launchSettingsActivity(Intent(activity, SummaryActivity::class.java), 2002)
+                            5 -> launchSettingsActivity(Intent(activity, DiaryActivity::class.java), 2003)
                             6 -> dataTransferSettingsDialog.show(
                                 count,
                                 placeCount,

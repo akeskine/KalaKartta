@@ -338,7 +338,10 @@ class HeatmapSettingsDialog(
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
                     if (settingsStore.heatmapAutoConfigure) return
-                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.HEATMAP_MIN_POINTS
+                    val value = SettingsValueValidator.positiveIntOrDefault(
+                        s,
+                        SettingsDefaults.HEATMAP_MIN_POINTS
+                    )
                     settingsStore.heatmapMinPoints = value
                     val method = settingsStore.getHeatmapCalculationMethod(
                         activity.getString(R.string.heatmap_method_points)
@@ -369,7 +372,10 @@ class HeatmapSettingsDialog(
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
                     if (settingsStore.heatmapAutoConfigure) return
-                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.HEATMAP_MAX_POINTS
+                    val value = SettingsValueValidator.positiveIntOrDefault(
+                        s,
+                        SettingsDefaults.HEATMAP_MAX_POINTS
+                    )
                     settingsStore.heatmapMaxPoints = value
                     val method = settingsStore.getHeatmapCalculationMethod(
                         activity.getString(R.string.heatmap_method_points)
@@ -607,7 +613,10 @@ class HeatmapSettingsDialog(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().replace(",", ".").toFloatOrNull() ?: SettingsDefaults.HEATMAP_MAX_SPEED
+                    val value = SettingsValueValidator.positiveFloatOrDefault(
+                        s,
+                        SettingsDefaults.HEATMAP_MAX_SPEED
+                    )
                     val oldSpeed = settingsStore.heatmapMaxSpeed
                     if (value == oldSpeed) return
                     val heatmapEnabled = settingsStore.heatmapEnabled
@@ -743,7 +752,10 @@ class HeatmapSettingsDialog(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.ROUTES_FADE_START_DAYS
+                    val value = SettingsValueValidator.nonNegativeIntOrDefault(
+                        s,
+                        SettingsDefaults.ROUTES_FADE_START_DAYS
+                    )
                     settingsStore.routesFadeStartDays = value
                     onMapSettingsChanged()
                 }
@@ -766,7 +778,10 @@ class HeatmapSettingsDialog(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    val value = s.toString().toIntOrNull() ?: SettingsDefaults.ROUTES_FADE_FULL_DAYS
+                    val value = SettingsValueValidator.nonNegativeIntOrDefault(
+                        s,
+                        SettingsDefaults.ROUTES_FADE_FULL_DAYS
+                    )
                     settingsStore.routesFadeFullDays = value
                     onMapSettingsChanged()
                 }

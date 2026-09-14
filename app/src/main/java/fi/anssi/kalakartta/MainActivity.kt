@@ -801,6 +801,8 @@ class MainActivity : AppCompatActivity() {
                 updateMapTileSource()
                 updateFishingHeatmap()
                 updateScaleBar()
+            }, onSettingsActivityResult = { requestCode, resultCode, data ->
+                handleActivityResult(requestCode, resultCode, data)
             }) { forceRefreshSpecies ->
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
@@ -2156,6 +2158,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        handleActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun handleActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         if (resultCode == RESULT_OK) {
             val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
             val sessionId = data?.getLongExtra("EXTRA_SESSION_ID", -1L) ?: -1L
