@@ -48,6 +48,7 @@ class FishingSessionActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        lockToCurrentOrientation()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -84,8 +85,14 @@ class FishingSessionActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.backButton).setOnClickListener {
-            finish()
+            finishToSessionSettings()
         }
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finishToMap()
+            }
+        })
 
         findViewById<Button>(R.id.prevMonthButton).setOnClickListener {
             changeMonth(-1)
@@ -102,6 +109,16 @@ class FishingSessionActivity : AppCompatActivity() {
         }
 
         loadSessions()
+    }
+
+    private fun finishToSessionSettings() {
+        setResult(RESULT_OK, Intent().putExtra("BACK_TO_FISHING_SESSION_SETTINGS", true))
+        finish()
+    }
+
+    private fun finishToMap() {
+        setResult(RESULT_OK)
+        finish()
     }
 
     private fun changeMonth(amount: Int) {

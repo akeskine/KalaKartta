@@ -121,6 +121,7 @@ class FishingSessionSettingsDialog(
                 params.setMargins(0, 0, 0, 20)
                 layoutParams = params
                 setOnClickListener {
+                    onCloseSettings()
                     val intent = Intent(activity, FishingSessionActivity::class.java)
                     if (activity is MainActivity) {
                         activity.launchFishingSessionActivity(intent)

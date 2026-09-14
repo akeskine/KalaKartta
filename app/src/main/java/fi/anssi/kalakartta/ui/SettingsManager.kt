@@ -184,6 +184,10 @@ class SettingsManager(
         currentDialog = null
     }
 
+    fun openFishingSessionSettings() {
+        fishingSessionSettingsDialog.show()
+    }
+
     private fun showDialog(dialog: AlertDialog) {
         currentDialog?.dismiss()
         currentDialog = dialog

@@ -294,9 +294,10 @@ class MainActivity : AppCompatActivity() {
                     if (findViewById<android.view.View>(R.id.replayPlayerLayout).visibility == android.view.View.VISIBLE) {
                         val sessionId = replayMapController.getVisibleArchivedSessionId()
                         hideArchivedSession()
-                        
-                        // Avataan asetukset ja sessioiden listaus
-                        settingsManager.openSettings()
+
+                        // Suljetaan asetukset ennen sessioiden listauksen avaamista.
+                        // Näkyvä Takaisin-linkki avaa edellisen valikon tuloksen kautta.
+                        settingsManager.closeSettings()
                         
                         // Avataan FishingSessionActivity suoraan oikealla ID:llä
                         val intent = Intent(this@MainActivity, fi.anssi.kalakartta.ui.FishingSessionActivity::class.java)
@@ -975,7 +976,9 @@ class MainActivity : AppCompatActivity() {
                     replayMapController.showArchivedSessionOnMap(sessionId)
                 }
             } else if (requestCode == 3001) {
-                // Sessioiden listauksesta palattiin ilman valintaa, ei tehdä mitään erikoista
+                if (data?.getBooleanExtra("BACK_TO_FISHING_SESSION_SETTINGS", false) == true) {
+                    settingsManager.openFishingSessionSettings()
+                }
             } else if (requestCode == 1001 && catchId != -1L) {
                 // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
                 lifecycleScope.launch(Dispatchers.IO) {

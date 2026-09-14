@@ -57,6 +57,7 @@ class SummaryActivity : AppCompatActivity() {
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        lockToCurrentOrientation()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -69,6 +70,12 @@ class SummaryActivity : AppCompatActivity() {
         }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_summary)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finishToMap()
+            }
+        })
 
         db = AppDatabase.getInstance(this)
 
@@ -145,9 +152,18 @@ class SummaryActivity : AppCompatActivity() {
         }
 
         findViewById<TextView>(R.id.backButton).setOnClickListener {
-            setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
-            finish()
+            finishToSettings()
         }
+    }
+
+    private fun finishToSettings() {
+        setResult(RESULT_OK, Intent().putExtra("BACK_TO_SETTINGS", true))
+        finish()
+    }
+
+    private fun finishToMap() {
+        setResult(RESULT_OK)
+        finish()
     }
 
     private fun showDatePicker(isStart: Boolean) {
