@@ -65,7 +65,7 @@ class CatchDetailsDialog(
             setPadding(padding, padding / 2, padding, padding)
         }
 
-        val graphMarker = "\u0000PRESSURE_GRAPH\u0000"
+        val graphMarker = CatchDetailsTextBuilder.PRESSURE_GRAPH_MARKER
         val graphMarkerIndex = messageText.indexOf(graphMarker)
         if (graphMarkerIndex >= 0) {
             val beforeGraphEnd = messageText.substring(0, graphMarkerIndex).trimEnd().length
