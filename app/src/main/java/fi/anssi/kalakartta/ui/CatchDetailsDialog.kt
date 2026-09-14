@@ -30,6 +30,7 @@ import java.io.File
 class CatchDetailsDialog(
     private val context: Context,
     private val mediaLoader: MarkerMediaLoader,
+    private val dialogOrientationLock: DialogOrientationLock,
     private val resolveIconParams: (FishCatch) -> Quadruple<Int, String?, Int, Int>,
     private val openMedia: (Media) -> Unit,
     private val onEdit: (Marker, FishCatch?) -> Unit,
@@ -117,7 +118,7 @@ class CatchDetailsDialog(
             popup.show()
         }
 
-        dialog.show()
+        dialogOrientationLock.show(dialog)
         dialog.enlargeButtons()
     }
 

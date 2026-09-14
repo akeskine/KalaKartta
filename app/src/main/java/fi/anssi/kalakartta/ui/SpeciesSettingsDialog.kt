@@ -3,6 +3,7 @@ package fi.anssi.kalakartta.ui
 import android.content.Intent
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +23,7 @@ class SpeciesSettingsDialog(
     private val importExportManager: ImportExportManager,
     private val onDataChanged: (Boolean) -> Unit,
     private val onOpenSettings: () -> Unit,
+    private val onCloseSettings: () -> Unit,
     private val onShowDialog: (AlertDialog) -> Unit
 ) {
 
@@ -53,6 +55,7 @@ class SpeciesSettingsDialog(
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                     setBackgroundResource(outValue.resourceId)
                     setOnClickListener {
+                        onCloseSettings()
                         val intent = Intent(activity, EditSpeciesActivity::class.java)
                         if (activity is MainActivity) {
                             activity.launchActivityForResult(intent, 1002)
@@ -128,7 +131,9 @@ class SpeciesSettingsDialog(
 
                 val dialog = AlertDialog.Builder(activity)
                     .setTitle(activity.getString(R.string.fish_species_settings))
-                    .setView(layout)
+                    .setView(ScrollView(activity).apply {
+                        addView(layout)
+                    })
                     .setPositiveButton("Takaisin") { _, _ -> onOpenSettings() }
                     .create()
                 onShowDialog(dialog)

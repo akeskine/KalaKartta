@@ -32,6 +32,7 @@ class MarkerManager(
     private val map: MapView,
     private val db: AppDatabase,
     private val scope: CoroutineScope,
+    private val dialogOrientationLock: DialogOrientationLock,
     private val onDeleteConfirmed: (Marker) -> Unit
 ) {
     private fun launchActivityForResult(intent: Intent, requestCode: Int) {
@@ -111,10 +112,11 @@ class MarkerManager(
     private val dataStore = MarkerDataStore()
     private val mediaLoader = MarkerMediaLoader(context)
     private val detailsLoader = MarkerDetailsLoader(db, mediaLoader)
-    private val deletionHandler = MarkerDeletionHandler(context, map, onDeleteConfirmed)
+    private val deletionHandler = MarkerDeletionHandler(context, map, dialogOrientationLock, onDeleteConfirmed)
     private val placeDetailsDialog = PlaceDetailsDialog(
         context = context,
         mediaLoader = mediaLoader,
+        dialogOrientationLock = dialogOrientationLock,
         openMedia = ::openMedia,
         onEdit = ::showEditPlaceDialog,
         onDelete = ::confirmDeletePlace
@@ -122,6 +124,7 @@ class MarkerManager(
     private val catchDetailsDialog = CatchDetailsDialog(
         context = context,
         mediaLoader = mediaLoader,
+        dialogOrientationLock = dialogOrientationLock,
         resolveIconParams = fishIconResolver::resolve,
         openMedia = ::openMedia,
         onEdit = { marker, fish ->

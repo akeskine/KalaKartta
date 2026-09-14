@@ -45,8 +45,17 @@ import fi.anssi.kalakartta.ui.WeatherController
 import fi.anssi.kalakartta.ui.LocationController
 import fi.anssi.kalakartta.ui.ReplayMapController
 import fi.anssi.kalakartta.ui.MapNavigationController
+import fi.anssi.kalakartta.ui.DialogOrientationLock
 
 class MainActivity : AppCompatActivity() {
+
+    private companion object {
+        const val MAP_STATE_LATITUDE = "map_state_latitude"
+        const val MAP_STATE_LONGITUDE = "map_state_longitude"
+        const val MAP_STATE_ZOOM = "map_state_zoom"
+    }
+
+    private val dialogOrientationLock by lazy { DialogOrientationLock(this) }
 
     private val settingsStore by lazy {
         SettingsStore(getSharedPreferences("settings", MODE_PRIVATE))
@@ -125,6 +134,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
+        if (::map.isInitialized) {
+            val center = map.mapCenter
+            outState.putDouble(MAP_STATE_LATITUDE, center.latitude)
+            outState.putDouble(MAP_STATE_LONGITUDE, center.longitude)
+            outState.putDouble(MAP_STATE_ZOOM, map.zoomLevelDouble)
+        }
         if (::replayMapController.isInitialized) {
             replayMapController.saveState(outState)
         }
@@ -143,7 +158,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDatabaseInitializationError(error: Exception) {
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Tietokantavirhe")
             .setMessage(
                 "Tietokannan avaaminen epäonnistui, joten normaalia käyttöä ei jatketa " +
@@ -155,7 +170,8 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Sulje") { _, _ -> finish() }
             .setPositiveButton("Yritä uudelleen") { _, _ -> recreate() }
             .setCancelable(false)
-            .show()
+            .create()
+        dialogOrientationLock.show(dialog)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -167,14 +183,15 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 "Virheen lukeminen epäonnistui"
             }
-            AlertDialog.Builder(this)
+            val dialog = AlertDialog.Builder(this)
                 .setTitle("Edellinen käynnistys kaatui")
                 .setMessage(errorText)
                 .setPositiveButton("OK") { _, _ ->
                     crashFile.delete()
                 }
                 .setCancelable(false)
-                .show()
+                .create()
+            dialogOrientationLock.show(dialog)
         }
 
         try {
@@ -245,11 +262,12 @@ class MainActivity : AppCompatActivity() {
                     showSessionNotesDialog(sessionId, durationMs, distanceM)
                 },
                 onLocationDisabled = {
-                    AlertDialog.Builder(this)
+                    val dialog = AlertDialog.Builder(this)
                         .setTitle("Kalastussessio lopetettu")
                         .setMessage("Kalastussessio on lopetettu, koska sijaintipalvelu on pois päältä.")
                         .setPositiveButton("OK", null)
-                        .show()
+                        .create()
+                    dialogOrientationLock.show(dialog)
                 }
             )
 
@@ -267,7 +285,7 @@ class MainActivity : AppCompatActivity() {
                 updateMapTileSource()
             }, onSettingsActivityResult = { requestCode, resultCode, data ->
                 handleActivityResult(requestCode, resultCode, data)
-            }) { forceRefreshSpecies ->
+            }, dialogOrientationLock = dialogOrientationLock) { forceRefreshSpecies ->
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
 
@@ -305,7 +323,7 @@ class MainActivity : AppCompatActivity() {
                 settingsStore.heatmapShortcutMode = newVal
             }
 
-            markerManager = MarkerManager(this, map, db, lifecycleScope) { marker ->
+            markerManager = MarkerManager(this, map, db, lifecycleScope, dialogOrientationLock) { marker ->
                 val fish = marker.relatedObject as? FishCatch
                 val place = marker.relatedObject as? PlaceOfInterest
 
@@ -344,7 +362,7 @@ class MainActivity : AppCompatActivity() {
                 onReplayVisibilityChanged = { updateMyLocationButtonVisibility() }
             )
 
-            catchManager = CatchManager(this, map, db, weatherController.weatherService,
+            catchManager = CatchManager(this, map, db, weatherController.weatherService, dialogOrientationLock,
                 onCatchAdded = { fish ->
                     markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
                 },
@@ -371,7 +389,17 @@ class MainActivity : AppCompatActivity() {
 
             isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
 
-            if (isSelectionMode) {
+            val mapStateRestored = savedInstanceState?.containsKey(MAP_STATE_LATITUDE) == true &&
+                    savedInstanceState.containsKey(MAP_STATE_LONGITUDE) &&
+                    savedInstanceState.containsKey(MAP_STATE_ZOOM)
+
+            if (mapStateRestored) {
+                val lat = savedInstanceState!!.getDouble(MAP_STATE_LATITUDE)
+                val lon = savedInstanceState.getDouble(MAP_STATE_LONGITUDE)
+                val zoom = savedInstanceState.getDouble(MAP_STATE_ZOOM)
+                map.controller.setZoom(zoom)
+                map.controller.setCenter(org.osmdroid.util.GeoPoint(lat, lon))
+            } else if (isSelectionMode) {
                 val statePrefs = getSharedPreferences("map_state", MODE_PRIVATE)
                 val lat = statePrefs.getFloat("lat", 60.1695f).toDouble()
                 val lon = statePrefs.getFloat("lon", 24.9354f).toDouble()
@@ -594,7 +622,9 @@ class MainActivity : AppCompatActivity() {
                 settingsStore.lastVersionName = currentVersionName
             }
 
-            locationController.centerOnFirstFixIfNeeded()
+            if (!mapStateRestored) {
+                locationController.centerOnFirstFixIfNeeded()
+            }
             if (crashFile.exists()) {
                 crashFile.delete()
             }
@@ -690,7 +720,8 @@ class MainActivity : AppCompatActivity() {
                 updateDefaultFishermanUI()
             }
             .setNegativeButton("Ohita", null)
-            .show()
+            .create()
+            .also { dialogOrientationLock.show(it) }
     }
 
     private fun updateDefaultFishermanUI() {
@@ -766,6 +797,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        dialogOrientationLock.clear()
         if (::markerManager.isInitialized) {
             markerManager.close()
         }
@@ -857,7 +889,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 builder.setNegativeButton("Sulje", null)
             }
-            builder.show()
+            dialogOrientationLock.show(builder.create())
         }
     }
 

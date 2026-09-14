@@ -23,6 +23,7 @@ class SettingsManager(
     private val activity: AppCompatActivity,
     private val db: AppDatabase,
     private val importExportManager: ImportExportManager,
+    private val dialogOrientationLock: DialogOrientationLock,
     private val onWeatherSettingsChanged: (Boolean) -> Unit = {},
     private val onMapSettingsChanged: () -> Unit = {},
     private val onSettingsActivityResult: (requestCode: Int, resultCode: Int, data: Intent?) -> Unit = { _, _, _ -> },
@@ -47,7 +48,10 @@ class SettingsManager(
             activity = activity,
             settingsStore = settingsStore,
             onCloseSettings = ::closeSettings,
-            onStartupDialogShown = { dialog -> currentDialog = dialog }
+            onStartupDialogShown = { dialog ->
+                currentDialog = dialog
+                dialogOrientationLock.trackShown(dialog)
+            }
         )
     }
     private val heatmapSettingsDialog: HeatmapSettingsDialog by lazy {
@@ -170,6 +174,7 @@ class SettingsManager(
             importExportManager = importExportManager,
             onDataChanged = onDataChanged,
             onOpenSettings = { openSettings() },
+            onCloseSettings = ::closeSettings,
             onShowDialog = ::showDialog
         )
     }
@@ -182,11 +187,12 @@ class SettingsManager(
     private fun showDialog(dialog: AlertDialog) {
         currentDialog?.dismiss()
         currentDialog = dialog
-        dialog.show()
+        dialogOrientationLock.show(dialog)
         dialog.enlargeButtons()
     }
 
     private fun launchSettingsActivity(intent: Intent, requestCode: Int) {
+        closeSettings()
         pendingActivityResultRequestCode = requestCode
         settingsActivityLauncher.launch(intent)
     }

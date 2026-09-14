@@ -13,6 +13,7 @@ import org.osmdroid.views.overlay.Marker
 class MarkerDeletionHandler(
     private val context: Context,
     private val map: MapView,
+    private val dialogOrientationLock: DialogOrientationLock,
     private val onDeleteConfirmed: (Marker) -> Unit
 ) {
     fun confirmPlace(marker: Marker, place: PlaceOfInterest) {
@@ -23,7 +24,8 @@ class MarkerDeletionHandler(
                 confirmCurrentMarker(marker, place)
             }
             .setNegativeButton(R.string.cancel, null)
-            .show()
+            .create()
+        dialogOrientationLock.show(dialog)
         dialog.enlargeButtons()
     }
 
@@ -45,7 +47,8 @@ class MarkerDeletionHandler(
                 confirmCurrentMarker(marker, target)
             }
             .setNegativeButton("Peruuta", null)
-            .show()
+            .create()
+        dialogOrientationLock.show(dialog)
         dialog.enlargeButtons()
     }
 

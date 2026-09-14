@@ -23,6 +23,7 @@ import org.osmdroid.views.overlay.Marker
 class PlaceDetailsDialog(
     private val context: Context,
     private val mediaLoader: MarkerMediaLoader,
+    private val dialogOrientationLock: DialogOrientationLock,
     private val openMedia: (Media) -> Unit,
     private val onEdit: (Marker, PlaceOfInterest) -> Unit,
     private val onDelete: (Marker, PlaceOfInterest) -> Unit
@@ -92,7 +93,7 @@ class PlaceDetailsDialog(
             popup.show()
         }
 
-        dialog.show()
+        dialogOrientationLock.show(dialog)
         dialog.enlargeButtons()
     }
 

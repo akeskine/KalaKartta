@@ -30,6 +30,7 @@ class CatchManager(
     private val map: MapView,
     private val db: AppDatabase,
     private val weatherService: WeatherService,
+    private val dialogOrientationLock: DialogOrientationLock,
     private val onCatchAdded: (FishCatch) -> Unit,
     private val onPlaceAdded: (PlaceOfInterest) -> Unit
 ) {
@@ -236,7 +237,7 @@ class CatchManager(
                     setPadding(60, 20, 60, 0)
                     addView(otherSpeciesInput)
                 }
-                AlertDialog.Builder(activity)
+                val otherSpeciesDialog = AlertDialog.Builder(activity)
                     .setTitle("Syötä kalalaji")
                     .setView(layout)
                     .setPositiveButton("Tallenna") { _, _ ->
@@ -248,14 +249,15 @@ class CatchManager(
                         }
                     }
                     .setNegativeButton("Peruuta", null)
-                    .show()
+                    .create()
+                dialogOrientationLock.show(otherSpeciesDialog)
             } else {
                 addCatchAtSelectedLocation(species.id, weight, length, selectedEventType)
             }
             dialog.dismiss()
         }
 
-        dialog.show()
+        dialogOrientationLock.show(dialog)
     }
 
     private fun openEditCatchForNewEntry() {
@@ -359,7 +361,7 @@ class CatchManager(
             dialog.dismiss()
         }
 
-        dialog.show()
+        dialogOrientationLock.show(dialog)
     }
 
 
