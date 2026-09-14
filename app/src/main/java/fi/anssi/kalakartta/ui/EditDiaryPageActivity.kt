@@ -87,6 +87,7 @@ class EditDiaryPageActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.backButton).setOnClickListener { goBack() }
         addMediaButton.setOnClickListener { selectMediaLauncher.launch("*/*") }
         findViewById<TextView>(R.id.generateCatchButton).setOnClickListener { generateCatchText() }
+        findViewById<TextView>(R.id.generateStoryButton).setOnClickListener { generateStoryText() }
         multiDayCheckBox.setOnCheckedChangeListener { _, checked -> endDateContainer.visibility = if (checked) View.VISIBLE else View.GONE; changed = true; refreshMediaList() }
         startDateText.setOnClickListener { pickDate(startDate) { startDate = it; updateDates(); changed = true; refreshMediaList() } }
         endDateText.setOnClickListener { pickDate(endDate ?: startDate) { endDate = it; updateDates(); changed = true; refreshMediaList() } }
@@ -152,6 +153,19 @@ class EditDiaryPageActivity : AppCompatActivity() {
                 val text = CatchSummaryFormatter.format(catches, db.fishSpeciesDao().getAll().associateBy { it.id })
                 withContext(Dispatchers.Main) { catchEdit.setText(text); catchEdit.setSelection(text.length); changed = true }
             } catch (_: Exception) { withContext(Dispatchers.Main) { Toast.makeText(this@EditDiaryPageActivity, "Virhe saaliita luotaessa", Toast.LENGTH_LONG).show() } }
+        }
+    }
+
+    private fun generateStoryText() {
+        val rangeStart = normalize(startDate)
+        val selectedEnd = if (multiDayCheckBox.isChecked) endDate ?: rangeStart else rangeStart
+        val rangeEnd = Calendar.getInstance().apply { timeInMillis = normalize(selectedEnd); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val sessions = db.fishingSessionDao().getSessionsInRange(rangeStart, rangeEnd)
+                val text = FishingSessionSummaryFormatter.format(sessions)
+                withContext(Dispatchers.Main) { storyEdit.setText(text); storyEdit.setSelection(text.length); changed = true }
+            } catch (_: Exception) { withContext(Dispatchers.Main) { Toast.makeText(this@EditDiaryPageActivity, "Virhe sessioita luotaessa", Toast.LENGTH_LONG).show() } }
         }
     }
 
