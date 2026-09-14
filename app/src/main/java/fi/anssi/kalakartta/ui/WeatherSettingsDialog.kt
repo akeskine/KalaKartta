@@ -7,6 +7,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.utils.WeatherService
 
@@ -51,14 +52,18 @@ class WeatherSettingsDialog(
         val updateLink = TextView(activity).apply {
             text = "Päivitä puuttuvat säätiedot"
             textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
             setOnClickListener {
                 val intent = Intent(activity, WeatherUpdateActivity::class.java)
-                activity.startActivityForResult(intent, 1003)
+                if (activity is MainActivity) {
+                    activity.launchActivityForResult(intent, 1003)
+                } else {
+                    activity.startActivity(intent)
+                }
             }
         }
         contentLayout.addView(updateLink)

@@ -140,11 +140,15 @@ class EditCatchActivity : AppCompatActivity() {
                 if (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L) selectedCalendar.timeInMillis else null
             }
             
-            val media = mediaService.addMedia(it, lat, lon, time)
-            if (media != null) {
-                refreshMediaList()
-            } else {
-                Toast.makeText(this, "Median lisääminen epäonnistui", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch(Dispatchers.IO) {
+                val media = mediaService.addMedia(it, lat, lon, time)
+                withContext(Dispatchers.Main) {
+                    if (media != null) {
+                        refreshMediaList()
+                    } else {
+                        Toast.makeText(this@EditCatchActivity, "Median lisääminen epäonnistui", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     }
@@ -167,7 +171,6 @@ class EditCatchActivity : AppCompatActivity() {
         initViews()
         setupDatabase()
         loadData()
-        setupListeners()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -240,12 +243,38 @@ class EditCatchActivity : AppCompatActivity() {
     }
 
     private fun loadData() {
+        val loadingIsPlace = intent.getBooleanExtra("EXTRA_IS_PLACE", false)
+        val loadingCatchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
+        val loadingPlaceId = intent.getLongExtra("EXTRA_PLACE_ID", -1L)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val loadedPlaceTypes = if (loadingIsPlace) db.placeOfInterestTypeDao().getAll() else emptyList()
+            val loadedPlace = if (loadingIsPlace && loadingPlaceId != -1L) {
+                db.placeOfInterestDao().getById(loadingPlaceId)
+            } else null
+            val loadedSpecies = if (!loadingIsPlace) db.fishSpeciesDao().getAll() else emptyList()
+            val loadedCatch = if (!loadingIsPlace && loadingCatchId != -1L) {
+                db.fishCatchDao().getById(loadingCatchId)
+            } else null
+
+            withContext(Dispatchers.Main) {
+                loadDataWithLoadedEntities(loadedPlaceTypes, loadedPlace, loadedSpecies, loadedCatch)
+            }
+        }
+    }
+
+    private fun loadDataWithLoadedEntities(
+        loadedPlaceTypes: List<PlaceOfInterestType>,
+        loadedPlace: PlaceOfInterest?,
+        loadedSpecies: List<FishSpecies>,
+        loadedCatch: FishCatch?
+    ) {
         isPlace = intent.getBooleanExtra("EXTRA_IS_PLACE", false)
         val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
         val placeId = intent.getLongExtra("EXTRA_PLACE_ID", -1L)
         
         if (isPlace) {
-            placeTypeList = db.placeOfInterestTypeDao().getAll()
+            placeTypeList = loadedPlaceTypes
                 
             fishSpecificFields.visibility = View.GONE
             fishWeatherLayout.visibility = View.GONE
@@ -266,7 +295,7 @@ class EditCatchActivity : AppCompatActivity() {
                 )
                 titleTextView.setText(R.string.add_detailed_title)
             } else {
-                placeOfInterest = db.placeOfInterestDao().getById(placeId)
+                placeOfInterest = loadedPlace
                 titleTextView.text = "Muokkaa paikkaa"
             }
             
@@ -279,9 +308,7 @@ class EditCatchActivity : AppCompatActivity() {
             // Alustetaan kalenteri nykyhetkeen, vaikka sitä ei näytettäisi painikkeessa
             selectedCalendar.timeInMillis = System.currentTimeMillis()
         } else {
-            val allSpecies = db.fishSpeciesDao().getAll()
-            
-            val catchId = intent.getLongExtra("EXTRA_CATCH_ID", -1L)
+            val allSpecies = loadedSpecies
             fishCatch = if (catchId == -1L) {
                 val lat = intent.getDoubleExtra("EXTRA_LATITUDE", 0.0)
                 val lon = intent.getDoubleExtra("EXTRA_LONGITUDE", 0.0)
@@ -300,7 +327,7 @@ class EditCatchActivity : AppCompatActivity() {
                     caughtAt = currentCaughtAt
                 )
             } else {
-                db.fishCatchDao().getById(catchId)
+                loadedCatch
             }
 
             if (fishCatch == null) {
@@ -551,7 +578,7 @@ class EditCatchActivity : AppCompatActivity() {
                         }
                     } else {
                         weatherService.fetchNearestStation(fc.latitude, fc.longitude, fc.caughtAt!!) { station, _ ->
-                            runOnUiThread {
+                            lifecycleScope.launch(Dispatchers.Main) {
                                 if (station != null) {
                                     isUpdatingFromCode = true
                                     nearestStation = station
@@ -606,92 +633,52 @@ class EditCatchActivity : AppCompatActivity() {
         refreshMediaList()
         updateMoonData()
         refreshDiaryLinks()
+        setupListeners()
     }
 
     private fun refreshDiaryLinks() {
-        diaryLinksLayout.removeAllViews()
-
         val caughtAt = if (!isPlace && (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L)) {
             selectedCalendar.timeInMillis
         } else {
             null
         }
-        val pages = FishDiaryPageMatcher.pagesForCaughtAt(
-            caughtAt,
-            db.fishDiaryPageDao().getAll()
-        )
-        if (pages.isEmpty()) {
-            diaryLinksLayout.visibility = View.GONE
-            return
-        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val pages = FishDiaryPageMatcher.pagesForCaughtAt(caughtAt, db.fishDiaryPageDao().getAll())
+            withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
+                diaryLinksLayout.removeAllViews()
+                if (pages.isEmpty()) {
+                    diaryLinksLayout.visibility = View.GONE
+                    return@withContext
+                }
 
-        diaryLinksLayout.visibility = View.VISIBLE
-        pages.forEachIndexed { index, page ->
-            val linkText = if (pages.size == 1) {
-                getString(R.string.trip_notes)
-            } else {
-                getString(R.string.trip_notes) + " ${index + 1}"
+                diaryLinksLayout.visibility = View.VISIBLE
+                pages.forEachIndexed { index, page ->
+                    val linkText = if (pages.size == 1) getString(R.string.trip_notes) else getString(R.string.trip_notes) + " ${index + 1}"
+                    val link = TextView(this@EditCatchActivity).apply {
+                        text = linkText
+                        setTextColor(androidx.core.content.ContextCompat.getColor(this@EditCatchActivity, R.color.link_color))
+                        paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                        textSize = 16f
+                        setPadding(0, (8 * resources.displayMetrics.density).toInt(), 0, 0)
+                        setOnClickListener { FishDiaryDialog.show(this@EditCatchActivity, page) }
+                    }
+                    diaryLinksLayout.addView(link)
+                }
             }
-            val link = TextView(this).apply {
-                text = linkText
-                setTextColor(androidx.core.content.ContextCompat.getColor(this@EditCatchActivity, R.color.link_color))
-                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                textSize = 16f
-                setPadding(0, (8 * resources.displayMetrics.density).toInt(), 0, 0)
-                setOnClickListener { FishDiaryDialog.show(this@EditCatchActivity, page) }
-            }
-            diaryLinksLayout.addView(link)
         }
     }
 
     private fun refreshMediaList() {
-        mediaListLayout.removeAllViews()
         val lat = fishCatch?.latitude ?: placeOfInterest?.latitude ?: return
         val lon = fishCatch?.longitude ?: placeOfInterest?.longitude ?: return
         val time = if (isPlace) null else fishCatch?.caughtAt
-        MediaComponent.render(this, mediaListLayout, mediaService.getMediaForPoint(lat, lon, time), { true }, onChanged = { refreshMediaList() })
-        return
-        
-        val mediaList = mediaService.getMediaForPoint(lat, lon, time)
-        mediaList.forEach { media ->
-            val mediaView = LayoutInflater.from(this).inflate(R.layout.item_media, mediaListLayout, false)
-            val fileNameText = mediaView.findViewById<TextView>(R.id.mediaFileName)
-            val removeButton = mediaView.findViewById<ImageButton>(R.id.removeMediaButton)
-            val thumbnail = mediaView.findViewById<ImageView>(R.id.mediaThumbnail)
-            
-            fileNameText.text = media.originalFileName
-            
-            if (media.mimeType.startsWith("image/")) {
-                val file = File(filesDir, "media/${media.fileName}")
-                if (file.exists()) {
-                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                    thumbnail.setImageBitmap(bitmap)
-                    thumbnail.visibility = View.VISIBLE
-                }
-            } else {
-                thumbnail.visibility = View.GONE
+        lifecycleScope.launch(Dispatchers.IO) {
+            val media = mediaService.getMediaForPoint(lat, lon, time)
+            withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
+                MediaComponent.render(this@EditCatchActivity, mediaListLayout, media, { true }, onChanged = { refreshMediaList() })
             }
-            
-            fileNameText.setOnClickListener {
-                openMedia(media)
-            }
-            thumbnail.setOnClickListener {
-                openMedia(media)
-            }
-            
-            removeButton.setOnClickListener {
-                AlertDialog.Builder(this)
-                    .setTitle("Poista media")
-                    .setMessage("Haluatko varmasti poistaa tämän median?")
-                    .setPositiveButton("Poista") { _, _ ->
-                        mediaService.deleteMedia(media)
-                        refreshMediaList()
-                    }
-                    .setNegativeButton("Peruuta", null)
-                    .show()
-            }
-            
-            mediaListLayout.addView(mediaView)
         }
     }
 
@@ -804,7 +791,7 @@ class EditCatchActivity : AppCompatActivity() {
                     val lat = latEditText.text.toString().toDoubleSafe()
                     val lon = lonEditText.text.toString().toDoubleSafe()
                     weatherService.fetchNearestStation(lat, lon, selectedCalendar.timeInMillis) { station, _ ->
-                        runOnUiThread {
+                        lifecycleScope.launch(Dispatchers.Main) {
                             if (station != null) {
                                 nearestStation = station
                                 fetchWeatherForDisplay(onlyMissing = true)
@@ -846,7 +833,7 @@ class EditCatchActivity : AppCompatActivity() {
             autoWeatherCheckBox.visibility = View.VISIBLE
             autoWeatherCheckBox.isChecked = true
             weatherService.fetchNearestStations(lat, lon, selectedCalendar.timeInMillis, 1) { stations, _ ->
-                runOnUiThread {
+                lifecycleScope.launch(Dispatchers.Main) {
                     android.util.Log.d("KalaKartta", "setupWeatherForNewCatch callback: stations=${stations?.size}")
                     stations?.firstOrNull()?.let {
                         nearestStation = it
@@ -866,7 +853,7 @@ class EditCatchActivity : AppCompatActivity() {
         nearestStationText.text = "Haetaan säätietoja..."
         val catchInfo = if (fishCatch != null) "ID: ${fishCatch!!.id}" else "Uusi saalis"
         weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis, null, catchInfo) { data, time, error, stations ->
-            runOnUiThread {
+            lifecycleScope.launch(Dispatchers.Main) {
                 android.util.Log.d("KalaKartta", "fetchWeatherForDisplay callback: data=${data?.size} keys, time=$time, stations='$stations'")
                 if (data != null) {
                     currentWeatherStation = stations
@@ -935,8 +922,8 @@ class EditCatchActivity : AppCompatActivity() {
         val lat = latEditText.text.toString().toDoubleSafe()
         val lon = lonEditText.text.toString().toDoubleSafe()
         weatherService.fetchNearestStation(lat, lon, caughtAt) { station, error ->
-            runOnUiThread {
-                if (!isTimeSetManually || selectedCalendar.timeInMillis != caughtAt) return@runOnUiThread
+            lifecycleScope.launch(Dispatchers.Main) {
+                if (!isTimeSetManually || selectedCalendar.timeInMillis != caughtAt) return@launch
 
                 if (station != null) {
                     nearestStation = station

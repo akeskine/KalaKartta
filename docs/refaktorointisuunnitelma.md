@@ -277,6 +277,7 @@ Tässä vaiheessa ei saa muuttaa samanaikaisesti importin, session tai weatherin
 - `CatchManager`in paikka- ja kalapisteiden tallennus sekä säätietojen jälkipäivitys käyttävät lifecycle-coroutineja.
 - MainActivityn ja EditCatchActivityn tietokantaoperaatiot, TalkingClockServicen sääennuste sekä WeatherServicen vanhat callback-rajapinnat käyttävät coroutine-scopeja raakathreadien sijaan.
 - Sovelluksen tuotantokoodissa ei ole enää suoria `Thread { ... }.start()`- tai `runBlocking`-kutsuja.
+- MainActivityn viimeinen `startActivityForResult`-käyttö on korvattu Activity Result APIlla.
 
 Vaihe 5:n raakathreadien poisto on valmis. `allowMainThreadQueries()`-asetuksen ja UI:n `runOnUiThread`-kutsujen erillinen siistiminen voidaan tehdä myöhemmin omana muutoksenaan.
 

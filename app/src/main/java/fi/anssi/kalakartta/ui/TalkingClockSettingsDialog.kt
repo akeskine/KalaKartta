@@ -68,7 +68,7 @@ class TalkingClockSettingsDialog(
             val isEnabled = settingsStore.talkingClockEnabled
             text = activity.getString(if (isEnabled) R.string.talking_clock_stop else R.string.talking_clock_start)
             textSize = 18f
-            setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             setPadding(0, 20, 0, 40)
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)

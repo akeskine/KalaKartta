@@ -25,8 +25,10 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.createBitmap
 import fi.anssi.kalakartta.R
+import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.FishDiaryPage
 import fi.anssi.kalakartta.data.Media
 import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
@@ -59,6 +61,15 @@ class MarkerManager(
     private val db: AppDatabase,
     private val onDeleteConfirmed: (Marker) -> Unit
 ) {
+    private fun launchActivityForResult(intent: Intent, requestCode: Int) {
+        if (context is MainActivity) {
+            context.launchActivityForResult(intent, requestCode)
+        } else {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
+    }
+
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
     private var rebuildJob: Job? = null
@@ -111,25 +122,27 @@ class MarkerManager(
                 val title = mView.findViewById<TextView>(R.id.bubble_title)
                 val image = mView.findViewById<ImageView>(R.id.bubble_image)
                 title.text = marker?.title
-                
+
                 val related = marker?.relatedObject
-                val mediaList = when (related) {
-                    is FishCatch -> mediaService.getMediaForPoint(related.latitude, related.longitude, related.caughtAt)
-                    is PlaceOfInterest -> mediaService.getMediaForPoint(related.latitude, related.longitude, null)
-                    else -> emptyList()
-                }
-                
-                val firstImage = mediaList.firstOrNull { it.mimeType.startsWith("image/") }
-                if (firstImage != null) {
-                    val file = File(context.filesDir, "media/${firstImage.fileName}")
-                    if (file.exists()) {
-                        image.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
-                        image.visibility = View.VISIBLE
-                    } else {
-                        image.visibility = View.GONE
+                image.visibility = View.GONE
+                scope.launch {
+                    val mediaList = withContext(Dispatchers.IO) {
+                        when (related) {
+                            is FishCatch -> mediaService.getMediaForPoint(related.latitude, related.longitude, related.caughtAt)
+                            is PlaceOfInterest -> mediaService.getMediaForPoint(related.latitude, related.longitude, null)
+                            else -> emptyList()
+                        }
                     }
-                } else {
-                    image.visibility = View.GONE
+                    withContext(Dispatchers.Main) {
+                        val firstImage = mediaList.firstOrNull { it.mimeType.startsWith("image/") }
+                        if (firstImage != null) {
+                            val file = File(context.filesDir, "media/${firstImage.fileName}")
+                            if (file.exists()) {
+                                image.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                                image.visibility = View.VISIBLE
+                            }
+                        }
+                    }
                 }
                 
                 // Sulje infowindow klikattaessa tekstiä, jotta se ei estä merkin klikkausta
@@ -630,7 +643,7 @@ class MarkerManager(
                                     
                                     if (fish.species == "UNKNOWN" && useThinning) {
                                         val gridSizeLat = bbox!!.latitudeSpan / gridSizeDivider
-                                        val gridSizeLon = bbox.longitudeSpan / gridSizeDivider
+                                        val gridSizeLon = (bbox.lonEast - bbox.lonWest) / gridSizeDivider
                                         val gridX = ((fish.latitude - bbox.latSouth) / gridSizeLat).toInt()
                                         val gridY = ((fish.longitude - bbox.lonWest) / gridSizeLon).toInt()
                                         val pos = Pair(gridX, gridY)
@@ -705,7 +718,7 @@ class MarkerManager(
                 // Jos bbox ei ole vielä valmis, käytetään fallbackina kaikkien näyttämistä.
                 // Älä käytä lastBBoxia tässä, koska se voi olla kaukana nykyisestä sijainnista
                 // ja aiheuttaa kaikkien pisteiden katoamisen (clipping väärälle alueelle).
-                if (bbox != null && bbox.latNorth != 0.0 && bbox.latSouth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.longitudeSpan > 0.0)) {
+                if (bbox != null && bbox.latNorth != 0.0 && bbox.latSouth != 0.0 && (bbox.latitudeSpan > 0.0 || bbox.lonEast - bbox.lonWest > 0.0)) {
                     lastBBox = bbox
                     withContext(Dispatchers.Default) {
                         val totalCount = catchesCopy.size + placesCopy.size
@@ -713,7 +726,7 @@ class MarkerManager(
                         // Suurella määrällä (> 15000) marginaalia pienennetään entisestään (20%) suorituskyvyn takia.
                         val marginMultiplier = if (totalCount < 15000) 2.0 else 0.2
                             val latMargin = bbox.latitudeSpan * marginMultiplier
-                            val lonMargin = bbox.longitudeSpan * marginMultiplier
+                            val lonMargin = (bbox.lonEast - bbox.lonWest) * marginMultiplier
                             
                             val filteredCatches = catchesCopy.filter { fish ->
                                 fish.latitude >= bbox.latSouth - latMargin && 
@@ -743,7 +756,7 @@ class MarkerManager(
                                         else -> 40.0
                                     }
                                     val gridSizeLat = bbox.latitudeSpan / gridSizeDivider
-                                    val gridSizeLon = bbox.longitudeSpan / gridSizeDivider
+                                    val gridSizeLon = (bbox.lonEast - bbox.lonWest) / gridSizeDivider
                                     val grid = mutableSetOf<Pair<Int, Int>>()
                                     val thinnedUnknowns = mutableListOf<FishCatch>()
                                     
@@ -956,7 +969,22 @@ class MarkerManager(
     private fun showPlaceDetailsDialog(marker: Marker) {
         val place = marker.relatedObject as? PlaceOfInterest ?: return
         val type = placeTypeCache[place.typeId]
-        
+        scope.launch {
+            val mediaList = withContext(Dispatchers.IO) {
+                mediaService.getMediaForPoint(place.latitude, place.longitude, null)
+            }
+            withContext(Dispatchers.Main) {
+                showPlaceDetailsDialogWithMedia(marker, place, type, mediaList)
+            }
+        }
+    }
+
+    private fun showPlaceDetailsDialogWithMedia(
+        marker: Marker,
+        place: PlaceOfInterest,
+        type: PlaceOfInterestType?,
+        mediaList: List<Media>
+    ) {
         val titleView = android.view.LayoutInflater.from(context).inflate(R.layout.dialog_custom_title, null)
         val titleText = if (place.name.isEmpty()) type?.name ?: place.typeId else place.name
         titleView.findViewById<android.widget.TextView>(R.id.dialogTitle).text = titleText
@@ -986,19 +1014,17 @@ class MarkerManager(
         if (message.trim().isNotEmpty()) {
             val tv = TextView(context).apply {
                 text = message.toString().trim()
-                setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
                 setTextColor(android.graphics.Color.BLACK)
             }
             container.addView(tv)
         }
 
         // Median haku ja lisäys
-        val mediaService = MediaService(context)
-        val mediaList = mediaService.getMediaForPoint(place.latitude, place.longitude, null)
         if (mediaList.isNotEmpty()) {
             val mediaTitle = TextView(context).apply {
                 text = "\nMedia"
-                setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 setTextColor(android.graphics.Color.BLACK)
             }
@@ -1081,7 +1107,7 @@ class MarkerManager(
         val intent = Intent(context, EditCatchActivity::class.java)
         intent.putExtra("EXTRA_IS_PLACE", true)
         intent.putExtra("EXTRA_PLACE_ID", place.id)
-        (context as androidx.appcompat.app.AppCompatActivity).startActivityForResult(intent, 1002)
+        launchActivityForResult(intent, 1002)
     }
 
     private fun confirmDeletePlace(marker: Marker, place: PlaceOfInterest) {
@@ -1226,7 +1252,7 @@ class MarkerManager(
                             // Päivitetään vain jos näkymä on siirtynyt yli 80% leveydestä/korkeudesta
                             // koska clipping-marginaali on 100% (20% suurilla määrillä).
                             val threshold = if (catchesCount + placesCount < 5000) 0.8 else 0.15
-                            if (latDiff < bbox.latitudeSpan * threshold && lonDiff < bbox.longitudeSpan * threshold) {
+                            if (latDiff < bbox.latitudeSpan * threshold && lonDiff < (bbox.lonEast - bbox.lonWest) * threshold) {
                                 // Varmistetaan että markerit on ladattu, mutta ei ladata niitä joka skrollauksella
                                 if (defaultPointsFolder.items.isNotEmpty() || catchesFolder.items.isNotEmpty() || placesFolder.items.isNotEmpty()) {
                                     return
@@ -1346,6 +1372,30 @@ class MarkerManager(
 
     private fun showCatchDetailsDialog(marker: Marker) {
         val fish = marker.relatedObject as? FishCatch
+        scope.launch {
+            val (species, diaryPages, mediaList) = withContext(Dispatchers.IO) {
+                val loadedSpecies = fish?.let { db.fishSpeciesDao().getById(it.species) }
+                val loadedDiaryPages = fish?.let {
+                    FishDiaryPageMatcher.pagesForCaughtAt(it.caughtAt, db.fishDiaryPageDao().getAll())
+                }.orEmpty()
+                val loadedMedia = fish?.let {
+                    MediaService(context).getMediaForPoint(it.latitude, it.longitude, it.caughtAt)
+                }.orEmpty()
+                Triple(loadedSpecies, loadedDiaryPages, loadedMedia)
+            }
+            withContext(Dispatchers.Main) {
+                showCatchDetailsDialog(marker, fish, species, diaryPages, mediaList)
+            }
+        }
+    }
+
+    private fun showCatchDetailsDialog(
+        marker: Marker,
+        fish: FishCatch?,
+        species: fi.anssi.kalakartta.data.FishSpecies?,
+        diaryPages: List<FishDiaryPage>,
+        mediaList: List<Media>
+    ) {
         val pressureGraphMarker = "\u0000PRESSURE_GRAPH\u0000"
         val details = StringBuilder()
         var hasSpecies = false
@@ -1353,7 +1403,6 @@ class MarkerManager(
         fish?.let {
             val shouldShowPressureGraph = it.pressureSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L
             var pressureGraphMarkerAdded = false
-            val species = db.fishSpeciesDao().getById(it.species)
             if (species != null) {
                 val speciesName = if (it.species == "OTHER" && !it.otherSpecies.isNullOrEmpty()) {
                     val otherSpeciesDisplay = it.otherSpecies.lowercase().replaceFirstChar { it.uppercase() }
@@ -1541,7 +1590,7 @@ class MarkerManager(
             if (text.isNotBlank()) {
                 val tv = TextView(context).apply {
                     this.text = text
-                    setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                    androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
                     setTextColor(android.graphics.Color.BLACK)
                     movementMethod = android.text.method.LinkMovementMethod.getInstance()
                 }
@@ -1582,15 +1631,12 @@ class MarkerManager(
         }
 
         // Median haku ja lisäys
-        fish?.let { addDiaryLinks(container, it) }
+        addDiaryLinks(container, diaryPages)
 
-        fish?.let { fc ->
-            val mediaService = MediaService(context)
-            val mediaList = mediaService.getMediaForPoint(fc.latitude, fc.longitude, fc.caughtAt)
-            if (mediaList.isNotEmpty()) {
+        if (mediaList.isNotEmpty()) {
                 val mediaTitle = TextView(context).apply {
                     text = "\nMedia"
-                    setTextAppearance(context, android.R.style.TextAppearance_Medium)
+                    androidx.core.widget.TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setTextColor(android.graphics.Color.BLACK)
                 }
@@ -1629,7 +1675,6 @@ class MarkerManager(
                     }
                     container.addView(linkView)
                 }
-            }
         }
 
         val scrollView = ScrollView(context).apply {
@@ -1654,12 +1699,7 @@ class MarkerManager(
                         val currentFish = fish ?: marker.relatedObject as? FishCatch
                         val intent = Intent(context, EditCatchActivity::class.java)
                         intent.putExtra("EXTRA_CATCH_ID", currentFish?.id)
-                        if (context is android.app.Activity) {
-                            context.startActivityForResult(intent, 1001)
-                        } else {
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                        }
+                        launchActivityForResult(intent, 1001)
                         dialog.dismiss()
                         true
                     }
@@ -1678,11 +1718,7 @@ class MarkerManager(
         dialog.enlargeButtons()
     }
 
-    private fun addDiaryLinks(container: LinearLayout, fish: FishCatch) {
-        val pages = FishDiaryPageMatcher.pagesForCaughtAt(
-            fish.caughtAt,
-            db.fishDiaryPageDao().getAll()
-        )
+    private fun addDiaryLinks(container: LinearLayout, pages: List<FishDiaryPage>) {
         if (pages.isEmpty()) return
 
         pages.forEachIndexed { index, page ->

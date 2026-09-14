@@ -74,6 +74,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import fi.anssi.kalakartta.ui.SessionReplayResult
 
 class MainActivity : AppCompatActivity() {
 
@@ -93,7 +94,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val fishingSessionActivityLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        handleActivityResult(3001, result.resultCode, result.data)
+    }
+
+    private var pendingActivityResultRequestCode: Int? = null
+    private val activityResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val requestCode = pendingActivityResultRequestCode ?: return@registerForActivityResult
+        pendingActivityResultRequestCode = null
+        handleActivityResult(requestCode, result.resultCode, result.data)
+    }
+
     fun getNotificationPermissionLauncher() = requestNotificationPermissionLauncher
+
+    fun launchFishingSessionActivity(intent: Intent) {
+        fishingSessionActivityLauncher.launch(intent)
+    }
+
+    fun launchActivityForResult(intent: Intent, requestCode: Int) {
+        pendingActivityResultRequestCode = requestCode
+        activityResultLauncher.launch(intent)
+    }
 
     private lateinit var db: AppDatabase
     private lateinit var importExportManager: ImportExportManager
@@ -781,7 +806,7 @@ class MainActivity : AppCompatActivity() {
                 db = androidx.room.Room.inMemoryDatabaseBuilder(
                     applicationContext,
                     AppDatabase::class.java
-                ).allowMainThreadQueries().build()
+                ).build()
             }
             android.util.Log.d("KalaKartta", "after db init")
 
@@ -820,7 +845,7 @@ class MainActivity : AppCompatActivity() {
                         // Avataan FishingSessionActivity suoraan oikealla ID:llä
                         val intent = Intent(this@MainActivity, fi.anssi.kalakartta.ui.FishingSessionActivity::class.java)
                         intent.putExtra("EXTRA_OPEN_SESSION_ID", sessionId)
-                        startActivityForResult(intent, 3001)
+                        fishingSessionActivityLauncher.launch(intent)
                     } else {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
@@ -882,7 +907,9 @@ class MainActivity : AppCompatActivity() {
 
             updateMapTileSource()
             map.setMultiTouchControls(true)
-            map.setBuiltInZoomControls(false)
+            map.zoomController.setVisibility(
+                org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER
+            )
 
             isSelectionMode = intent.getBooleanExtra("EXTRA_SELECTION_MODE", false)
 
@@ -1241,7 +1268,7 @@ class MainActivity : AppCompatActivity() {
 
             if (autoCenter && !isSelectionMode) {
                 locationOverlay.runOnFirstFix {
-                    runOnUiThread {
+                    lifecycleScope.launch(Dispatchers.Main) {
                         val myLocation = locationOverlay.myLocation
                         if (myLocation != null) {
                             map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
@@ -1423,13 +1450,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadCatches() {
-        val catches = db.fishCatchDao().getAll()
-        val filteredCatches = filterManager.applyFilter(catches)
-        markerManager.setAllCatches(filteredCatches)
-
-        val places = db.placeOfInterestDao().getAll()
-        val filteredPlaces = filterManager.applyPlaceFilter(places)
-        markerManager.setAllPlaces(filteredPlaces)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val catches = db.fishCatchDao().getAll()
+            val filteredCatches = filterManager.applyFilter(catches)
+            val places = db.placeOfInterestDao().getAll()
+            val filteredPlaces = filterManager.applyPlaceFilter(places)
+            withContext(Dispatchers.Main) {
+                markerManager.setAllCatches(filteredCatches)
+                markerManager.setAllPlaces(filteredPlaces)
+            }
+        }
     }
 
     private fun updateFilterStatusUI() {
@@ -1440,13 +1470,19 @@ class MainActivity : AppCompatActivity() {
         val filters = filterManager.getFilters()
         if (filterManager.hasActiveFilters()) {
             layout.visibility = android.view.View.VISIBLE
-            text.text = filterManager.getFilterDescription()
-
             if (filters.windMin != null && filters.windMax != null) {
                 windView.visibility = android.view.View.VISIBLE
                 windView.setRange(filters.windMin, filters.windMax)
             } else {
                 windView.visibility = android.view.View.GONE
+            }
+            lifecycleScope.launch(Dispatchers.IO) {
+                val description = filterManager.getFilterDescription()
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed && filterManager.hasActiveFilters()) {
+                        text.text = description
+                    }
+                }
             }
         } else {
             layout.visibility = android.view.View.GONE
@@ -1551,7 +1587,7 @@ class MainActivity : AppCompatActivity() {
         weatherCheckDone = true
 
         weatherService.fetchNearestStation(myLocation.latitude, myLocation.longitude, System.currentTimeMillis()) { station, error ->
-            runOnUiThread {
+            lifecycleScope.launch(Dispatchers.Main) {
                 if (error != null) {
                     // Epäonnistumisesta ei välttämättä tarvitse ilmoittaa käyttäjälle automaattisessa haussa
                 } else if (station != null) {
@@ -2144,24 +2180,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        handleActivityResult(requestCode, resultCode, data)
-    }
-
     private fun handleActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        val replayRequest = SessionReplayResult.parse(resultCode, data)
         if (resultCode == RESULT_OK) {
             val catchId = data?.getLongExtra("EXTRA_CATCH_ID", -1L) ?: -1L
             val sessionId = data?.getLongExtra("EXTRA_SESSION_ID", -1L) ?: -1L
-            val replayRequest = data?.getBooleanExtra("EXTRA_REPLAY_REQUEST", false) ?: false
 
             if (sessionId != -1L) {
                 // Suljetaan mahdolliset dialogit ennen kartalle siirtymistä
                 settingsManager.closeSettings()
                 
-                if (replayRequest) {
-                    val onlySessionCatches = data?.getBooleanExtra("EXTRA_ONLY_SESSION_CATCHES", false) ?: false
-                    replaySessionOnMap(sessionId, onlySessionCatches)
+                if (replayRequest != null) {
+                    replaySessionOnMap(replayRequest.sessionId, replayRequest.onlySessionCatches)
                 } else {
                     showArchivedSessionOnMap(sessionId)
                 }
@@ -2169,11 +2199,15 @@ class MainActivity : AppCompatActivity() {
                 // Sessioiden listauksesta palattiin ilman valintaa, ei tehdä mitään erikoista
             } else if (requestCode == 1001 && catchId != -1L) {
                 // Muokattu kala: päivitetään vain se (inkrementaalinen päivitys)
-                val fish = db.fishCatchDao().getById(catchId)
-                if (fish != null) {
-                    markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
-                } else {
-                    reloadMarkersFromDb()
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val fish = db.fishCatchDao().getById(catchId)
+                    withContext(Dispatchers.Main) {
+                        if (fish != null) {
+                            markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble)
+                        } else {
+                            reloadMarkersFromDb()
+                        }
+                    }
                 }
             } else if (requestCode == 2001 || requestCode == 2002 || requestCode == 2003) {
                 // Suodattimet, yhteenveto tai kalapäiväkirja päivitetty

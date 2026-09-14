@@ -19,13 +19,18 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.core.widget.addTextChangedListener
 import com.google.android.material.button.MaterialButton
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -81,6 +86,11 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
 
         initViews()
         loadData()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                handleBackPressed()
+            }
+        })
     }
 
     private fun initViews() {
@@ -101,7 +111,7 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         setupIconEdit(R.id.iconGiantEdit, getString(R.string.icon_giant), getString(R.string.icon_giant_help), "GIANT")
 
         findViewById<MaterialButton>(R.id.backButton).setOnClickListener {
-            onBackPressed()
+            onBackPressedDispatcher.onBackPressed()
         }
 
         findViewById<MaterialButton>(R.id.okButton).setOnClickListener {
@@ -113,12 +123,14 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         if (speciesId != null && speciesId !in defaultIds) {
             deleteBtn.visibility = View.VISIBLE
             deleteBtn.setOnClickListener {
-                AlertDialog.Builder(this)
-                    .setMessage(R.string.delete_species_confirm)
-                    .setPositiveButton(R.string.delete) { _, _ ->
-                        currentSpecies?.let { db.fishSpeciesDao().delete(it) }
-                        finish()
-                    }
+                    AlertDialog.Builder(this)
+                        .setMessage(R.string.delete_species_confirm)
+                        .setPositiveButton(R.string.delete) { _, _ ->
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                currentSpecies?.let { db.fishSpeciesDao().delete(it) }
+                                withContext(Dispatchers.Main) { finish() }
+                            }
+                        }
                     .setNegativeButton(R.string.cancel, null)
                     .show()
             }
@@ -192,9 +204,13 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
     private fun loadData() {
         isDataLoaded = false
         val id = speciesId
-        if (id != null) {
-            currentSpecies = db.fishSpeciesDao().getById(id)
-            currentSpecies?.let { s ->
+        lifecycleScope.launch {
+            val loadedSpecies = withContext(Dispatchers.IO) {
+                id?.let { db.fishSpeciesDao().getById(it) }
+            }
+            currentSpecies = loadedSpecies
+            if (id != null) {
+                currentSpecies?.let { s ->
                 findViewById<TextView>(R.id.dialogTitle).text = s.name.lowercase().replaceFirstChar { it.uppercase() }
                 nameInput.setText(s.name.lowercase().replaceFirstChar { it.uppercase() })
                 favouriteCheckBox.isChecked = s.favourite_fish
@@ -220,20 +236,21 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
                 // Myöskään itse lisätyillä lajeilla nimeä ei saa enää ensimmäisen tallennuksen jälkeen muuttaa.
                 // Koska speciesId != null, tämä on joko oletuslaji tai jo kerran tallennettu itse lisätty laji.
                 nameInput.isEnabled = false
+                }
+            } else {
+                findViewById<TextView>(R.id.dialogTitle).text = getString(R.string.add_new_species)
+                favouriteCheckBox.isChecked = true
+                nameInput.isEnabled = true
+
+                // Uuden lajin oletusikoni
+                iconDefaultPath = "muukala"
+                updateIconUI(R.id.iconDefaultEdit, iconDefaultPath)
+                updateIconUI(R.id.iconSmallEdit, "")
+                updateIconUI(R.id.iconLargeEdit, "")
+                updateIconUI(R.id.iconGiantEdit, "")
             }
-        } else {
-            findViewById<TextView>(R.id.dialogTitle).text = getString(R.string.add_new_species)
-            favouriteCheckBox.isChecked = true
-            nameInput.isEnabled = true
-            
-            // Uuden lajin oletusikoni
-            iconDefaultPath = "muukala"
-            updateIconUI(R.id.iconDefaultEdit, iconDefaultPath)
-            updateIconUI(R.id.iconSmallEdit, "")
-            updateIconUI(R.id.iconLargeEdit, "")
-            updateIconUI(R.id.iconGiantEdit, "")
+            isDataLoaded = true
         }
-        isDataLoaded = true
     }
 
     private fun getIconFileName(path: String): String {
@@ -324,27 +341,17 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
         }
     }
 
-    // Standard activity result launcher doesn't easily allow passing extra data back in the result
-    // except via intent, so we override this to handle the pendingIconType
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        // This is handled by selectIconLauncher, but we need to ensure pendingIconType is used
-    }
-
-    // Need a different approach for the launcher to know the type
-    private fun dummy() {}
-
-    override fun onBackPressed() {
+    private fun handleBackPressed() {
         if (hasChanges) {
             AlertDialog.Builder(this)
                 .setMessage(R.string.unsaved_species_changes)
                 .setPositiveButton(R.string.back, null)
                 .setNegativeButton(R.string.discard) { _, _ ->
-                    super.onBackPressed()
+                    finish()
                 }
                 .show()
         } else {
-            super.onBackPressed()
+            finish()
         }
     }
 
@@ -386,8 +393,6 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             speciesId = id
         }
 
-        val order = currentSpecies?.sortOrder ?: (db.fishSpeciesDao().getAll().size + 1)
-
         val updated = FishSpecies(
             id = id,
             name = name,
@@ -402,15 +407,24 @@ class EditSpeciesDetailActivity : AppCompatActivity() {
             icon_large = iconLargePath,
             icon_giant = iconGiantPath,
             favourite_fish = favouriteCheckBox.isChecked,
-            sortOrder = order
+            sortOrder = currentSpecies?.sortOrder ?: 0
         )
 
-        db.fishSpeciesDao().insert(updated)
-        currentSpecies = updated
-        
-        if (!silent) {
-            Toast.makeText(this, R.string.save_success, Toast.LENGTH_SHORT).show()
-            finish()
+        lifecycleScope.launch(Dispatchers.IO) {
+            val order = if (updated.sortOrder == 0) {
+                db.fishSpeciesDao().getAll().size + 1
+            } else {
+                updated.sortOrder
+            }
+            val saved = updated.copy(sortOrder = order)
+            db.fishSpeciesDao().insert(saved)
+            withContext(Dispatchers.Main) {
+                currentSpecies = saved
+                if (!silent) {
+                    Toast.makeText(this@EditSpeciesDetailActivity, R.string.save_success, Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+            }
         }
     }
 

@@ -6,8 +6,10 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -43,8 +45,13 @@ class EditDiaryPageActivity : AppCompatActivity() {
 
     private val selectMediaLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
-            if (mediaService.addMedia(it, null, null, startDate) != null) refreshMediaList()
-            else Toast.makeText(this, "Median lisääminen epäonnistui", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch(Dispatchers.IO) {
+                val added = mediaService.addMedia(it, null, null, startDate) != null
+                withContext(Dispatchers.Main) {
+                    if (added) refreshMediaList()
+                    else Toast.makeText(this@EditDiaryPageActivity, "Median lisääminen epäonnistui", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -57,7 +64,7 @@ class EditDiaryPageActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         super.onCreate(savedInstanceState); setContentView(R.layout.activity_edit_diary_page)
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         val editorRoot = findViewById<ScrollView>(R.id.editorRoot)
         val baseBottomPadding = (140 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(editorRoot) { view, insets ->
@@ -68,6 +75,11 @@ class EditDiaryPageActivity : AppCompatActivity() {
         }
         ViewCompat.requestApplyInsets(editorRoot)
         db = AppDatabase.getInstance(this)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                goBack()
+            }
+        })
         startDateText = findViewById(R.id.startDateText); endDateText = findViewById(R.id.endDateText); endDateContainer = findViewById(R.id.endDateContainer)
         multiDayCheckBox = findViewById(R.id.multiDayCheckBox); locationEdit = findViewById(R.id.locationEdit); fishingMethodEdit = findViewById(R.id.fishingMethodEdit); catchEdit = findViewById(R.id.catchEdit); storyEdit = findViewById(R.id.storyEdit)
         mediaListLayout = findViewById(R.id.mediaListLayout); addMediaButton = findViewById(R.id.addMediaButton); mediaService = MediaService(this)
@@ -109,8 +121,13 @@ class EditDiaryPageActivity : AppCompatActivity() {
         val selectedEnd = if (multiDayCheckBox.isChecked) endDate ?: dayStart else dayStart
         val rangeStart = minOf(dayStart, normalize(selectedEnd))
         val rangeEnd = Calendar.getInstance().apply { timeInMillis = maxOf(dayStart, normalize(selectedEnd)); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
-        val media = db.mediaDao().getMediaForDate(rangeStart, rangeEnd)
-        MediaComponent.render(this, mediaListLayout, media, { it.latitude == null && it.longitude == null }, onChanged = { refreshMediaList() })
+        lifecycleScope.launch(Dispatchers.IO) {
+            val media = db.mediaDao().getMediaForDate(rangeStart, rangeEnd)
+            withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
+                MediaComponent.render(this@EditDiaryPageActivity, mediaListLayout, media, { it.latitude == null && it.longitude == null }, onChanged = { refreshMediaList() })
+            }
+        }
     }
 
     private fun pickDate(initial: Long, callback: (Long) -> Unit) {
@@ -139,6 +156,5 @@ class EditDiaryPageActivity : AppCompatActivity() {
     }
 
     private fun goBack() { if (!changed) finish() else AlertDialog.Builder(this).setMessage("Tietoja on muutettu, poistutaanko tallentamatta?").setPositiveButton("Kyllä") { _, _ -> finish() }.setNegativeButton("Ei", null).show() }
-    override fun onBackPressed() { goBack() }
     private fun normalize(time: Long): Long { val c = Calendar.getInstance().apply { timeInMillis = time }; c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0); return c.timeInMillis }
 }

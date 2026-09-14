@@ -13,6 +13,7 @@ import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -36,6 +37,12 @@ class DiaryActivity : AppCompatActivity() {
 
     companion object { private const val EDIT_PAGE_REQUEST = 2001 }
 
+    private val editPageLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) loadDiaryPages()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { setShowWhenLocked(true); setTurnScreenOn(true) }
         else @Suppress("DEPRECATION") { window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON) }
@@ -52,11 +59,6 @@ class DiaryActivity : AppCompatActivity() {
         monthYearText.setOnClickListener { MonthYearPickerDialog.show(this, currentCalendar) { y, m -> navigateToMonth(y, m) } }
         findViewById<View>(R.id.addDiaryPageButton).setOnClickListener { openNewPage() }
         loadDiaryPages()
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == EDIT_PAGE_REQUEST && resultCode == RESULT_OK) loadDiaryPages()
     }
 
     private fun loadDiaryPages() {
@@ -87,11 +89,17 @@ class DiaryActivity : AppCompatActivity() {
     }
 
     private fun updateDiaryPageList() {
-        diaryPagesContainer.removeAllViews()
-        val pages = allDiaryPages.filter { pageCoversDate(it, selectedCalendar) }.sortedBy { it.startDate }
-        val media = mediaForDate(selectedCalendar)
-        noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
-        pages.forEachIndexed { index, page -> addDiaryPageItem(page, index + 1, media) }
+        val selectedDate = selectedCalendar.clone() as Calendar
+        val pages = allDiaryPages.filter { pageCoversDate(it, selectedDate) }.sortedBy { it.startDate }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val media = mediaForDate(selectedDate)
+            withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
+                diaryPagesContainer.removeAllViews()
+                noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
+                pages.forEachIndexed { index, page -> addDiaryPageItem(page, index + 1, media) }
+            }
+        }
     }
 
     private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int, media: List<Media>) {
@@ -161,11 +169,11 @@ class DiaryActivity : AppCompatActivity() {
     }
 
     private fun openNewPage() {
-        startActivityForResult(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_START_DATE, selectedCalendar.timeInMillis), EDIT_PAGE_REQUEST)
+        editPageLauncher.launch(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_START_DATE, selectedCalendar.timeInMillis))
     }
 
     private fun openEditPage(id: Long) {
-        startActivityForResult(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_PAGE_ID, id), EDIT_PAGE_REQUEST)
+        editPageLauncher.launch(Intent(this, EditDiaryPageActivity::class.java).putExtra(EditDiaryPageActivity.EXTRA_PAGE_ID, id))
     }
 
     private fun updateCalendar() {

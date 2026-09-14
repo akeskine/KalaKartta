@@ -15,7 +15,10 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /** Heatmapin ja reittien pääasetusten dialogi. */
 class HeatmapSettingsDialog(
@@ -71,7 +74,7 @@ class HeatmapSettingsDialog(
         val backLink = TextView(activity).apply {
             text = "Takaisin"
             textSize = 18f
-            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
@@ -419,7 +422,7 @@ class HeatmapSettingsDialog(
 
         val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
             if (key == SettingsKeys.HEATMAP_MIN_POINTS || key == SettingsKeys.HEATMAP_MAX_POINTS) {
-                activity.runOnUiThread {
+                activity.lifecycleScope.launch(Dispatchers.Main) {
                     if (key == SettingsKeys.HEATMAP_MIN_POINTS) {
                         val newVal = settingsStore.heatmapMinPoints.toString()
                         if (minEdit.text.toString() != newVal) {
@@ -690,7 +693,7 @@ class HeatmapSettingsDialog(
         val typedValue = android.util.TypedValue()
         activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
         val primaryTextColor = if (typedValue.resourceId != 0) {
-            activity.getColor(typedValue.resourceId)
+                    androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
         } else {
             typedValue.data
         }

@@ -35,6 +35,13 @@ class ImportExportManager(
     private val jsonService = JsonService()
     private val mediaService = MediaService(activity)
 
+    private fun postToUi(block: () -> Unit) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        activity.lifecycleScope.launch(Dispatchers.Main) {
+            if (!activity.isFinishing && !activity.isDestroyed) block()
+        }
+    }
+
     private var pendingExportCatches: List<FishCatch>? = null
     private var pendingExportPlaces: List<PlaceOfInterest>? = null
 
@@ -393,7 +400,7 @@ class ImportExportManager(
             val displayedText = "$currentProgressStage $displayedStageProgress %"
 
             if (!activity.isFinishing && !activity.isDestroyed) {
-                activity.runOnUiThread {
+                postToUi {
                     if (!activity.isFinishing && !activity.isDestroyed) {
                         progressBar.progress = displayedOverallProgress
                         progressText.text = displayedText
@@ -813,7 +820,7 @@ class ImportExportManager(
                             currentSessionOriginalStart = session.startedAt
                             importedSessionsCount++
 
-                            activity.runOnUiThread {
+                            postToUi {
                                 if (!activity.isFinishing && !activity.isDestroyed) {
                                     progressText.text = "Tuodaan reittejä: $importedSessionsCount istuntoa"
                                 }
@@ -902,7 +909,7 @@ class ImportExportManager(
                 val duplicateCatches = withContext(Dispatchers.IO) {
                     ImportDuplicateDetector.findDuplicateCatches(importedCatches, currentCatches) { progress ->
                         val progressValue = (progress * 100) / totalToCompare
-                        activity.runOnUiThread {
+                        postToUi {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 progressBar.progress = progressValue
                                 progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
@@ -914,7 +921,7 @@ class ImportExportManager(
                 val duplicatePlaces = withContext(Dispatchers.IO) {
                     ImportDuplicateDetector.findDuplicatePlaces(importedPlaces, currentPlaces, importedCatches.size) { progress ->
                         val progressValue = (progress * 100) / totalToCompare
-                        activity.runOnUiThread {
+                        postToUi {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 progressBar.progress = progressValue
                                 progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
@@ -968,10 +975,18 @@ class ImportExportManager(
             setPadding(60, 40, 60, 10)
         }
 
+        val textColorValue = android.util.TypedValue()
+        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, textColorValue, true)
+        val primaryTextColor = if (textColorValue.resourceId != 0) {
+            androidx.core.content.ContextCompat.getColor(activity, textColorValue.resourceId)
+        } else {
+            textColorValue.data
+        }
+
         val messageView = TextView(activity).apply {
             text = "Tuodussa aineistossa on $totalImported pistettä. Näistä $totalDuplicates vastaa koordinaattiensa perusteella sovelluksessa jo olevia tai tuontitiedostossa keskenään päällekkäisiä pisteitä.\n\nValitse, miten päällekkäiset pisteet käsitellään:"
             textSize = 16f
-            setTextColor(activity.resources.getColor(android.R.color.primary_text_light))
+            setTextColor(primaryTextColor)
         }
         layout.addView(messageView)
 
@@ -1087,7 +1102,7 @@ class ImportExportManager(
                         db.fishCatchDao().insertAll(listOf(fishCatch.copy(id = 0)))
                         processedCount++
                         val progressValue = (processedCount * 100) / progressDenominator
-                        activity.runOnUiThread {
+                        postToUi {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 progressBar.progress = progressValue
                                 progressText.text = "Tuodaan pisteitä: $progressValue%"
@@ -1099,7 +1114,7 @@ class ImportExportManager(
                         db.placeOfInterestDao().insertAll(listOf(place.copy(id = 0)))
                         processedCount++
                         val progressValue = (processedCount * 100) / progressDenominator
-                        activity.runOnUiThread {
+                        postToUi {
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 progressBar.progress = progressValue
                                 progressText.text = "Tuodaan pisteitä: $progressValue%"
@@ -1226,7 +1241,7 @@ class ImportExportManager(
                         ?: throw java.io.IOException("Mediatiedostoa ei voitu avata lukemista varten")
                     inputStream.use { input ->
                         mediaService.importMedia(input) { current, total ->
-                            activity.runOnUiThread {
+                            postToUi {
                                 if (!activity.isFinishing && !activity.isDestroyed) {
                                     val progressValue = if (total > 0) (current * 100) / total else 100
                                     progressBar.progress = progressValue

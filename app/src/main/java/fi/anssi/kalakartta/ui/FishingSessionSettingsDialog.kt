@@ -43,7 +43,7 @@ class FishingSessionSettingsDialog(
         val typedValue = android.util.TypedValue()
         activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
         val primaryTextColor = if (typedValue.resourceId != 0) {
-            activity.getColor(typedValue.resourceId)
+            androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
         } else {
             typedValue.data
         }
@@ -71,7 +71,7 @@ class FishingSessionSettingsDialog(
                 val hideSessionButton = TextView(activity).apply {
                     text = "Piilota näkyvä sessio"
                     textSize = 16f
-                    setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                     val outValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                     setBackgroundResource(outValue.resourceId)
@@ -135,7 +135,11 @@ class FishingSessionSettingsDialog(
                 layoutParams = params
                 setOnClickListener {
                     val intent = Intent(activity, FishingSessionActivity::class.java)
-                    activity.startActivityForResult(intent, 3001)
+                    if (activity is MainActivity) {
+                        activity.launchFishingSessionActivity(intent)
+                    } else {
+                        activity.startActivity(intent)
+                    }
                 }
             }
             contentLayout.addView(fetchButton)
@@ -184,7 +188,7 @@ class FishingSessionSettingsDialog(
             val startButton = TextView(activity).apply {
                 text = "Aloita tallennus"
                 textSize = 16f
-                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -279,7 +283,9 @@ class FishingSessionSettingsDialog(
                         val minDist = currentService.getMinDistanceMeters()
                         val sessionId = currentService.getCurrentSessionId()
                         val pointCount = if (sessionId != -1L) {
-                            db.trackPointDao().getPointCountForSession(sessionId)
+                            withContext(Dispatchers.IO) {
+                                db.trackPointDao().getPointCountForSession(sessionId)
+                            }
                         } else 0
 
                         var text = "Kalastussessio käynnissä: kesto $durationStr, matka $distanceStr, reittipisteitä $pointCount kpl.\n\nTallennusvälit: min ${minInterval}s, max ${maxInterval}s, etäisyys ${minDist}m, tarkastus ${locInterval}s."
@@ -322,7 +328,7 @@ class FishingSessionSettingsDialog(
             val stopButton = TextView(activity).apply {
                 text = "Lopeta tallennus"
                 textSize = 16f
-                setTextColor(activity.getColor(android.R.color.holo_red_dark))
+                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_red_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)

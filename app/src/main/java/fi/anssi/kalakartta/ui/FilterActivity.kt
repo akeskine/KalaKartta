@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
@@ -22,6 +23,9 @@ import fi.anssi.kalakartta.data.PlaceOfInterestType
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -143,8 +147,12 @@ class FilterActivity : AppCompatActivity() {
         db = AppDatabase.getInstance(this)
 
         initViews()
-        loadFilters()
-        setupListeners()
+        loadFilterOptions()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                saveAndFinish()
+            }
+        })
     }
 
     private fun getDrawableId(iconName: String): Int {
@@ -175,92 +183,7 @@ class FilterActivity : AppCompatActivity() {
         freeTextEdit = findViewById(R.id.freeTextEdit)
         otherSpeciesSpinner = findViewById(R.id.otherSpeciesSpinner)
 
-        val uniqueOther = db.fishCatchDao().getUniqueOtherSpecies()
-        otherSpeciesList = listOf(getString(R.string.empty_selection)) + uniqueOther.map { it.lowercase().replaceFirstChar { char -> char.uppercase() } }
-        val otherAdapter = ArrayAdapter(this, R.layout.spinner_item, otherSpeciesList)
-        otherAdapter.setDropDownViewResource(R.layout.spinner_item)
-        otherSpeciesSpinner.adapter = otherAdapter
         otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
-
-        val allSpecies = db.fishSpeciesDao().getAll()
-        val emptySpecies = FishSpecies("", getString(R.string.empty_selection), icon_default = "")
-        speciesList = listOf(emptySpecies) + allSpecies
-        
-        val adapter = object : ArrayAdapter<FishSpecies>(this, R.layout.item_species_dialog, speciesList) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
-                val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
-                val nameView = view.findViewById<TextView>(R.id.speciesName)
-                val item = getItem(position)
-                nameView.text = if (item?.id?.isNotEmpty() == true) {
-                    item.name.lowercase().replaceFirstChar { it.uppercase() }
-                } else {
-                    item?.name
-                }
-                val iconId = getDrawableId(item?.icon_default ?: "")
-                if (iconId != 0) {
-                    iconView.setImageResource(iconId)
-                    iconView.visibility = View.VISIBLE
-                } else if (item?.icon_default != null && item.icon_default.isNotEmpty()) {
-                    val file = if (item.icon_default.startsWith("/")) File(item.icon_default) else File(filesDir, item.icon_default)
-                    if (file.exists()) {
-                        iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
-                        iconView.visibility = View.VISIBLE
-                    } else {
-                        iconView.visibility = View.GONE
-                    }
-                } else {
-                    iconView.visibility = View.GONE
-                }
-                return view
-            }
-
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                return getView(position, convertView, parent)
-            }
-        }
-        speciesSpinner.adapter = adapter
-
-        val allPlaceTypes = db.placeOfInterestTypeDao().getAll().sortedBy { it.sortOrder }
-        val emptyPlaceType = PlaceOfInterestType("", getString(R.string.empty_selection), icon = "")
-        placeTypeList = listOf(emptyPlaceType) + allPlaceTypes
-
-        val placeAdapter = object : ArrayAdapter<PlaceOfInterestType>(this, R.layout.item_species_dialog, placeTypeList) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
-                val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
-                val nameView = view.findViewById<TextView>(R.id.speciesName)
-                val item = getItem(position)
-                nameView.text = item?.name
-                val iconId = getDrawableId(item?.icon ?: "")
-                iconView.setImageResource(iconId)
-                iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
-                return view
-            }
-
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                return getView(position, convertView, parent)
-            }
-        }
-        placeTypeSpinner.adapter = placeAdapter
-
-        val fishermenWithCounts = db.fishCatchDao().getFishermenWithCounts()
-        
-        fun formatName(name: String): String {
-            return name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
-                part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            }
-        }
-
-        val sortedFishermen = fishermenWithCounts
-            .sortedWith(compareByDescending<fi.anssi.kalakartta.data.FishCatchDao.FishermanCount> { it.count }
-                .thenBy { it.fisherman.lowercase() })
-            .map { formatName(it.fisherman) }
-
-        fishermanList = listOf(getString(R.string.empty_selection)) + sortedFishermen
-        val fishermanAdapter = ArrayAdapter(this, R.layout.spinner_item, fishermanList)
-        fishermanAdapter.setDropDownViewResource(R.layout.spinner_item)
-        fishermanSpinner.adapter = fishermanAdapter
 
         windMinEdit = findViewById(R.id.windMinEdit)
         windMaxEdit = findViewById(R.id.windMaxEdit)
@@ -308,6 +231,84 @@ class FilterActivity : AppCompatActivity() {
         lengthMaxEdit = findViewById(R.id.lengthMaxEdit)
         operatorAndRadio = findViewById(R.id.operatorAndRadio)
         operatorOrRadio = findViewById(R.id.operatorOrRadio)
+    }
+
+    private fun loadFilterOptions() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val uniqueOther = db.fishCatchDao().getUniqueOtherSpecies()
+            val allSpecies = db.fishSpeciesDao().getAll()
+            val allPlaceTypes = db.placeOfInterestTypeDao().getAll().sortedBy { it.sortOrder }
+            val fishermenWithCounts = db.fishCatchDao().getFishermenWithCounts()
+
+            withContext(Dispatchers.Main) {
+                otherSpeciesList = listOf(getString(R.string.empty_selection)) + uniqueOther.map { it.lowercase().replaceFirstChar { char -> char.uppercase() } }
+                val otherAdapter = ArrayAdapter(this@FilterActivity, R.layout.spinner_item, otherSpeciesList)
+                otherAdapter.setDropDownViewResource(R.layout.spinner_item)
+                otherSpeciesSpinner.adapter = otherAdapter
+
+                val emptySpecies = FishSpecies("", getString(R.string.empty_selection), icon_default = "")
+                speciesList = listOf(emptySpecies) + allSpecies
+                val speciesAdapter = object : ArrayAdapter<FishSpecies>(this@FilterActivity, R.layout.item_species_dialog, speciesList) {
+                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                        val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                        val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                        val nameView = view.findViewById<TextView>(R.id.speciesName)
+                        val item = getItem(position)
+                        nameView.text = if (item?.id?.isNotEmpty() == true) item.name.lowercase().replaceFirstChar { it.uppercase() } else item?.name
+                        val iconId = getDrawableId(item?.icon_default ?: "")
+                        if (iconId != 0) {
+                            iconView.setImageResource(iconId)
+                            iconView.visibility = View.VISIBLE
+                        } else if (!item?.icon_default.isNullOrEmpty()) {
+                            val file = if (item!!.icon_default.startsWith("/")) File(item.icon_default) else File(filesDir, item.icon_default)
+                            if (file.exists()) {
+                                iconView.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                                iconView.visibility = View.VISIBLE
+                            } else {
+                                iconView.visibility = View.GONE
+                            }
+                        } else {
+                            iconView.visibility = View.GONE
+                        }
+                        return view
+                    }
+
+                    override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View = getView(position, convertView, parent)
+                }
+                speciesSpinner.adapter = speciesAdapter
+
+                val emptyPlaceType = PlaceOfInterestType("", getString(R.string.empty_selection), icon = "")
+                placeTypeList = listOf(emptyPlaceType) + allPlaceTypes
+                val placeAdapter = object : ArrayAdapter<PlaceOfInterestType>(this@FilterActivity, R.layout.item_species_dialog, placeTypeList) {
+                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                        val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
+                        val iconView = view.findViewById<ImageView>(R.id.speciesIcon)
+                        val nameView = view.findViewById<TextView>(R.id.speciesName)
+                        val item = getItem(position)
+                        nameView.text = item?.name
+                        val iconId = getDrawableId(item?.icon ?: "")
+                        iconView.setImageResource(iconId)
+                        iconView.visibility = if (iconId != 0) View.VISIBLE else View.GONE
+                        return view
+                    }
+
+                    override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View = getView(position, convertView, parent)
+                }
+                placeTypeSpinner.adapter = placeAdapter
+
+                fun formatName(name: String): String = name.split(" ").filter { it.isNotEmpty() }.joinToString(" ") { part ->
+                    part.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                }
+                fishermanList = listOf(getString(R.string.empty_selection)) + fishermenWithCounts
+                    .sortedWith(compareByDescending<fi.anssi.kalakartta.data.FishCatchDao.FishermanCount> { it.count }.thenBy { it.fisherman.lowercase() })
+                    .map { formatName(it.fisherman) }
+                val fishermanAdapter = ArrayAdapter(this@FilterActivity, R.layout.spinner_item, fishermanList)
+                fishermanAdapter.setDropDownViewResource(R.layout.spinner_item)
+                fishermanSpinner.adapter = fishermanAdapter
+                loadFilters()
+                setupListeners()
+            }
+        }
     }
 
     private fun loadFilters() {
@@ -956,8 +957,4 @@ class FilterActivity : AppCompatActivity() {
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        saveAndFinish()
-    }
 }

@@ -7,10 +7,14 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.utils.enlargeButtons
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** Tiedonsiirron ja tiedonpoiston asetusten dialogi. */
@@ -58,6 +62,7 @@ class DataTransferSettingsDialog(
         
         val infoButton = titleView.findViewById<ImageButton>(R.id.infoButton)
         infoButton.setOnClickListener {
+            activity.lifecycleScope.launch(Dispatchers.IO) {
             val mediaService = fi.anssi.kalakartta.data.MediaService(activity)
             val mediaSizeBytes = mediaService.getTotalSize()
             val dbFile = activity.getDatabasePath("kalakartta-db")
@@ -84,11 +89,14 @@ class DataTransferSettingsDialog(
                     "Tietokanta: ${String.format(Locale.US, "%.2f", databaseSizeMb)} Mt\n" +
                     "Yhteensä: ${String.format(Locale.US, "%.2f", totalSizeMb)} Mt"
             
-            AlertDialog.Builder(activity)
-                .setTitle("Tiedot")
-                .setMessage(infoMessage)
-                .setPositiveButton("OK", null)
-                .show()
+            withContext(Dispatchers.Main) {
+                AlertDialog.Builder(activity)
+                    .setTitle("Tiedot")
+                    .setMessage(infoMessage)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+            }
         }
 
         val dialogBuilder = AlertDialog.Builder(activity)
@@ -119,7 +127,7 @@ class DataTransferSettingsDialog(
                 text = option
                 textSize = 18f
                 setPadding(0, 32, 0, 32)
-                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                 isClickable = true
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -143,7 +151,7 @@ class DataTransferSettingsDialog(
             text = "Lisää..."
             textSize = 18f
             setPadding(0, 32, 0, 32)
-            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             isClickable = true
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -162,7 +170,7 @@ class DataTransferSettingsDialog(
                 text = option.label
                 textSize = 18f
                 setPadding(0, 32, 0, 32)
-                setTextColor(activity.getColor(android.R.color.holo_blue_dark))
+                setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                 isClickable = true
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -220,7 +228,7 @@ class DataTransferSettingsDialog(
             text = "Vähemmän..."
             textSize = 18f
             setPadding(0, 32, 0, 32)
-            setTextColor(activity.resources.getColor(android.R.color.holo_blue_dark))
+            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             isClickable = true
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -255,15 +263,18 @@ class DataTransferSettingsDialog(
     }
 
     private fun deleteAllCatches() {
-        db.fishCatchDao().deleteAll()
-        db.placeOfInterestDao().deleteAll()
-        onDataChanged(false)
-
-        val dialog = AlertDialog.Builder(activity)
-            .setMessage("Kalapisteet ja muut pisteet poistettu.")
-            .setPositiveButton("OK", null)
-            .create()
-        onShowDialog(dialog)
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            db.fishCatchDao().deleteAll()
+            db.placeOfInterestDao().deleteAll()
+            withContext(Dispatchers.Main) {
+                onDataChanged(false)
+                val dialog = AlertDialog.Builder(activity)
+                    .setMessage("Kalapisteet ja muut pisteet poistettu.")
+                    .setPositiveButton("OK", null)
+                    .create()
+                onShowDialog(dialog)
+            }
+        }
     }
 
     private fun confirmDeleteAllRoutes() {
@@ -280,13 +291,16 @@ class DataTransferSettingsDialog(
     }
 
     private fun deleteAllRoutes() {
-        db.fishingSessionDao().deleteAll()
-        onDataChanged(false)
-
-        val dialog = AlertDialog.Builder(activity)
-            .setMessage("Kalastussessiot poistettu.")
-            .setPositiveButton("OK", null)
-            .create()
-        onShowDialog(dialog)
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            db.fishingSessionDao().deleteAll()
+            withContext(Dispatchers.Main) {
+                onDataChanged(false)
+                val dialog = AlertDialog.Builder(activity)
+                    .setMessage("Kalastussessiot poistettu.")
+                    .setPositiveButton("OK", null)
+                    .create()
+                onShowDialog(dialog)
+            }
+        }
     }
 }

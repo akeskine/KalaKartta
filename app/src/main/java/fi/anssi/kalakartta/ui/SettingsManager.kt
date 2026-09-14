@@ -217,7 +217,7 @@ class SettingsManager(
                     subtitleText.visibility = View.VISIBLE
                     subtitleText.text = "(${BuildConfig.BUILD_TIME})"
                     subtitleText.textSize = 14f
-                    subtitleText.setTextColor(activity.getColor(android.R.color.darker_gray))
+                    subtitleText.setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.darker_gray))
 
                     val contentLayout = LinearLayout(activity).apply {
                         orientation = LinearLayout.VERTICAL
@@ -227,7 +227,7 @@ class SettingsManager(
                     val typedValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
                     val primaryTextColor = if (typedValue.resourceId != 0) {
-                        activity.getColor(typedValue.resourceId)
+                        androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
                     } else {
                         typedValue.data
                     }

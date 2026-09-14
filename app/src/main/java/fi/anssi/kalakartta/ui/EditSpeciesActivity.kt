@@ -16,9 +16,13 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishSpecies
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class EditSpeciesActivity : AppCompatActivity() {
@@ -65,9 +69,11 @@ class EditSpeciesActivity : AppCompatActivity() {
     }
 
     private fun loadSpecies() {
-        speciesList = db.fishSpeciesDao().getAll().toMutableList()
-        
-        adapter = object : ArrayAdapter<FishSpecies>(this, R.layout.item_edit_species, speciesList) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val loadedSpecies = db.fishSpeciesDao().getAll().toMutableList()
+            withContext(Dispatchers.Main) {
+                speciesList = loadedSpecies
+                adapter = object : ArrayAdapter<FishSpecies>(this@EditSpeciesActivity, R.layout.item_edit_species, speciesList) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_edit_species, parent, false)
                 val species = getItem(position)!!
@@ -85,7 +91,9 @@ class EditSpeciesActivity : AppCompatActivity() {
                 favouriteCheckBox.isChecked = species.favourite_fish
                 favouriteCheckBox.setOnCheckedChangeListener { _, isChecked ->
                     val updated = species.copy(favourite_fish = isChecked)
-                    db.fishSpeciesDao().insert(updated)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        db.fishSpeciesDao().insert(updated)
+                    }
                     // Päivitetään paikallinen lista jotta tila säilyy scrollatessa
                     speciesList[position] = updated
                 }
@@ -120,8 +128,10 @@ class EditSpeciesActivity : AppCompatActivity() {
                     AlertDialog.Builder(this@EditSpeciesActivity)
                         .setMessage(R.string.delete_species_confirm)
                         .setPositiveButton(R.string.delete) { _, _ ->
-                            db.fishSpeciesDao().delete(species)
-                            loadSpecies()
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                db.fishSpeciesDao().delete(species)
+                                withContext(Dispatchers.Main) { loadSpecies() }
+                            }
                         }
                         .setNegativeButton(R.string.cancel, null)
                         .show()
@@ -135,21 +145,26 @@ class EditSpeciesActivity : AppCompatActivity() {
 
                 return view
             }
+                }
+                listView.adapter = adapter
+            }
         }
-        listView.adapter = adapter
     }
 
     private fun moveSpecies(from: Int, to: Int) {
         val moved = speciesList.removeAt(from)
         speciesList.add(to, moved)
         
-        // Update sortOrder for all
-        speciesList.forEachIndexed { index, fishSpecies ->
-            val updated = fishSpecies.copy(sortOrder = index + 1)
-            db.fishSpeciesDao().insert(updated)
+        lifecycleScope.launch(Dispatchers.IO) {
+            // Update sortOrder for all
+            speciesList.forEachIndexed { index, fishSpecies ->
+                val updated = fishSpecies.copy(sortOrder = index + 1)
+                db.fishSpeciesDao().insert(updated)
+            }
+            withContext(Dispatchers.Main) {
+                loadSpecies()
+            }
         }
-        
-        loadSpecies()
     }
 
     private fun getDrawableId(iconName: String): Int {

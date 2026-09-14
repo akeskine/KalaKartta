@@ -8,6 +8,7 @@ import android.view.WindowManager
 import android.view.View
 import android.view.LayoutInflater
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
@@ -35,6 +36,12 @@ class FishingSessionActivity : AppCompatActivity() {
     private var currentCalendar = Calendar.getInstance()
     private var selectedCalendar = Calendar.getInstance()
     private var openSessionId: Long = -1L
+
+    private val editSessionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) loadSessions()
+    }
     
     companion object {
         const val EDIT_SESSION_REQUEST = 1001
@@ -126,13 +133,6 @@ class FishingSessionActivity : AppCompatActivity() {
             selectedCalendar.get(Calendar.MONTH),
             selectedCalendar.get(Calendar.DAY_OF_MONTH)
         )
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == EDIT_SESSION_REQUEST && resultCode == RESULT_OK) {
-            loadSessions()
-        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -459,10 +459,10 @@ class FishingSessionActivity : AppCompatActivity() {
                     )
                     contentDescription = "Toista sessio"
                     setOnClickListener {
-                        val intent = Intent()
-                        intent.putExtra("EXTRA_SESSION_ID", session.id)
-                        intent.putExtra("EXTRA_REPLAY_REQUEST", true)
-                        intent.putExtra("EXTRA_ONLY_SESSION_CATCHES", showOnlySessionCatchesCheck.isChecked)
+                        val intent = SessionReplayResult.createIntent(
+                            session.id,
+                            showOnlySessionCatchesCheck.isChecked
+                        )
                         setResult(RESULT_OK, intent)
                         finish()
                     }
@@ -483,7 +483,7 @@ class FishingSessionActivity : AppCompatActivity() {
                 "Muokkaa" -> {
                     val intent = Intent(this, EditFishingSessionActivity::class.java)
                     intent.putExtra("SESSION_ID", session.id)
-                    startActivityForResult(intent, EDIT_SESSION_REQUEST)
+                    editSessionLauncher.launch(intent)
                     true
                 }
                 "Poista" -> {

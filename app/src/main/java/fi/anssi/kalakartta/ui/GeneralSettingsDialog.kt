@@ -25,7 +25,7 @@ class GeneralSettingsDialog(
         val typedValue = android.util.TypedValue()
         activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
         val primaryTextColor = if (typedValue.resourceId != 0) {
-            activity.getColor(typedValue.resourceId)
+            androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
         } else {
             typedValue.data
         }

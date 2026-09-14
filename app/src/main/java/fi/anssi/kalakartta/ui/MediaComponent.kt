@@ -8,9 +8,15 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.Media
 import fi.anssi.kalakartta.data.MediaService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 object MediaComponent {
@@ -35,7 +41,14 @@ object MediaComponent {
             remove.visibility = if (allowDelete(item)) View.VISIBLE else View.GONE
             remove.setOnClickListener {
                 AlertDialog.Builder(context).setTitle("Poista media").setMessage("Haluatko varmasti poistaa tämän median?")
-                    .setPositiveButton("Poista") { _, _ -> MediaService(context).deleteMedia(item); onChanged() }
+                    .setPositiveButton("Poista") { _, _ ->
+                        val ownerScope = (context as? LifecycleOwner)?.lifecycleScope
+                        val scope = ownerScope ?: CoroutineScope(Dispatchers.Main)
+                        scope.launch(Dispatchers.IO) {
+                            MediaService(context).deleteMedia(item)
+                            withContext(Dispatchers.Main) { onChanged() }
+                        }
+                    }
                     .setNegativeButton("Peruuta", null).show()
             }
             container.addView(view)

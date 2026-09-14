@@ -10,6 +10,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import android.content.Context
+import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
@@ -32,19 +33,26 @@ class CatchManager(
     private val onCatchAdded: (FishCatch) -> Unit,
     private val onPlaceAdded: (PlaceOfInterest) -> Unit
 ) {
-    fun showSpeciesDialog() {
-        val speciesList = db.fishSpeciesDao().getAll()
-        
-        if (speciesList.isEmpty()) {
-            // Varatoimenpide jos tietokanta on tyhjä (esim. ensikäynnistys ja Thread ei ole ehtinyt loppuun)
-            val fallbacks = FishSpecies.getDefaultList().filter { it.favourite_fish }
-            showSpeciesDialogWithData(fallbacks)
-            return
+    private fun launchActivityForResult(intent: Intent, requestCode: Int) {
+        if (activity is MainActivity) {
+            activity.launchActivityForResult(intent, requestCode)
+        } else {
+            activity.startActivity(intent)
         }
+    }
 
-        // Näytetään vain suosikkikalat pika-lisäysdialogissa
-        val favourites = speciesList.filter { it.favourite_fish }
-        showSpeciesDialogWithData(favourites)
+    fun showSpeciesDialog() {
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            val speciesList = db.fishSpeciesDao().getAll()
+            val favourites = if (speciesList.isEmpty()) {
+                FishSpecies.getDefaultList().filter { it.favourite_fish }
+            } else {
+                speciesList.filter { it.favourite_fish }
+            }
+            withContext(Dispatchers.Main) {
+                showSpeciesDialogWithData(favourites)
+            }
+        }
     }
 
     private fun showSpeciesDialogWithData(speciesList: List<FishSpecies>) {
@@ -255,13 +263,14 @@ class CatchManager(
         val intent = Intent(activity, EditCatchActivity::class.java)
         intent.putExtra("EXTRA_LATITUDE", point.latitude)
         intent.putExtra("EXTRA_LONGITUDE", point.longitude)
-        activity.startActivityForResult(intent, 1001)
+        launchActivityForResult(intent, 1001)
     }
 
     private fun showOtherTypesDialog() {
-        var typeList = db.placeOfInterestTypeDao().getAll().sortedBy { it.sortOrder }
-        if (typeList.isEmpty()) {
-            val fallbacks = listOf(
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            var typeList = db.placeOfInterestTypeDao().getAll().sortedBy { it.sortOrder }
+            if (typeList.isEmpty()) {
+                val fallbacks = listOf(
                 PlaceOfInterestType("ROCK", "Kivi", icon = "kivi", sortOrder = 1),
                 PlaceOfInterestType("VEGETATION", "Kasvusto", icon = "vesikasvi", sortOrder = 2),
                 PlaceOfInterestType("SHALLOW", "Matalikko", icon = "matalikko", sortOrder = 3),
@@ -278,13 +287,16 @@ class CatchManager(
                 PlaceOfInterestType("OTHER", "Muu kiinnostava paikka", icon = "tahti", sortOrder = 14),
                 PlaceOfInterestType("PROSPECT", "Mahdollinen kalapaikka", icon = "ehka", sortOrder = 15)
             )
-            // Tallennetaan fallbackit kerralla kantaan
-            activity.lifecycleScope.launch(Dispatchers.IO) {
                 fallbacks.forEach { db.placeOfInterestTypeDao().insert(it) }
+                typeList = fallbacks
             }
-            typeList = fallbacks
+            withContext(Dispatchers.Main) {
+                showOtherTypesDialogWithData(typeList)
+            }
         }
+    }
 
+    private fun showOtherTypesDialogWithData(typeList: List<PlaceOfInterestType>) {
         val adapter = object : ArrayAdapter<PlaceOfInterestType>(activity, R.layout.item_species_dialog, typeList) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_species_dialog, parent, false)
@@ -336,7 +348,7 @@ class CatchManager(
             intent.putExtra("EXTRA_LATITUDE", point.latitude)
             intent.putExtra("EXTRA_LONGITUDE", point.longitude)
             intent.putExtra("EXTRA_PLACE_NAME", nameInput.text.toString())
-            activity.startActivityForResult(intent, 1001)
+            launchActivityForResult(intent, 1001)
         }
 
         contentView.findViewById<View>(R.id.addOtherButton).visibility = View.GONE
