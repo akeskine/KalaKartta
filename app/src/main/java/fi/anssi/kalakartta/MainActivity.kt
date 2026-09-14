@@ -1,69 +1,50 @@
 package fi.anssi.kalakartta
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.location.LocationManager
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
 import org.osmdroid.config.Configuration
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.FolderOverlay
 import android.graphics.Color
-import android.view.Gravity
 import android.widget.LinearLayout
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import androidx.core.content.ContextCompat
-import androidx.core.view.drawToBitmap
 import fi.anssi.kalakartta.io.ImportExportManager
 import fi.anssi.kalakartta.data.*
-import androidx.room.Room
 import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
-import fi.anssi.kalakartta.ui.SettingsKeys
 import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsStore
 import fi.anssi.kalakartta.ui.WindDirectionView
-import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.SessionStatsFormatter
-import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
-import android.content.res.ColorStateList
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
-import fi.anssi.kalakartta.utils.enlargeButtons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-import kotlinx.coroutines.*
 import fi.anssi.kalakartta.service.FishingSessionService
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import fi.anssi.kalakartta.ui.SessionReplayResult
-import fi.anssi.kalakartta.ui.SessionReplayController
 import fi.anssi.kalakartta.ui.MapDisplayController
 import fi.anssi.kalakartta.ui.MeasurementController
 import fi.anssi.kalakartta.ui.FishingSessionController
+import fi.anssi.kalakartta.ui.WeatherController
+import fi.anssi.kalakartta.ui.LocationController
+import fi.anssi.kalakartta.ui.ReplayMapController
+import fi.anssi.kalakartta.ui.MapNavigationController
 
 class MainActivity : AppCompatActivity() {
 
@@ -115,14 +96,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var catchManager: CatchManager
     private lateinit var markerManager: MarkerManager
     private lateinit var filterManager: FilterManager
-    private lateinit var weatherService: WeatherService
-    private var weatherCheckDone = false
-    private var lastFoundStation: fi.anssi.kalakartta.utils.WeatherStation? = null
+    private lateinit var weatherController: WeatherController
     private lateinit var map: MapView
     private lateinit var mapDisplayController: MapDisplayController
     private lateinit var measurementController: MeasurementController
     private lateinit var fishingSessionController: FishingSessionController
-    private lateinit var locationOverlay: MyLocationNewOverlay
+    private lateinit var locationController: LocationController
+    private lateinit var replayMapController: ReplayMapController
+    private lateinit var mapNavigationController: MapNavigationController
     
     private fun addOverlayBelowMarkers(overlay: Overlay) {
         var index = -1
@@ -139,432 +120,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var archivedSessionPolyline: Polyline? = null
-
-    private val replayController = SessionReplayController()
-    private var replayJob: Job? = null
-    private var visibleArchivedSessionId: Long = -1L
-    private var isOnlySessionCatchesMode = false
-    private fun zoomToRangeOnMap(start: Long, end: Long) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val points = db.trackPointDao().getPointsForHeatmapRange(start, end)
-            val catches = db.fishCatchDao().getCatchesInRange(start, end)
-            
-            if (points.isEmpty() && catches.isEmpty()) return@launch
-
-            withContext(Dispatchers.Main) {
-                var minLat = Double.MAX_VALUE
-                var maxLat = -Double.MAX_VALUE
-                var minLon = Double.MAX_VALUE
-                var maxLon = -Double.MAX_VALUE
-
-                for (p in points) {
-                    if (p.latitude < minLat) minLat = p.latitude
-                    if (p.latitude > maxLat) maxLat = p.latitude
-                    if (p.longitude < minLon) minLon = p.longitude
-                    if (p.longitude > maxLon) maxLon = p.longitude
-                }
-                for (c in catches) {
-                    if (c.latitude < minLat) minLat = c.latitude
-                    if (c.latitude > maxLat) maxLat = c.latitude
-                    if (c.longitude < minLon) minLon = c.longitude
-                    if (c.longitude > maxLon) maxLon = c.longitude
-                }
-
-                if (minLat == Double.MAX_VALUE) return@withContext
-
-                val box = BoundingBox(maxLat, maxLon, minLat, minLon)
-                
-                // Lisätään 10% marginaali
-                val latDelta = maxLat - minLat
-                val lonDelta = maxLon - minLon
-                val margin = 0.1
-                
-                val finalMinLat = minLat - latDelta * margin
-                val finalMaxLat = maxLat + latDelta * margin
-                val finalMinLon = minLon - lonDelta * margin
-                val finalMaxLon = maxLon + lonDelta * margin
-
-                // Varmistetaan vähintään 400 metrin leveys
-                val centerLat = (finalMaxLat + finalMinLat) / 2.0
-                val centerLon = (finalMaxLon + finalMinLon) / 2.0
-                val results = FloatArray(1)
-                android.location.Location.distanceBetween(centerLat, finalMinLon, centerLat, finalMaxLon, results)
-                val currentWidth = results[0]
-                
-                val finalBox = if (currentWidth < 400.0) {
-                    val latRad = Math.toRadians(centerLat)
-                    val metersPerDegreeLon = 111320.0 * Math.cos(latRad)
-                    val degreeDelta = (400.0 / metersPerDegreeLon) / 2.0
-                    BoundingBox(finalMaxLat, centerLon + degreeDelta, finalMinLat, centerLon - degreeDelta)
-                } else {
-                    BoundingBox(finalMaxLat, finalMaxLon, finalMinLat, finalMinLon)
-                }
-                
-                map.zoomToBoundingBox(finalBox, true, 100)
-            }
-        }
-    }
-
-    private fun replaySessionOnMap(sessionId: Long, onlySessionCatches: Boolean = false) {
-        replayJob?.cancel()
-        isOnlySessionCatchesMode = onlySessionCatches
-        
-        lifecycleScope.launch(Dispatchers.IO) {
-            val session = db.fishingSessionDao().getById(sessionId)
-            val points = db.trackPointDao().getPointsForSession(sessionId)
-            if (points.isEmpty() || session == null) return@launch
-
-            withContext(Dispatchers.Main) {
-                replayController.load(
-                    points = points,
-                    startTime = session.startedAt,
-                    endTime = session.endedAt ?: points.last().timestamp
-                )
-                
-                initReplayUI()
-                updateSessionInfoText(replayController.startTime, replayController.endTime)
-                
-                if (archivedSessionPolyline != null) {
-                    map.overlays.remove(archivedSessionPolyline)
-                }
-                archivedSessionPolyline = Polyline(map).apply {
-                    outlinePaint.color = Color.BLUE
-                    outlinePaint.strokeWidth = 8f
-                    setOnClickListener { _, _, _ -> true }
-                }
-                addOverlayBelowMarkers(archivedSessionPolyline!!)
-                visibleArchivedSessionId = sessionId
-                
-                updateReplayFrame()
-                
-                if (points.isNotEmpty()) {
-                    var minLat = Double.MAX_VALUE
-                    var maxLat = -Double.MAX_VALUE
-                    var minLon = Double.MAX_VALUE
-                    var maxLon = -Double.MAX_VALUE
-
-                    for (p in points) {
-                        if (p.latitude < minLat) minLat = p.latitude
-                        if (p.latitude > maxLat) maxLat = p.latitude
-                        if (p.longitude < minLon) minLon = p.longitude
-                        if (p.longitude > maxLon) maxLon = p.longitude
-                    }
-
-                    val box = BoundingBox(maxLat, maxLon, minLat, minLon)
-                    
-                    // Varmistetaan vähintään 400 metrin leveys
-                    val centerLat = (maxLat + minLat) / 2.0
-                    val centerLon = (maxLon + minLon) / 2.0
-                    val results = FloatArray(1)
-                    android.location.Location.distanceBetween(centerLat, minLon, centerLat, maxLon, results)
-                    val currentWidth = results[0]
-                    
-                    val finalBox = if (currentWidth < 400.0) {
-                        // Lasketaan tarvittava pituuskaste-ero (longitude delta) 400 metrille
-                        // 1 aste pituuskastetta metreinä on noin 111320 * cos(lat)
-                        val latRad = Math.toRadians(centerLat)
-                        val metersPerDegreeLon = 111320.0 * Math.cos(latRad)
-                        val degreeDelta = (400.0 / metersPerDegreeLon) / 2.0
-                        BoundingBox(maxLat, centerLon + degreeDelta, minLat, centerLon - degreeDelta)
-                    } else {
-                        box
-                    }
-                    
-                    map.zoomToBoundingBox(finalBox, true, 100)
-                }
-                
-                markerManager.setMaxTimestamp(replayController.startTime)
-                if (isOnlySessionCatchesMode) {
-                    markerManager.setTimeRange(replayController.startTime, replayController.startTime, true)
-                }
-                
-                updateReplayUI()
-            }
-        }
-    }
-
-    private fun restoreReplaySession(sessionId: Long, minimized: Boolean) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val session = db.fishingSessionDao().getById(sessionId)
-            val points = db.trackPointDao().getPointsForSession(sessionId)
-            if (points.isEmpty() || session == null) return@launch
-
-            withContext(Dispatchers.Main) {
-                replayController.load(
-                    points = points,
-                    startTime = session.startedAt,
-                    endTime = session.endedAt ?: points.last().timestamp,
-                    currentTime = replayController.currentTime,
-                    speed = replayController.speed,
-                    isPlaying = replayController.isPlaying
-                )
-                
-                initReplayUI()
-                updateSessionInfoText(replayController.startTime, replayController.endTime)
-                
-                val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
-                val speedIndex = speedOptions.indexOf("${replayController.speed}x")
-                if (speedIndex != -1) {
-                    findViewById<android.widget.Spinner>(R.id.replaySpeedSpinner).setSelection(speedIndex)
-                }
-
-                if (minimized) {
-                    findViewById<android.view.View>(R.id.replayPlayerContainer).visibility = android.view.View.GONE
-                    findViewById<android.view.View>(R.id.replayRestoreButton).visibility = android.view.View.VISIBLE
-                }
-
-                if (archivedSessionPolyline != null) {
-                    map.overlays.remove(archivedSessionPolyline)
-                }
-                archivedSessionPolyline = Polyline(map).apply {
-                    outlinePaint.color = Color.BLUE
-                    outlinePaint.strokeWidth = 8f
-                    setOnClickListener { _, _, _ -> true }
-                }
-                addOverlayBelowMarkers(archivedSessionPolyline!!)
-                visibleArchivedSessionId = sessionId
-                
-                // Päivitetään frame nykyisen ajan mukaan
-                updateReplayFrame()
-                updateReplayUI()
-                
-                if (replayController.isPlaying) {
-                    startReplayLoop()
-                } else {
-                    updateReplayPlayPauseIcon()
-                }
-            }
-        }
-    }
-
-    private fun initReplayUI() {
-        val playerLayout = findViewById<android.view.View>(R.id.replayPlayerLayout)
-        val playerContainer = findViewById<android.view.View>(R.id.replayPlayerContainer)
-        val restoreButton = findViewById<android.view.View>(R.id.replayRestoreButton)
-        val playPauseButton = findViewById<android.widget.ImageButton>(R.id.replayPlayPauseButton)
-        val seekBar = findViewById<android.widget.SeekBar>(R.id.replaySeekBar)
-        val speedSpinner = findViewById<android.widget.Spinner>(R.id.replaySpeedSpinner)
-        val minimizeButton = findViewById<android.view.View>(R.id.replayMinimizeButton)
-
-        playerLayout.visibility = android.view.View.VISIBLE
-        playerContainer.visibility = android.view.View.VISIBLE
-        restoreButton.visibility = android.view.View.GONE
-        
-        playerContainer.setOnClickListener { 
-            // Estetään klikkausten meneminen läpi kartalle
-        }
-        
-        // Piilotetaan muut napit
-        findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.GONE
-        updateMyLocationButtonVisibility()
-
-        playPauseButton.setOnClickListener {
-            replayController.setPlaying(!replayController.isPlaying)
-            updateReplayPlayPauseIcon()
-            if (replayController.isPlaying) startReplayLoop()
-        }
-
-        seekBar.max = (replayController.endTime - replayController.startTime).toInt()
-        seekBar.progress = (replayController.currentTime - replayController.startTime).toInt()
-        seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    replayController.seek(replayController.startTime + progress)
-                    updateReplayFrame()
-                }
-            }
-            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
-        })
-
-        val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
-        val adapter = android.widget.ArrayAdapter(this, R.layout.spinner_item_narrow, speedOptions)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        speedSpinner.adapter = adapter
-        speedSpinner.setSelection(4) // 360x
-        
-        // Asetetaan valkoiset värit spinnerin tekstille
-        speedSpinner.post {
-            (speedSpinner.selectedView as? android.widget.TextView)?.setTextColor(android.graphics.Color.WHITE)
-        }
-        
-        speedSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                replayController.setSpeed(speedOptions[position].replace("x", "").toIntOrNull() ?: SessionReplayController.DEFAULT_SPEED)
-                (view as? android.widget.TextView)?.setTextColor(android.graphics.Color.WHITE)
-            }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-        }
-
-        minimizeButton.setOnClickListener {
-            playerContainer.visibility = android.view.View.GONE
-            restoreButton.visibility = android.view.View.VISIBLE
-        }
-
-        restoreButton.setOnClickListener {
-            playerContainer.visibility = android.view.View.VISIBLE
-            restoreButton.visibility = android.view.View.GONE
-        }
-        
-        updateReplayPlayPauseIcon()
-    }
-
-    private fun updateReplayPlayPauseIcon() {
-        val playPauseButton = findViewById<android.widget.ImageButton>(R.id.replayPlayPauseButton)
-        playPauseButton.setImageResource(if (replayController.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
-    }
-
-    private fun startReplayLoop() {
-        replayJob?.cancel()
-        replayJob = lifecycleScope.launch(Dispatchers.Main) {
-            while (isActive && replayController.isPlaying) {
-                replayController.advance()
-                updateReplayFrame()
-                updateReplayUI()
-                
-                if (!replayController.isPlaying) {
-                    updateReplayPlayPauseIcon()
-                    break
-                }
-                delay(SessionReplayController.DEFAULT_STEP_MILLIS)
-            }
-        }
-    }
-
-    private fun updateReplayFrame(frame: SessionReplayController.Frame = replayController.frame()) {
-        val geoPoints = frame.visiblePoints.map { GeoPoint(it.latitude, it.longitude) }
-        
-        archivedSessionPolyline?.setPoints(geoPoints)
-        if (isOnlySessionCatchesMode) {
-            markerManager.setTimeRange(replayController.startTime, frame.currentTime, true)
-        } else {
-            markerManager.setMaxTimestamp(frame.currentTime)
-        }
-        map.invalidate()
-    }
-
-    private fun updateReplayUI() {
-        val seekBar = findViewById<android.widget.SeekBar>(R.id.replaySeekBar)
-        val timeText = findViewById<android.widget.TextView>(R.id.replayTimeText)
-        
-        seekBar.progress = (replayController.currentTime - replayController.startTime).toInt()
-        
-        val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-        val currentStr = sdf.format(java.util.Date(replayController.currentTime))
-        val endStr = sdf.format(java.util.Date(replayController.endTime))
-        timeText.text = "$currentStr / $endStr"
-    }
-
-    private fun updateSessionInfoText(start: Long, end: Long) {
-        val infoText = findViewById<android.widget.TextView>(R.id.sessionInfoText)
-        
-        val calStart = java.util.Calendar.getInstance()
-        calStart.timeInMillis = start
-        val calEnd = java.util.Calendar.getInstance()
-        calEnd.timeInMillis = end
-        
-        val sameDay = calStart.get(java.util.Calendar.YEAR) == calEnd.get(java.util.Calendar.YEAR) &&
-                calStart.get(java.util.Calendar.DAY_OF_YEAR) == calEnd.get(java.util.Calendar.DAY_OF_YEAR)
-        
-        val dfDate = java.text.SimpleDateFormat("d.M.yyyy", java.util.Locale.getDefault())
-        val dfTime = java.text.SimpleDateFormat("H:mm", java.util.Locale.getDefault())
-        val dfDateTime = java.text.SimpleDateFormat("d.M.yyyy H:mm", java.util.Locale.getDefault())
-        
-        val text = if (sameDay) {
-            "Sessio ${dfDate.format(java.util.Date(start))} ${dfTime.format(java.util.Date(start))} - ${dfTime.format(java.util.Date(end))}"
-        } else {
-            "Sessio ${dfDateTime.format(java.util.Date(start))} - ${dfDateTime.format(java.util.Date(end))}"
-        }
-        
-        infoText.text = text
-        infoText.visibility = android.view.View.VISIBLE
-    }
-
-    private fun showArchivedSessionOnMap(sessionId: Long) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val session = db.fishingSessionDao().getById(sessionId)
-            val points = db.trackPointDao().getPointsForSession(sessionId)
-            if (points.isNotEmpty() && session != null) {
-                withContext(Dispatchers.Main) {
-                    if (archivedSessionPolyline != null) {
-                        map.overlays.remove(archivedSessionPolyline)
-                    }
-                    archivedSessionPolyline = Polyline(map).apply {
-                        outlinePaint.color = Color.BLUE
-                        outlinePaint.strokeWidth = 8f
-                        setOnClickListener { _, _, _ -> true }
-                    }
-                    val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
-                    archivedSessionPolyline?.setPoints(geoPoints)
-                    addOverlayBelowMarkers(archivedSessionPolyline!!)
-                    visibleArchivedSessionId = sessionId
-                    
-                    updateSessionInfoText(session.startedAt, session.endedAt ?: points.last().timestamp)
-                    
-                    // Zoomataan session alkuun
-                    map.controller.animateTo(geoPoints[0], 15.0, 500L)
-                    markerManager.resetTimeRange()
-                    map.invalidate()
-                }
-            }
-        }
-    }
-
-    private fun replaySessionOnMap(sessionId: Long, speed: Int) {
-        replayController.setSpeed(speed)
-        replaySessionOnMap(sessionId, false)
-
-            // Toistoväli esim 100ms välein
-            
-            // Varmistetaan lopuksi kaikki pisteet näkyviin
-    }
-
-    fun hideArchivedSession() {
-        replayJob?.cancel()
-        replayController.clear()
-        isOnlySessionCatchesMode = false
-        
-        findViewById<android.view.View>(R.id.replayPlayerLayout).visibility = android.view.View.GONE
-        findViewById<android.view.View>(R.id.sessionInfoText).visibility = android.view.View.GONE
-        findViewById<android.view.View>(R.id.addCatchButton).visibility = android.view.View.VISIBLE
-        updateMyLocationButtonVisibility()
-
-        if (archivedSessionPolyline != null) {
-            map.overlays.remove(archivedSessionPolyline)
-            archivedSessionPolyline = null
-            visibleArchivedSessionId = -1L
-            markerManager.resetTimeRange()
-            map.invalidate()
-        }
-    }
-
-    fun getVisibleArchivedSessionId(): Long = visibleArchivedSessionId
-
-    private var isFirstResume = true
-    private var screenReceiver: BroadcastReceiver? = null
-
-    private val locationProviderReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
-                updateMyLocationButtonVisibility()
-            }
-        }
-    }
-
-    private var isUserScrolling = false
     private var isSelectionMode = false
+
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putLong("visibleArchivedSessionId", visibleArchivedSessionId)
-        outState.putLong("currentReplayTime", replayController.currentTime)
-        outState.putInt("replaySpeed", replayController.speed)
-        outState.putBoolean("isReplayPlaying", replayController.isPlaying)
-        
-        val playerContainer = findViewById<android.view.View>(R.id.replayPlayerContainer)
-        if (playerContainer != null) {
-            outState.putBoolean("replayMinimized", playerContainer.visibility == android.view.View.GONE)
+        if (::replayMapController.isInitialized) {
+            replayMapController.saveState(outState)
         }
     }
 
@@ -632,7 +194,18 @@ class MainActivity : AppCompatActivity() {
             android.util.Log.d("KalaKartta", "after db init")
 
             filterManager = FilterManager(this)
-            weatherService = WeatherService(this)
+            locationController = LocationController(
+                activity = this,
+                map = map,
+                settingsStore = settingsStore,
+                isSelectionMode = { isSelectionMode }
+            )
+            weatherController = WeatherController(
+                activity = this,
+                settingsStore = settingsStore,
+                scope = lifecycleScope,
+                locationProvider = { locationController.currentLocation }
+            )
 
             measurementController = MeasurementController(
                 activity = this,
@@ -692,7 +265,7 @@ class MainActivity : AppCompatActivity() {
             onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
                     if (findViewById<android.view.View>(R.id.replayPlayerLayout).visibility == android.view.View.VISIBLE) {
-                        val sessionId = visibleArchivedSessionId
+                        val sessionId = replayMapController.getVisibleArchivedSessionId()
                         hideArchivedSession()
                         
                         // Avataan asetukset ja sessioiden listaus
@@ -752,13 +325,33 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            catchManager = CatchManager(this, map, db, weatherService,
+            replayMapController = ReplayMapController(
+                activity = this,
+                map = map,
+                database = db,
+                markerManager = markerManager,
+                scope = lifecycleScope,
+                addOverlayBelowMarkers = { overlay -> addOverlayBelowMarkers(overlay) },
+                onReplayVisibilityChanged = { updateMyLocationButtonVisibility() }
+            )
+
+            catchManager = CatchManager(this, map, db, weatherController.weatherService,
                 onCatchAdded = { fish ->
                     markerManager.addOrUpdateMarkerIncremental(fish, map.zoomLevelDouble, filterManager)
                 },
                 onPlaceAdded = { place ->
                     markerManager.addOrUpdatePlaceIncremental(place, map.zoomLevelDouble)
                 }
+            )
+
+            mapNavigationController = MapNavigationController(
+                map = map,
+                database = db,
+                filterManager = filterManager,
+                scope = lifecycleScope,
+                closeSettings = { settingsManager.closeSettings() },
+                reloadMarkers = { reloadMarkersFromDb() },
+                updateFilterStatus = { updateFilterStatusUI() }
             )
 
             updateMapTileSource()
@@ -783,39 +376,10 @@ class MainActivity : AppCompatActivity() {
                 map.controller.setCenter(helsinkiCenter)
             }
 
-            locationOverlay = object : MyLocationNewOverlay(GpsMyLocationProvider(this), map) {
-                override fun draw(canvas: android.graphics.Canvas, map: MapView, shadow: Boolean) {
-                    try {
-                        super.draw(canvas, map, shadow)
-                    } catch (e: Exception) {
-                        // Hiljennetään mahdolliset piirto-virheet (esim. Bitmap NPE)
-                        android.util.Log.e("MainActivity", "Error drawing locationOverlay: ${e.message}")
-                    }
-                }
-            }
-            // Poistettu: locationOverlay.enableMyLocation() - siirretty lupien tarkistuksen jälkeen
-            map.overlays.add(locationOverlay)
-
-            requestLocationPermission()
-
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                locationOverlay.enableMyLocation()
-            }
-
+            locationController.initialize()
             map.setOnTouchListener { _, event ->
-                if (event.action == android.view.MotionEvent.ACTION_DOWN) {
-                    isUserScrolling = true
-                } else if (event.action == android.view.MotionEvent.ACTION_UP || event.action == android.view.MotionEvent.ACTION_CANCEL) {
-                    // Pieni viive, jotta scroll-tapahtuma ehtii tulla ennen kuin nollataan
-                    map.postDelayed({ isUserScrolling = false }, 500)
-                }
-                false
+                locationController.onMapTouch(event)
             }
-
             findViewById<MaterialButton>(R.id.addCatchButton).setOnClickListener {
                 catchManager.showSpeciesDialog()
             }
@@ -856,46 +420,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            findViewById<MaterialButton>(R.id.myLocationButton).setOnClickListener {
-                // Aktivoi seuranta (keskittää sijaintiin)
-                locationOverlay.enableFollowLocation()
-
-                val myLocation = locationOverlay.myLocation
-                if (myLocation != null) {
-                    map.controller.animateTo(myLocation, map.zoomLevelDouble, 250L)
-                } else {
-                    // Jos overlaylla ei ole vielä sijaintia, kokeillaan järjestelmän LocationManageria
-                    val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-                    val lastKnown = try {
-                        locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                            ?: locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                    } catch (e: SecurityException) {
-                        null
-                    }
-
-                    if (lastKnown != null) {
-                        val geoPoint = org.osmdroid.util.GeoPoint(lastKnown.latitude, lastKnown.longitude)
-                        map.controller.animateTo(geoPoint, map.zoomLevelDouble, 250L)
-                    } else {
-                        android.widget.Toast.makeText(this, "Sijaintia ei ole vielä saatavilla", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-
+            locationController.setupMyLocationButton()
             // Palautetaan toisto-tila
             if (savedInstanceState != null) {
-                val sessionId = savedInstanceState.getLong("visibleArchivedSessionId", -1L)
-                if (sessionId != -1L) {
-                    replayController.restorePlaybackState(
-                        currentTime = savedInstanceState.getLong("currentReplayTime", 0L),
-                        speed = savedInstanceState.getInt("replaySpeed", SessionReplayController.DEFAULT_SPEED),
-                        isPlaying = savedInstanceState.getBoolean("isReplayPlaying", false)
-                    )
-                    val minimized = savedInstanceState.getBoolean("replayMinimized", false)
-                    
-                    // Ladataan sessio uudelleen ja asetetaan tila
-                    restoreReplaySession(sessionId, minimized)
-                }
+                replayMapController.restoreState(savedInstanceState)
             }
 
             findViewById<MaterialButton?>(R.id.settingsButton)?.setOnClickListener {
@@ -947,9 +475,9 @@ class MainActivity : AppCompatActivity() {
             map.addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean {
                     // Jos käyttäjä skrollaa itse, poistetaan automaattinen seuranta
-                    if (isUserScrolling) {
+                    if (locationController.isUserScrolling) {
                         updateHeatmapDelayed()
-                        locationOverlay.disableFollowLocation()
+                        locationController.disableFollowLocation()
                     }
 
                     // Kun ollaan zoomed in, päivitetään näkyvät markerit (clipping)
@@ -1061,17 +589,7 @@ class MainActivity : AppCompatActivity() {
                 settingsStore.lastVersionName = currentVersionName
             }
 
-            if (autoCenter && !isSelectionMode) {
-                locationOverlay.runOnFirstFix {
-                    lifecycleScope.launch(Dispatchers.Main) {
-                        val myLocation = locationOverlay.myLocation
-                        if (myLocation != null) {
-                            map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
-                        }
-                    }
-                }
-            }
-
+            locationController.centerOnFirstFixIfNeeded()
             if (crashFile.exists()) {
                 crashFile.delete()
             }
@@ -1208,43 +726,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkWeather(force: Boolean = false) {
-        if (force) {
-            weatherCheckDone = false
-        }
-
-        val isEnabled = settingsStore.weatherEnabled
-        if (!isEnabled) return
-
-        // Haetaan kaikki sääasemat muistiin taustalla, jos niitä ei vielä ole
-        weatherService.fetchAllStations()
-
-        if (weatherCheckDone) return
-
-        val myLocation = if (::locationOverlay.isInitialized) locationOverlay.myLocation else null
-        if (myLocation == null) {
-            // Poistettu automaattinen virheilmoitus puuttuvasta sijainnista
-            return
-        }
-
-        weatherCheckDone = true
-
-        weatherService.fetchNearestStation(myLocation.latitude, myLocation.longitude, System.currentTimeMillis()) { station, error ->
-            lifecycleScope.launch(Dispatchers.Main) {
-                if (error != null) {
-                    // Epäonnistumisesta ei välttämättä tarvitse ilmoittaa käyttäjälle automaattisessa haussa
-                } else if (station != null) {
-                    lastFoundStation = station
-                    updateWeatherUI()
-                }
-            }
-        }
+        weatherController.checkWeather(force)
     }
 
     private fun updateWeatherUI() {
-        val weatherStationText = findViewById<TextView>(R.id.weatherStationText)
-        weatherStationText.visibility = android.view.View.GONE
+        weatherController.updateWeatherUi()
     }
-
     private fun updateFishingHeatmap() {
         mapDisplayController.updateFishingHeatmap()
     }
@@ -1285,6 +772,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun getFishingService(): FishingSessionService? = fishingSessionController.getFishingService()
+
+    fun hideArchivedSession() {
+        replayMapController.hideArchivedSession()
+    }
+
+    fun getVisibleArchivedSessionId(): Long = replayMapController.getVisibleArchivedSessionId()
+
     private fun showSessionNotesDialog(sessionId: Long, durationMs: Long, distanceM: Float) {
         if (isFinishing || isDestroyed) return
         
@@ -1350,103 +844,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestLocationPermission() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                1
-            )
-        }
-    }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIntent(intent)
-    }
-
-    private fun handleIntent(intent: Intent) {
-        if (intent.getBooleanExtra("EXTRA_ZOOM_TO_SUMMARY", false)) {
-            val start = intent.getLongExtra("EXTRA_START_TIME", -1L)
-            val end = intent.getLongExtra("EXTRA_END_TIME", -1L)
-            if (start != -1L && end != -1L) {
-                // Suljetaan dialogit
-                settingsManager.closeSettings()
-                
-                // Asetetaan suodattimet vastaamaan aikaväliä, jotta pisteet näkyvät kartalla
-                filterManager.clearFilters()
-                filterManager.saveFilters(FilterManager.Filters(startDate = start, endDate = end))
-                reloadMarkersFromDb()
-                updateFilterStatusUI()
-                
-                zoomToRangeOnMap(start, end)
-            }
-            intent.removeExtra("EXTRA_ZOOM_TO_SUMMARY")
-        }
+        mapNavigationController.handleIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
         map.onResume()
         
-        intent?.let { handleIntent(it) }
+        intent?.let { mapNavigationController.handleIntent(it) }
         
         fishingSessionController.updateRecordingStatus()
 
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            locationOverlay.enableMyLocation()
-        }
-
-        updateMyLocationButtonVisibility()
+        locationController.onResume()
         updateScaleBar()
-        
-        // Rekisteröidään sijaintipalveluiden seuranta
-        val filter = IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(locationProviderReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(locationProviderReceiver, filter)
-        }
-
-        // Rekisteröidään näytön avauksen seuranta
-        val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
-        screenReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == Intent.ACTION_SCREEN_ON) {
-                    if (settingsStore.autoCenterOnStart && !isSelectionMode) {
-                        val myLocation = locationOverlay.myLocation
-                        if (myLocation != null) {
-                            map.controller.animateTo(myLocation, map.zoomLevelDouble, 500L)
-                        }
-                    }
-                }
-            }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(screenReceiver, screenFilter, RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(screenReceiver, screenFilter)
-        }
-
         // Yritetään näyttää sääasema jos se on vielä näyttämättä
-        if (!weatherCheckDone) {
-            checkWeather()
-        }
+        checkWeather()
 
         // Päivitetään kartta ja suodattimet
         reloadMarkersFromDb()
         updateFilterStatusUI()
 
-        isFirstResume = false
     }
 
     private fun saveMapState() {
@@ -1467,50 +887,12 @@ class MainActivity : AppCompatActivity() {
         if (::measurementController.isInitialized) {
             measurementController.clearPendingCallbacks()
         }
-        try {
-            unregisterReceiver(locationProviderReceiver)
-        } catch (_: IllegalArgumentException) {
-        }
-        try {
-            screenReceiver?.let { unregisterReceiver(it) }
-        } catch (_: IllegalArgumentException) {
-        }
-        locationOverlay.disableMyLocation()
+        locationController.onPause()
         map.onPause()
         super.onPause()
     }
-
     private fun updateMyLocationButtonVisibility() {
-        if (findViewById<android.view.View>(R.id.replayPlayerLayout).visibility == android.view.View.VISIBLE) {
-            findViewById<MaterialButton>(R.id.myLocationButton).visibility = android.view.View.GONE
-            return
-        }
-
-        val hasPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
-        val isGpsEnabled = try {
-            locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
-        } catch (_: Exception) {
-            false
-        }
-        val isNetworkEnabled = try {
-            locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
-        } catch (_: Exception) {
-            false
-        }
-
-        findViewById<MaterialButton>(R.id.myLocationButton).visibility =
-            if (hasPermission && (isGpsEnabled || isNetworkEnabled)) android.view.View.VISIBLE else android.view.View.GONE
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                locationOverlay.enableMyLocation()
-            }
-            updateMyLocationButtonVisibility()
-        }
+        locationController.updateMyLocationButtonVisibility()
     }
 
     private fun handleActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
@@ -1524,9 +906,9 @@ class MainActivity : AppCompatActivity() {
                 settingsManager.closeSettings()
                 
                 if (replayRequest != null) {
-                    replaySessionOnMap(replayRequest.sessionId, replayRequest.onlySessionCatches)
+                    replayMapController.replaySessionOnMap(replayRequest.sessionId, replayRequest.onlySessionCatches)
                 } else {
-                    showArchivedSessionOnMap(sessionId)
+                    replayMapController.showArchivedSessionOnMap(sessionId)
                 }
             } else if (requestCode == 3001) {
                 // Sessioiden listauksesta palattiin ilman valintaa, ei tehdä mitään erikoista
