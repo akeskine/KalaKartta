@@ -18,7 +18,6 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.util.BoundingBox
-import kotlin.math.cos
 import kotlin.math.roundToInt
 
 class FishingHeatmapOverlay(private val context: Context, private val db: AppDatabase, private val mapView: MapView) : Overlay() {
@@ -236,10 +235,10 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 val f = fm.getFilters()
                 
                 // Approksimaatio: 1 aste latitudia on n. 111320 metriä
-                val latDegreeMeters = 111320.0
+                val latDegreeMeters = HeatmapGridCalculator.LATITUDE_DEGREE_METERS
                 // Käytetään vakiota (esim. Suomen keskipiste 64.7), jotta ruudukko on stabiili ja ennustettava.
                 // Dynaaminen latitudi draw-metodissa rikkoo ruudukon haun, jos se ei vastaa indeksointia.
-                val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
+                val lonDegreeMeters = HeatmapGridCalculator.longitudeDegreeMeters(referenceLatitude)
 
                 val hasAnnualDateFilter = f.annualStartDay != null && f.annualStartMonth != null && 
                                         f.annualEndDay != null && f.annualEndMonth != null
@@ -548,43 +547,11 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
 
     private fun processPoints(points: List<TrackPointHeatmapData>): Map<Pair<Int, Int>, Int> {
         val isPointCalculation = calculationMethod == context.getString(R.string.heatmap_method_points)
-        
-        if (isPointCalculation) {
-            val gridPoints = mutableMapOf<Pair<Int, Int>, Int>()
-            
-            // Approksimaatio: 1 aste latitudia on n. 111320 metriä
-            val latDegreeMeters = 111320.0
-            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään referenssileveyspiiriä vakiona tässä funktiossa)
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
-            
-            for (p in points) {
-                val x = (p.longitude * lonDegreeMeters / gridSizeMeters).toInt()
-                val y = (p.latitude * latDegreeMeters / gridSizeMeters).toInt()
-                
-                val key = Pair(x, y)
-                gridPoints[key] = (gridPoints[key] ?: 0) + 1
-            }
-            return gridPoints
+
+        return if (isPointCalculation) {
+            HeatmapGridCalculator.pointCounts(points, gridSizeMeters, referenceLatitude)
         } else {
-            val gridSessions = mutableMapOf<Pair<Int, Int>, MutableSet<Long>>()
-            
-            // Approksimaatio: 1 aste latitudia on n. 111320 metriä
-            val latDegreeMeters = 111320.0
-            // Lasketaan pituuspiirin leveys dynaamisesti (käytetään referenssileveyspiiriä vakiona tässä funktiossa)
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
-            
-            for (p in points) {
-                val x = (p.longitude * lonDegreeMeters / gridSizeMeters).toInt()
-                val y = (p.latitude * latDegreeMeters / gridSizeMeters).toInt()
-                
-                val key = Pair(x, y)
-                if (!gridSessions.containsKey(key)) {
-                    gridSessions[key] = mutableSetOf()
-                }
-                gridSessions[key]?.add(p.fishingSessionId)
-            }
-            
-            return gridSessions.mapValues { it.value.size }
+            HeatmapGridCalculator.sessionCounts(points, gridSizeMeters, referenceLatitude)
         }
     }
 
@@ -595,14 +562,22 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         
         if (heatmapEnabled && osmv.zoomLevelDouble >= minZoomLevel) {
             val boundingBox = projection.boundingBox
-            val latDegreeMeters = 111320.0
-            // Käytetään samaa stabiilia vakiota kuin indeksoinnissa
-            val lonDegreeMeters = latDegreeMeters * Math.cos(Math.toRadians(referenceLatitude))
-            
-            val minX = (boundingBox.lonWest * lonDegreeMeters / gridSizeMeters).toInt() - 1
-            val maxX = (boundingBox.lonEast * lonDegreeMeters / gridSizeMeters).toInt() + 1
-            val minY = (boundingBox.latSouth * latDegreeMeters / gridSizeMeters).toInt() - 1
-            val maxY = (boundingBox.latNorth * latDegreeMeters / gridSizeMeters).toInt() + 1
+            val minCell = HeatmapGridCalculator.cellFor(
+                boundingBox.latSouth,
+                boundingBox.lonWest,
+                gridSizeMeters,
+                referenceLatitude
+            )
+            val maxCell = HeatmapGridCalculator.cellFor(
+                boundingBox.latNorth,
+                boundingBox.lonEast,
+                gridSizeMeters,
+                referenceLatitude
+            )
+            val minX = minCell.first - 1
+            val maxX = maxCell.first + 1
+            val minY = minCell.second - 1
+            val maxY = maxCell.second + 1
             
             paint.style = Paint.Style.FILL
             
@@ -626,11 +601,11 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                     )
                     
                     // Ruudun koordinaatit takaisin GeoPointeiksi piirtoa varten
-                    val lat = y * gridSizeMeters / latDegreeMeters
-                    val lon = x * gridSizeMeters / lonDegreeMeters
+                    val lat = HeatmapGridCalculator.latitudeForCell(y, gridSizeMeters)
+                    val lon = HeatmapGridCalculator.longitudeForCell(x, gridSizeMeters, referenceLatitude)
                     
-                    val nextLat = (y + 1) * gridSizeMeters / latDegreeMeters
-                    val nextLon = (x + 1) * gridSizeMeters / lonDegreeMeters
+                    val nextLat = HeatmapGridCalculator.latitudeForCell(y + 1, gridSizeMeters)
+                    val nextLon = HeatmapGridCalculator.longitudeForCell(x + 1, gridSizeMeters, referenceLatitude)
                     
                     val p1 = projection.toPixels(GeoPoint(lat, lon), null)
                     val p2 = projection.toPixels(GeoPoint(nextLat, nextLon), null)
