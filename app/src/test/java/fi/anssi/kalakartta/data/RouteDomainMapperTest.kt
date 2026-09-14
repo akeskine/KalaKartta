@@ -41,4 +41,5 @@ class RouteDomainMapperTest {
         assertEquals(1000L, session.startedAt)
         assertEquals(2000L, session.endedAt)
     }
+
 }

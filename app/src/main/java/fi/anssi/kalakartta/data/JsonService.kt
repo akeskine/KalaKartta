@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,15 +43,13 @@ class JsonService {
         sessions: List<FishingSession>,
         onGetPoints: (Long) -> List<TrackPoint>
     ) {
-        try {
-            contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val writer = android.util.JsonWriter(outputStream.bufferedWriter())
-                writer.setIndent("    ")
-                writeRoutesToWriter(writer, sessions, onGetPoints)
-                writer.close()
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("JsonService", "Error exporting routes", e)
+        val outputStream = contentResolver.openOutputStream(uri)
+            ?: throw IOException("Vientitiedostoa ei voitu avata kirjoittamista varten")
+        outputStream.use { output ->
+            val writer = android.util.JsonWriter(output.bufferedWriter())
+            writer.setIndent("    ")
+            writeRoutesToWriter(writer, sessions, onGetPoints)
+            writer.close()
         }
     }
 
@@ -74,8 +73,10 @@ class JsonService {
         uri: Uri,
         onSessionParsed: (FishingSession, List<TrackPoint>) -> Unit
     ) {
-        contentResolver.openInputStream(uri)?.use { inputStream ->
-            importRoutesFromStream(inputStream, onSessionParsed)
+        val inputStream = contentResolver.openInputStream(uri)
+            ?: throw IOException("Tuontitiedostoa ei voitu avata lukemista varten")
+        inputStream.use { input ->
+            importRoutesFromStream(input, onSessionParsed)
         }
     }
 
@@ -114,7 +115,9 @@ class JsonService {
     fun export(contentResolver: ContentResolver, uri: Uri, catches: List<FishCatch>, places: List<PlaceOfInterest>) {
         val root = exportCatchesAndPlaces(catches, places)
 
-        contentResolver.openOutputStream(uri)?.use { out ->
+        val outputStream = contentResolver.openOutputStream(uri)
+            ?: throw IOException("Vientitiedostoa ei voitu avata kirjoittamista varten")
+        outputStream.use { out ->
             out.write(root.toString(4).toByteArray())
         }
     }
@@ -123,7 +126,9 @@ class JsonService {
         val root = JSONObject()
         root.put("diaryPages", diaryPageJsonMapper.toJson(diaryPages))
 
-        contentResolver.openOutputStream(uri)?.use { out ->
+        val outputStream = contentResolver.openOutputStream(uri)
+            ?: throw IOException("Vientitiedostoa ei voitu avata kirjoittamista varten")
+        outputStream.use { out ->
             out.write(root.toString(4).toByteArray())
         }
     }
@@ -180,7 +185,9 @@ class JsonService {
     fun exportSpecies(contentResolver: ContentResolver, uri: Uri, speciesList: List<FishSpecies>, filesDir: File) {
         val root = exportSpeciesToJsonObject(speciesList, filesDir)
 
-        contentResolver.openOutputStream(uri)?.use { out ->
+        val outputStream = contentResolver.openOutputStream(uri)
+            ?: throw IOException("Vientitiedostoa ei voitu avata kirjoittamista varten")
+        outputStream.use { out ->
             out.write(root.toString(4).toByteArray())
         }
     }
@@ -268,19 +275,17 @@ class JsonService {
     }
 
     fun import(contentResolver: ContentResolver, uri: Uri): Pair<List<FishCatch>, List<PlaceOfInterest>> {
-        val text = contentResolver.openInputStream(uri)
-            ?.bufferedReader()
-            ?.use { it.readText() }
-            ?: return Pair(emptyList(), emptyList())
+        val inputStream = contentResolver.openInputStream(uri)
+            ?: throw IOException("Tuontitiedostoa ei voitu avata lukemista varten")
+        val text = inputStream.bufferedReader().use { it.readText() }
 
         return parseCatchesAndPlaces(text)
     }
 
     fun importDiary(contentResolver: ContentResolver, uri: Uri): List<FishDiaryPage> {
-        val text = contentResolver.openInputStream(uri)
-            ?.bufferedReader()
-            ?.use { it.readText() }
-            ?: return emptyList()
+        val inputStream = contentResolver.openInputStream(uri)
+            ?: throw IOException("Tuontitiedostoa ei voitu avata lukemista varten")
+        val text = inputStream.bufferedReader().use { it.readText() }
 
         return parseImportData(text).diaryPages
     }
@@ -358,10 +363,9 @@ class JsonService {
     }
 
     fun importSpecies(contentResolver: ContentResolver, uri: Uri, filesDir: File): List<FishSpecies> {
-        val text = contentResolver.openInputStream(uri)
-            ?.bufferedReader()
-            ?.use { it.readText() }
-            ?: return emptyList()
+        val inputStream = contentResolver.openInputStream(uri)
+            ?: throw IOException("Tuontitiedostoa ei voitu avata lukemista varten")
+        val text = inputStream.bufferedReader().use { it.readText() }
 
         return parseSpecies(text, filesDir)
     }

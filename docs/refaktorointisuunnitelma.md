@@ -265,6 +265,18 @@ Kun vastuut ovat pienempiä ja testit kattavat ydinkäyttäytymisen:
 
 Tässä vaiheessa ei saa muuttaa samanaikaisesti importin, session tai weatherin toiminnallista logiikkaa ilman erillisiä testejä.
 
+### Vaiheen 5 toteutustilanne
+
+- `ImportExportManager`in kaikki tiedosto-, ZIP-, media- ja tietokantatoiminnot käyttävät nyt Activityn `lifecycleScope`a.
+- Raskas työ ajetaan `Dispatchers.IO`-kontekstissa ja progressi-/tulosdialogit päivitetään Main-säikeellä.
+- Importin konfliktitunnistus, valintaikkuna ja pisteiden kirjoitus ovat samassa elinkaariturvallisessa coroutine-ketjussa.
+- Activityn sulkeutumisen aikana myöhästyneet dialogi- ja progressipäivitykset ohitetaan.
+- `ImportExportManager`ista poistui raakaa `Thread { ... }.start()` -mallia käyttävä työ.
+- tiedonsiirron "Poista media" -toiminto erotettiin "Poista kaikki tiedot" -toiminnosta.
+- streaming-reittien suuret piste-erät yhdistetään takaisin yhdeksi sessioksi, ja tyhjät sessiot säilyvät.
+
+Import/exportin vaihe 5 -osuus on valmis. Vaihe 5 jatkuu vielä MainActivityn, CatchManagerin, WeatherServicen, EditCatchActivityn ja muiden raakathread-haarojen osalta.
+
 ## Vaihe 6: Suurempien koordinaattorien pilkkominen
 
 ### MainActivity

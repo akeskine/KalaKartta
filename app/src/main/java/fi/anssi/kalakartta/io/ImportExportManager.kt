@@ -10,12 +10,18 @@ import android.widget.ProgressBar
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.MediaService
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.JsonService
 import fi.anssi.kalakartta.utils.enlargeButtons
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -161,38 +167,72 @@ class ImportExportManager(
             .setTitle("Poista kaikki tiedot")
             .setMessage("Haluatko varmasti poistaa KAIKKI tiedot (pisteet, reitit, mediat, kalapäiväkirjan ja asetukset)? Tätä toimintoa ei voi peruuttaa.")
             .setPositiveButton("Poista kaikki") { _, _ ->
-                Thread {
+                activity.lifecycleScope.launch {
+                    if (activity.isFinishing || activity.isDestroyed) return@launch
+
                     try {
-                        // 1. Poistetaan mediatiedostot levyltä
-                        mediaService.deleteAllMedia()
-                        
-                        // 2. Tyhjennetään kaikki tietokantataulut
-                        db.clearAllTables()
-                        db.weatherErrorDao().deleteAll() 
-                        
-                        // 3. Palautetaan oletusasetukset
-                        db.initializeDefaults()
-                        
-                        // 4. Pienenteen tietokantatiedostoa (VACUUM)
-                        try {
-                            db.openHelper.writableDatabase.execSQL("VACUUM")
-                        } catch (e: Exception) {
-                            android.util.Log.e("ImportExportManager", "VACUUM failed", e)
+                        withContext(Dispatchers.IO) {
+                            // 1. Poistetaan mediatiedostot levyltä
+                            mediaService.deleteAllMedia()
+
+                            // 2. Tyhjennetään kaikki tietokantataulut
+                            db.clearAllTables()
+                            db.weatherErrorDao().deleteAll()
+
+                            // 3. Palautetaan oletusasetukset
+                            db.initializeDefaults()
+
+                            // 4. Pienennetään tietokantatiedostoa (VACUUM)
+                            try {
+                                db.openHelper.writableDatabase.execSQL("VACUUM")
+                            } catch (e: Exception) {
+                                android.util.Log.e("ImportExportManager", "VACUUM failed", e)
+                            }
                         }
-                        
-                        activity.runOnUiThread {
-                            onImportDone(true) // Päivittää UI:n
-                            showConfirmationDialog("Kaikki tiedot poistettu.")
-                        }
+
+                        if (activity.isFinishing || activity.isDestroyed) return@launch
+                        onImportDone(true) // Päivittää UI:n
+                        showConfirmationDialog("Kaikki tiedot poistettu.")
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         android.util.Log.e("ImportExportManager", "Delete all failed", e)
-                        activity.runOnUiThread {
+                        if (!activity.isFinishing && !activity.isDestroyed) {
                             showConfirmationDialog("Poisto epäonnistui: ${e.message}")
                         }
                     }
-                }.start()
+                }
             }
             .setNegativeButton("Peruuta", null)
+            .show()
+    }
+
+    fun launchDeleteMediaData() {
+        AlertDialog.Builder(activity)
+            .setTitle("Poista media?")
+            .setMessage("Haluatko varmasti poistaa kaikki mediatiedostot? Kalapisteet, reitit, päiväkirja ja muut tiedot säilytetään.")
+            .setPositiveButton("Takaisin", null)
+            .setNegativeButton("Poista") { _, _ ->
+                activity.lifecycleScope.launch {
+                    if (activity.isFinishing || activity.isDestroyed) return@launch
+
+                    try {
+                        withContext(Dispatchers.IO) {
+                            mediaService.deleteAllMedia()
+                        }
+                        if (activity.isFinishing || activity.isDestroyed) return@launch
+                        onImportDone(false)
+                        showConfirmationDialog("Media poistettu.")
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImportExportManager", "Delete media failed", e)
+                        if (!activity.isFinishing && !activity.isDestroyed) {
+                            showConfirmationDialog("Median poisto epäonnistui: ${e.message}")
+                        }
+                    }
+                }
+            }
             .show()
     }
 
@@ -202,95 +242,112 @@ class ImportExportManager(
             .setMessage("Haluatko varmasti poistaa kaikki kalapäiväkirjan merkinnät? Tätä toimintoa ei voi kumota.")
             .setPositiveButton("Takaisin", null)
             .setNegativeButton("Poista") { _, _ ->
-                Thread {
+                activity.lifecycleScope.launch {
+                    if (activity.isFinishing || activity.isDestroyed) return@launch
+
                     try {
-                        db.fishDiaryPageDao().getAll().forEach { db.fishDiaryPageDao().delete(it) }
-                        activity.runOnUiThread {
-                            onImportDone(false)
-                            showConfirmationDialog("Kalapäiväkirja tyhjennetty.")
+                        withContext(Dispatchers.IO) {
+                            db.fishDiaryPageDao().getAll().forEach { db.fishDiaryPageDao().delete(it) }
                         }
+                        if (activity.isFinishing || activity.isDestroyed) return@launch
+                        onImportDone(false)
+                        showConfirmationDialog("Kalapäiväkirja tyhjennetty.")
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         android.util.Log.e("ImportExportManager", "Delete diary failed", e)
-                        activity.runOnUiThread {
+                        if (!activity.isFinishing && !activity.isDestroyed) {
                             showConfirmationDialog("Poisto epäonnistui: ${e.message}")
                         }
                     }
-                }.start()
+                }
             }
             .show()
     }
 
     private fun exportAllToZip(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                activity.contentResolver.openOutputStream(uri)?.use { output ->
-                    val zipOut = java.util.zip.ZipOutputStream(output)
+                withContext(Dispatchers.IO) {
+                    val outputStream = activity.contentResolver.openOutputStream(uri)
+                        ?: throw java.io.IOException("Vientitiedostoa ei voitu avata kirjoittamista varten")
+                    outputStream.use { output ->
+                        val zipOut = java.util.zip.ZipOutputStream(output)
 
-                    // 1. pisteet.json
-                    val catches = db.fishCatchDao().getAll()
-                    val places = db.placeOfInterestDao().getAll()
-                    val catchesAndPlacesJson = jsonService.exportCatchesAndPlaces(catches, places)
-                    zipOut.putNextEntry(java.util.zip.ZipEntry("pisteet.json"))
-                    zipOut.write(catchesAndPlacesJson.toString(4).toByteArray())
-                    zipOut.closeEntry()
-
-                    // 2. sessiot.json (reitit)
-                    val sessions = db.fishingSessionDao().getAll()
-                    zipOut.putNextEntry(java.util.zip.ZipEntry("sessiot.json"))
-                    val writer = android.util.JsonWriter(zipOut.bufferedWriter())
-                    jsonService.writeRoutesToWriter(writer, sessions) { sessionId ->
-                        db.trackPointDao().getPointsForSession(sessionId)
-                    }
-                    writer.flush()
-                    zipOut.closeEntry()
-
-                    // 2.5 paivakirja.json
-                    val diaryPages = db.fishDiaryPageDao().getAll()
-                    if (diaryPages.isNotEmpty()) {
-                        zipOut.putNextEntry(java.util.zip.ZipEntry("paivakirja.json"))
-                        val diaryJson = JSONObject()
-                        val diaryArray = JSONArray()
-                        diaryPages.forEach { page ->
-                            val obj = JSONObject()
-                            obj.put("id", page.id)
-                            obj.put("startDate", jsonService.isoFormat.format(java.util.Date(page.startDate)))
-                            if (page.endDate != null) {
-                                obj.put("endDate", jsonService.isoFormat.format(java.util.Date(page.endDate)))
-                            }
-                            obj.put("location", page.location)
-                            obj.put("fishingMethod", page.fishingMethod)
-                            obj.put("catch", page.catch)
-                            obj.put("story", page.story)
-                            diaryArray.put(obj)
-                        }
-                        diaryJson.put("diaryPages", diaryArray)
-                        zipOut.write(diaryJson.toString(4).toByteArray())
+                        // 1. pisteet.json
+                        val catches = db.fishCatchDao().getAll()
+                        val places = db.placeOfInterestDao().getAll()
+                        val catchesAndPlacesJson = jsonService.exportCatchesAndPlaces(catches, places)
+                        zipOut.putNextEntry(java.util.zip.ZipEntry("pisteet.json"))
+                        zipOut.write(catchesAndPlacesJson.toString(4).toByteArray())
                         zipOut.closeEntry()
+
+                        // 2. sessiot.json (reitit)
+                        val sessions = db.fishingSessionDao().getAll()
+                        zipOut.putNextEntry(java.util.zip.ZipEntry("sessiot.json"))
+                        val writer = android.util.JsonWriter(zipOut.bufferedWriter())
+                        jsonService.writeRoutesToWriter(writer, sessions) { sessionId ->
+                            db.trackPointDao().getPointsForSession(sessionId)
+                        }
+                        writer.flush()
+                        zipOut.closeEntry()
+
+                        // 2.5 paivakirja.json
+                        val diaryPages = db.fishDiaryPageDao().getAll()
+                        if (diaryPages.isNotEmpty()) {
+                            zipOut.putNextEntry(java.util.zip.ZipEntry("paivakirja.json"))
+                            val diaryJson = JSONObject()
+                            val diaryArray = JSONArray()
+                            diaryPages.forEach { page ->
+                                val obj = JSONObject()
+                                obj.put("id", page.id)
+                                obj.put("startDate", jsonService.isoFormat.format(java.util.Date(page.startDate)))
+                                if (page.endDate != null) {
+                                    obj.put("endDate", jsonService.isoFormat.format(java.util.Date(page.endDate)))
+                                }
+                                obj.put("location", page.location)
+                                obj.put("fishingMethod", page.fishingMethod)
+                                obj.put("catch", page.catch)
+                                obj.put("story", page.story)
+                                diaryArray.put(obj)
+                            }
+                            diaryJson.put("diaryPages", diaryArray)
+                            zipOut.write(diaryJson.toString(4).toByteArray())
+                            zipOut.closeEntry()
+                        }
+
+                        // 3. kalalajit.json
+                        val species = db.fishSpeciesDao().getAll()
+                        val speciesJson = jsonService.exportSpeciesToJsonObject(species, activity.filesDir)
+                        zipOut.putNextEntry(java.util.zip.ZipEntry("kalalajit.json"))
+                        zipOut.write(speciesJson.toString(4).toByteArray())
+                        zipOut.closeEntry()
+
+                        // 4. media.json ja media/ kansio
+                        mediaService.exportMediaToZip(zipOut)
+
+                        zipOut.close()
                     }
-
-                    // 3. kalalajit.json
-                    val species = db.fishSpeciesDao().getAll()
-                    val speciesJson = jsonService.exportSpeciesToJsonObject(species, activity.filesDir)
-                    zipOut.putNextEntry(java.util.zip.ZipEntry("kalalajit.json"))
-                    zipOut.write(speciesJson.toString(4).toByteArray())
-                    zipOut.closeEntry()
-
-                    // 4. media.json ja media/ kansio
-                    mediaService.exportMediaToZip(zipOut)
-
-                    zipOut.close()
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
                 showConfirmationDialog("Kaikkien tietojen vienti valmis.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Export all failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Vienti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun importAllFromZip(uri: Uri) {
+        if (activity.isFinishing || activity.isDestroyed) return
+
         val progressLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(50, 40, 50, 10)
@@ -335,17 +392,30 @@ class ImportExportManager(
             val displayedOverallProgress = lastOverallProgress
             val displayedText = "$currentProgressStage $displayedStageProgress %"
 
-            activity.runOnUiThread {
-                progressBar.progress = displayedOverallProgress
-                progressText.text = displayedText
+            if (!activity.isFinishing && !activity.isDestroyed) {
+                activity.runOnUiThread {
+                    if (!activity.isFinishing && !activity.isDestroyed) {
+                        progressBar.progress = displayedOverallProgress
+                        progressText.text = displayedText
+                    }
+                }
             }
         }
 
-        Thread {
+        activity.lifecycleScope.launch {
             var tempZipFile: java.io.File? = null
+            var importedCatches = 0
+            var importedPlaces = 0
+            var importedSessions = 0
+            var importedTrackPoints = 0
+            var importedMedia = 0
+            var importedSpecies = 0
+            var importedDiaryPages = 0
+
             try {
-                tempZipFile = java.io.File.createTempFile("kalakartta-import-", ".zip", activity.cacheDir)
-                val zipFile = tempZipFile ?: throw java.io.IOException("Väliaikaista zip-tiedostoa ei voitu luoda")
+                withContext(Dispatchers.IO) {
+                    tempZipFile = java.io.File.createTempFile("kalakartta-import-", ".zip", activity.cacheDir)
+                    val zipFile = tempZipFile ?: throw java.io.IOException("Väliaikaista zip-tiedostoa ei voitu luoda")
 
                 val totalSize = try {
                     activity.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
@@ -388,16 +458,8 @@ class ImportExportManager(
                 // 2. Vaihe: "Puretaan"
                 updateProgress("Puretaan zip-tiedostoa...", 0, 30)
 
-                var importedCatches = 0
-                var importedPlaces = 0
-                var importedSessions = 0
-                var importedTrackPoints = 0
-                var importedMedia = 0
-                var importedSpecies = 0
-                var importedDiaryPages = 0
-
-                val tempMediaFiles = mutableMapOf<String, ByteArray>()
-                var mediaJsonStr: String? = null
+                    val tempMediaFiles = mutableMapOf<String, ByteArray>()
+                    var mediaJsonStr: String? = null
 
                 val archiveSize = zipFile.length()
                 java.io.FileInputStream(zipFile).use { archiveInput ->
@@ -467,12 +529,22 @@ class ImportExportManager(
                                     extractionProgress,
                                     30 + extractionProgress * 40 / 100
                                 )
+                                var currentSessionId = -1L
+                                var currentSessionStartedAt = Long.MIN_VALUE
                                 jsonService.importRoutesFromStream(zipIn) { session, points ->
-                                    val sid = db.fishingSessionDao().insert(session)
-                                    val pts = points.map { it.copy(fishingSessionId = sid) }
-                                    db.trackPointDao().insertAll(pts)
-                                    importedSessions++
-                                    importedTrackPoints += pts.size
+                                    if (session.startedAt != currentSessionStartedAt) {
+                                        currentSessionId = db.fishingSessionDao().insert(session)
+                                        currentSessionStartedAt = session.startedAt
+                                        importedSessions++
+                                    }
+
+                                    if (points.isNotEmpty()) {
+                                        val pointsToInsert = points.map {
+                                            it.copy(fishingSessionId = currentSessionId)
+                                        }
+                                        db.trackPointDao().insertAll(pointsToInsert)
+                                        importedTrackPoints += pointsToInsert.size
+                                    }
                                 }
                             }
                             "kalalajit.json" -> {
@@ -539,276 +611,348 @@ class ImportExportManager(
                     updateProgress(stageProgress = 100, overallProgress = 100)
                 }
 
-                activity.runOnUiThread {
-                    progressDialog.dismiss()
-                    onImportDone(importedSpecies > 0)
-                    showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia\n- $importedDiaryPages kalapäiväkirjan sivua")
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                progressDialog.dismiss()
+                onImportDone(importedSpecies > 0)
+                showConfirmationDialog("Tuonti valmis:\n- $importedCatches kalapistettä\n- $importedPlaces muun paikan pistettä\n- $importedSessions kalastussessiota\n- $importedTrackPoints reittipistettä\n- $importedMedia mediatiedostoa\n- $importedSpecies kalalajia\n- $importedDiaryPages kalapäiväkirjan sivua")
+            } catch (e: CancellationException) {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog.dismiss()
+                }
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Import all failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     progressDialog.dismiss()
                     showConfirmationDialog("Tuonti epäonnistui: ${e.message}")
                 }
             } finally {
-                tempZipFile?.delete()
+                withContext(NonCancellable + Dispatchers.IO) {
+                    tempZipFile?.delete()
+                }
             }
-        }.start()
+        }
     }
 
     private fun exportToJson(uri: Uri, manualCatches: List<FishCatch>? = null, manualPlaces: List<PlaceOfInterest>? = null) {
-        Thread {
-            val catches = manualCatches ?: db.fishCatchDao().getAll()
-            val places = manualPlaces ?: db.placeOfInterestDao().getAll()
-            jsonService.export(activity.contentResolver, uri, catches, places)
-            showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
-        }.start()
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
+            try {
+                val (catches, places) = withContext(Dispatchers.IO) {
+                    val loadedCatches = manualCatches ?: db.fishCatchDao().getAll()
+                    val loadedPlaces = manualPlaces ?: db.placeOfInterestDao().getAll()
+                    jsonService.export(activity.contentResolver, uri, loadedCatches, loadedPlaces)
+                    loadedCatches to loadedPlaces
+                }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                showConfirmationDialog("Tietojen vienti valmis (${catches.size} kalaa, ${places.size} muuta paikkaa).")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Export failed", e)
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    showConfirmationDialog("Vienti epäonnistui: ${e.message}")
+                }
+            }
+        }
     }
 
     private fun exportDiaryToJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                val diaryPages = db.fishDiaryPageDao().getAll()
-                jsonService.exportDiary(activity.contentResolver, uri, diaryPages)
+                val diaryPages = withContext(Dispatchers.IO) {
+                    val loadedPages = db.fishDiaryPageDao().getAll()
+                    jsonService.exportDiary(activity.contentResolver, uri, loadedPages)
+                    loadedPages
+                }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
                 showConfirmationDialog("Kalapäiväkirjan vienti valmis (${diaryPages.size} sivua).")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Diary export failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Kalapäiväkirjan vienti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun importDiaryFromJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                val importedPages = jsonService.importDiary(activity.contentResolver, uri)
+                val importedPages = withContext(Dispatchers.IO) {
+                    jsonService.importDiary(activity.contentResolver, uri)
+                }
                 if (importedPages.isEmpty()) {
-                    activity.runOnUiThread {
+                    if (!activity.isFinishing && !activity.isDestroyed) {
                         showConfirmationDialog("Tiedostosta ei löytynyt tuotavia kalapäiväkirjan sivuja tai se on virheellinen.")
                     }
-                    return@Thread
+                    return@launch
                 }
 
-                importedPages.forEach { db.fishDiaryPageDao().insert(it.copy(id = 0)) }
-                
-                activity.runOnUiThread {
-                    onImportDone(false)
-                    showConfirmationDialog("Kalapäiväkirjan tuonti valmis (${importedPages.size} sivua).")
+                withContext(Dispatchers.IO) {
+                    importedPages.forEach { db.fishDiaryPageDao().insert(it.copy(id = 0)) }
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                onImportDone(false)
+                showConfirmationDialog("Kalapäiväkirjan tuonti valmis (${importedPages.size} sivua).")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Diary import failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Kalapäiväkirjan tuonti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun exportSpeciesToJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                val species = db.fishSpeciesDao().getAll()
-                jsonService.exportSpecies(activity.contentResolver, uri, species, activity.filesDir)
+                val species = withContext(Dispatchers.IO) {
+                    val loadedSpecies = db.fishSpeciesDao().getAll()
+                    jsonService.exportSpecies(activity.contentResolver, uri, loadedSpecies, activity.filesDir)
+                    loadedSpecies
+                }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
                 showConfirmationDialog("Kalalajien asetusten vienti valmis (${species.size} lajia).")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Species export failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Kalalajien asetusten vienti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun exportRoutesToJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                val sessions = db.fishingSessionDao().getAll()
-                jsonService.exportRoutes(activity.contentResolver, uri, sessions) { sessionId ->
-                    db.trackPointDao().getPointsForSession(sessionId)
+                val sessions = withContext(Dispatchers.IO) {
+                    val loadedSessions = db.fishingSessionDao().getAll()
+                    jsonService.exportRoutes(activity.contentResolver, uri, loadedSessions) { sessionId ->
+                        db.trackPointDao().getPointsForSession(sessionId)
+                    }
+                    loadedSessions
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
                 showConfirmationDialog("Reittien vienti valmis (${sessions.size} reittiä).")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Routes export failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Reittien vienti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun importRoutesFromJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
+            var progressDialog: AlertDialog? = null
             try {
-                activity.runOnUiThread {
-                    val progressLayout = LinearLayout(activity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(50, 40, 50, 10)
-                    }
+                val progressLayout = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(50, 40, 50, 10)
+                }
 
-                    val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                        max = 100
-                        progress = 0
-                        isIndeterminate = true
-                    }
+                val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    max = 100
+                    progress = 0
+                    isIndeterminate = true
+                }
 
-                    val progressText = TextView(activity).apply {
-                        text = "Tuodaan reittejä..."
-                        textSize = 18f
-                        setPadding(0, 0, 0, 20)
-                    }
+                val progressText = TextView(activity).apply {
+                    text = "Tuodaan reittejä..."
+                    textSize = 18f
+                    setPadding(0, 0, 0, 20)
+                }
 
-                    progressLayout.addView(progressText)
-                    progressLayout.addView(progressBar)
+                progressLayout.addView(progressText)
+                progressLayout.addView(progressBar)
 
-                    val progressDialog = AlertDialog.Builder(activity)
-                        .setTitle("Tuodaan reittejä")
-                        .setView(progressLayout)
-                        .setCancelable(false)
-                        .create()
+                progressDialog = AlertDialog.Builder(activity)
+                    .setTitle("Tuodaan reittejä")
+                    .setView(progressLayout)
+                    .setCancelable(false)
+                    .create()
+                progressDialog.show()
 
-                    progressDialog.show()
+                var currentSessionId = -1L
+                var currentSessionOriginalStart = -1L
+                var importedSessionsCount = 0
 
-                    Thread {
-                        try {
-                            var currentSessionId = -1L
-                            var currentSessionOriginalStart = -1L
-                            var importedSessionsCount = 0
-                            
-                            jsonService.importRoutesStream(activity.contentResolver, uri) { session, points ->
-                                // If it's a new session or the first one
-                                if (session.startedAt != currentSessionOriginalStart) {
-                                    currentSessionId = db.fishingSessionDao().insert(session)
-                                    currentSessionOriginalStart = session.startedAt
-                                    importedSessionsCount++
-                                    
-                                    activity.runOnUiThread {
-                                        progressText.text = "Tuodaan reittejä: $importedSessionsCount istuntoa"
-                                    }
-                                }
-                                
-                                if (points.isNotEmpty()) {
-                                    val pointsToInsert = points.map { it.copy(fishingSessionId = currentSessionId) }
-                                    db.trackPointDao().insertAll(pointsToInsert)
-                                }
-                            }
+                withContext(Dispatchers.IO) {
+                    jsonService.importRoutesStream(activity.contentResolver, uri) { session, points ->
+                        // A route is represented by one session followed by its point batches.
+                        if (session.startedAt != currentSessionOriginalStart) {
+                            currentSessionId = db.fishingSessionDao().insert(session)
+                            currentSessionOriginalStart = session.startedAt
+                            importedSessionsCount++
 
                             activity.runOnUiThread {
-                                progressDialog.dismiss()
-                                onImportDone(false)
-                                if (importedSessionsCount > 0) {
-                showConfirmationDialog("Reittien tuonti valmis ($importedSessionsCount kalastussessiota).")
-                                } else {
-                                    showConfirmationDialog("Tiedostosta ei löytynyt tuotavia reittejä.")
+                                if (!activity.isFinishing && !activity.isDestroyed) {
+                                    progressText.text = "Tuodaan reittejä: $importedSessionsCount istuntoa"
                                 }
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("ImportExportManager", "Routes import processing failed", e)
-                            activity.runOnUiThread {
-                                progressDialog.dismiss()
-                                showConfirmationDialog("Reittien tuonti epäonnistui: ${e.message}")
                             }
                         }
-                    }.start()
+
+                        if (points.isNotEmpty()) {
+                            val pointsToInsert = points.map { it.copy(fishingSessionId = currentSessionId) }
+                            db.trackPointDao().insertAll(pointsToInsert)
+                        }
+                    }
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+
+                progressDialog.dismiss()
+                onImportDone(false)
+                if (importedSessionsCount > 0) {
+                    showConfirmationDialog("Reittien tuonti valmis ($importedSessionsCount kalastussessiota).")
+                } else {
+                    showConfirmationDialog("Tiedostosta ei löytynyt tuotavia reittejä.")
+                }
+            } catch (e: CancellationException) {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog?.dismiss()
+                }
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Routes import failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog?.dismiss()
                     showConfirmationDialog("Reittien tuonti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun importFromJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
+            var progressDialog: AlertDialog? = null
             try {
-                val (importedCatches, importedPlaces) = jsonService.import(activity.contentResolver, uri)
+                val (importedCatches, importedPlaces) = withContext(Dispatchers.IO) {
+                    jsonService.import(activity.contentResolver, uri)
+                }
                 if (importedCatches.isEmpty() && importedPlaces.isEmpty()) {
-                    activity.runOnUiThread {
+                    if (!activity.isFinishing && !activity.isDestroyed) {
                         showConfirmationDialog("Tiedostosta ei löytynyt tuotavia tietoja tai se on virheellinen.")
                     }
-                    return@Thread
+                    return@launch
                 }
 
-                val currentCatches = db.fishCatchDao().getAll()
-                val currentPlaces = db.placeOfInterestDao().getAll()
+                val (currentCatches, currentPlaces) = withContext(Dispatchers.IO) {
+                    db.fishCatchDao().getAll() to db.placeOfInterestDao().getAll()
+                }
 
                 val totalToCompare = importedCatches.size + importedPlaces.size
-                
-                activity.runOnUiThread {
-                    val progressLayout = LinearLayout(activity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(50, 40, 50, 10)
-                    }
-                    
-                    val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                        max = 100
-                        progress = 0
-                    }
-                    
-                    val progressText = TextView(activity).apply {
-                        text = "Tarkastetaan duplikaatteja: 0%"
-                        textSize = 18f
-                        setPadding(0, 0, 0, 20)
-                    }
-                    
-                    progressLayout.addView(progressText)
-                    progressLayout.addView(progressBar)
-                    
-                    val progressDialog = AlertDialog.Builder(activity)
-                        .setTitle("Tarkastetaan duplikaatteja...")
-                        .setView(progressLayout)
-                        .setCancelable(false)
-                        .create()
-                        
-                    progressDialog.show()
-                    
-                    Thread {
-                        val duplicateCatches = ImportDuplicateDetector.findDuplicateCatches(importedCatches, currentCatches) { progress ->
-                            activity.runOnUiThread {
-                                val progressValue = (progress * 100) / totalToCompare
-                                progressBar.progress = progressValue
-                                progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
-                            }
-                        }
-                        
-                        val duplicatePlaces = ImportDuplicateDetector.findDuplicatePlaces(importedPlaces, currentPlaces, importedCatches.size) { progress ->
-                            activity.runOnUiThread {
-                                val progressValue = (progress * 100) / totalToCompare
-                                progressBar.progress = progressValue
-                                progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
-                            }
-                        }
 
-                        val totalImported = importedCatches.size + importedPlaces.size
-                        val totalDuplicates = duplicateCatches.size + duplicatePlaces.size
-
-                        activity.runOnUiThread {
-                            progressDialog.dismiss()
-                            if (totalDuplicates > 0) {
-                                showImportConflictDialog(
-                                    totalImported,
-                                    totalDuplicates,
-                                    importedCatches,
-                                    importedPlaces,
-                                    duplicateCatches,
-                                    duplicatePlaces
-                                )
-                            } else {
-                                processImport(importedCatches, importedPlaces, emptyList(), emptyList(), 0)
-                            }
-                        }
-                    }.start()
+                val progressLayout = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(50, 40, 50, 10)
                 }
+
+                val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    max = 100
+                    progress = 0
+                }
+
+                val progressText = TextView(activity).apply {
+                    text = "Tarkastetaan duplikaatteja: 0%"
+                    textSize = 18f
+                    setPadding(0, 0, 0, 20)
+                }
+
+                progressLayout.addView(progressText)
+                progressLayout.addView(progressBar)
+
+                progressDialog = AlertDialog.Builder(activity)
+                    .setTitle("Tarkastetaan duplikaatteja...")
+                    .setView(progressLayout)
+                    .setCancelable(false)
+                    .create()
+                progressDialog.show()
+
+                val duplicateCatches = withContext(Dispatchers.IO) {
+                    ImportDuplicateDetector.findDuplicateCatches(importedCatches, currentCatches) { progress ->
+                        val progressValue = (progress * 100) / totalToCompare
+                        activity.runOnUiThread {
+                            if (!activity.isFinishing && !activity.isDestroyed) {
+                                progressBar.progress = progressValue
+                                progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
+                            }
+                        }
+                    }
+                }
+
+                val duplicatePlaces = withContext(Dispatchers.IO) {
+                    ImportDuplicateDetector.findDuplicatePlaces(importedPlaces, currentPlaces, importedCatches.size) { progress ->
+                        val progressValue = (progress * 100) / totalToCompare
+                        activity.runOnUiThread {
+                            if (!activity.isFinishing && !activity.isDestroyed) {
+                                progressBar.progress = progressValue
+                                progressText.text = "Tarkastetaan duplikaatteja: $progressValue%"
+                            }
+                        }
+                    }
+                }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+
+                progressDialog.dismiss()
+                val totalImported = importedCatches.size + importedPlaces.size
+                val totalDuplicates = duplicateCatches.size + duplicatePlaces.size
+                if (totalDuplicates > 0) {
+                    showImportConflictDialog(
+                        totalImported,
+                        totalDuplicates,
+                        importedCatches,
+                        importedPlaces,
+                        duplicateCatches,
+                        duplicatePlaces
+                    )
+                } else {
+                    processImport(importedCatches, importedPlaces, emptyList(), emptyList(), 0)
+                }
+            } catch (e: CancellationException) {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog?.dismiss()
+                }
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Import failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog?.dismiss()
                     showConfirmationDialog("Tietojen tuonti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun showImportConflictDialog(
@@ -865,9 +1009,7 @@ class ImportExportManager(
                     rbAllId -> 2 // All
                     else -> 0 // Skip
                 }
-                Thread {
-                    processImport(importedCatches, importedPlaces, duplicateCatches, duplicatePlaces, mode)
-                }.start()
+                processImport(importedCatches, importedPlaces, duplicateCatches, duplicatePlaces, mode)
             }
             .setNegativeButton("Peruuta", null)
             .show()
@@ -881,38 +1023,39 @@ class ImportExportManager(
         duplicatePlaces: List<Pair<PlaceOfInterest, PlaceOfInterest?>>,
         mode: Int // 0: Skip, 1: Replace, 2: All
     ) {
+        if (activity.isFinishing || activity.isDestroyed) return
+
         val totalToProcess = importedCatches.size + importedPlaces.size
-        
-        activity.runOnUiThread {
-            val progressLayout = LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(50, 40, 50, 10)
-            }
-            
-            val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                max = 100
-                progress = 0
-            }
-            
-            val progressText = TextView(activity).apply {
-                text = "Tuodaan pisteitä: 0%"
-                textSize = 18f
-                setPadding(0, 0, 0, 20)
-            }
-            
-            progressLayout.addView(progressText)
-            progressLayout.addView(progressBar)
-            
-            val progressDialog = AlertDialog.Builder(activity)
-                .setTitle("Tuodaan pisteitä")
-                .setView(progressLayout)
-                .setCancelable(false)
-                .create()
-                
-            progressDialog.show()
-            
-            Thread {
-                try {
+
+        val progressLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+
+        val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 0
+        }
+
+        val progressText = TextView(activity).apply {
+            text = "Tuodaan pisteitä: 0%"
+            textSize = 18f
+            setPadding(0, 0, 0, 20)
+        }
+
+        progressLayout.addView(progressText)
+        progressLayout.addView(progressBar)
+
+        val progressDialog = AlertDialog.Builder(activity)
+            .setTitle("Tuodaan pisteitä")
+            .setView(progressLayout)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        activity.lifecycleScope.launch {
+            try {
+                val (catchesToInsertCount, placesToInsertCount) = withContext(Dispatchers.IO) {
                     val catchResolution = ImportConflictResolver.resolve(
                         importedCatches,
                         duplicateCatches,
@@ -936,89 +1079,119 @@ class ImportExportManager(
                     val catchesToInsert = catchResolution.itemsToInsert
                     val placesToInsert = placeResolution.itemsToInsert
 
-                    // Varmista uudet ID:t asettamalla ne nollaksi ja tallenna yksitellen tai erissä edistymisen näyttämiseksi
+                    // Varmista uudet ID:t asettamalla ne nollaksi ja tallenna yksitellen edistymisen näyttämiseksi.
                     var processedCount = 0
-                    
+                    val progressDenominator = totalToProcess.coerceAtLeast(1)
+
                     catchesToInsert.forEach { fishCatch ->
                         db.fishCatchDao().insertAll(listOf(fishCatch.copy(id = 0)))
                         processedCount++
-                        val progressValue = (processedCount * 100) / totalToProcess
+                        val progressValue = (processedCount * 100) / progressDenominator
                         activity.runOnUiThread {
-                            progressBar.progress = progressValue
-                            progressText.text = "Tuodaan pisteitä: $progressValue%"
-                        }
-                    }
-                    
-                    placesToInsert.forEach { place ->
-                        db.placeOfInterestDao().insertAll(listOf(place.copy(id = 0)))
-                        processedCount++
-                        val progressValue = (processedCount * 100) / totalToProcess
-                        activity.runOnUiThread {
-                            progressBar.progress = progressValue
-                            progressText.text = "Tuodaan pisteitä: $progressValue%"
+                            if (!activity.isFinishing && !activity.isDestroyed) {
+                                progressBar.progress = progressValue
+                                progressText.text = "Tuodaan pisteitä: $progressValue%"
+                            }
                         }
                     }
 
-                    activity.runOnUiThread {
-                        progressDialog.dismiss()
-                        onImportDone(false)
-                        showConfirmationDialog("Tietojen tuonti valmis (${catchesToInsert.size} kalapistettä, ${placesToInsert.size} muun paikan pistettä).")
+                    placesToInsert.forEach { place ->
+                        db.placeOfInterestDao().insertAll(listOf(place.copy(id = 0)))
+                        processedCount++
+                        val progressValue = (processedCount * 100) / progressDenominator
+                        activity.runOnUiThread {
+                            if (!activity.isFinishing && !activity.isDestroyed) {
+                                progressBar.progress = progressValue
+                                progressText.text = "Tuodaan pisteitä: $progressValue%"
+                            }
+                        }
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("ImportExportManager", "Import processing failed", e)
-                    activity.runOnUiThread {
-                        progressDialog.dismiss()
-                        showConfirmationDialog("Tietojen tuonti epäonnistui: ${e.message}")
-                    }
+
+                    catchesToInsert.size to placesToInsert.size
                 }
-            }.start()
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                progressDialog.dismiss()
+                onImportDone(false)
+                showConfirmationDialog("Tietojen tuonti valmis ($catchesToInsertCount kalapistettä, $placesToInsertCount muun paikan pistettä).")
+            } catch (e: CancellationException) {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog.dismiss()
+                }
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("ImportExportManager", "Import processing failed", e)
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    progressDialog.dismiss()
+                    showConfirmationDialog("Tietojen tuonti epäonnistui: ${e.message}")
+                }
+            }
         }
     }
 
     private fun importSpeciesFromJson(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                val speciesList = jsonService.importSpecies(activity.contentResolver, uri, activity.filesDir)
+                val speciesList = withContext(Dispatchers.IO) {
+                    jsonService.importSpecies(activity.contentResolver, uri, activity.filesDir)
+                }
                 if (speciesList.isEmpty()) {
-                    activity.runOnUiThread {
+                    if (!activity.isFinishing && !activity.isDestroyed) {
                         showConfirmationDialog("Tiedostosta ei löytynyt tuotavia kalalajeja tai se on virheellinen.")
                     }
-                    return@Thread
+                    return@launch
                 }
 
-                db.fishSpeciesDao().deleteAll()
-                db.fishSpeciesDao().insertAll(speciesList)
-
-                activity.runOnUiThread {
-                    onImportDone(true)
-                    showConfirmationDialog("Kalalajien asetusten tuonti valmis (${speciesList.size} lajia).")
+                withContext(Dispatchers.IO) {
+                    db.fishSpeciesDao().deleteAll()
+                    db.fishSpeciesDao().insertAll(speciesList)
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                onImportDone(true)
+                showConfirmationDialog("Kalalajien asetusten tuonti valmis (${speciesList.size} lajia).")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Species import failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Kalalajien asetusten tuonti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun exportMediaToZip(uri: Uri) {
-        Thread {
+        activity.lifecycleScope.launch {
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+
             try {
-                activity.contentResolver.openOutputStream(uri)?.use { output ->
-                    mediaService.exportMedia(output)
+                withContext(Dispatchers.IO) {
+                    val outputStream = activity.contentResolver.openOutputStream(uri)
+                        ?: throw java.io.IOException("Mediatiedostoa ei voitu avata kirjoittamista varten")
+                    outputStream.use { output ->
+                        mediaService.exportMedia(output)
+                    }
                 }
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
                 showConfirmationDialog("Median vienti valmis.")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Media export failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     showConfirmationDialog("Median vienti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun importMediaFromZip(uri: Uri) {
+        if (activity.isFinishing || activity.isDestroyed) return
+
         val progressLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(50, 40, 50, 10)
@@ -1046,39 +1219,50 @@ class ImportExportManager(
             
         progressDialog.show()
 
-        Thread {
+        activity.lifecycleScope.launch {
             try {
-                activity.contentResolver.openInputStream(uri)?.use { input ->
-                    mediaService.importMedia(input) { current, total ->
-                        activity.runOnUiThread {
-                            val progressValue = (current * 100) / total
-                            progressBar.progress = progressValue
-                            progressText.text = "Tuodaan mediaa: $progressValue% ($current/$total)"
+                withContext(Dispatchers.IO) {
+                    val inputStream = activity.contentResolver.openInputStream(uri)
+                        ?: throw java.io.IOException("Mediatiedostoa ei voitu avata lukemista varten")
+                    inputStream.use { input ->
+                        mediaService.importMedia(input) { current, total ->
+                            activity.runOnUiThread {
+                                if (!activity.isFinishing && !activity.isDestroyed) {
+                                    val progressValue = if (total > 0) (current * 100) / total else 100
+                                    progressBar.progress = progressValue
+                                    progressText.text = "Tuodaan mediaa: $progressValue% ($current/$total)"
+                                }
+                            }
                         }
                     }
                 }
-                activity.runOnUiThread {
+
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                progressDialog.dismiss()
+                onImportDone(false)
+                showConfirmationDialog("Median tuonti valmis.")
+            } catch (e: CancellationException) {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     progressDialog.dismiss()
-                    onImportDone(false)
-                    showConfirmationDialog("Median tuonti valmis.")
                 }
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ImportExportManager", "Media import failed", e)
-                activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
                     progressDialog.dismiss()
                     showConfirmationDialog("Median tuonti epäonnistui: ${e.message}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun showConfirmationDialog(message: String) {
-        activity.runOnUiThread {
-            val dialog = AlertDialog.Builder(activity)
-                .setMessage(message)
-                .setPositiveButton("OK", null)
-                .show()
-            dialog.enlargeButtons()
-        }
+        if (activity.isFinishing || activity.isDestroyed) return
+
+        val dialog = AlertDialog.Builder(activity)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+        dialog.enlargeButtons()
     }
 }

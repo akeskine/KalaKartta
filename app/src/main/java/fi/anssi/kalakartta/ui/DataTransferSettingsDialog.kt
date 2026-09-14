@@ -24,6 +24,21 @@ class DataTransferSettingsDialog(
     private val onShowDialog: (AlertDialog) -> Unit
 ) {
 
+    private enum class ExtraOption(val label: String) {
+        EXPORT_POINTS("Vie kalapisteet ja muut pisteet"),
+        IMPORT_POINTS("Tuo kalapisteet ja muut pisteet"),
+        EXPORT_ROUTES("Vie kalastussessiot"),
+        IMPORT_ROUTES("Tuo kalastussessiot"),
+        EXPORT_MEDIA("Vie media"),
+        IMPORT_MEDIA("Tuo media"),
+        EXPORT_DIARY("Vie kalapäiväkirja"),
+        IMPORT_DIARY("Tuo kalapäiväkirja"),
+        DELETE_POINTS("Poista kalapisteet ja muut pisteet"),
+        DELETE_ROUTES("Poista kalastussessiot"),
+        DELETE_MEDIA("Poista media"),
+        DELETE_DIARY("Poista kalapäiväkirja")
+    }
+
     fun show(
         count: Int, 
         placeCount: Int, 
@@ -141,10 +156,10 @@ class DataTransferSettingsDialog(
             visibility = View.GONE
         }
 
-        val oldOptions = arrayOf("Vie kalapisteet ja muut pisteet", "Tuo kalapisteet ja muut pisteet", "Vie kalastussessiot", "Tuo kalastussessiot", "Vie media", "Tuo media", "Vie kalapäiväkirja", "Tuo kalapäiväkirja", "Poista kalapisteet ja muut pisteet", "Poista kalastussessiot", "Poista media", "Poista kalapäiväkirja")
-        oldOptions.forEachIndexed { index, option ->
+        val oldOptions = ExtraOption.entries
+        oldOptions.forEach { option ->
             val textView = TextView(activity).apply {
-                text = option
+                text = option.label
                 textSize = 18f
                 setPadding(0, 32, 0, 32)
                 setTextColor(activity.getColor(android.R.color.holo_blue_dark))
@@ -155,8 +170,8 @@ class DataTransferSettingsDialog(
             }
             textView.setOnClickListener {
                 dialog.dismiss()
-                when (index) {
-                    0 -> {
+                when (option) {
+                    ExtraOption.EXPORT_POINTS -> {
                         if (isFiltered) {
                             val exportDialog = AlertDialog.Builder(activity)
                                 .setTitle("Vie kalapisteet ja muut pisteet")
@@ -176,26 +191,26 @@ class DataTransferSettingsDialog(
                             importExportManager.launchExport()
                         }
                     }
-                    1 -> {
+                    ExtraOption.IMPORT_POINTS -> {
                         onDisableHeatmapAndRoutes()
                         importExportManager.launchImport()
                     }
-                    2 -> importExportManager.launchExportRoutes()
-                    3 -> {
+                    ExtraOption.EXPORT_ROUTES -> importExportManager.launchExportRoutes()
+                    ExtraOption.IMPORT_ROUTES -> {
                         onDisableHeatmapAndRoutes()
                         importExportManager.launchImportRoutes()
                     }
-                    4 -> importExportManager.launchExportMedia()
-                    5 -> importExportManager.launchImportMedia()
-                    6 -> importExportManager.launchExportDiary()
-                    7 -> {
+                    ExtraOption.EXPORT_MEDIA -> importExportManager.launchExportMedia()
+                    ExtraOption.IMPORT_MEDIA -> importExportManager.launchImportMedia()
+                    ExtraOption.EXPORT_DIARY -> importExportManager.launchExportDiary()
+                    ExtraOption.IMPORT_DIARY -> {
                         onDisableHeatmapAndRoutes()
                         importExportManager.launchImportDiary()
                     }
-                    8 -> confirmDeleteAllCatches()
-                    9 -> confirmDeleteAllRoutes()
-                    10 -> importExportManager.launchDeleteAllData()
-                    11 -> importExportManager.launchDeleteDiaryData()
+                    ExtraOption.DELETE_POINTS -> confirmDeleteAllCatches()
+                    ExtraOption.DELETE_ROUTES -> confirmDeleteAllRoutes()
+                    ExtraOption.DELETE_MEDIA -> importExportManager.launchDeleteMediaData()
+                    ExtraOption.DELETE_DIARY -> importExportManager.launchDeleteDiaryData()
                 }
             }
             extraOptionsLayout.addView(textView)

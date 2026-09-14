@@ -82,6 +82,22 @@ class RouteJsonMapper(
         var notes = ""
         var fisherman = ""
         var pointsFound = false
+        var resolvedStartedAtMs = 0L
+
+        fun sessionForBatch(points: List<TrackPoint>): FishingSession {
+            if (resolvedStartedAtMs == 0L) {
+                resolvedStartedAtMs = startedAtMs.takeUnless { it == 0L }
+                    ?: points.firstOrNull()?.timestamp
+                    ?: 0L
+            }
+
+            return RouteDomainMapper.session(
+                startedAt = resolvedStartedAtMs,
+                endedAt = endedAtMs ?: points.lastOrNull()?.timestamp,
+                notes = notes,
+                fisherman = fisherman
+            )
+        }
 
         reader.beginObject()
         while (reader.hasNext()) {
@@ -101,19 +117,16 @@ class RouteJsonMapper(
                     while (reader.hasNext()) {
                         pointsBatch += parseTrackPoint(reader)
                         if (pointsBatch.size >= 1000) {
-                            onSessionParsed(RouteDomainMapper.sessionForPoints(pointsBatch, notes, fisherman), pointsBatch.toList())
+                            onSessionParsed(sessionForBatch(pointsBatch), pointsBatch.toList())
                             pointsBatch.clear()
                         }
                     }
                     reader.endArray()
 
-                    if (pointsBatch.isNotEmpty() || !pointsFound) {
-                        val session = if (pointsBatch.isNotEmpty()) {
-                            RouteDomainMapper.sessionForPoints(pointsBatch, notes, fisherman)
-                        } else {
-                            RouteDomainMapper.session(startedAtMs, endedAtMs, notes, fisherman)
-                        }
-                        onSessionParsed(session, pointsBatch)
+                    if (pointsBatch.isNotEmpty()) {
+                        onSessionParsed(sessionForBatch(pointsBatch), pointsBatch)
+                    } else if (resolvedStartedAtMs == 0L) {
+                        onSessionParsed(RouteDomainMapper.session(startedAtMs, endedAtMs, notes, fisherman), emptyList())
                     }
                 }
                 else -> reader.skipValue()
