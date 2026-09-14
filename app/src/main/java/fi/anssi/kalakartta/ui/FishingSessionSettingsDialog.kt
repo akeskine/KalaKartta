@@ -487,7 +487,6 @@ class FishingSessionSettingsDialog(
 
         val resetDefaultsLink = actionLinkTextView(activity).apply {
             text = activity.getString(R.string.reset_defaults)
-            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
