@@ -21,8 +21,6 @@ import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.FolderOverlay
 import android.graphics.Color
-import android.os.Handler
-import android.os.Looper
 import android.view.Gravity
 import android.widget.LinearLayout
 import org.osmdroid.views.MapView
@@ -59,14 +57,13 @@ import kotlinx.coroutines.withContext
 
 import kotlinx.coroutines.*
 import fi.anssi.kalakartta.service.FishingSessionService
-import android.content.ServiceConnection
-import android.os.IBinder
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import fi.anssi.kalakartta.ui.SessionReplayResult
 import fi.anssi.kalakartta.ui.SessionReplayController
 import fi.anssi.kalakartta.ui.MapDisplayController
 import fi.anssi.kalakartta.ui.MeasurementController
+import fi.anssi.kalakartta.ui.FishingSessionController
 
 class MainActivity : AppCompatActivity() {
 
@@ -124,6 +121,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var mapDisplayController: MapDisplayController
     private lateinit var measurementController: MeasurementController
+    private lateinit var fishingSessionController: FishingSessionController
     private lateinit var locationOverlay: MyLocationNewOverlay
     
     private fun addOverlayBelowMarkers(overlay: Overlay) {
@@ -141,67 +139,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Kalastussessio
-    private var fishingService: FishingSessionService? = null
-    private var isBound = false
-    private var sessionPolyline: Polyline? = null
     private var archivedSessionPolyline: Polyline? = null
+
     private val replayController = SessionReplayController()
     private var replayJob: Job? = null
     private var visibleArchivedSessionId: Long = -1L
     private var isOnlySessionCatchesMode = false
-    private val recordingHandler = Handler(Looper.getMainLooper())
-    private var recordingDotVisible = true
-    private var recordingIntervalSeconds = 0
-    private var isBlinking = false
-    private val recordingBlinkRunnable = object : Runnable {
-        override fun run() {
-            val dot = findViewById<android.view.View>(R.id.recordingDot)
-            
-            if (dot != null) {
-                recordingDotVisible = !recordingDotVisible
-                dot.visibility = if (recordingDotVisible) android.view.View.VISIBLE else android.view.View.INVISIBLE
-            }
-            
-            recordingHandler.postDelayed(this, 1000)
-            updateSessionLine()
-        }
-    }
-
-    fun updateSessionLine() {
-        val showLiveRoute = settingsStore.showLiveSessionRoute
-        
-        val sessionId = fishingService?.getCurrentSessionId() ?: -1L
-        if (sessionId != -1L && showLiveRoute) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                val points = db.trackPointDao().getPointsForSession(sessionId)
-                withContext(Dispatchers.Main) {
-                    if (points.isNotEmpty()) {
-                        if (sessionPolyline == null) {
-                            sessionPolyline = Polyline(map).apply {
-                                outlinePaint.color = Color.rgb(144, 238, 144)
-                                outlinePaint.strokeWidth = 8f
-                                setOnClickListener { _, _, _ -> true }
-                            }
-                            addOverlayBelowMarkers(sessionPolyline!!)
-                        }
-                        val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
-                        sessionPolyline?.setPoints(geoPoints)
-                        map.invalidate()
-                    } else if (sessionPolyline != null) {
-                        map.overlays.remove(sessionPolyline)
-                        sessionPolyline = null
-                        map.invalidate()
-                    }
-                }
-            }
-        } else if (sessionPolyline != null) {
-            map.overlays.remove(sessionPolyline)
-            sessionPolyline = null
-            map.invalidate()
-        }
-    }
-
     private fun zoomToRangeOnMap(start: Long, end: Long) {
         lifecycleScope.launch(Dispatchers.IO) {
             val points = db.trackPointDao().getPointsForHeatmapRange(start, end)
@@ -598,50 +541,6 @@ class MainActivity : AppCompatActivity() {
 
     fun getVisibleArchivedSessionId(): Long = visibleArchivedSessionId
 
-    private val sessionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                "fi.anssi.kalakartta.SESSION_ENDED" -> {
-                    val sessionId = intent.getLongExtra("SESSION_ID", -1L)
-                    val durationMs = intent.getLongExtra("duration_ms", 0L)
-                    val distanceM = intent.getFloatExtra("distance_m", 0f)
-                    updateRecordingStatusUI()
-                    if (sessionId != -1L) {
-                        showSessionNotesDialog(sessionId, durationMs, distanceM)
-                    }
-                }
-                "fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF" -> {
-                    updateRecordingStatusUI()
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Kalastussessio lopetettu")
-                        .setMessage("Kalastussessio on lopetettu, koska sijaintipalvelu on pois päältä.")
-                        .setPositiveButton("OK", null)
-                        .show()
-                }
-                "fi.anssi.kalakartta.SESSION_STARTED" -> {
-                    // Päivitetään paikallinen väli siltä varalta että se on muuttunut palvelussa
-                    recordingIntervalSeconds = settingsStore.minTrackPointInterval
-                    updateRecordingStatusUI()
-                }
-            }
-        }
-    }
-
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(className: android.content.ComponentName, service: IBinder) {
-            val binder = service as FishingSessionService.LocalBinder
-            fishingService = binder.getService()
-            isBound = true
-            updateRecordingStatusUI()
-        }
-
-        override fun onServiceDisconnected(arg0: android.content.ComponentName) {
-            isBound = false
-            fishingService = null
-            updateRecordingStatusUI()
-        }
-    }
-
     private var isFirstResume = true
     private var screenReceiver: BroadcastReceiver? = null
 
@@ -750,6 +649,26 @@ class MainActivity : AppCompatActivity() {
                 measurementPointCount = { measurementController.pointCount },
                 clearMeasurement = { measurementController.clear() },
                 onDefaultFishermanChanged = { updateDefaultFishermanUI() }
+            )
+
+            fishingSessionController = FishingSessionController(
+                activity = this,
+                map = map,
+                database = db,
+                settingsStore = settingsStore,
+                scope = lifecycleScope,
+                addOverlayBelowMarkers = { overlay -> addOverlayBelowMarkers(overlay) },
+                hideArchivedSession = { hideArchivedSession() },
+                onSessionEnded = { sessionId, durationMs, distanceM ->
+                    showSessionNotesDialog(sessionId, durationMs, distanceM)
+                },
+                onLocationDisabled = {
+                    AlertDialog.Builder(this)
+                        .setTitle("Kalastussessio lopetettu")
+                        .setMessage("Kalastussessio on lopetettu, koska sijaintipalvelu on pois päältä.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
             )
 
             importExportManager = ImportExportManager(this, db) { forceRefreshSpecies ->
@@ -1342,156 +1261,30 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        
-        // Luetaan tallennusväli asetuksista
-        recordingIntervalSeconds = settingsStore.minTrackPointInterval
-
-        // Yhdistetään FishingSessionServiceen
-        Intent(this, FishingSessionService::class.java).also { intent ->
-            bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        }
-        val filter = IntentFilter().apply {
-            addAction("fi.anssi.kalakartta.SESSION_STARTED")
-            addAction("fi.anssi.kalakartta.SESSION_ENDED")
-            addAction("fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF")
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(sessionReceiver, filter)
-        }
-        updateRecordingStatusUI()
+        fishingSessionController.onStart()
     }
 
     override fun onStop() {
+        fishingSessionController.onStop()
         super.onStop()
-        if (isBound) {
-            unbindService(connection)
-            isBound = false
-        }
-        try {
-            unregisterReceiver(sessionReceiver)
-        } catch (e: Exception) {}
-        recordingHandler.removeCallbacks(recordingBlinkRunnable)
+    }
+    fun updateSessionLine() {
+        fishingSessionController.updateSessionLine()
     }
 
     fun startFishingSession(locationCheckInterval: Int, minInterval: Int, maxInterval: Int, minDistance: Int) {
-        // Poistetaan vanha arkistoitu reitti jos sellainen on näkyvissä
-        hideArchivedSession()
-
-        recordingIntervalSeconds = minInterval
-        val intent = Intent(this, FishingSessionService::class.java).apply {
-            putExtra("LOCATION_CHECK_INTERVAL", locationCheckInterval)
-            putExtra("MIN_INTERVAL", minInterval)
-            putExtra("MAX_INTERVAL", maxInterval)
-            putExtra("MIN_DISTANCE", minDistance)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-        // Yhdistetään uudelleen jos ei oltu yhdistettynä
-        bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        updateRecordingStatusUI(true)
+        fishingSessionController.startFishingSession(locationCheckInterval, minInterval, maxInterval, minDistance)
     }
 
     fun stopFishingSession() {
-        fishingService?.stopSession()
-        updateRecordingStatusUI(false)
-        updateSessionLine()
+        fishingSessionController.stopFishingSession()
     }
 
     private fun checkUnfinishedSessions() {
-        if (FishingSessionService.isRunning) return
-        
-        lifecycleScope.launch(Dispatchers.IO) {
-            val unfinishedSession = db.fishingSessionDao().getActiveSession()
-            if (unfinishedSession != null) {
-                val lastPoint = db.trackPointDao().getLastPointForSession(unfinishedSession.id)
-                val lastTime = lastPoint?.timestamp ?: unfinishedSession.startedAt
-                
-                withContext(Dispatchers.Main) {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Keskeneräinen sessio löytyi")
-                        .setMessage("Haluatko jatkaa aiempaa sessiota vai päättää sen viimeiseen reittipisteeseen?")
-                        .setPositiveButton("Jatka sessiota") { _, _ ->
-                            continueFishingSession(unfinishedSession)
-                        }
-                        .setNegativeButton("Päätä sessio viimeiseen pisteeseen") { _, _ ->
-                            finishUnfinishedSession(unfinishedSession, lastTime)
-                        }
-                        .setCancelable(false)
-                        .show()
-                }
-            }
-        }
+        fishingSessionController.checkUnfinishedSessions()
     }
 
-    private fun continueFishingSession(session: FishingSession) {
-        val locInt = settingsStore.locationCheckInterval
-        val minInt = settingsStore.minTrackPointInterval
-        val maxInt = settingsStore.maxTrackPointInterval
-        val minDist = settingsStore.minTrackPointDistance
-
-        val intent = Intent(this, FishingSessionService::class.java).apply {
-            putExtra("LOCATION_CHECK_INTERVAL", locInt)
-            putExtra("MIN_INTERVAL", minInt)
-            putExtra("MAX_INTERVAL", maxInt)
-            putExtra("MIN_DISTANCE", minDist)
-            putExtra("CONTINUE_SESSION_ID", session.id)
-        }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-        bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        updateRecordingStatusUI(true)
-    }
-
-    private fun finishUnfinishedSession(session: FishingSession, endTime: Long) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val points = db.trackPointDao().getPointsForSession(session.id)
-            val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
-            val actualEnd = points.lastOrNull()?.timestamp ?: endTime
-            
-            db.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
-            withContext(Dispatchers.Main) {
-                updateSessionLine()
-                android.widget.Toast.makeText(this@MainActivity, "Sessio päätetty", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    fun getFishingService() = fishingService
-
-    private fun updateRecordingStatusUI(overrideRecording: Boolean? = null) {
-        val recordingLayout = findViewById<android.view.View>(R.id.recordingStatusLayout) ?: return
-        val isRecording = overrideRecording ?: (fishingService?.isRecording() ?: false)
-        val dot = findViewById<android.view.View>(R.id.recordingDot)
-        val statusText = findViewById<android.widget.TextView>(R.id.recordingStatusText)
-        
-        if (isRecording) {
-            recordingLayout.visibility = android.view.View.VISIBLE
-            statusText?.text = "REC"
-            
-            isBlinking = true
-            recordingHandler.removeCallbacks(recordingBlinkRunnable)
-            recordingDotVisible = true
-            dot?.visibility = android.view.View.VISIBLE
-            recordingHandler.postDelayed(recordingBlinkRunnable, 1000)
-            updateSessionLine()
-        } else {
-            recordingLayout.visibility = android.view.View.GONE
-            isBlinking = false
-            recordingHandler.removeCallbacks(recordingBlinkRunnable)
-            dot?.visibility = android.view.View.GONE
-            updateSessionLine()
-        }
-    }
-
+    fun getFishingService(): FishingSessionService? = fishingSessionController.getFishingService()
     private fun showSessionNotesDialog(sessionId: Long, durationMs: Long, distanceM: Float) {
         if (isFinishing || isDestroyed) return
         
@@ -1601,7 +1394,7 @@ class MainActivity : AppCompatActivity() {
         
         intent?.let { handleIntent(it) }
         
-        updateRecordingStatusUI()
+        fishingSessionController.updateRecordingStatus()
 
         if (ContextCompat.checkSelfPermission(
                 this,
