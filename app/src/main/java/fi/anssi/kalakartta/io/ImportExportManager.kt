@@ -2,7 +2,6 @@
 
 import android.view.View
 import android.net.Uri
-import android.location.Location
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
@@ -767,7 +766,7 @@ class ImportExportManager(
                     progressDialog.show()
                     
                     Thread {
-                        val duplicateCatches = findDuplicateCatches(importedCatches, currentCatches) { progress ->
+                        val duplicateCatches = ImportDuplicateDetector.findDuplicateCatches(importedCatches, currentCatches) { progress ->
                             activity.runOnUiThread {
                                 val progressValue = (progress * 100) / totalToCompare
                                 progressBar.progress = progressValue
@@ -775,7 +774,7 @@ class ImportExportManager(
                             }
                         }
                         
-                        val duplicatePlaces = findDuplicatePlaces(importedPlaces, currentPlaces, importedCatches.size) { progress ->
+                        val duplicatePlaces = ImportDuplicateDetector.findDuplicatePlaces(importedPlaces, currentPlaces, importedCatches.size) { progress ->
                             activity.runOnUiThread {
                                 val progressValue = (progress * 100) / totalToCompare
                                 progressBar.progress = progressValue
@@ -810,45 +809,6 @@ class ImportExportManager(
                 }
             }
         }.start()
-    }
-
-    private fun findDuplicateCatches(imported: List<FishCatch>, current: List<FishCatch>, onProgress: (Int) -> Unit): List<Pair<FishCatch, FishCatch?>> {
-        val results = mutableListOf<Pair<FishCatch, FishCatch?>>()
-
-        for ((index, imp) in imported.withIndex()) {
-            // Tarkista nykyiset
-            val matchInCurrent = current.find { curr ->
-                calculateDistance(imp.latitude, imp.longitude, curr.latitude, curr.longitude) <= 2.0
-            }
-
-            if (matchInCurrent != null) {
-                results.add(imp to matchInCurrent)
-            }
-            onProgress(index + 1)
-        }
-        return results
-    }
-
-    private fun findDuplicatePlaces(imported: List<PlaceOfInterest>, current: List<PlaceOfInterest>, offset: Int, onProgress: (Int) -> Unit): List<Pair<PlaceOfInterest, PlaceOfInterest?>> {
-        val results = mutableListOf<Pair<PlaceOfInterest, PlaceOfInterest?>>()
-
-        for ((index, imp) in imported.withIndex()) {
-            val matchInCurrent = current.find { curr ->
-                calculateDistance(imp.latitude, imp.longitude, curr.latitude, curr.longitude) <= 2.0
-            }
-
-            if (matchInCurrent != null) {
-                results.add(imp to matchInCurrent)
-            }
-            onProgress(offset + index + 1)
-        }
-        return results
-    }
-
-    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-        val results = FloatArray(1)
-        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
-        return results[0]
     }
 
     private fun showImportConflictDialog(
@@ -953,33 +913,28 @@ class ImportExportManager(
             
             Thread {
                 try {
-                    val duplicateImportedCatches = duplicateCatches.map { it.first }.toSet()
-                    val duplicateImportedPlaces = duplicatePlaces.map { it.first }.toSet()
+                    val catchResolution = ImportConflictResolver.resolve(
+                        importedCatches,
+                        duplicateCatches,
+                        mode,
+                        FishCatch::id
+                    )
+                    val placeResolution = ImportConflictResolver.resolve(
+                        importedPlaces,
+                        duplicatePlaces,
+                        mode,
+                        PlaceOfInterest::id
+                    )
 
-                    val catchesToInsert = mutableListOf<FishCatch>()
-                    val placesToInsert = mutableListOf<PlaceOfInterest>()
-
-                    when (mode) {
-                        0 -> { // Skip
-                            catchesToInsert.addAll(importedCatches.filter { it !in duplicateImportedCatches })
-                            placesToInsert.addAll(importedPlaces.filter { it !in duplicateImportedPlaces })
-                        }
-                        1 -> { // Replace
-                            // Poista olemassa olevat päällekkäiset
-                            duplicateCatches.forEach { (_, existing) ->
-                                existing?.let { db.fishCatchDao().deleteById(it.id) }
-                            }
-                            duplicatePlaces.forEach { (_, existing) ->
-                                existing?.let { db.placeOfInterestDao().deleteById(it.id) }
-                            }
-                            catchesToInsert.addAll(importedCatches)
-                            placesToInsert.addAll(importedPlaces)
-                        }
-                        2 -> { // All
-                            catchesToInsert.addAll(importedCatches)
-                            placesToInsert.addAll(importedPlaces)
-                        }
+                    catchResolution.existingIdsToDelete.forEach { id ->
+                        db.fishCatchDao().deleteById(id)
                     }
+                    placeResolution.existingIdsToDelete.forEach { id ->
+                        db.placeOfInterestDao().deleteById(id)
+                    }
+
+                    val catchesToInsert = catchResolution.itemsToInsert
+                    val placesToInsert = placeResolution.itemsToInsert
 
                     // Varmista uudet ID:t asettamalla ne nollaksi ja tallenna yksitellen tai erissä edistymisen näyttämiseksi
                     var processedCount = 0

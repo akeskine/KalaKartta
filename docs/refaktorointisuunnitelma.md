@@ -79,6 +79,7 @@ Huomio: tarkoitus ei ole rakentaa täydellistä käyttöliittymätestistöä enn
 - `FilterManager`-suodattimien kaikkien kenttien tallennus/luku sekä tyhjennys
 - Room-tietokannan käyttödatan tyhjennys ja oletusreferenssidatan palautus
 - reitti- ja heatmap-kyselyiden aika-, alue- ja nopeusrajat
+- importin duplikaattitunnistus ja konfliktitilat (`ImportDuplicateDetector`, `ImportConflictResolver`)
 - aiemmat JSON-yhteensopivuustestit säilyvät osana yksikkötestikokonaisuutta
 
 Varmistetut komennot:
@@ -93,10 +94,10 @@ Molemmat komennot menevät läpi. Instrumentointitestejä ajettiin yhteensä 9 A
 Vaiheessa tarkoituksella dokumentoidut aukot:
 
 - `SettingsManager`in koko UI-polun oletusarvoja ei testata suoraan, koska asetusten luku on hajautunut Activity-sidonnaiseen UI-koodiin. Tämä on vaiheiden 1–2 tavoite: ensin avaimet ja oletusarvot keskitetään testattavaan rajapintaan.
-- Importin duplikaattien konfliktitilat ovat `ImportExportManager`in Activity-sidonnaista sisäistä logiikkaa. Niille tehdään erillinen testattava rajapinta ennen import-logiikan refaktorointia; nykyiset JSON-serialisoinnin ja -yhteensopivuuden testit toimivat turvaverkon perustana.
+- Import/exportin tiedostovalitsimet, progress-dialogit ja tietokantakirjoitukset ovat edelleen Activity-sidonnaisia. Tässä vaiheessa niiden käyttöliittymä- ja säiepolkuja ei vielä testata suoraan.
 - Manuaalinen käyttöliittymän smoke-testi jää laite/emulaattorikohtaiseksi tarkistuslistaksi, ei automaattisen vaiheen 0 testiksi.
 
-Käännöksessä raportoidaan edelleen `SettingsManager.kt`:n vanhentuneet `getColor`- ja `startActivityForResult`-kutsut. Ne ovat vaiheeseen 1 kuuluvaa teknistä velkaa, eivätkä tässä vaiheessa aiheuttaneet toiminnallista testivirhettä.
+Käännöksessä raportoidaan edelleen `ImportExportManager.kt`:n vanhentuneet `getColor`-kutsut. `SettingsManager`in `startActivityForResult` on korvattu Activity Result API:lla.
 
 Keskeinen `settings`-preferenssien inventaario ennen keskittämistä:
 
@@ -229,6 +230,19 @@ Erikseen tarkistettavat tunnetut epäjohdonmukaisuudet:
 - heatmapin käyttörajan tarkistus ja varsinainen heatmap-piirto käyttävät eri referenssileveyspiirin logiikkaa
 
 Mahdolliset bugikorjaukset tehdään omissa muutoksissaan, eivät pelkän koodinsiirron sivuvaikutuksina.
+
+### Vaiheen 4 toteutustilanne
+
+14.9.2026 mennessä seuraavat puhtaan logiikan osat on erotettu ja yksikkötestattu:
+
+- asetusten, kuusuodattimen ja numeeristen suodatin-arvojen validointi
+- heatmapin käyttörajat
+- heatmapin koordinaatti- ja ruutulaskenta
+- Markdown-ohjeen muunnos ja ankkurien normalisointi
+- importin koordinaattipohjainen duplikaattitunnistus
+- importin ohita/korvaa/kaikki-konfliktipäätös
+
+Jäljellä ovat import/exportin domain-muunnokset sekä sessioiden keston ja reittitietojen muotoilu. Importin UI- ja tietokantavirran irrottaminen kuuluu myöhempään vaiheeseen.
 
 ## Vaihe 5: Taustatyöt ja elinkaaren hallinta
 
