@@ -3,7 +3,6 @@ package fi.anssi.kalakartta.data
 import android.content.ContentResolver
 import android.net.Uri
 import android.util.Base64
-import android.util.JsonReader
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -16,6 +15,7 @@ class JsonService {
     private val fishCatchJsonMapper = FishCatchJsonMapper(isoFormatProvider = { isoFormat })
     private val placeJsonMapper = PlaceJsonMapper()
     private val diaryPageJsonMapper = DiaryPageJsonMapper { isoFormat }
+    private val routeJsonMapper = RouteJsonMapper { isoFormat }
     
     private val isoFormatThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
         override fun initialValue(): SimpleDateFormat {
@@ -33,38 +33,7 @@ class JsonService {
         sessions: List<FishingSession>,
         onGetPoints: (Long) -> List<TrackPoint>
     ) {
-        writer.beginObject()
-        writer.name("sessions")
-        writer.beginArray()
-        
-        sessions.forEach { session ->
-            writer.beginObject()
-            writer.name("startedAt").value(isoFormat.format(java.util.Date(session.startedAt)))
-            if (session.endedAt != null) {
-                writer.name("endedAt").value(isoFormat.format(java.util.Date(session.endedAt)))
-            }
-            writer.name("notes").value(session.notes)
-            writer.name("fisherman").value(session.fisherman.uppercase())
-            
-            writer.name("points")
-            writer.beginArray()
-            val points = onGetPoints(session.id)
-            points.forEach { pt ->
-                writer.beginObject()
-                writer.name("timestamp").value(isoFormat.format(java.util.Date(pt.timestamp)))
-                writer.name("latitude").value(pt.latitude)
-                writer.name("longitude").value(pt.longitude)
-                writer.name("speed").value(pt.speed.toDouble())
-                writer.name("accuracy").value(pt.accuracy.toDouble())
-                writer.endObject()
-            }
-            writer.endArray()
-            
-            writer.endObject()
-        }
-        
-        writer.endArray()
-        writer.endObject()
+        routeJsonMapper.writeRoutes(writer, sessions, onGetPoints)
     }
 
     fun exportRoutes(
@@ -90,23 +59,8 @@ class JsonService {
         inputStream: java.io.InputStream,
         onSessionParsed: (FishingSession, List<TrackPoint>) -> Unit
     ) {
-        val reader = inputStream.bufferedReader()
-        val jsonReader = JsonReader(reader)
         try {
-            jsonReader.beginObject()
-            while (jsonReader.hasNext()) {
-                val name = jsonReader.nextName()
-                if (name == "sessions") {
-                    jsonReader.beginArray()
-                    while (jsonReader.hasNext()) {
-                        parseSessionStream(jsonReader, onSessionParsed)
-                    }
-                    jsonReader.endArray()
-                } else {
-                    jsonReader.skipValue()
-                }
-            }
-            jsonReader.endObject()
+            routeJsonMapper.readRoutes(inputStream, onSessionParsed)
         } catch (e: Exception) {
             android.util.Log.e("JsonService", "Error parsing routes JSON stream", e)
             throw e
@@ -123,113 +77,6 @@ class JsonService {
         contentResolver.openInputStream(uri)?.use { inputStream ->
             importRoutesFromStream(inputStream, onSessionParsed)
         }
-    }
-
-    private fun parseSessionStream(
-        reader: JsonReader,
-        onSessionParsed: (FishingSession, List<TrackPoint>) -> Unit
-    ) {
-        var startedAtMs = 0L
-        var endedAtMs: Long? = null
-        var notes = ""
-        var fisherman = ""
-        var pointsFound = false
-
-        reader.beginObject()
-        while (reader.hasNext()) {
-            when (reader.nextName()) {
-                "startedAt" -> {
-                    val startedAt = reader.nextString()
-                    startedAtMs = try {
-                        isoFormat.parse(startedAt)?.time ?: 0L
-                    } catch (e: Exception) {
-                        0L
-                    }
-                }
-                "endedAt" -> {
-                    val endedAt = reader.nextString()
-                    endedAtMs = if (endedAt.isNotEmpty()) {
-                        try {
-                            isoFormat.parse(endedAt)?.time
-                        } catch (e: Exception) {
-                            null
-                        }
-                    } else null
-                }
-                "notes" -> notes = reader.nextString()
-                "fisherman" -> fisherman = reader.nextString()
-                "points" -> {
-                    pointsFound = true
-                    val pointsBatch = mutableListOf<TrackPoint>()
-                    
-                    reader.beginArray()
-                    while (reader.hasNext()) {
-                        val pt = parseTrackPointStream(reader)
-                        pointsBatch.add(pt)
-                        
-                        if (pointsBatch.size >= 1000) {
-                            val actualStart = pointsBatch.first().timestamp
-                            val actualEnd = pointsBatch.last().timestamp
-                            val session = FishingSession(startedAt = actualStart, endedAt = actualEnd, notes = notes, fisherman = fisherman)
-                            onSessionParsed(session, pointsBatch.toList())
-                            pointsBatch.clear()
-                        }
-                    }
-                    reader.endArray()
-                    
-                    if (pointsBatch.isNotEmpty() || !pointsFound) {
-                        val actualStart = if (pointsBatch.isNotEmpty()) pointsBatch.first().timestamp else startedAtMs
-                        val actualEnd = if (pointsBatch.isNotEmpty()) pointsBatch.last().timestamp else endedAtMs
-                        val session = FishingSession(startedAt = actualStart, endedAt = actualEnd, notes = notes, fisherman = fisherman)
-                        onSessionParsed(session, pointsBatch)
-                    }
-                }
-                else -> reader.skipValue()
-            }
-        }
-        reader.endObject()
-        
-        if (!pointsFound) {
-            val session = FishingSession(startedAt = startedAtMs, endedAt = endedAtMs, notes = notes, fisherman = fisherman)
-            onSessionParsed(session, emptyList())
-        }
-    }
-
-    private fun parseTrackPointStream(reader: JsonReader): TrackPoint {
-        var timestampMs = 0L
-        var latitude = 0.0
-        var longitude = 0.0
-        var speed = 0.0f
-        var accuracy = 0.0f
-
-        reader.beginObject()
-        while (reader.hasNext()) {
-            when (reader.nextName()) {
-                "timestamp" -> {
-                    val ts = reader.nextString()
-                    timestampMs = try {
-                        isoFormat.parse(ts)?.time ?: 0L
-                    } catch (e: Exception) {
-                        0L
-                    }
-                }
-                "latitude" -> latitude = reader.nextDouble()
-                "longitude" -> longitude = reader.nextDouble()
-                "speed" -> speed = reader.nextDouble().toFloat()
-                "accuracy" -> accuracy = reader.nextDouble().toFloat()
-                else -> reader.skipValue()
-            }
-        }
-        reader.endObject()
-
-        return TrackPoint(
-            fishingSessionId = 0,
-            timestamp = timestampMs,
-            latitude = latitude,
-            longitude = longitude,
-            speed = speed,
-            accuracy = accuracy
-        )
     }
 
     fun importRoutes(contentResolver: ContentResolver, uri: Uri): List<Pair<FishingSession, List<TrackPoint>>> {

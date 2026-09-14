@@ -53,6 +53,7 @@ import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsStore
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
+import fi.anssi.kalakartta.utils.SessionStatsFormatter
 import fi.anssi.kalakartta.utils.MMLTileSource
 import fi.anssi.kalakartta.utils.TraficomTileSource
 import fi.anssi.kalakartta.utils.VeneilykarttaTileSource
@@ -1125,8 +1126,8 @@ class MainActivity : AppCompatActivity() {
                         }
                         totalDistance += distanceToCenter
 
-                        val distStr = formatDistance(distanceToCenter)
-                        val totalStr = formatDistance(totalDistance)
+                        val distStr = SessionStatsFormatter.formatDistance(distanceToCenter)
+                        val totalStr = SessionStatsFormatter.formatDistance(totalDistance)
 
                         if (measurementPoints.size == 1) {
                             textView.text = "${getString(R.string.distance)} $distStr."
@@ -1825,12 +1826,7 @@ class MainActivity : AppCompatActivity() {
 
             // Session kesto ja matka
             val statsLabel = android.widget.TextView(this@MainActivity)
-            val totalMinutes = durationMs / 60000
-            val h = totalMinutes / 60
-            val m = totalMinutes % 60
-            val distanceKm = distanceM / 1000f
-            
-            statsLabel.text = String.format("Session kesto: %d h %d min\nKuljettu matka: %.3f km.", h, m, distanceKm).replace(".", ",")
+            statsLabel.text = SessionStatsFormatter.formatSummary(durationMs, distanceM.toDouble())
             statsLabel.textSize = 16f
             statsLabel.setPadding(0, 0, 0, 24)
             layout.addView(statsLabel)
@@ -1978,8 +1974,8 @@ class MainActivity : AppCompatActivity() {
                 totalDistance += measurementPoints[i].distanceToAsDouble(measurementPoints[i + 1])
             }
 
-            val distStr = formatDistance(distanceToLast)
-            val totalStr = formatDistance(totalDistance)
+            val distStr = SessionStatsFormatter.formatDistance(distanceToLast)
+            val totalStr = SessionStatsFormatter.formatDistance(totalDistance)
 
             if (measurementPoints.size == 2) {
                 textView.text = "${getString(R.string.distance)} $distStr."
@@ -1988,14 +1984,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             android.widget.Toast.makeText(this, getString(R.string.measurement_next_hint), android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun formatDistance(meters: Double): String {
-        return if (meters >= 1000) {
-            String.format("%.3f km", meters / 1000.0).replace(".", ",")
-        } else {
-            "${meters.toInt()} m"
         }
     }
 

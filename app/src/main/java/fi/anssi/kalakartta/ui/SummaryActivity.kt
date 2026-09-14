@@ -28,6 +28,7 @@ import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.FishSpecies
 import fi.anssi.kalakartta.data.FishingSession
 import fi.anssi.kalakartta.data.TrackPoint
+import fi.anssi.kalakartta.utils.SessionStatsFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -443,9 +444,7 @@ class SummaryActivity : AppCompatActivity() {
                 }
             }
 
-            val hours = totalDurationMs / (1000 * 60 * 60)
-            val minutes = (totalDurationMs / (1000 * 60)) % 60
-            ssb.append("Sessioiden kesto yhteensä: ${hours} h ${minutes} min\n")
+            ssb.append("Sessioiden kesto yhteensä: ${SessionStatsFormatter.formatDuration(totalDurationMs)}\n")
 
             // Lasketaan matka
             var totalDistanceMeters = 0.0
@@ -463,18 +462,10 @@ class SummaryActivity : AppCompatActivity() {
                     }
                 }
             }
-            ssb.append("Kuljettu matka yhteensä: ${formatDistance(totalDistanceMeters)}")
+            ssb.append("Kuljettu matka yhteensä: ${SessionStatsFormatter.formatDistance(totalDistanceMeters)}")
         }
 
         return ssb
-    }
-
-    private fun formatDistance(meters: Double): String {
-        return if (meters >= 1000) {
-            String.format("%.3f km", meters / 1000.0).replace(".", ",")
-        } else {
-            "${meters.toInt()} m"
-        }
     }
 
     private fun applyFiltersAndShowMap() {

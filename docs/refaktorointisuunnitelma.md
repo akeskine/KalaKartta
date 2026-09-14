@@ -244,8 +244,10 @@ Mahdolliset bugikorjaukset tehdään omissa muutoksissaan, eivät pelkän koodin
 - paikkapisteiden JSON↔`PlaceOfInterest`-muunnos (`PlaceJsonMapper`)
 - päiväkirjasivujen JSON↔`FishDiaryPage`-muunnos (`DiaryPageJsonMapper`)
 - saaliiden JSON↔`FishCatch`-muunnos (`FishCatchJsonMapper`)
+- reittien streaming-JSON↔`FishingSession`/`TrackPoint`-muunnos (`RouteJsonMapper`)
+- sessioiden kesto- ja matkatekstien muotoilu (`SessionStatsFormatter`)
 
-Jäljellä ovat reittidatan JSON↔domain-muunnokset sekä sessioiden keston ja reittitietojen muotoilu. Importin UI- ja tietokantavirran irrottaminen kuuluu myöhempään vaiheeseen.
+Vaihe 4 on valmis. Importin UI- ja tietokantavirran irrottaminen, taustasäikeet ja tietokantaan kirjoittava import-palvelu kuuluvat myöhempiin vaiheisiin.
 
 ## Vaihe 5: Taustatyöt ja elinkaaren hallinta
 

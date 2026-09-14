@@ -22,11 +22,11 @@ import fi.anssi.kalakartta.service.TalkingClockService
 import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsKeys
 import fi.anssi.kalakartta.ui.SettingsStore
+import fi.anssi.kalakartta.utils.SessionStatsFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 class FishingSessionService : Service() {
 
@@ -443,9 +443,7 @@ class FishingSessionService : Service() {
         )
 
         val duration = System.currentTimeMillis() - startedAt
-        val hours = TimeUnit.MILLISECONDS.toHours(duration)
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(duration) % 60
-        val durationStr = if (hours > 0) "${hours} h ${minutes} min" else "${minutes} min"
+        val durationStr = SessionStatsFormatter.formatNotificationDuration(duration)
         val distanceStr = String.format("%.4f km", totalDistance / 1000.0).replace(".", ",")
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
