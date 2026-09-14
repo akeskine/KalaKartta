@@ -241,8 +241,11 @@ Mahdolliset bugikorjaukset tehdään omissa muutoksissaan, eivät pelkän koodin
 - Markdown-ohjeen muunnos ja ankkurien normalisointi
 - importin koordinaattipohjainen duplikaattitunnistus
 - importin ohita/korvaa/kaikki-konfliktipäätös
+- paikkapisteiden JSON↔`PlaceOfInterest`-muunnos (`PlaceJsonMapper`)
+- päiväkirjasivujen JSON↔`FishDiaryPage`-muunnos (`DiaryPageJsonMapper`)
+- saaliiden JSON↔`FishCatch`-muunnos (`FishCatchJsonMapper`)
 
-Jäljellä ovat import/exportin domain-muunnokset sekä sessioiden keston ja reittitietojen muotoilu. Importin UI- ja tietokantavirran irrottaminen kuuluu myöhempään vaiheeseen.
+Jäljellä ovat reittidatan JSON↔domain-muunnokset sekä sessioiden keston ja reittitietojen muotoilu. Importin UI- ja tietokantavirran irrottaminen kuuluu myöhempään vaiheeseen.
 
 ## Vaihe 5: Taustatyöt ja elinkaaren hallinta
 
