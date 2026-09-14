@@ -71,10 +71,8 @@ class HeatmapSettingsDialog(
             )
         }
 
-        val backLink = TextView(activity).apply {
+        val backLink = actionLinkTextView(activity).apply {
             text = "Takaisin"
-            textSize = 18f
-            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
             setBackgroundResource(outValue.resourceId)
@@ -229,10 +227,8 @@ class HeatmapSettingsDialog(
         shortcutModeLayout.addView(shortcutSpinner)
         layout.addView(shortcutModeLayout)
 
-        layout.addView(TextView(activity).apply {
+        layout.addView(menuLinkTextView(activity).apply {
             text = activity.getString(R.string.heatmap_advanced_settings)
-            textSize = 18f
-            setTextColor(android.graphics.Color.BLUE)
             setPadding(0, 20, 0, 20)
             isClickable = true
             val outValue = android.util.TypedValue()
@@ -241,10 +237,8 @@ class HeatmapSettingsDialog(
             setOnClickListener { onOpenAdvancedSettings() }
         })
 
-        layout.addView(TextView(activity).apply {
+        layout.addView(menuLinkTextView(activity).apply {
             text = activity.getString(R.string.route_advanced_settings)
-            textSize = 18f
-            setTextColor(android.graphics.Color.BLUE)
             setPadding(0, 20, 0, 20)
             isClickable = true
             val outValue = android.util.TypedValue()

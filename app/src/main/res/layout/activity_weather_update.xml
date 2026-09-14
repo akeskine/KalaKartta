@@ -42,11 +42,10 @@
 
     <TextView
         android:id="@+id/startButton"
+        style="@style/TextAppearance.KalaKartta.ActionLink"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Käynnistä päivitys"
-        android:textSize="18sp"
-        android:textColor="@android:color/holo_blue_dark"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
@@ -87,11 +86,10 @@
 
         <TextView
             android:id="@+id/cancelButton"
+            style="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Peruuta"
-            android:textSize="18sp"
-            android:textColor="@android:color/holo_blue_dark"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -131,11 +129,10 @@
 
             <TextView
                 android:id="@+id/errorLogButton"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Näytä virheloki"
-                android:textSize="18sp"
-                android:textColor="@android:color/holo_blue_dark"
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
@@ -147,11 +144,10 @@
 
         <TextView
             android:id="@+id/okButton"
+            style="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="OK"
-            android:textSize="18sp"
-            android:textColor="@android:color/holo_blue_dark"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -162,11 +158,10 @@
 
         <TextView
             android:id="@+id/backButton"
+            style="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Takaisin"
-            android:textSize="18sp"
-            android:textColor="@android:color/holo_blue_dark"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"

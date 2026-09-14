@@ -3,7 +3,6 @@ package fi.anssi.kalakartta.ui
 import android.content.Intent
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -42,23 +41,13 @@ class SpeciesSettingsDialog(
             }
 
             withContext(Dispatchers.Main) {
-                val typedValue = android.util.TypedValue()
-                activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-                val primaryTextColor = if (typedValue.resourceId != 0) {
-                    androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
-                } else {
-                    typedValue.data
-                }
-
                 val layout = LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(60, 40, 60, 40)
                 }
 
-                val editSpeciesLink = TextView(activity).apply {
+                val editSpeciesLink = menuLinkTextView(activity).apply {
                     text = activity.getString(R.string.edit_species)
-                    textSize = 16f
-                    setTextColor(primaryTextColor)
                     setPadding(0, 20, 0, 40)
                     val outValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -75,10 +64,8 @@ class SpeciesSettingsDialog(
                 layout.addView(editSpeciesLink)
 
                 if (isModified) {
-                    val exportSpeciesLink = TextView(activity).apply {
+                    val exportSpeciesLink = actionLinkTextView(activity).apply {
                         text = activity.getString(R.string.export_species_settings)
-                        textSize = 18f
-                        setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                         setPadding(0, 20, 0, 40)
                         val outValue = android.util.TypedValue()
                         activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -90,10 +77,8 @@ class SpeciesSettingsDialog(
                     layout.addView(exportSpeciesLink)
                 }
 
-                val importSpeciesLink = TextView(activity).apply {
+                val importSpeciesLink = actionLinkTextView(activity).apply {
                     text = activity.getString(R.string.import_species_settings)
-                    textSize = 18f
-                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                     setPadding(0, 20, 0, 40)
                     val outValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -112,10 +97,8 @@ class SpeciesSettingsDialog(
                 layout.addView(importSpeciesLink)
 
                 if (isModified) {
-                    val resetSpeciesLink = TextView(activity).apply {
+                    val resetSpeciesLink = actionLinkTextView(activity).apply {
                         text = activity.getString(R.string.reset_default_species)
-                        textSize = 18f
-                        setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                         setPadding(0, 20, 0, 40)
                         val outValue = android.util.TypedValue()
                         activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)

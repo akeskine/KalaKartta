@@ -91,6 +91,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/backButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -99,16 +100,17 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/deleteSpeciesButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/delete"
-            android:textColor="#FF0000"
             android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/okButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

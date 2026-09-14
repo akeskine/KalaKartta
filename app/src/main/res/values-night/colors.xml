@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="button_text_color">#BB86FC</color>
     <color name="link_color">#BB86FC</color>
     <color name="play_icon_tint">#FFFFFFFF</color>
 </resources>

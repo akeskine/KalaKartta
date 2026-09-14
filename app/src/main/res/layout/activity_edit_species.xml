@@ -8,12 +8,11 @@
     
     <TextView
         android:id="@+id/addNewSpeciesButton"
+        style="@style/TextAppearance.KalaKartta.ActionLink"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:text="@string/add_new_species"
-        android:textSize="18sp"
-        android:textColor="@android:color/holo_blue_dark"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"

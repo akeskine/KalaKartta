@@ -21,11 +21,10 @@
 
     <TextView
         android:id="@+id/showMoreButton"
+        style="@style/TextAppearance.KalaKartta.ActionLink"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Näytä lisää"
-        android:textSize="18sp"
-        android:textColor="@android:color/holo_blue_dark"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"

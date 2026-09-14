@@ -2,7 +2,6 @@ package fi.anssi.kalakartta.ui
 
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import fi.anssi.kalakartta.R
@@ -22,24 +21,14 @@ class GeneralSettingsDialog(
 ) {
 
     fun show() {
-        val typedValue = android.util.TypedValue()
-        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-        val primaryTextColor = if (typedValue.resourceId != 0) {
-            androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
-        } else {
-            typedValue.data
-        }
-
         val layout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
         }
 
         fun addLink(text: String, onClick: () -> Unit) {
-            layout.addView(TextView(activity).apply {
+            layout.addView(menuLinkTextView(activity).apply {
                 this.text = text
-                textSize = 16f
-                setTextColor(primaryTextColor)
                 setPadding(0, 20, 0, 40)
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)

@@ -1,9 +1,11 @@
 package fi.anssi.kalakartta.utils
 
 import androidx.appcompat.app.AlertDialog
+import androidx.core.widget.TextViewCompat
+import fi.anssi.kalakartta.R
 
 fun AlertDialog.enlargeButtons() {
-    getButton(AlertDialog.BUTTON_POSITIVE)?.textSize = 18f
-    getButton(AlertDialog.BUTTON_NEGATIVE)?.textSize = 18f
-    getButton(AlertDialog.BUTTON_NEUTRAL)?.textSize = 18f
+    listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL)
+        .mapNotNull(::getButton)
+        .forEach { TextViewCompat.setTextAppearance(it, R.style.TextAppearance_KalaKartta_ActionLink) }
 }

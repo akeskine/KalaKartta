@@ -37,11 +37,10 @@
 
             <TextView
                 android:id="@+id/trimLink"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/trim"
-                android:textColor="@color/link_color"
-                android:textSize="16sp"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
                 android:paddingTop="8dp"
@@ -107,22 +106,20 @@
 
             <TextView
                 android:id="@+id/saveLink"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Tallenna"
-                android:textColor="@color/link_color"
-                android:textSize="18sp"
                 android:padding="12dp"
                 android:clickable="true"
                 android:focusable="true" />
 
             <TextView
                 android:id="@+id/backLink"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Takaisin"
-                android:textColor="@color/link_color"
-                android:textSize="18sp"
                 android:padding="12dp"
                 android:clickable="true"
                 android:focusable="true" />

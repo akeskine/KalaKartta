@@ -655,11 +655,9 @@ class EditCatchActivity : AppCompatActivity() {
                 diaryLinksLayout.visibility = View.VISIBLE
                 pages.forEachIndexed { index, page ->
                     val linkText = if (pages.size == 1) getString(R.string.trip_notes) else getString(R.string.trip_notes) + " ${index + 1}"
-                    val link = TextView(this@EditCatchActivity).apply {
+                    val link = actionLinkTextView(this@EditCatchActivity).apply {
                         text = linkText
-                        setTextColor(androidx.core.content.ContextCompat.getColor(this@EditCatchActivity, R.color.link_color))
                         paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                        textSize = 16f
                         setPadding(0, (8 * resources.displayMetrics.density).toInt(), 0, 0)
                         setOnClickListener { FishDiaryDialog.show(this@EditCatchActivity, page) }
                     }

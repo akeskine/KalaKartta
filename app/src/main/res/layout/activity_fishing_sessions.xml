@@ -93,11 +93,10 @@
 
                 <TextView
                     android:id="@+id/mergeSessionsButton"
+                    style="@style/TextAppearance.KalaKartta.ActionLink"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/merge_sessions"
-                    android:textSize="18sp"
-                    android:textColor="@android:color/holo_blue_dark"
                     android:paddingTop="20dp"
                     android:paddingBottom="40dp"
                     android:paddingStart="20dp"
@@ -109,11 +108,10 @@
 
                 <TextView
                     android:id="@+id/backButton"
+                    style="@style/TextAppearance.KalaKartta.ActionLink"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/back"
-                    android:textSize="18sp"
-                    android:textColor="@android:color/holo_blue_dark"
                     android:paddingTop="20dp"
                     android:paddingBottom="40dp"
                     android:paddingStart="20dp"

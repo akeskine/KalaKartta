@@ -123,11 +123,9 @@ class DataTransferSettingsDialog(
         )
         
         options.forEach { option ->
-            val textView = TextView(activity).apply {
+            val textView = actionLinkTextView(activity).apply {
                 text = option
-                textSize = 18f
                 setPadding(0, 32, 0, 32)
-                setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                 isClickable = true
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -147,11 +145,9 @@ class DataTransferSettingsDialog(
             contentLayout.addView(textView)
         }
 
-        val moreLink = TextView(activity).apply {
+        val moreLink = actionLinkTextView(activity).apply {
             text = "Lisää..."
-            textSize = 18f
             setPadding(0, 32, 0, 32)
-            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             isClickable = true
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -166,11 +162,9 @@ class DataTransferSettingsDialog(
 
         val oldOptions = ExtraOption.entries
         oldOptions.forEach { option ->
-            val textView = TextView(activity).apply {
+            val textView = actionLinkTextView(activity).apply {
                 text = option.label
-                textSize = 18f
                 setPadding(0, 32, 0, 32)
-                setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                 isClickable = true
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
@@ -224,11 +218,9 @@ class DataTransferSettingsDialog(
             extraOptionsLayout.addView(textView)
         }
 
-        val lessLink = TextView(activity).apply {
+        val lessLink = actionLinkTextView(activity).apply {
             text = "Vähemmän..."
-            textSize = 18f
             setPadding(0, 32, 0, 32)
-            setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
             isClickable = true
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)

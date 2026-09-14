@@ -220,11 +220,9 @@ class CatchDetailsDialog(
             } else {
                 context.getString(R.string.trip_notes) + " ${index + 1}"
             }
-            container.addView(TextView(context).apply {
+            container.addView(actionLinkTextView(context).apply {
                 text = linkText
-                setTextColor(ContextCompat.getColor(context, R.color.link_color))
                 paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                textSize = 16f
                 setPadding(0, (8 * context.resources.displayMetrics.density).toInt(), 0, 0)
                 setOnClickListener { FishDiaryDialog.show(context, page) }
             })
@@ -256,10 +254,9 @@ class CatchDetailsDialog(
         }
 
         mediaList.filter { !it.mimeType.startsWith("image/") }.forEach { media ->
-            container.addView(TextView(context).apply {
+            container.addView(actionLinkTextView(context).apply {
                 text = media.originalFileName
                 paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                setTextColor(Color.BLUE)
                 val padding = (8 * context.resources.displayMetrics.density).toInt()
                 setPadding(0, padding, 0, padding)
                 setOnClickListener { openMedia(media) }

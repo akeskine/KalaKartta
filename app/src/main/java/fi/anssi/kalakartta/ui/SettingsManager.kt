@@ -224,18 +224,8 @@ class SettingsManager(
                         setPadding(60, 20, 60, 20)
                     }
 
-                    val typedValue = android.util.TypedValue()
-                    activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-                    val primaryTextColor = if (typedValue.resourceId != 0) {
-                        androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
-                    } else {
-                        typedValue.data
-                    }
-
-                    val helpLink = TextView(activity).apply {
+                    val helpLink = menuLinkTextView(activity).apply {
                         text = "Käyttöohje"
-                        textSize = 16f
-                        setTextColor(primaryTextColor)
                         setPadding(0, 10, 0, 10)
                         val outValue = android.util.TypedValue()
                         activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)

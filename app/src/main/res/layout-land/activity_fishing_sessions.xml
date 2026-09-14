@@ -94,6 +94,7 @@
                 <Button
                     android:id="@+id/mergeSessionsButton"
                     style="@style/Widget.Material3.Button.TextButton"
+                    android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/merge_sessions"
@@ -102,6 +103,7 @@
                 <Button
                     android:id="@+id/backButton"
                     style="@style/Widget.Material3.Button.TextButton"
+                    android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/back" />

@@ -9,8 +9,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import fi.anssi.kalakartta.BuildConfig
+import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.utils.enlargeButtons
 
 /** Käyttöohjeen lataamisesta, muotoilusta ja näyttämisestä vastaava dialogi. */
@@ -37,6 +39,7 @@ class UserManualDialog(
                 )
                 setPadding(60, 40, 60, 40)
                 textSize = 16f
+                setLinkTextColor(ContextCompat.getColor(activity, R.color.link_color))
                 movementMethod = object : LinkMovementMethod() {
                     override fun onTouchEvent(widget: TextView, buffer: Spannable, event: MotionEvent): Boolean {
                         val action = event.action

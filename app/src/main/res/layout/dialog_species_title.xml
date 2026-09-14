@@ -119,17 +119,17 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/addDetailedButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/button_text_color"
             android:text="@string/add_detailed" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/addOtherButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/button_text_color"
             android:text="@string/add_other" />
 
     </LinearLayout>

@@ -19,11 +19,10 @@
 
         <TextView
             android:id="@+id/todaySummaryButton"
+            style="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Tee tämän päivän yhteenveto"
-            android:textSize="18sp"
-            android:textColor="@android:color/holo_blue_dark"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
@@ -103,12 +102,11 @@
 
             <TextView
                 android:id="@+id/generateRangeSummaryButton"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Tee yhteenveto"
-                android:textSize="18sp"
-                android:textColor="@android:color/holo_blue_dark"
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
@@ -143,12 +141,11 @@
 
         <TextView
             android:id="@+id/backButton"
+            style="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:text="@string/back"
-            android:textSize="18sp"
-            android:textColor="@android:color/holo_blue_dark"
             android:paddingTop="20dp"
             android:paddingBottom="40dp"
             android:paddingStart="20dp"

@@ -122,10 +122,9 @@ class PlaceDetailsDialog(
         }
 
         mediaList.filter { !it.mimeType.startsWith("image/") }.forEach { media ->
-            container.addView(TextView(context).apply {
+            container.addView(actionLinkTextView(context).apply {
                 text = media.originalFileName
                 paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                setTextColor(Color.BLUE)
                 val padding = (8 * context.resources.displayMetrics.density).toInt()
                 setPadding(0, padding, 0, padding)
                 setOnClickListener { openMedia(media) }

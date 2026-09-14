@@ -67,22 +67,20 @@
 
             <TextView
                 android:id="@+id/trimSessionLink"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/trim_session"
-                android:textColor="@color/link_color"
-                android:textSize="18sp"
                 android:padding="12dp"
                 android:clickable="true"
                 android:focusable="true" />
 
             <TextView
                 android:id="@+id/dialogBackLink"
+                style="@style/TextAppearance.KalaKartta.ActionLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/back"
-                android:textColor="@color/link_color"
-                android:textSize="18sp"
                 android:padding="12dp"
                 android:clickable="true"
                 android:focusable="true" />

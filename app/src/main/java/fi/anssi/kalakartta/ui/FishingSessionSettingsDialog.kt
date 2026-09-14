@@ -40,14 +40,6 @@ class FishingSessionSettingsDialog(
         val fishingService = mainActivity?.getFishingService()
         val isRecording = fishingService?.isRecording() ?: false
 
-        val typedValue = android.util.TypedValue()
-        activity.theme.resolveAttribute(android.R.attr.textColorPrimary, typedValue, true)
-        val primaryTextColor = if (typedValue.resourceId != 0) {
-            androidx.core.content.ContextCompat.getColor(activity, typedValue.resourceId)
-        } else {
-            typedValue.data
-        }
-
         val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 40, 60, 40)
@@ -68,10 +60,8 @@ class FishingSessionSettingsDialog(
                 }
                 contentLayout.addView(visibleInfoLabel)
 
-                val hideSessionButton = TextView(activity).apply {
+                val hideSessionButton = actionLinkTextView(activity).apply {
                     text = "Piilota näkyvä sessio"
-                    textSize = 16f
-                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                     val outValue = android.util.TypedValue()
                     activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                     setBackgroundResource(outValue.resourceId)
@@ -116,11 +106,8 @@ class FishingSessionSettingsDialog(
                 }
             }
 
-            val fetchButton = TextView(activity).apply {
+            val fetchButton = menuLinkTextView(activity).apply {
                 text = "Hae kalastussessiot"
-                textSize = 16f
-                setTextColor(primaryTextColor)
-
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -144,10 +131,8 @@ class FishingSessionSettingsDialog(
             }
             contentLayout.addView(fetchButton)
 
-            val trackingSettingsLink = TextView(activity).apply {
+            val trackingSettingsLink = menuLinkTextView(activity).apply {
                 text = "Reittipisteiden tallennusvälit"
-                textSize = 16f
-                setTextColor(primaryTextColor)
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -185,10 +170,8 @@ class FishingSessionSettingsDialog(
             }
             contentLayout.addView(showLiveRouteCb)
 
-            val startButton = TextView(activity).apply {
+            val startButton = actionLinkTextView(activity).apply {
                 text = "Aloita tallennus"
-                textSize = 16f
-                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_blue_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -325,10 +308,8 @@ class FishingSessionSettingsDialog(
             }
             contentLayout.addView(showLiveRouteCb)
             
-            val stopButton = TextView(activity).apply {
+            val stopButton = actionLinkTextView(activity).apply {
                 text = "Lopeta tallennus"
-                textSize = 16f
-                    setTextColor(androidx.core.content.ContextCompat.getColor(activity, android.R.color.holo_red_dark))
                 val outValue = android.util.TypedValue()
                 activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
                 setBackgroundResource(outValue.resourceId)
@@ -504,10 +485,8 @@ class FishingSessionSettingsDialog(
             }
         }))
 
-        val resetDefaultsLink = TextView(activity).apply {
+        val resetDefaultsLink = actionLinkTextView(activity).apply {
             text = activity.getString(R.string.reset_defaults)
-            textSize = 14f
-            setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.link_color))
             paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
             val outValue = android.util.TypedValue()
             activity.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
