@@ -15,7 +15,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.overlay.Polyline
@@ -23,8 +22,6 @@ import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.FolderOverlay
 import android.graphics.Color
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.os.Handler
 import android.os.Looper
@@ -33,7 +30,6 @@ import android.widget.LinearLayout
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-import org.osmdroid.views.overlay.ScaleBarOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -47,16 +43,12 @@ import fi.anssi.kalakartta.ui.SettingsManager
 import fi.anssi.kalakartta.ui.CatchManager
 import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
-import fi.anssi.kalakartta.ui.FishingHeatmapOverlay
 import fi.anssi.kalakartta.ui.SettingsKeys
 import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsStore
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.SessionStatsFormatter
-import fi.anssi.kalakartta.utils.MMLTileSource
-import fi.anssi.kalakartta.utils.TraficomTileSource
-import fi.anssi.kalakartta.utils.VeneilykarttaTileSource
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -76,6 +68,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import fi.anssi.kalakartta.ui.SessionReplayResult
 import fi.anssi.kalakartta.ui.SessionReplayController
+import fi.anssi.kalakartta.ui.MapDisplayController
 
 class MainActivity : AppCompatActivity() {
 
@@ -131,10 +124,8 @@ class MainActivity : AppCompatActivity() {
     private var weatherCheckDone = false
     private var lastFoundStation: fi.anssi.kalakartta.utils.WeatherStation? = null
     private lateinit var map: MapView
+    private lateinit var mapDisplayController: MapDisplayController
     private lateinit var locationOverlay: MyLocationNewOverlay
-    private var scaleBarOverlay: ScaleBarOverlay? = null
-    private val heatmapUpdateHandler = Handler(Looper.getMainLooper())
-    private val heatmapUpdateRunnable = Runnable { if (::db.isInitialized && heatmapOverlay != null) { heatmapOverlay?.refreshData(map.boundingBox) } }
     
     private fun addOverlayBelowMarkers(overlay: Overlay) {
         var index = -1
@@ -156,7 +147,6 @@ class MainActivity : AppCompatActivity() {
     private var isBound = false
     private var sessionPolyline: Polyline? = null
     private var archivedSessionPolyline: Polyline? = null
-    private var heatmapOverlay: FishingHeatmapOverlay? = null
     private val replayController = SessionReplayController()
     private var replayJob: Job? = null
     private var visibleArchivedSessionId: Long = -1L
@@ -754,6 +744,16 @@ class MainActivity : AppCompatActivity() {
             filterManager = FilterManager(this)
             weatherService = WeatherService(this)
 
+            mapDisplayController = MapDisplayController(
+                activity = this,
+                map = map,
+                settingsStore = settingsStore,
+                database = db,
+                measurementPointCount = { measurementPoints.size },
+                clearMeasurement = { clearMeasurement() },
+                onDefaultFishermanChanged = { updateDefaultFishermanUI() }
+            )
+
             importExportManager = ImportExportManager(this, db) { forceRefreshSpecies ->
                 reloadMarkersFromDb(forceRefreshSpecies)
             }
@@ -766,8 +766,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }, onMapSettingsChanged = {
                 updateMapTileSource()
-                updateFishingHeatmap()
-                updateScaleBar()
             }, onSettingsActivityResult = { requestCode, resultCode, data ->
                 handleActivityResult(requestCode, resultCode, data)
             }) { forceRefreshSpecies ->
@@ -1233,165 +1231,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMapTileSource() {
-        val mapSource = settingsStore.mapSource
-        val apiKey = settingsStore.mmlApiKey
-
-        when (mapSource) {
-            "TRAFICOM_SEA" -> {
-                map.setTileSource(TraficomTileSource())
-                updateUIColors(true)
-            }
-            "TRAFICOM_BOATING" -> {
-                map.setTileSource(VeneilykarttaTileSource())
-                updateUIColors(true)
-            }
-            "MML_MAASTO" -> {
-                map.setTileSource(MMLTileSource("MML Maastokartta", "maastokartta", apiKey))
-                updateUIColors(true)
-            }
-            "MML_ILMA" -> {
-                map.setTileSource(MMLTileSource("MML Ilmakuva", "ortokuva", apiKey))
-                updateUIColors(true)
-            }
-            else -> {
-                map.setTileSource(TileSourceFactory.MAPNIK)
-                updateUIColors(false)
-            }
-        }
-        updateScaleBar()
-        updateDefaultFishermanUI()
+        mapDisplayController.updateMapTileSource()
     }
 
     private fun updateScaleBar() {
-        val showScale = settingsStore.showScaleBar
-        val showMeasurement = settingsStore.showMeasurementTool
-        val showQuickMap = settingsStore.showQuickMapSource
-        val mapSource = settingsStore.mapSource
-        val useBlack = mapSource == "MML_MAASTO" || mapSource == "MML_ILMA" || mapSource == "TRAFICOM_SEA" || mapSource == "TRAFICOM_BOATING"
-
-        val measurementButton = findViewById<MaterialButton>(R.id.measurementButton)
-        if (showMeasurement) {
-            measurementButton.visibility = android.view.View.VISIBLE
-            findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = if (measurementPoints.isNotEmpty()) android.view.View.VISIBLE else android.view.View.GONE
-        } else {
-            measurementButton.visibility = android.view.View.GONE
-            findViewById<MaterialButton>(R.id.undoMeasurementButton).visibility = android.view.View.GONE
-            if (measurementPoints.isNotEmpty()) {
-                clearMeasurement()
-            }
-        }
-
-        findViewById<MaterialButton>(R.id.quickMapSourceButton).visibility = if (showQuickMap) android.view.View.VISIBLE else android.view.View.GONE
-
-        // Poistetaan vanha jos on
-        scaleBarOverlay?.let { map.overlays.remove(it) }
-
-        if (showScale) {
-            val density = resources.displayMetrics.density
-            val buttonMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
-            val targetWidth = (48 * density).toInt()
-
-            val color = if (useBlack) {
-                ContextCompat.getColor(this, android.R.color.black)
-            } else {
-                ContextCompat.getColor(this, android.R.color.white)
-            }
-
-            // Käytetään omaa ScaleBarOverlay-aliluokkaa, jolla pakotetaan pituus ja väri
-            val scaleBar = object : ScaleBarOverlay(map) {
-                override fun draw(canvas: android.graphics.Canvas, mapView: MapView, shadow: Boolean) {
-                    if (shadow) return
-
-                    // Pakotetaan pituus heijastuksella juuri ennen piirtoa,
-                    // jos osmdroid yrittää laskea sen uudelleen
-                    try {
-                        val fields = listOf("mLineWidth", "lineWidth", "mMinWidth", "minWidth", "mMaxWidth", "maxWidth")
-                        for (name in fields) {
-                            try {
-                                val field = ScaleBarOverlay::class.java.getDeclaredField(name)
-                                field.isAccessible = true
-                                field.set(this, targetWidth)
-                            } catch (e: NoSuchFieldException) {}
-                        }
-                    } catch (e: Exception) {}
-
-                    super.draw(canvas, mapView, shadow)
-                }
-            }.apply {
-                setAlignBottom(true)
-
-                // yOffset mitataan pohjasta ylöspäin (koska setAlignBottom(true)).
-                val yOffset = buttonMargin - (22 * density).toInt()
-                val xOffset = 60
-                setScaleBarOffset(xOffset, yOffset)
-
-                setTextSize(density * 12)
-
-                // Asetetaan värit
-                barPaint.color = color
-                textPaint.color = color
-            }
-            map.overlays.add(scaleBar)
-            scaleBarOverlay = scaleBar
-        } else {
-            scaleBarOverlay = null
-        }
-
-        // Nappien paikka ei enää muutu mittakaavan mukaan
-        val myLocationButton = findViewById<MaterialButton>(R.id.myLocationButton)
-        val addCatchButton = findViewById<MaterialButton>(R.id.addCatchButton)
-
-        val baseMargin = resources.getDimensionPixelSize(R.dimen.button_margin_bottom)
-
-        val myLocParams = myLocationButton.layoutParams as FrameLayout.LayoutParams
-        myLocParams.bottomMargin = baseMargin
-        myLocationButton.layoutParams = myLocParams
-
-        val addCatchParams = addCatchButton.layoutParams as FrameLayout.LayoutParams
-        addCatchParams.bottomMargin = baseMargin
-        addCatchButton.layoutParams = addCatchParams
-
-        myLocationButton.requestLayout()
-        addCatchButton.requestLayout()
-        updateDefaultFishermanUI()
-        val shortcutMode = settingsStore.heatmapShortcutMode
-        findViewById<MaterialButton>(R.id.heatmapShortcutButton).visibility = 
-            if (shortcutMode > 0) android.view.View.VISIBLE else android.view.View.GONE
-
-        updateFishingHeatmap()
-        
-        map.invalidate()
+        mapDisplayController.updateScaleBar()
     }
-
-    private fun updateUIColors(useBlack: Boolean) {
-        val color = if (useBlack) {
-            ContextCompat.getColor(this, android.R.color.black)
-        } else {
-            ContextCompat.getColor(this, android.R.color.white)
-        }
-
-        findViewById<TextView>(R.id.mapCrosshair).setTextColor(color)
-
-        val buttons = listOf(
-            findViewById<MaterialButton>(R.id.myLocationButton),
-            findViewById<MaterialButton>(R.id.addCatchButton),
-            findViewById<MaterialButton>(R.id.settingsButton),
-            findViewById<MaterialButton>(R.id.quickMapSourceButton),
-            findViewById<MaterialButton>(R.id.heatmapShortcutButton),
-            findViewById<MaterialButton>(R.id.measurementButton),
-            findViewById<MaterialButton>(R.id.undoMeasurementButton)
-        )
-
-        buttons.forEach { button ->
-            if (button.id == R.id.measurementButton) {
-                val bitmap = createMeasurementPinBitmap(color)
-                button.icon = BitmapDrawable(resources, bitmap)
-            }
-            button.iconTint = android.content.res.ColorStateList.valueOf(color)
-            button.strokeColor = android.content.res.ColorStateList.valueOf(color)
-        }
-    }
-
     private fun loadCatches() {
         lifecycleScope.launch(Dispatchers.IO) {
             val catches = db.fishCatchDao().getAll()
@@ -1547,58 +1392,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateFishingHeatmap() {
-        if (!::db.isInitialized) return
-        val heatmapEnabled = settingsStore.heatmapEnabled
-        val routesEnabled = settingsStore.fishingRoutesEnabled
-
-        if (heatmapEnabled || routesEnabled) {
-            if (heatmapOverlay == null) {
-                heatmapOverlay = FishingHeatmapOverlay(this, db, map)
-                map.overlays.add(0, heatmapOverlay) // Lisätään pohjalle
-            } else {
-                heatmapOverlay?.refreshData()
-            }
-        } else {
-            heatmapOverlay?.let {
-                map.overlays.remove(it)
-                heatmapOverlay = null
-            }
-        }
-        
-        val shortcutButton = findViewById<MaterialButton>(R.id.heatmapShortcutButton)
-        if (heatmapEnabled || routesEnabled) {
-            val colorStr = settingsStore.getHeatmapColor("Punainen")
-            val baseColor = when (colorStr) {
-                "Violetti" -> Color.rgb(128, 0, 128)
-                "Vihreä" -> Color.GREEN
-                else -> Color.RED
-            }
-            // Alfa 80 (n. 31%) kuten aiemmin, mutta valitulla värillä
-            val alpha = if (heatmapEnabled && routesEnabled) 160 else 80
-            val shortcutColor = Color.argb(alpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
-            shortcutButton.backgroundTintList = ColorStateList.valueOf(shortcutColor)
-            
-            // Muutetaan myös reunus painikkeen väriseksi jos heatmap tai reitit on päällä, 
-            // jotta se erottuu pikanäppäimenä mutta osoittaa tilan
-            shortcutButton.strokeColor = ColorStateList.valueOf(baseColor)
-        } else {
-            shortcutButton.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            
-            // Palautetaan normaali reunusväri karttapohjan mukaan
-            val currentMapSource = settingsStore.mapSource
-            val useBlack = currentMapSource == "MML_MAASTO" || currentMapSource == "MML_ILMA" || currentMapSource == "TRAFICOM_SEA" || currentMapSource == "TRAFICOM_BOATING"
-            val color = if (useBlack) {
-                ContextCompat.getColor(this, android.R.color.black)
-            } else {
-                ContextCompat.getColor(this, android.R.color.white)
-            }
-            shortcutButton.strokeColor = ColorStateList.valueOf(color)
-        }
-        
-        map.invalidate()
+        mapDisplayController.updateFishingHeatmap()
     }
-
-    private fun updateHeatmapDelayed() { heatmapUpdateHandler.removeCallbacks(heatmapUpdateRunnable); heatmapUpdateHandler.postDelayed(heatmapUpdateRunnable, 500) }
+    private fun updateHeatmapDelayed() {
+        mapDisplayController.updateHeatmapDelayed()
+    }
 
     private fun updateMarkersVisibility() {
 
@@ -1608,34 +1406,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createMeasurementPinBitmap(color: Int): Bitmap {
-        val size = (32 * resources.displayMetrics.density).toInt()
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        // Piirretään pallo (nuppineulan pää)
-        // Nuppi halkaisijaltaan puolet nykyisestä -> säde puoleen.
-        // Aiemmin säde oli size/4f, nyt size/8f.
-        paint.color = color
-        canvas.drawCircle(size / 2f, size / 4f, size / 8f, paint)
-
-        // Piirretään neula
-        // Pidennä nuppineulan vartta 30 %.
-        // Aiemmin pituus oli (size * 0.9f) - (size / 3f + size / 4f) = 0.9 - 0.583 = 0.317 size
-        // Uusi pituus: 0.317 * 1.3 = 0.412 size.
-        // Uusi loppupiste: 0.25 (alku) + 0.125 (nupin säde) + 0.412 = 0.787 size?
-        // Itse asiassa helpompi:
-        val startY = size / 4f + size / 8f
-        val originalLength = size * 0.9f - (size / 3f + size / 4f)
-        val newLength = originalLength * 1.3f
-        val endY = startY + newLength
-
-        paint.strokeWidth = size / 10f
-        canvas.drawLine(size / 2f, startY, size / 2f, endY, paint)
-
-        return bitmap
+        return mapDisplayController.createMeasurementPinBitmap(color)
     }
-
     override fun onStart() {
         super.onStart()
         
@@ -2077,6 +1849,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         saveMapState()
+        if (::mapDisplayController.isInitialized) {
+            mapDisplayController.clearPendingUpdates()
+        }
         try {
             unregisterReceiver(locationProviderReceiver)
         } catch (_: IllegalArgumentException) {

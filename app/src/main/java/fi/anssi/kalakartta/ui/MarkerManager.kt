@@ -13,7 +13,6 @@ import fi.anssi.kalakartta.data.FishDiaryPage
 import fi.anssi.kalakartta.data.Media
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.PlaceOfInterestType
-import fi.anssi.kalakartta.utils.FishDiaryPageMatcher
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -106,15 +105,10 @@ class MarkerManager(
     // Marker-olioiden kierrätys
     private val activeIndividualMarkers get() = layerState.activeIndividualMarkers
     private val activePlaceMarkers get() = layerState.activePlaceMarkers
-    
-    private val allCatches = mutableListOf<FishCatch>()
-    private val allPlaces = mutableListOf<PlaceOfInterest>()
-    
-    // Poistetut ID:t, joita ei näytetä vaikka ne olisivat allCatches/allPlaces-listoilla
-    private val deletedFishIds = mutableSetOf<Long>()
-    private val deletedPlaceIds = mutableSetOf<Long>()
-    
+
+    private val dataStore = MarkerDataStore()
     private val mediaLoader = MarkerMediaLoader(context)
+    private val detailsLoader = MarkerDetailsLoader(db, mediaLoader)
     private val deletionHandler = MarkerDeletionHandler(context, map, onDeleteConfirmed)
     private val placeDetailsDialog = PlaceDetailsDialog(
         context = context,
@@ -191,50 +185,24 @@ class MarkerManager(
     }
 
     fun addMarker(fish: FishCatch) {
-        synchronized(allCatches) {
-            val existingIndex = allCatches.indexOfFirst { it.id == fish.id }
-            if (existingIndex >= 0) {
-                allCatches[existingIndex] = fish
-            } else {
-                allCatches.add(fish)
-            }
-        }
+        dataStore.upsertCatch(fish)
     }
 
     fun setAllCatches(catches: List<FishCatch>) {
-        synchronized(allCatches) {
-            allCatches.clear()
-            allCatches.addAll(catches)
-            // Älä tyhjennä deletedFishIds tässä, jotta asynkroninen rebuildMarkers 
-            // tietää yhä mitkä on poistettu, jos reload tuli poiston jälkeen.
-            // deletedFishIds tyhjennetään rebuildMarkersin alussa kun tiedetään
-            // että uusi lista on saatu.
-            android.util.Log.d("MarkerManager", "setAllCatches: list size = ${allCatches.size}")
-        }
+        dataStore.setCatches(catches)
+        android.util.Log.d("MarkerManager", "setAllCatches: list size = ${catches.size}")
         rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
     }
 
     fun setAllPlaces(places: List<PlaceOfInterest>) {
-        synchronized(allPlaces) {
-            allPlaces.clear()
-            allPlaces.addAll(places)
-            // Älä tyhjennä deletedPlaceIds tässä.
-        }
+        dataStore.setPlaces(places)
         rebuildMarkers(if (lastZoom < 1.0) 15.0 else lastZoom)
     }
 
     fun addOrUpdatePlaceIncremental(place: PlaceOfInterest, zoom: Double, filterManager: FilterManager? = null) {
-        synchronized(allPlaces) {
-            if (deletedPlaceIds.contains(place.id)) {
-                android.util.Log.d("MarkerManager", "addOrUpdatePlaceIncremental: ignoring deleted place ${place.id}")
-                return
-            }
-            val existingIndex = allPlaces.indexOfFirst { it.id == place.id }
-            if (existingIndex >= 0) {
-                allPlaces[existingIndex] = place
-            } else {
-                allPlaces.add(place)
-            }
+        if (!dataStore.upsertPlace(place)) {
+            android.util.Log.d("MarkerManager", "addOrUpdatePlaceIncremental: ignoring deleted place ${place.id}")
+            return
         }
 
         // Tarkistetaan suodatus jos filterManager on annettu
@@ -248,10 +216,7 @@ class MarkerManager(
                     map.invalidate()
                 }
 
-                // Poistetaan myös allPlaces-listasta jotta rebuildMarkers ei tuo sitä takaisin
-                synchronized(allPlaces) {
-                    allPlaces.removeAll { it.id == place.id }
-                }
+                dataStore.removePlace(place.id)
                 return
             }
         }
@@ -272,11 +237,9 @@ class MarkerManager(
      * Käytetään kun lisätään yksi uusi kala.
      */
     fun addOrUpdateMarkerIncremental(fish: FishCatch, zoom: Double, filterManager: FilterManager? = null) {
-        synchronized(allCatches) {
-            if (deletedFishIds.contains(fish.id)) {
-                android.util.Log.d("MarkerManager", "addOrUpdateMarkerIncremental: ignoring deleted fish ${fish.id}")
-                return
-            }
+        if (dataStore.isCatchDeleted(fish.id)) {
+            android.util.Log.d("MarkerManager", "addOrUpdateMarkerIncremental: ignoring deleted fish ${fish.id}")
+            return
         }
         // Päivitetään sisäinen lista
         addMarker(fish)
@@ -310,10 +273,7 @@ class MarkerManager(
                     map.invalidate()
                 }
                 
-                // Poistetaan myös allCatches-listasta jotta rebuildMarkers ei tuo sitä takaisin
-                synchronized(allCatches) {
-                    allCatches.removeAll { it.id == fish.id }
-                }
+                dataStore.removeCatch(fish.id)
                 return
             }
         }
@@ -387,30 +347,12 @@ class MarkerManager(
         rebuildJob = scope.launch {
             // Pieni viive jotta ei turhaan lasketa jos zoom/scroll on kesken
             // Mutta jos lista on pieni, voidaan päivittää nopeammin
-            val catchesCount = synchronized(allCatches) { allCatches.size }
+            val catchesCount = dataStore.catchCount()
             delay(if (catchesCount < 100) 10 else 40)
-            
-            val catchesCopy = synchronized(allCatches) { 
-                allCatches.filter { 
-                    !deletedFishIds.contains(it.id) && 
-                    (it.caughtAt ?: 0L) >= minTimestamp &&
-                    (it.caughtAt ?: 0L) <= maxTimestamp 
-                }.toList() 
-            }
-            val placesCopy = synchronized(allPlaces) { 
-                if (hidePlacesIfFiltering && (minTimestamp > 0 || maxTimestamp < Long.MAX_VALUE)) {
-                    emptyList()
-                } else {
-                    allPlaces.filter { !deletedPlaceIds.contains(it.id) }.toList()
-                }
-            }
-            
-            // Tyhjennetään poistolistat vasta kun ollaan saatu kopiot uusista listoista
-            // Tämä varmistaa että poisto pysyy voimassa jos reloadMarkersFromDb 
-            // tapahtui juuri ennen tätä.
-            // HUOM: Älä tyhjennä jos rebuild peruttiin välissä (mutta delay hoitaa sen)
-            synchronized(allCatches) { deletedFishIds.clear() }
-            synchronized(allPlaces) { deletedPlaceIds.clear() }
+
+            val snapshot = dataStore.snapshot(minTimestamp, maxTimestamp, hidePlacesIfFiltering)
+            val catchesCopy = snapshot.catches
+            val placesCopy = snapshot.places
 
             android.util.Log.d("MarkerManager", "rebuildMarkers: visible catches = ${catchesCopy.size}")
             
@@ -520,7 +462,7 @@ class MarkerManager(
         val type = placeTypeCache[place.typeId]
         scope.launch {
             val mediaList = withContext(Dispatchers.IO) {
-                mediaLoader.getForPlace(place.latitude, place.longitude)
+                detailsLoader.loadPlaceMedia(place.latitude, place.longitude)
             }
             withContext(Dispatchers.Main) {
                 showPlaceDetailsDialogWithMedia(marker, place, type, mediaList)
@@ -589,8 +531,8 @@ class MarkerManager(
                     // Jos kyseessä on vain skrollaus (forceRebuild), tarkistetaan onko näkymäalue muuttunut tarpeeksi
                     if (forceRebuild && lastZoom >= 13.0 && zoom >= 13.0) {
                         // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta) JA zoom-kynnys ei ylittynyt.
-                        val catchesCount = synchronized(allCatches) { allCatches.size }
-                        val placesCount = synchronized(allPlaces) { allPlaces.size }
+                        val catchesCount = dataStore.catchCount()
+                        val placesCount = dataStore.placeCount()
                         if (catchesCount + placesCount < 5000 && !shouldRebuild(zoom)) {
                             // Varmistetaan että markerit on ladattu joskus, mutta ei ladata niitä joka skrollauksella
                             if (markersFolder.items.isNotEmpty()) {
@@ -639,12 +581,7 @@ class MarkerManager(
     }
 
     fun clearMarkers() {
-        synchronized(allCatches) {
-            allCatches.clear()
-        }
-        synchronized(allPlaces) {
-            allPlaces.clear()
-        }
+        dataStore.clear()
         
         rebuildJob?.cancel()
         
@@ -656,8 +593,7 @@ class MarkerManager(
     }
 
     fun removeMarker(marker: Marker) {
-        // Perutaan välittömästi käynnissä oleva rebuildMarkers, jotta se ei tuo merkkiä takaisin
-        // vanhan allCatches/allPlaces-listan perusteella.
+        // Perutaan välittömästi käynnissä oleva rebuildMarkers, jotta se ei tuo merkkiä takaisin.
         rebuildJob?.cancel()
 
         val related = marker.relatedObject
@@ -672,18 +608,12 @@ class MarkerManager(
         android.util.Log.d("MarkerManager", "removeMarker: fish=${fish?.id}, place=${place?.id}")
 
         if (fish != null) {
-            synchronized(allCatches) {
-                allCatches.removeAll { it.id == fish.id }
-                deletedFishIds.add(fish.id)
-            }
+            dataStore.removeCatch(fish.id)
             activeIndividualMarkers.remove(fish.id)
         }
         
         if (place != null) {
-            synchronized(allPlaces) {
-                allPlaces.removeAll { it.id == place.id }
-                deletedPlaceIds.add(place.id)
-            }
+            dataStore.removePlace(place.id)
             activePlaceMarkers.remove(place.id)
         }
 
@@ -715,16 +645,9 @@ class MarkerManager(
     private fun showCatchDetailsDialog(marker: Marker) {
         val fish = marker.relatedObject as? FishCatch
         scope.launch {
-            val (species, diaryPages, mediaList) = withContext(Dispatchers.IO) {
-                val loadedSpecies = fish?.let { db.fishSpeciesDao().getById(it.species) }
-                val loadedDiaryPages = fish?.let {
-                    FishDiaryPageMatcher.pagesForCaughtAt(it.caughtAt, db.fishDiaryPageDao().getAll())
-                }.orEmpty()
-                val loadedMedia = fish?.let { mediaLoader.getForCatch(it) }.orEmpty()
-                Triple(loadedSpecies, loadedDiaryPages, loadedMedia)
-            }
+            val details = withContext(Dispatchers.IO) { detailsLoader.loadCatch(fish) }
             withContext(Dispatchers.Main) {
-                showCatchDetailsDialog(marker, fish, species, diaryPages, mediaList)
+                showCatchDetailsDialog(marker, fish, details.species, details.diaryPages, details.media)
             }
         }
     }
