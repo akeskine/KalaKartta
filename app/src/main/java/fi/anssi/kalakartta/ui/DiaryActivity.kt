@@ -11,7 +11,6 @@ import android.text.style.StyleSpan
 import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.*
@@ -23,8 +22,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishDiaryPage
@@ -51,9 +48,8 @@ class DiaryActivity : AppCompatActivity() {
     private lateinit var clearSearchButton: Button
     private lateinit var searchResultCountText: TextView
     private lateinit var searchProgress: ProgressBar
-    private lateinit var searchResultsRecyclerView: RecyclerView
+    private lateinit var searchResultsRecyclerView: LinearLayout
     private lateinit var loadMoreSearchButton: Button
-    private lateinit var searchAdapter: SearchResultAdapter
     private var allDiaryPages: List<FishDiaryPage> = emptyList()
     private var currentCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
     private var selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
@@ -105,9 +101,6 @@ class DiaryActivity : AppCompatActivity() {
         searchProgress = findViewById(R.id.searchProgress)
         searchResultsRecyclerView = findViewById(R.id.searchResultsRecyclerView)
         loadMoreSearchButton = findViewById(R.id.loadMoreSearchButton)
-        searchAdapter = SearchResultAdapter()
-        searchResultsRecyclerView.layoutManager = LinearLayoutManager(this)
-        searchResultsRecyclerView.adapter = searchAdapter
         findViewById<View>(R.id.backButton).setOnClickListener { finishToSettings() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -175,7 +168,7 @@ class DiaryActivity : AppCompatActivity() {
         searchTotalCount = 0
         searchRequestId++
         isSearchMode = true
-        searchAdapter.replace(emptyList())
+        searchResultsRecyclerView.removeAllViews()
         setSearchModeViews(true)
         searchProgress.visibility = View.VISIBLE
         searchResultCountText.text = "Haetaan..."
@@ -188,7 +181,7 @@ class DiaryActivity : AppCompatActivity() {
         searchOffset = 0
         searchTotalCount = 0
         isSearchMode = false
-        searchAdapter.replace(emptyList())
+        searchResultsRecyclerView.removeAllViews()
         setSearchModeViews(false)
         updateCalendar()
         updateDiaryPageList()
@@ -232,7 +225,11 @@ class DiaryActivity : AppCompatActivity() {
                 }
 
                 if (requestId != searchRequestId || !isSearchMode || querySnapshot != searchQuery) return@launch
-                if (append) searchAdapter.append(result.pages) else searchAdapter.replace(result.pages)
+                if (!append) searchResultsRecyclerView.removeAllViews()
+                val firstPageNumber = searchResultsRecyclerView.childCount + 1
+                result.pages.forEachIndexed { index, page ->
+                    addSearchResultItem(page, firstPageNumber + index)
+                }
                 result.totalCount?.let { searchTotalCount = it }
                 searchOffset += result.pages.size
                 searchProgress.visibility = View.GONE
@@ -427,51 +424,28 @@ class DiaryActivity : AppCompatActivity() {
         return cal
     }
 
-    private inner class SearchResultAdapter : RecyclerView.Adapter<SearchResultAdapter.ViewHolder>() {
-        private val pages = mutableListOf<FishDiaryPage>()
-
-        fun replace(newPages: List<FishDiaryPage>) {
-            pages.clear()
-            pages.addAll(newPages)
-            notifyDataSetChanged()
+    private fun addSearchResultItem(page: FishDiaryPage, pageNumber: Int) {
+        val item = LayoutInflater.from(this).inflate(
+            R.layout.item_diary_page,
+            searchResultsRecyclerView,
+            false
+        )
+        val details = item.findViewById<TextView>(R.id.diaryPageDetails)
+        val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
+        val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
+        val location = page.location.trim().ifBlank { "Ei paikkaa" }
+        item.findViewById<TextView>(R.id.diaryPageTitle).text =
+            "Päiväkirjasivu $pageNumber: ${formatPageDates(page)} – $location"
+        details.text = buildPageDetails(page)
+        details.visibility = View.GONE
+        mediaLayout.removeAllViews()
+        mediaLayout.visibility = View.GONE
+        item.setOnClickListener {
+            details.visibility = if (details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            expandIcon.rotation = if (details.visibility == View.VISIBLE) 180f else 0f
         }
-
-        fun append(newPages: List<FishDiaryPage>) {
-            if (newPages.isEmpty()) return
-            val start = pages.size
-            pages.addAll(newPages)
-            notifyItemRangeInserted(start, newPages.size)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_diary_page, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val page = pages[position]
-            val location = page.location.trim().ifBlank { "Ei paikkaa" }
-            holder.title.text = "Päiväkirjasivu ${position + 1}: ${formatPageDates(page)} – $location"
-            holder.details.text = buildPageDetails(page)
-            holder.details.visibility = View.GONE
-            holder.expandIcon.rotation = 0f
-            holder.mediaLayout.removeAllViews()
-            holder.mediaLayout.visibility = View.GONE
-            holder.itemView.setOnClickListener {
-                holder.details.visibility = if (holder.details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                holder.expandIcon.rotation = if (holder.details.visibility == View.VISIBLE) 180f else 0f
-            }
-            holder.editButton.setOnClickListener { showPageMenu(it, page) }
-        }
-
-        override fun getItemCount(): Int = pages.size
-
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val title: TextView = view.findViewById(R.id.diaryPageTitle)
-            val details: TextView = view.findViewById(R.id.diaryPageDetails)
-            val expandIcon: ImageView = view.findViewById(R.id.expandDiaryPageIcon)
-            val mediaLayout: LinearLayout = view.findViewById(R.id.mediaListLayout)
-            val editButton: ImageView = view.findViewById(R.id.editDiaryPageButton)
-        }
+        item.findViewById<ImageView>(R.id.editDiaryPageButton)
+            .setOnClickListener { showPageMenu(it, page) }
+        searchResultsRecyclerView.addView(item)
     }
 }
