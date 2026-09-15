@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -49,6 +50,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:layout_marginBottom="8dp">
 
             <Button
@@ -59,6 +61,16 @@
                 android:layout_weight="1"
                 android:text="Alkupvm" />
 
+            <ImageButton
+                android:id="@+id/clearStartDateButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="@android:color/holo_red_dark"
+                android:visibility="gone"
+                android:contentDescription="Tyhjennä" />
+
             <Button
                 android:id="@+id/startTimeButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
@@ -67,12 +79,23 @@
                 android:layout_weight="1"
                 android:text="Klo"
                 android:layout_marginStart="8dp" />
+
+            <ImageButton
+                android:id="@+id/clearStartTimeButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="@android:color/holo_red_dark"
+                android:visibility="gone"
+                android:contentDescription="Tyhjennä" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:layout_marginBottom="16dp">
 
             <Button
@@ -83,6 +106,16 @@
                 android:layout_weight="1"
                 android:text="Loppupvm" />
 
+            <ImageButton
+                android:id="@+id/clearEndDateButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="@android:color/holo_red_dark"
+                android:visibility="gone"
+                android:contentDescription="Tyhjennä" />
+
             <Button
                 android:id="@+id/endTimeButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
@@ -91,6 +124,16 @@
                 android:layout_weight="1"
                 android:text="Klo"
                 android:layout_marginStart="8dp" />
+
+            <ImageButton
+                android:id="@+id/clearEndTimeButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="@android:color/holo_red_dark"
+                android:visibility="gone"
+                android:contentDescription="Tyhjennä" />
         </LinearLayout>
 
         <LinearLayout

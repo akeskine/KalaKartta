@@ -46,6 +46,10 @@ class SummaryActivity : AppCompatActivity() {
     private lateinit var startTimeButton: View
     private lateinit var endDateButton: View
     private lateinit var endTimeButton: View
+    private lateinit var clearStartDateButton: ImageButton
+    private lateinit var clearStartTimeButton: ImageButton
+    private lateinit var clearEndDateButton: ImageButton
+    private lateinit var clearEndTimeButton: ImageButton
     private lateinit var summaryResultText: TextView
     private lateinit var copyToClipboardButton: ImageButton
     private lateinit var showOnMapButton: ImageButton
@@ -83,6 +87,10 @@ class SummaryActivity : AppCompatActivity() {
         startTimeButton = findViewById(R.id.startTimeButton)
         endDateButton = findViewById(R.id.endDateButton)
         endTimeButton = findViewById(R.id.endTimeButton)
+        clearStartDateButton = findViewById(R.id.clearStartDateButton)
+        clearStartTimeButton = findViewById(R.id.clearStartTimeButton)
+        clearEndDateButton = findViewById(R.id.clearEndDateButton)
+        clearEndTimeButton = findViewById(R.id.clearEndTimeButton)
         summaryResultText = findViewById(R.id.summaryResultText)
         copyToClipboardButton = findViewById(R.id.copyToClipboardButton)
         showOnMapButton = findViewById(R.id.showOnMapButton)
@@ -147,6 +155,26 @@ class SummaryActivity : AppCompatActivity() {
             showTimePicker(false)
         }
 
+        clearStartDateButton.setOnClickListener {
+            startDateTime = null
+            updateDateButtons()
+        }
+
+        clearStartTimeButton.setOnClickListener {
+            startTimeSet = false
+            updateDateButtons()
+        }
+
+        clearEndDateButton.setOnClickListener {
+            endDateTime = null
+            updateDateButtons()
+        }
+
+        clearEndTimeButton.setOnClickListener {
+            endTimeSet = false
+            updateDateButtons()
+        }
+
         findViewById<TextView>(R.id.generateRangeSummaryButton).setOnClickListener {
             generateRangeSummary()
         }
@@ -205,9 +233,13 @@ class SummaryActivity : AppCompatActivity() {
 
     private fun updateDateButtons() {
         (startDateButton as? TextView)?.text = startDateTime?.let { dateFormat.format(it.time) } ?: "Alkupvm"
+        clearStartDateButton.visibility = if (startDateTime != null) View.VISIBLE else View.GONE
         (startTimeButton as? TextView)?.text = if (startTimeSet) startDateTime?.let { timeFormat.format(it.time) } ?: "Klo" else "Klo"
+        clearStartTimeButton.visibility = if (startTimeSet) View.VISIBLE else View.GONE
         (endDateButton as? TextView)?.text = endDateTime?.let { dateFormat.format(it.time) } ?: "Loppupvm"
+        clearEndDateButton.visibility = if (endDateTime != null) View.VISIBLE else View.GONE
         (endTimeButton as? TextView)?.text = if (endTimeSet) endDateTime?.let { timeFormat.format(it.time) } ?: "Klo" else "Klo"
+        clearEndTimeButton.visibility = if (endTimeSet) View.VISIBLE else View.GONE
     }
 
     private fun generateTodaySummary() {
