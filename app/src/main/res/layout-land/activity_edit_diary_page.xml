@@ -25,7 +25,7 @@
         <EditText android:id="@+id/storyEdit" android:layout_width="match_parent" android:layout_height="180dp" android:gravity="top" android:inputType="textMultiLine|textCapSentences" android:hint="Kirjoita kertomus..." />
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Media" android:textStyle="bold" android:layout_marginTop="12dp" />
         <LinearLayout android:id="@+id/mediaListLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
-        <Button android:id="@+id/addMediaButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lisää media" />
+        <TextView android:id="@+id/addMediaButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lisää media" android:padding="12dp" android:clickable="true" android:focusable="true" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end">
             <TextView android:id="@+id/saveButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tallenna" android:padding="16dp" android:clickable="true" android:focusable="true" />
              <TextView android:id="@+id/backButton" style="@style/TextAppearance.KalaKartta.ActionLink" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/back" android:padding="16dp" android:clickable="true" android:focusable="true" />

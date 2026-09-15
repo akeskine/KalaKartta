@@ -98,7 +98,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var placeNameContainer: View
     
     private lateinit var mediaListLayout: LinearLayout
-    private lateinit var addMediaButton: Button
+    private lateinit var addMediaButton: TextView
     private lateinit var mediaService: MediaService
     
     private lateinit var moonPhaseEditText: TextView
@@ -768,8 +768,8 @@ class EditCatchActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        findViewById<Button>(R.id.saveButton).setOnClickListener { saveChanges() }
-        findViewById<Button>(R.id.cancelButton).setOnClickListener {
+        findViewById<TextView>(R.id.saveButton).setOnClickListener { saveChanges() }
+        findViewById<TextView>(R.id.cancelButton).setOnClickListener {
             if (hasUnsavedChanges()) showUnsavedChangesDialog() else finish()
         }
         addMediaButton.setOnClickListener {

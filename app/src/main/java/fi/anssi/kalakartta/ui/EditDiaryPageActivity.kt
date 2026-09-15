@@ -38,7 +38,7 @@ class EditDiaryPageActivity : AppCompatActivity() {
     private lateinit var catchEdit: EditText
     private lateinit var storyEdit: EditText
     private lateinit var mediaListLayout: LinearLayout
-    private lateinit var addMediaButton: Button
+    private lateinit var addMediaButton: TextView
     private lateinit var mediaService: MediaService
     private var page: FishDiaryPage? = null
     private var startDate = 0L
