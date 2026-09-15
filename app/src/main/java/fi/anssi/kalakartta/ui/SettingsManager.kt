@@ -309,6 +309,7 @@ class SettingsManager(
         providedMaxSpeed: Float? = null,
         providedRoutesFadeEnabled: Boolean? = null,
         providedRoutesFadeStartDays: Int? = null,
+        showWarning: Boolean = true,
         onResult: (success: Boolean) -> Unit
     ) {
         heatmapLimitsChecker.check(
@@ -320,6 +321,7 @@ class SettingsManager(
             providedMaxSpeed,
             providedRoutesFadeEnabled,
             providedRoutesFadeStartDays,
+            showWarning,
             onResult
         )
     }
@@ -337,6 +339,7 @@ class SettingsManager(
             providedMaxSpeed: Float? = null,
             providedRoutesFadeEnabled: Boolean? = null,
             providedRoutesFadeStartDays: Int? = null,
+            showWarning: Boolean = true,
             onResult: (success: Boolean) -> Unit
         ) {
             HeatmapLimitsChecker(context, db, lifecycleScope).check(
@@ -348,6 +351,7 @@ class SettingsManager(
                 providedMaxSpeed,
                 providedRoutesFadeEnabled,
                 providedRoutesFadeStartDays,
+                showWarning,
                 onResult
             )
         }

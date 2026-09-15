@@ -25,6 +25,7 @@ class HeatmapLimitsChecker(
         providedMaxSpeed: Float? = null,
         providedRoutesFadeEnabled: Boolean? = null,
         providedRoutesFadeStartDays: Int? = null,
+        showWarning: Boolean = true,
         onResult: (success: Boolean) -> Unit
     ) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -127,11 +128,13 @@ class HeatmapLimitsChecker(
 
             withContext(Dispatchers.Main) {
                 if (error != null) {
-                    AlertDialog.Builder(context)
-                        .setTitle(context.getString(R.string.warning))
-                        .setMessage(error)
-                        .setPositiveButton("OK", null)
-                        .show()
+                    if (showWarning) {
+                        AlertDialog.Builder(context)
+                            .setTitle(context.getString(R.string.warning))
+                            .setMessage(error)
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                     onResult(false)
                 } else {
                     onResult(true)

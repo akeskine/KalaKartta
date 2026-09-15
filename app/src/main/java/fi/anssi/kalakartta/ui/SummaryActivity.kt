@@ -580,26 +580,64 @@ class SummaryActivity : AppCompatActivity() {
             endTimeMinutes = null,
             fisherman = selectedFisherman
         )
-        filterManager.saveFilters(filters)
 
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        intent.putExtra("EXTRA_ZOOM_TO_SUMMARY", true)
-        if (start != null) {
-            intent.putExtra("EXTRA_START_TIME", start)
-        } else if (startDateTime != null) {
-            intent.putExtra("EXTRA_START_TIME", startDateTime!!.timeInMillis)
+        val settingsStore = SettingsStore(getSharedPreferences("settings", MODE_PRIVATE))
+        val checkHeatmap = settingsStore.heatmapEnabled
+        val checkRoutes = settingsStore.fishingRoutesEnabled
+
+        fun moveSummaryToMap() {
+            filterManager.saveFilters(filters)
+
+            val intent = Intent(this, MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            intent.putExtra("EXTRA_ZOOM_TO_SUMMARY", true)
+            if (start != null) {
+                intent.putExtra("EXTRA_START_TIME", start)
+            } else if (startDateTime != null) {
+                intent.putExtra("EXTRA_START_TIME", startDateTime!!.timeInMillis)
+            }
+            if (end != null) {
+                intent.putExtra("EXTRA_END_TIME", end)
+            } else if (endDateTime != null) {
+                intent.putExtra("EXTRA_END_TIME", endDateTime!!.timeInMillis)
+            }
+            if (selectedFisherman != null) {
+                intent.putExtra("EXTRA_SUMMARY_FISHERMAN", selectedFisherman)
+            }
+            startActivity(intent)
+            finish()
         }
-        if (end != null) {
-            intent.putExtra("EXTRA_END_TIME", end)
-        } else if (endDateTime != null) {
-            intent.putExtra("EXTRA_END_TIME", endDateTime!!.timeInMillis)
+
+        if (!checkHeatmap && !checkRoutes) {
+            moveSummaryToMap()
+            return
         }
-        if (selectedFisherman != null) {
-            intent.putExtra("EXTRA_SUMMARY_FISHERMAN", selectedFisherman)
-        }
-        startActivity(intent)
-        finish()
+
+        SettingsManager.checkLimits(
+            context = this,
+            db = db,
+            lifecycleScope = lifecycleScope,
+            checkHeatmap = checkHeatmap,
+            checkRoutes = checkRoutes,
+            providedFilters = FilterManager.Filters(
+                startDate = start,
+                endDate = end,
+                fisherman = selectedFisherman
+            ),
+            onResult = { withinLimits ->
+                if (!withinLimits) {
+                    settingsStore.heatmapEnabled = false
+                    settingsStore.fishingRoutesEnabled = false
+                    Toast.makeText(
+                        this,
+                        "Reitit ja heat map piilotettiin, koska kehittäjäasetusten rajat ylittyivät",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                moveSummaryToMap()
+            },
+            showWarning = false
+        )
     }
 
     private fun appendCatchData(sb: StringBuilder, catches: List<FishCatch>) {
