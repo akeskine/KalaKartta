@@ -6,5 +6,9 @@
         <item name="colorOnPrimary">#000000</item>
         <item name="editTextStyle">@style/Widget.AppCompat.EditText</item>
         <item name="android:spinnerStyle">@style/Widget.AppCompat.Spinner</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.KalaKartta.Dialog.Alert</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.KalaKartta.MaterialAlertDialog</item>
+        <item name="android:datePickerDialogTheme">@style/ThemeOverlay.KalaKartta.Dialog.Alert</item>
+        <item name="android:timePickerDialogTheme">@style/ThemeOverlay.KalaKartta.Dialog.Alert</item>
     </style>
 </resources>
