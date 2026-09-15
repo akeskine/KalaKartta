@@ -59,6 +59,7 @@ class DiaryActivity : AppCompatActivity() {
     private var searchTotalCount = 0
     private var searchRequestId = 0L
     private var isSearchMode = false
+    private val searchResultPages = mutableListOf<FishDiaryPage>()
 
     companion object {
         private const val EDIT_PAGE_REQUEST = 2001
@@ -168,6 +169,7 @@ class DiaryActivity : AppCompatActivity() {
         searchTotalCount = 0
         searchRequestId++
         isSearchMode = true
+        searchResultPages.clear()
         searchResultsRecyclerView.removeAllViews()
         setSearchModeViews(true)
         searchProgress.visibility = View.VISIBLE
@@ -181,6 +183,7 @@ class DiaryActivity : AppCompatActivity() {
         searchOffset = 0
         searchTotalCount = 0
         isSearchMode = false
+        searchResultPages.clear()
         searchResultsRecyclerView.removeAllViews()
         setSearchModeViews(false)
         updateCalendar()
@@ -225,11 +228,13 @@ class DiaryActivity : AppCompatActivity() {
                 }
 
                 if (requestId != searchRequestId || !isSearchMode || querySnapshot != searchQuery) return@launch
-                if (!append) searchResultsRecyclerView.removeAllViews()
-                val firstPageNumber = searchResultsRecyclerView.childCount + 1
-                result.pages.forEachIndexed { index, page ->
-                    addSearchResultItem(page, firstPageNumber + index)
+                if (!append) {
+                    searchResultsRecyclerView.removeAllViews()
+                    searchResultPages.clear()
                 }
+                searchResultPages += result.pages
+                result.pages.forEach { page -> addSearchResultItem(page) }
+                updateSearchResultTitles()
                 result.totalCount?.let { searchTotalCount = it }
                 searchOffset += result.pages.size
                 searchProgress.visibility = View.GONE
@@ -282,18 +287,20 @@ class DiaryActivity : AppCompatActivity() {
                 if (isFinishing || isDestroyed) return@withContext
                 diaryPagesContainer.removeAllViews()
                 noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
-                pages.forEachIndexed { index, page -> addDiaryPageItem(page, index + 1, media) }
+                pages.forEachIndexed { index, page ->
+                    val pageNumber = if (pages.size > 1) index + 1 else null
+                    addDiaryPageItem(page, pageNumber, media)
+                }
             }
         }
     }
 
-    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int, media: List<Media>) {
+    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int?, media: List<Media>) {
         val item = LayoutInflater.from(this).inflate(R.layout.item_diary_page, diaryPagesContainer, false)
         val details = item.findViewById<TextView>(R.id.diaryPageDetails)
         val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
         val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
-        val location = page.location.trim().ifBlank { "Ei paikkaa" }
-        item.findViewById<TextView>(R.id.diaryPageTitle).text = "Päiväkirjasivu $pageNumber: ${formatPageDates(page)} – $location"
+        item.findViewById<TextView>(R.id.diaryPageTitle).text = formatPageTitle(page, pageNumber)
         details.text = buildPageDetails(page); details.visibility = View.GONE
         MediaComponent.render(this, mediaLayout, media, { false }, showFileName = false)
         item.setOnClickListener {
@@ -416,6 +423,12 @@ class DiaryActivity : AppCompatActivity() {
         return page.endDate?.let { "${format(page.startDate)}–${format(it)}" } ?: format(page.startDate)
     }
 
+    private fun formatPageTitle(page: FishDiaryPage, pageNumber: Int? = null): String {
+        val pageSuffix = pageNumber?.let { " (sivu $it)" }.orEmpty()
+        val location = page.location.trim().ifBlank { "Ei paikkaa" }
+        return "${formatPageDates(page)}$pageSuffix - $location"
+    }
+
     private fun normalizeCalendar(cal: Calendar): Calendar {
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.set(Calendar.MINUTE, 0)
@@ -424,7 +437,7 @@ class DiaryActivity : AppCompatActivity() {
         return cal
     }
 
-    private fun addSearchResultItem(page: FishDiaryPage, pageNumber: Int) {
+    private fun addSearchResultItem(page: FishDiaryPage) {
         val item = LayoutInflater.from(this).inflate(
             R.layout.item_diary_page,
             searchResultsRecyclerView,
@@ -433,9 +446,7 @@ class DiaryActivity : AppCompatActivity() {
         val details = item.findViewById<TextView>(R.id.diaryPageDetails)
         val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
         val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
-        val location = page.location.trim().ifBlank { "Ei paikkaa" }
-        item.findViewById<TextView>(R.id.diaryPageTitle).text =
-            "Päiväkirjasivu $pageNumber: ${formatPageDates(page)} – $location"
+        item.findViewById<TextView>(R.id.diaryPageTitle).text = formatPageTitle(page)
         details.text = buildPageDetails(page)
         details.visibility = View.GONE
         mediaLayout.removeAllViews()
@@ -447,5 +458,25 @@ class DiaryActivity : AppCompatActivity() {
         item.findViewById<ImageView>(R.id.editDiaryPageButton)
             .setOnClickListener { showPageMenu(it, page) }
         searchResultsRecyclerView.addView(item)
+    }
+
+    private fun updateSearchResultTitles() {
+        searchResultPages.forEachIndexed { index, page ->
+            val pageNumber = searchResultPages
+                .subList(0, index + 1)
+                .count { isSameDiaryPageDay(it, page) }
+                .let { count ->
+                    if (searchResultPages.count { isSameDiaryPageDay(it, page) } > 1) count else null
+                }
+            searchResultsRecyclerView.getChildAt(index)
+                ?.findViewById<TextView>(R.id.diaryPageTitle)
+                ?.text = formatPageTitle(page, pageNumber)
+        }
+    }
+
+    private fun isSameDiaryPageDay(first: FishDiaryPage, second: FishDiaryPage): Boolean {
+        val firstDate = Calendar.getInstance(timeZone).apply { timeInMillis = first.startDate }
+        val secondDate = Calendar.getInstance(timeZone).apply { timeInMillis = second.startDate }
+        return isSameDay(firstDate, secondDate)
     }
 }
