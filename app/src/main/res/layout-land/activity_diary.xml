@@ -100,15 +100,13 @@
         android:id="@+id/calendarGrid"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="7"
-        android:layout_marginBottom="16dp" />
+        android:columnCount="7" />
 
-    <TextView
-        android:id="@+id/diaryPagesLabel"
+    <View
+        android:id="@+id/diaryPagesDivider"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Päiväkirjasivut:"
-        android:textStyle="bold"
+        android:layout_height="1dp"
+        android:background="?android:attr/listDivider"
         android:layout_marginBottom="8dp" />
 
     <TextView

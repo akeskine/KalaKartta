@@ -44,7 +44,7 @@ class DiaryActivity : AppCompatActivity() {
     private lateinit var diaryPagesContainer: LinearLayout
     private lateinit var noPagesText: TextView
     private lateinit var calendarNavigation: View
-    private lateinit var diaryPagesLabel: TextView
+    private lateinit var diaryPagesDivider: View
     private lateinit var diaryScrollView: ScrollView
     private lateinit var searchEdit: EditText
     private lateinit var searchButton: Button
@@ -97,7 +97,7 @@ class DiaryActivity : AppCompatActivity() {
         diaryPagesContainer = findViewById(R.id.diaryPagesContainer)
         noPagesText = findViewById(R.id.noPagesText)
         calendarNavigation = findViewById(R.id.calendarNavigation)
-        diaryPagesLabel = findViewById(R.id.diaryPagesLabel)
+        diaryPagesDivider = findViewById(R.id.diaryPagesDivider)
         searchEdit = findViewById(R.id.diarySearchEdit)
         searchButton = findViewById(R.id.diarySearchButton)
         clearSearchButton = findViewById(R.id.clearDiarySearchButton)
@@ -197,7 +197,7 @@ class DiaryActivity : AppCompatActivity() {
     private fun setSearchModeViews(searchMode: Boolean) {
         calendarNavigation.visibility = if (searchMode) View.GONE else View.VISIBLE
         calendarGrid.visibility = if (searchMode) View.GONE else View.VISIBLE
-        diaryPagesLabel.text = if (searchMode) "Hakutulokset:" else "Päiväkirjasivut:"
+        diaryPagesDivider.visibility = if (searchMode) View.GONE else View.VISIBLE
         diaryScrollView.visibility = if (searchMode) View.GONE else View.VISIBLE
         searchResultsRecyclerView.visibility = if (searchMode) View.VISIBLE else View.GONE
         loadMoreSearchButton.visibility = View.GONE
