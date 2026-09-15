@@ -573,6 +573,9 @@ class SummaryActivity : AppCompatActivity() {
         } else if (endDateTime != null) {
             intent.putExtra("EXTRA_END_TIME", endDateTime!!.timeInMillis)
         }
+        if (selectedFisherman != null) {
+            intent.putExtra("EXTRA_SUMMARY_FISHERMAN", selectedFisherman)
+        }
         startActivity(intent)
         finish()
     }
