@@ -38,4 +38,11 @@ class FishDiaryPageSearchQueryTest {
         assertEquals(24 * 60 * 60 * 1000L, exact!!.endExclusive - exact.start)
         assertEquals(365 * 24 * 60 * 60 * 1000L, year!!.endExclusive - year.start)
     }
+
+    @Test
+    fun countQueryCountsMatchingRowsInsteadOfReturningTheFirstRow() {
+        val criteria = FishDiaryPageSearchQuery.parse("Kuusamo", emptyList())
+
+        assertTrue(FishDiaryPageSearchQuery.countQuery(criteria).sql.contains("SELECT COUNT(*)"))
+    }
 }

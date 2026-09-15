@@ -198,7 +198,8 @@ class DiaryActivity : AppCompatActivity() {
         calendarNavigation.visibility = if (searchMode) View.GONE else View.VISIBLE
         calendarGrid.visibility = if (searchMode) View.GONE else View.VISIBLE
         diaryPagesDivider.visibility = if (searchMode) View.GONE else View.VISIBLE
-        diaryScrollView.visibility = if (searchMode) View.GONE else View.VISIBLE
+        diaryScrollView.visibility = View.VISIBLE
+        diaryPagesContainer.visibility = if (searchMode) View.GONE else View.VISIBLE
         searchResultsRecyclerView.visibility = if (searchMode) View.VISIBLE else View.GONE
         loadMoreSearchButton.visibility = View.GONE
         searchResultCountText.visibility = if (searchMode) View.VISIBLE else View.GONE
@@ -238,7 +239,8 @@ class DiaryActivity : AppCompatActivity() {
                 searchResultCountText.text = "$searchTotalCount hakutulosta"
                 noPagesText.text = "Hakusanalla ei löytynyt päiväkirjasivuja."
                 noPagesText.visibility = if (searchOffset == 0) View.VISIBLE else View.GONE
-                loadMoreSearchButton.visibility = if (searchOffset < searchTotalCount) View.VISIBLE else View.GONE
+                val hasMorePages = result.pages.size == SEARCH_PAGE_SIZE && searchOffset < searchTotalCount
+                loadMoreSearchButton.visibility = if (hasMorePages) View.VISIBLE else View.GONE
             } catch (_: Exception) {
                 if (requestId != searchRequestId || !isSearchMode || querySnapshot != searchQuery) return@launch
                 searchProgress.visibility = View.GONE

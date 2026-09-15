@@ -39,10 +39,15 @@ object FishDiaryPageSearchQuery {
     }
 
     fun countQuery(criteria: FishDiarySearchCriteria): SupportSQLiteQuery {
-        return buildQuery(criteria, null, 0)
+        return buildQuery(criteria, null, 0, countOnly = true)
     }
 
-    private fun buildQuery(criteria: FishDiarySearchCriteria, limit: Int?, offset: Int): SupportSQLiteQuery {
+    private fun buildQuery(
+        criteria: FishDiarySearchCriteria,
+        limit: Int?,
+        offset: Int,
+        countOnly: Boolean = false
+    ): SupportSQLiteQuery {
         val args = mutableListOf<Any>()
         val termConditions = criteria.terms.map { term ->
             term.dateRange?.let { range ->
@@ -62,10 +67,13 @@ object FishDiaryPageSearchQuery {
 
         val where = if (termConditions.isEmpty()) "0" else termConditions.joinToString(" AND ")
         val sql = buildString {
-            append("SELECT * FROM FishDiaryPage WHERE ")
+            append(if (countOnly) "SELECT COUNT(*)" else "SELECT *")
+            append(" FROM FishDiaryPage WHERE ")
             append(where)
-            append(" ORDER BY startDate DESC, id DESC")
-            if (limit != null) {
+            if (!countOnly) {
+                append(" ORDER BY startDate DESC, id DESC")
+            }
+            if (!countOnly && limit != null) {
                 append(" LIMIT ? OFFSET ?")
                 args += limit.coerceAtLeast(0)
                 args += offset.coerceAtLeast(0)
