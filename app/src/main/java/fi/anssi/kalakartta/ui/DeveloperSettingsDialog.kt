@@ -274,7 +274,7 @@ class DeveloperSettingsDialog(
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Kehittäjäasetukset")
             .setView(scrollView)
-            .setPositiveButton("Tallenna") { _, _ ->
+            .setNegativeButton("Tallenna") { _, _ ->
                 val maxPoints = SettingsValueValidator.positiveIntOrDefault(
                     maxPointsEdit.text,
                     SettingsDefaults.MAX_TRACK_POINTS
@@ -313,7 +313,7 @@ class DeveloperSettingsDialog(
                 settingsStore.automaticWeatherUpdateIntervalHours = automaticWeatherUpdateInterval
                 onOpenGeneralSettings()
             }
-            .setNegativeButton("Takaisin") { _, _ -> onOpenGeneralSettings() }
+            .setPositiveButton("Takaisin") { _, _ -> onOpenGeneralSettings() }
             .create()
         onShowDialog(dialog)
     }
