@@ -427,6 +427,18 @@ class HeatmapSettingsDialog(
         }
         layout.addView(autoConfigureCb)
 
+        val fadeCellEdgesCb = CheckBox(activity).apply {
+            text = activity.getString(R.string.heatmap_fade_cell_edges)
+            isChecked = settingsStore.heatmapFadeCellEdges
+            textSize = 16f
+            setOnCheckedChangeListener { _, checked ->
+                if (settingsStore.heatmapFadeCellEdges == checked) return@setOnCheckedChangeListener
+                settingsStore.heatmapFadeCellEdges = checked
+                onMapSettingsChanged()
+            }
+        }
+        layout.addView(fadeCellEdgesCb)
+
         val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
             if (key == SettingsKeys.HEATMAP_MIN_POINTS || key == SettingsKeys.HEATMAP_MAX_POINTS) {
                 activity.lifecycleScope.launch(Dispatchers.Main) {

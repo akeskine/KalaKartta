@@ -218,6 +218,10 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getFloat(SettingsKeys.HEATMAP_REFERENCE_LATITUDE, SettingsDefaults.HEATMAP_REFERENCE_LATITUDE)
         set(value) { preferences.edit().putFloat(SettingsKeys.HEATMAP_REFERENCE_LATITUDE, value).apply() }
 
+    var heatmapFadeCellEdges: Boolean
+        get() = preferences.getBoolean(SettingsKeys.HEATMAP_FADE_CELL_EDGES, SettingsDefaults.HEATMAP_FADE_CELL_EDGES)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.HEATMAP_FADE_CELL_EDGES, value).apply() }
+
     var pressureTrendThreshold: Float
         get() = preferences.getFloat(SettingsKeys.PRESSURE_TREND_THRESHOLD, SettingsDefaults.PRESSURE_TREND_THRESHOLD)
         set(value) { preferences.edit().putFloat(SettingsKeys.PRESSURE_TREND_THRESHOLD, value).apply() }

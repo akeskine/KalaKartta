@@ -80,6 +80,7 @@ class SettingsStoreTest {
         assertEquals(50_000, store.maxTrackPoints)
         assertEquals(10_000, store.maxHeatmapCells)
         assertEquals(64.7f, store.heatmapReferenceLatitude)
+        assertTrue(store.heatmapFadeCellEdges)
         assertEquals(0.10f, store.pressureTrendThreshold)
         assertEquals(0.20f, store.pressureTurningTrendThreshold)
         assertEquals("", store.lastVersionName)
@@ -141,6 +142,7 @@ class SettingsStoreTest {
         store.maxTrackPoints = 20_000
         store.maxHeatmapCells = 5_000
         store.heatmapReferenceLatitude = 60.2f
+        store.heatmapFadeCellEdges = false
         store.pressureTrendThreshold = 0.15f
         store.pressureTurningTrendThreshold = 0.25f
         store.lastVersionName = "1.2.3"
@@ -201,6 +203,7 @@ class SettingsStoreTest {
         assertEquals(20_000, store.maxTrackPoints)
         assertEquals(5_000, store.maxHeatmapCells)
         assertEquals(60.2f, store.heatmapReferenceLatitude)
+        assertFalse(store.heatmapFadeCellEdges)
         assertEquals(0.15f, store.pressureTrendThreshold)
         assertEquals(0.25f, store.pressureTurningTrendThreshold)
         assertEquals("1.2.3", store.lastVersionName)

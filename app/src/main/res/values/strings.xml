@@ -234,6 +234,7 @@
     <string name="fish_icon_size">Kalakuvakkeiden koko:</string>
     <string name="other_icon_size">Muu paikka-kuvakkeiden koko:</string>
     <string name="heatmap_advanced_settings">Kalastettujen alueiden lisäasetukset</string>
+    <string name="heatmap_fade_cell_edges">Häivytä ruutujen reunat</string>
     <string name="route_advanced_settings">Reittien lisäasetukset</string>
     <string name="moon_phase">Kuun vaihe</string>
     <string name="moon_altitude">Kuun korkeus</string>

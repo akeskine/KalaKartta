@@ -5,6 +5,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.RenderEffect
+import android.graphics.RenderNode
+import android.graphics.Shader
+import android.os.Build
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.TrackPoint
@@ -18,9 +22,14 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.util.BoundingBox
-import kotlin.math.roundToInt
 
 class FishingHeatmapOverlay(private val context: Context, private val db: AppDatabase, private val mapView: MapView) : Overlay() {
+
+    private companion object {
+        const val HEATMAP_BLUR_RADIUS_FRACTION = 0.85f
+        const val MIN_HEATMAP_BLUR_RADIUS = 2f
+        const val MAX_HEATMAP_BLUR_RADIUS = 96f
+    }
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private val settingsStore = SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
@@ -35,8 +44,6 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private val paint = Paint().apply {
         style = Paint.Style.FILL
     }
-    
-    private val rect = RectF()
     
     private var minPoints = SettingsDefaults.HEATMAP_MIN_POINTS
     private var maxPoints = SettingsDefaults.HEATMAP_MAX_POINTS
@@ -56,6 +63,15 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
     private var minZoomLevel = SettingsDefaults.HEATMAP_MIN_ZOOM.toDouble()
     private var maxTrackPoints = SettingsDefaults.MAX_TRACK_POINTS
     private var referenceLatitude = SettingsDefaults.HEATMAP_REFERENCE_LATITUDE.toDouble()
+    private var fadeCellEdges = SettingsDefaults.HEATMAP_FADE_CELL_EDGES
+
+    private data class HeatmapCell(val bounds: RectF, val color: Int)
+
+    private val visibleHeatmapCells = mutableListOf<HeatmapCell>()
+    // Kept as Any so older Android versions do not resolve API 31 classes while loading the overlay.
+    private var heatmapBlurRenderNode: Any? = null
+    private var heatmapBlurEffect: Any? = null
+    private var heatmapBlurRadius = 0f
 
     private data class RouteWithBounds(
         val points: List<TrackPointHeatmapData>,
@@ -82,6 +98,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         val oldRoutesFadeEnabled = routesFadeEnabled
         val oldRoutesFadeStartLimitDays = routesFadeStartLimitDays
         val oldRoutesFadeFullLimitDays = routesFadeFullLimitDays
+        val oldFadeCellEdges = fadeCellEdges
 
         gridSizeMeters = settingsStore.heatmapGridSize.toDouble().coerceAtLeast(1.0)
         autoConfigure = settingsStore.heatmapAutoConfigure
@@ -106,6 +123,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         minZoomLevel = settingsStore.heatmapMinZoom.toDouble()
         maxTrackPoints = settingsStore.maxTrackPoints
         referenceLatitude = settingsStore.heatmapReferenceLatitude.toDouble()
+        fadeCellEdges = settingsStore.heatmapFadeCellEdges
 
         val colorStr = settingsStore.getHeatmapColor("Punainen")
         baseColor = when (colorStr) {
@@ -118,7 +136,8 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 oldRoutesFilterEnabled != routesFilterEnabled || oldAutoConfigure != autoConfigure ||
                 oldRoutesFadeEnabled != routesFadeEnabled ||
                 oldRoutesFadeStartLimitDays != routesFadeStartLimitDays ||
-                oldRoutesFadeFullLimitDays != routesFadeFullLimitDays
+                oldRoutesFadeFullLimitDays != routesFadeFullLimitDays ||
+                oldFadeCellEdges != fadeCellEdges
     }
 
     private fun getPoints(f: fi.anssi.kalakartta.ui.FilterManager.Filters, hasAreaFilter: Boolean, latSouth: Double? = null, latNorth: Double? = null, lonWest: Double? = null, lonEast: Double? = null): List<TrackPointHeatmapData> {
@@ -600,6 +619,55 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         }
     }
 
+    private fun drawHeatmapCells(c: Canvas) {
+        paint.style = Paint.Style.FILL
+        visibleHeatmapCells.forEach { cell ->
+            paint.color = cell.color
+            c.drawRect(cell.bounds, paint)
+        }
+    }
+
+    /**
+     * Blurs the complete heatmap as one render node. DECAL keeps the blurred edge transparent,
+     * so only the heatmap fades into the map and the map itself is never part of the effect.
+     */
+    private fun drawBlurredHeatmap(c: Canvas, osmv: MapView, blurRadius: Float): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !c.isHardwareAccelerated) return false
+
+        var renderNode: RenderNode? = null
+        return try {
+            val node = (heatmapBlurRenderNode as? RenderNode) ?: RenderNode("fishingHeatmap").also {
+                heatmapBlurRenderNode = it
+            }
+            renderNode = node
+            node.setPosition(0, 0, osmv.width, osmv.height)
+
+            val recordingCanvas = node.beginRecording()
+            drawHeatmapCells(recordingCanvas)
+            node.endRecording()
+
+            val blurEffect = if (heatmapBlurEffect !is RenderEffect || heatmapBlurRadius != blurRadius) {
+                RenderEffect.createBlurEffect(
+                    blurRadius,
+                    blurRadius,
+                    Shader.TileMode.DECAL
+                ).also {
+                    heatmapBlurEffect = it
+                    heatmapBlurRadius = blurRadius
+                }
+            } else {
+                heatmapBlurEffect as RenderEffect
+            }
+            node.setRenderEffect(blurEffect)
+            c.drawRenderNode(node)
+            true
+        } catch (_: RuntimeException) {
+            // Keep the original rectangle renderer for unsupported/problematic canvases.
+            renderNode?.setRenderEffect(null)
+            false
+        }
+    }
+
     override fun draw(c: Canvas, osmv: MapView, shadow: Boolean) {
         if (shadow) return
         
@@ -624,8 +692,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
             val minY = minCell.second - 1
             val maxY = maxCell.second + 1
             
-            paint.style = Paint.Style.FILL
-            
+            visibleHeatmapCells.clear()
+            var blurRadius = 0f
+
             for ((key, count) in heatmapData) {
                 val x = key.first
                 val y = key.second
@@ -638,7 +707,7 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                     val clampedRatio = ratio.coerceIn(0f, 1f)
                     val alpha = (40 + (113 * clampedRatio)).toInt() // 40-153 (15%-60%)
                     
-                    paint.color = Color.argb(
+                    val color = Color.argb(
                         alpha,
                         Color.red(baseColor),
                         Color.green(baseColor),
@@ -655,15 +724,31 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                     val p1 = projection.toPixels(GeoPoint(lat, lon), null)
                     val p2 = projection.toPixels(GeoPoint(nextLat, nextLon), null)
                     
-                    rect.set(
+                    val cellBounds = RectF(
                         p1.x.toFloat(),
                         p2.y.toFloat(),
                         p2.x.toFloat(),
                         p1.y.toFloat()
                     )
-                    
-                    c.drawRect(rect, paint)
+
+                    if (blurRadius == 0f) {
+                        val cellSize = minOf(
+                            kotlin.math.abs(cellBounds.width()),
+                            kotlin.math.abs(cellBounds.height())
+                        )
+                        blurRadius = (cellSize * HEATMAP_BLUR_RADIUS_FRACTION)
+                            .coerceIn(MIN_HEATMAP_BLUR_RADIUS, MAX_HEATMAP_BLUR_RADIUS)
+                    }
+                    visibleHeatmapCells += HeatmapCell(cellBounds, color)
                 }
+            }
+
+            if (fadeCellEdges && blurRadius > 0f && drawBlurredHeatmap(c, osmv, blurRadius)) {
+                visibleHeatmapCells.clear()
+            } else {
+                // Compatibility/performance fallback: the original rectangular renderer.
+                drawHeatmapCells(c)
+                visibleHeatmapCells.clear()
             }
         }
 
