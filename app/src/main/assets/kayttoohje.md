@@ -81,17 +81,17 @@ Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta
 ## 7. Kalalajien hallinta
 
 Voit muokata kalalajeja kohdasta **Valikko -> Kalalajit**.
-- **Muokkaa lajeja:** Voit vaihtaa lajien järjestystä sovelluksen valintalistoissa ja asettaa rajat "pienelle, ""suurelle" ja "jättiläiselle" kalalle.
+- **Muokkaa lajeja:** Voit vaihtaa lajien järjestystä sovelluksen valintalistoissa ja asettaa rajat "pienelle", "suurelle" ja "jättiläiselle" kalalle.
 - **Omat ikonit:** Voit lisätä lajin eri kokoisille kaloille oman kuvan puhelimesi galleriasta. Kuvan maksimikoko on 1536 x 1024 pikseliä, sen pitää olla png-muotoinen. Kuvan taustan kannattaa olla läpinäkyvä (transparent).
 - **Lajin lisäys:** Voit myös lisätä kokonaan uusia kalalajeja ja määritellä niille omat ikonit.
 - **Omien kalalajien export** Voit tuoda ja viedä omien kalalajiesi tiedot JSON-muodossa. Tiedoissa viedään myös mahdolliset omat ikonit binäärimuodossa.
 
 ## 8. Pisteiden tuonti ja vienti (Export/Import)
 
-Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedonsiirto**).
-- **Vie kaikki tiedot:** Tallentaa sovelluksen kaiken datan (pisteet, reitit, mediatiedostojen linkitykset ja asetukset) yhteen tiedostoon.
-- **Tuo kaikki tiedot:** Palauttaa kaikki sovelluksen tiedot tiedostosta.
-- **Poista kaikki tiedot:** Tyhjentää kaikki sovelluksen tiedot (pisteet ja reitit).
+Voit viedä ja tuoda pisteitä, reittejä, mediaa ja kalapäiväkirjasivuja JSON-muodossa (**Valikko -> Tiedonsiirto**).
+- **Vie kaikki tiedot:** Tallentaa sovelluksen kaiken datan (pisteet, reitit, kalapäiväkirjasivut, mediatiedostojen linkitykset ja asetukset) yhteen tiedostoon.
+- **Tuo kaikki tiedot:** Palauttaa kaikki sovelluksen tiedot, myös kalapäiväkirjasivut, tiedostosta.
+- **Poista kaikki tiedot:** Tyhjentää kaikki sovelluksen tiedot, mukaan lukien pisteet, reitit, mediat, kalapäiväkirjan ja asetukset.
 - **Vie kalapisteet ja muut pisteet:** Tallentaa kaikki kalapisteet ja muut merkit tiedostoon.
 - **Vie suodatetut pisteet:** Jos suodatus on päällä, voit halutessasi viedä vain ne pisteet, jotka näkyvät parhaillaan kartalla.
 - **Tuo kalapisteet ja muut pisteet:** Lukee pisteet tiedostosta.
@@ -99,7 +99,7 @@ Voit viedä ja tuoda pisteitä sekä reittejä JSON-muodossa (**Valikko -> Tiedo
 - **Tuo kalastussessiot:** Lukee sessiot ja reitit tiedostosta.
 - **Poista kalastussessiot:** Tyhjentää kaikki tallennetut reittitiedot sovelluksesta.
 - **Duplikaatit:** Tuonnin yhteydessä sovellus tarkistaa päällekkäisyydet. Pisteet katsotaan samoiksi, jos niiden etäisyys on **enintään 2 metriä**. Voit valita ohitetaanko duplikaatit, korvataanko vanhat vai tuodaanko kaikki. Reittien osalta tuodaan toistaiseksi kaikki sessiot uusina.
-- **Infopallura (i):** Tiedonsiirto-valikon yläreunassa on infopainike, josta näet yksityiskohtaiset tilastot sovelluksen sisältämästä datasta (sessiot, pisteet, mediatiedostot) ja käytetystä tallennustilasta.
+- **Infopallo (i):** Tiedonsiirto-valikon yläreunassa on infopainike, josta näet yksityiskohtaiset tilastot sovelluksen sisältämästä datasta (sessiot, pisteet, päiväkirjasivut, mediatiedostot) ja käytetystä tallennustilasta.
 
 ## 9. Yhteenveto ja reissumuistiinpanot
 
@@ -162,14 +162,29 @@ Kalastetut alueet -toiminto (Heat map) visualisoi kartalla ne alueet, joissa ole
     - **Laskentatapa:** Voit vaihtaa ruudun käyntikertojen laskentatapaa. Ruudun käyntikerrat lasketaan joko ruutuun osuvien reittipisteiden määrästä tai siitä, monenko kalastussession reittipisteitä ruudussa on. Säätämällä reittipisteiden määrän minimi- ja maksimiarvoja ruutua kohden voit määrittää, montako käyntiä ruudussa tietty heat mapin värisävy vaatii.<br><br>
     - **Nopeussuodatus:** Voit suodattaa heat mapia reittipisteen nopeuden perusteella.<br><br>
     - **Siirtymäpisteet:** Voit valita, poistetaanko siirtymien (suuret nopeudet) kohdalta vain heat map -ruudut vai myös reittipisteet kartalta. Voit myös valita, kuinka suuri nopeus reittipisteessä tekee reittipisteestä siirtymäpisteeksi tulkittavan.<br><br>
-- **Datan rajoittaminen:** Sovellus rajoittaa näytettävien heat map -ruutujen ja reittipisteiden määrää suorituskyvyn varmistamiseksi ja kaatumisten estämiseksi. Rajoitukset tarkastetaan aina ennen datan tuontia tai näyttämistä. Jos reittipisteitä on liikaa, rajaa näytettävää dataa suodattimien avulla tai aseta reittipisteille häivytys **Kalastetut alueet -> Reittien lisäasetukset** -valikossa. Rajoitusarvoja on mahdollista muuttaa **Kehittäjäasetukset**-valikosta.
+- **Reittien lisäasetukset:** Avaa **Kalastetut alueet -> Reittien lisäasetukset** ja ota käyttöön **Häivytä vanhat reittiviivat**. Asetus näyttää uusimmat reitit täysin näkyvinä, häivyttää vanhempia reittejä vähitellen ja jättää aloitusrajan ylittäneet vanhat reitit piirtämättä. Asetuksen alla olevat arvot ilmoitetaan päivinä: vasemmanpuoleinen arvo kertoo, minkä iän jälkeen häivytys alkaa, ja oikeanpuoleinen, mihin asti reitti näkyy täysin.
+- **Suorituskyky:** Jos kartan reittiviivojen piirtäminen hidastaa sovellusta, pienennä Reittien lisäasetuksissa häivytyksen aloitusrajaa. Tällöin kartalle piirretään vain uudemmat reitit ja vanhat jätetään kokonaan pois. Tarvittaessa rajaa dataa myös **Tiedon suodatus** -asetuksen aika- tai aluerajauksella. Sovellus rajoittaa lisäksi näytettävien heat map -ruutujen ja reittipisteiden enimmäismäärää; näitä rajoja voi muuttaa **Kehittäjäasetukset**-valikosta.
 
 ## 15. Puhuva kello
 
-Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana. Toiminto vaatii käyttäjältä luvan lähettää ilmoituksia.<br<br>
+Puhuva kello on toiminnallisuus, joka kertoo kellonajan ja muita tietoja ääneen, jotta sinun ei tarvitse katsoa puhelinta kalastuksen aikana. Toiminto vaatii käyttäjältä luvan lähettää ilmoituksia.<br><br>
 
-- **Käyttöönotto:** Pääset puhuvan kellon asetuksiin ja statussivulle **Valikko -> Kalastussessiot -> Aloita tallennus**..
-- **Toiminnot:** Sovellus voi ilmoittaa kellonajan lisäksi auringon nousu- ja laskuajat.
-- **Asetukset:** Voit määrittää kellonajan ilmoitusvälin, auringon nousu- ja laskuajoista ilmoittamisen sekä vakiopuhuttelun. Voit myös valita, onko kello automaattisesti päällä kalastussession ollessa käynnissä.
+- **Käyttöönotto:** Pääset puhuvan kellon asetuksiin ja statussivulle **Valikko -> Yleiset -> Puhuva kello**.
+- **Toiminnot:** Sovellus voi ilmoittaa kellonajan lisäksi auringon nousu- ja laskuajat, sääennusteen sekä akun varauksen.
+- **Asetukset:** Voit määrittää kellonajan ilmoitusvälin, auringon nousu- ja laskuajoista ilmoittamisen, sääennusteiden asetukset sekä vakiopuhuttelun. Voit myös valita, onko kello automaattisesti päällä kalastussession ollessa käynnissä.
 - **Äänenhallinta:** Sovellus vaimentaa automaattisesti muun musiikin tai puheen ilmoituksen ajaksi.
 - **Status:** Dialogin otsikon alla näet kellon nykyisen tilan ja seuraavan ilmoitusajan.
+
+## 16. Kalapäiväkirja
+
+Kalapäiväkirja löytyy kohdasta **Valikko -> Kalapäiväkirja**. Se on erillinen muistiinpano-osio saalismerkinnöistä ja kalastussessioista koostuville reissukuvauksille.
+
+- **Kalenterin käyttö:** Kalenterissa päivä, jolla on vähintään yksi päiväkirjasivu, merkitään erillisellä ilmaisimella. Vaihda kuukautta nuolipainikkeilla tai napauttamalla kuukausi- ja vuositekstiä. Valitse päivä nähdäksesi sitä koskevat sivut. Koko näkymää voi vierittää myös vaakasuuntaisessa näyttötilassa.
+- **Uusi sivu:** Valitse **Lisää päiväkirjasivu**, valitse päivämäärä ja syötä paikka, kalastustapa, saalis ja kertomus. Valitsemalla **Usean päivän merkintä** voit antaa sivulle myös loppupäivämäärän.
+- **Tekstin generointi:** **Saalis**-kentän **Generoi** muodostaa yhteenvedon valitun aikavälin saaliista. **Kertomus**-kentän **Generoi** muodostaa yhteenvedon samalla aikavälillä tallennetuista kalastussessioista. Voit muokata muodostettua tekstiä ennen tallentamista.
+- **Media:** Päiväkirjasivulle voi liittää kuvia, äänitteitä ja videoita. Kalenterinäkymässä kortin avaaminen näyttää sivun tiedot ja siihen liittyvän median.
+- **Sivujen käsittely:** Avaa sivu napauttamalla sen laatikkoa. Jos samalle päivälle osuu useita sivuja, otsikossa näytetään sivunumero, esimerkiksi `14.9.2026 (sivu 2) - Laru`. Sivun valikosta voit muokata tai poistaa sivun.
+- **Haku:** Kirjoita hakusana kenttään **Hae päiväkirjasivuista** ja paina **Hae** tai näppäimistön hakupainiketta. Haku kohdistuu päivämäärään, paikkaan, kalastustapaan, saaliiseen ja kertomukseen. Haku ei käynnisty jokaisella näppäimenpainalluksella.
+- **Hakusäännöt:** Haku ei huomioi kirjainkokoa ja löytää osittaisia osumia. Useampi sana tarkoittaa, että jokaisen sanan pitää löytyä jostain haettavasta kentästä. Päivämäärän voi antaa muodossa `15.9.2026` tai pelkkänä vuotena, kuten `2026`; monipäiväinen sivu löytyy, jos päivä osuu sen aikavälille. Kalalajisanasto tunnistaa myös yleisiä taivutusmuotoja ja yhdyssanoja, joten esimerkiksi `hauki` löytää tekstin `hauenkalastus`.
+
+Kalapäiväkirjasivut voidaan viedä ja tuoda JSON-muodossa **Valikko -> Tiedonsiirto** -valikon **Vie kalapäiväkirja**- ja **Tuo kalapäiväkirja**-toiminnoilla.
