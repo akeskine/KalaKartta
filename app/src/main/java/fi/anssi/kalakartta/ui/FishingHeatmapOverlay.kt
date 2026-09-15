@@ -332,10 +332,17 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                             processPoints(filteredPoints)
                         } else {
                             val isPointCalculation = calculationMethod == context.getString(R.string.heatmap_method_points)
+                            val isPointAndSessionCalculation = calculationMethod == context.getString(R.string.heatmap_method_points_and_sessions)
                             val aggregated = when {
                                 !heatmapFilterEnabled -> {
                                     if (isPointCalculation) {
                                         db.trackPointDao().getAggregatedHeatmapPoints(
+                                            latDegreeMeters,
+                                            lonDegreeMeters,
+                                            gridSizeMeters
+                                        )
+                                    } else if (isPointAndSessionCalculation) {
+                                        db.trackPointDao().getAggregatedHeatmapPointsAndSessions(
                                             latDegreeMeters,
                                             lonDegreeMeters,
                                             gridSizeMeters
@@ -351,6 +358,15 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                 (f.startDate != null || f.endDate != null) && hasAreaFilter -> {
                                     if (isPointCalculation) {
                                         db.trackPointDao().getAggregatedHeatmapRangeAndAreaPoints(
+                                            f.startDate ?: 0L,
+                                            f.endDate ?: Long.MAX_VALUE,
+                                            f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                            latDegreeMeters,
+                                            lonDegreeMeters,
+                                            gridSizeMeters
+                                        )
+                                    } else if (isPointAndSessionCalculation) {
+                                        db.trackPointDao().getAggregatedHeatmapRangeAndAreaPointsAndSessions(
                                             f.startDate ?: 0L,
                                             f.endDate ?: Long.MAX_VALUE,
                                             f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
@@ -378,6 +394,14 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                             lonDegreeMeters,
                                             gridSizeMeters
                                         )
+                                    } else if (isPointAndSessionCalculation) {
+                                        db.trackPointDao().getAggregatedHeatmapRangePointsAndSessions(
+                                            f.startDate ?: 0L,
+                                            f.endDate ?: Long.MAX_VALUE,
+                                            latDegreeMeters,
+                                            lonDegreeMeters,
+                                            gridSizeMeters
+                                        )
                                     } else {
                                         db.trackPointDao().getAggregatedHeatmapRange(
                                             f.startDate ?: 0L,
@@ -396,6 +420,13 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                             lonDegreeMeters,
                                             gridSizeMeters
                                         )
+                                    } else if (isPointAndSessionCalculation) {
+                                        db.trackPointDao().getAggregatedHeatmapAreaPointsAndSessions(
+                                            f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
+                                            latDegreeMeters,
+                                            lonDegreeMeters,
+                                            gridSizeMeters
+                                        )
                                     } else {
                                         db.trackPointDao().getAggregatedHeatmapArea(
                                             f.latSouth!!, f.latNorth!!, f.lonWest!!, f.lonEast!!,
@@ -408,6 +439,12 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                                 else -> {
                                     if (isPointCalculation) {
                                         db.trackPointDao().getAggregatedHeatmapPoints(
+                                            latDegreeMeters,
+                                            lonDegreeMeters,
+                                            gridSizeMeters
+                                        )
+                                    } else if (isPointAndSessionCalculation) {
+                                        db.trackPointDao().getAggregatedHeatmapPointsAndSessions(
                                             latDegreeMeters,
                                             lonDegreeMeters,
                                             gridSizeMeters
@@ -552,9 +589,12 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
 
     private fun processPoints(points: List<TrackPointHeatmapData>): Map<Pair<Int, Int>, Int> {
         val isPointCalculation = calculationMethod == context.getString(R.string.heatmap_method_points)
+        val isPointAndSessionCalculation = calculationMethod == context.getString(R.string.heatmap_method_points_and_sessions)
 
         return if (isPointCalculation) {
             HeatmapGridCalculator.pointCounts(points, gridSizeMeters, referenceLatitude)
+        } else if (isPointAndSessionCalculation) {
+            HeatmapGridCalculator.pointAndSessionCounts(points, gridSizeMeters, referenceLatitude)
         } else {
             HeatmapGridCalculator.sessionCounts(points, gridSizeMeters, referenceLatitude)
         }

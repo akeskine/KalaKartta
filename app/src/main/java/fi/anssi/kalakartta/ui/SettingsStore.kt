@@ -170,6 +170,14 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getInt(SettingsKeys.HEATMAP_MAX_POINTS_BY_SESSIONS, SettingsDefaults.HEATMAP_MAX_POINTS_BY_SESSIONS)
         set(value) { preferences.edit().putInt(SettingsKeys.HEATMAP_MAX_POINTS_BY_SESSIONS, value).apply() }
 
+    var heatmapMinPointsByPointsAndSessions: Int
+        get() = preferences.getInt(SettingsKeys.HEATMAP_MIN_POINTS_BY_POINTS_AND_SESSIONS, SettingsDefaults.HEATMAP_MIN_POINTS_BY_POINTS_AND_SESSIONS)
+        set(value) { preferences.edit().putInt(SettingsKeys.HEATMAP_MIN_POINTS_BY_POINTS_AND_SESSIONS, value).apply() }
+
+    var heatmapMaxPointsByPointsAndSessions: Int
+        get() = preferences.getInt(SettingsKeys.HEATMAP_MAX_POINTS_BY_POINTS_AND_SESSIONS, SettingsDefaults.HEATMAP_MAX_POINTS_BY_POINTS_AND_SESSIONS)
+        set(value) { preferences.edit().putInt(SettingsKeys.HEATMAP_MAX_POINTS_BY_POINTS_AND_SESSIONS, value).apply() }
+
     var routesFadeEnabled: Boolean
         get() = preferences.getBoolean(SettingsKeys.ROUTES_FADE_ENABLED, SettingsDefaults.ROUTES_FADE_ENABLED)
         set(value) { preferences.edit().putBoolean(SettingsKeys.ROUTES_FADE_ENABLED, value).apply() }

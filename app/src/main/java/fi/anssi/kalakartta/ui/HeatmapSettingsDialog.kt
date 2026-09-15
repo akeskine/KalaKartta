@@ -313,16 +313,19 @@ class HeatmapSettingsDialog(
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             setPadding(0, 10, 0, 10)
         }
+        val pointsMethod = activity.getString(R.string.heatmap_method_points)
+        val pointsAndSessionsMethod = activity.getString(R.string.heatmap_method_points_and_sessions)
+        fun countDescription(method: String) = when (method) {
+            pointsMethod -> activity.getString(R.string.heatmap_points_in_grid)
+            pointsAndSessionsMethod -> activity.getString(R.string.heatmap_points_and_sessions_in_grid)
+            else -> activity.getString(R.string.heatmap_sessions_in_grid)
+        }
         val midText = TextView(activity).apply {
             id = View.generateViewId()
             val method = settingsStore.getHeatmapCalculationMethod(
-                activity.getString(R.string.heatmap_method_points)
+                pointsMethod
             )
-            text = if (method == activity.getString(R.string.heatmap_method_points)) {
-                activity.getString(R.string.heatmap_points_in_grid)
-            } else {
-                activity.getString(R.string.heatmap_sessions_in_grid)
-            }
+            text = countDescription(method)
             textSize = 14f
         }
         val minEdit = EditText(activity).apply {
@@ -347,10 +350,12 @@ class HeatmapSettingsDialog(
                     )
                     settingsStore.heatmapMinPoints = value
                     val method = settingsStore.getHeatmapCalculationMethod(
-                        activity.getString(R.string.heatmap_method_points)
+                        pointsMethod
                     )
-                    if (method == activity.getString(R.string.heatmap_method_points)) {
+                    if (method == pointsMethod) {
                         settingsStore.heatmapMinPointsByPoints = value
+                    } else if (method == pointsAndSessionsMethod) {
+                        settingsStore.heatmapMinPointsByPointsAndSessions = value
                     } else {
                         settingsStore.heatmapMinPointsBySessions = value
                     }
@@ -381,10 +386,12 @@ class HeatmapSettingsDialog(
                     )
                     settingsStore.heatmapMaxPoints = value
                     val method = settingsStore.getHeatmapCalculationMethod(
-                        activity.getString(R.string.heatmap_method_points)
+                        pointsMethod
                     )
-                    if (method == activity.getString(R.string.heatmap_method_points)) {
+                    if (method == pointsMethod) {
                         settingsStore.heatmapMaxPointsByPoints = value
+                    } else if (method == pointsAndSessionsMethod) {
+                        settingsStore.heatmapMaxPointsByPointsAndSessions = value
                     } else {
                         settingsStore.heatmapMaxPointsBySessions = value
                     }
@@ -501,14 +508,15 @@ class HeatmapSettingsDialog(
         methodRow.addView(methodLabel)
         val methods = arrayOf(
             activity.getString(R.string.heatmap_method_sessions),
-            activity.getString(R.string.heatmap_method_points)
+            pointsMethod,
+            pointsAndSessionsMethod
         )
         val methodSpinner = Spinner(activity)
         val methodAdapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, methods)
         methodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         methodSpinner.adapter = methodAdapter
         val currentMethod = settingsStore.getHeatmapCalculationMethod(
-            activity.getString(R.string.heatmap_method_points)
+            pointsMethod
         )
         val methodIndex = methods.indexOf(currentMethod).coerceAtLeast(0)
         methodSpinner.setSelection(methodIndex)
@@ -516,15 +524,18 @@ class HeatmapSettingsDialog(
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedMethod = methods[position]
                 val oldMethod = settingsStore.getHeatmapCalculationMethod(
-                    activity.getString(R.string.heatmap_method_points)
+                    pointsMethod
                 )
                 if (selectedMethod != oldMethod) {
                     settingsStore.setHeatmapCalculationMethod(selectedMethod)
                     val newMin: Int
                     val newMax: Int
-                    if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
+                    if (selectedMethod == pointsMethod) {
                         newMin = settingsStore.heatmapMinPointsByPoints
                         newMax = settingsStore.heatmapMaxPointsByPoints
+                    } else if (selectedMethod == pointsAndSessionsMethod) {
+                        newMin = settingsStore.heatmapMinPointsByPointsAndSessions
+                        newMax = settingsStore.heatmapMaxPointsByPointsAndSessions
                     } else {
                         newMin = settingsStore.heatmapMinPointsBySessions
                         newMax = settingsStore.heatmapMaxPointsBySessions
@@ -533,11 +544,7 @@ class HeatmapSettingsDialog(
                     maxEdit.setText(newMax.toString())
                     settingsStore.heatmapMinPoints = newMin
                     settingsStore.heatmapMaxPoints = newMax
-                    midText.text = if (selectedMethod == activity.getString(R.string.heatmap_method_points)) {
-                        activity.getString(R.string.heatmap_points_in_grid)
-                    } else {
-                        activity.getString(R.string.heatmap_sessions_in_grid)
-                    }
+                    midText.text = countDescription(selectedMethod)
                     onMapSettingsChanged()
                 }
             }

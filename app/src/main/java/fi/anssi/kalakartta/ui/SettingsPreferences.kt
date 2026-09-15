@@ -47,6 +47,8 @@ object SettingsKeys {
     const val HEATMAP_MAX_POINTS_BY_POINTS = "heatmap_max_points_by_points"
     const val HEATMAP_MIN_POINTS_BY_SESSIONS = "heatmap_min_points_by_sessions"
     const val HEATMAP_MAX_POINTS_BY_SESSIONS = "heatmap_max_points_by_sessions"
+    const val HEATMAP_MIN_POINTS_BY_POINTS_AND_SESSIONS = "heatmap_min_points_by_points_and_sessions"
+    const val HEATMAP_MAX_POINTS_BY_POINTS_AND_SESSIONS = "heatmap_max_points_by_points_and_sessions"
     const val HEATMAP_AUTO_CONFIGURE = "heatmap_auto_configure"
     const val HEATMAP_REMOVE_TRANSITIONS = "heatmap_remove_transitions"
     const val HEATMAP_REMOVE_TRANSITIONS_MODE = "heatmap_remove_transitions_mode"
@@ -110,6 +112,8 @@ object SettingsDefaults {
     const val HEATMAP_MAX_POINTS_BY_POINTS = 50
     const val HEATMAP_MIN_POINTS_BY_SESSIONS = 1
     const val HEATMAP_MAX_POINTS_BY_SESSIONS = 5
+    const val HEATMAP_MIN_POINTS_BY_POINTS_AND_SESSIONS = 1
+    const val HEATMAP_MAX_POINTS_BY_POINTS_AND_SESSIONS = 50
     const val HEATMAP_AUTO_CONFIGURE = true
     const val HEATMAP_REMOVE_TRANSITIONS = false
     const val HEATMAP_REMOVE_TRANSITIONS_MODE = 0

@@ -54,6 +54,19 @@ class HeatmapGridCalculatorTest {
     }
 
     @Test
+    fun pointAndSessionCountsAddThreePointsForEachSession() {
+        val points = listOf(
+            point(sessionId = 1, latitude = 0.001, longitude = 0.001),
+            point(sessionId = 1, latitude = 0.0015, longitude = 0.0015),
+            point(sessionId = 2, latitude = 0.0017, longitude = 0.0017)
+        )
+
+        val counts = HeatmapGridCalculator.pointAndSessionCounts(points, 200.0, 0.0)
+
+        assertEquals(9, counts[0 to 0])
+    }
+
+    @Test
     fun cellCoordinatesCanBeConvertedBackToGridOrigin() {
         val latitude = HeatmapGridCalculator.latitudeForCell(3, 100.0)
         val longitude = HeatmapGridCalculator.longitudeForCell(4, 100.0, 64.7)

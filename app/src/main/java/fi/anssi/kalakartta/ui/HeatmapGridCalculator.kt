@@ -39,6 +39,16 @@ object HeatmapGridCalculator {
         .groupBy { cellFor(it.latitude, it.longitude, gridSizeMeters, referenceLatitude) }
         .mapValues { (_, cellPoints) -> cellPoints.map { it.fishingSessionId }.toSet().size }
 
+    fun pointAndSessionCounts(
+        points: List<TrackPointHeatmapData>,
+        gridSizeMeters: Double,
+        referenceLatitude: Double
+    ): Map<Pair<Int, Int>, Int> = points
+        .groupBy { cellFor(it.latitude, it.longitude, gridSizeMeters, referenceLatitude) }
+        .mapValues { (_, cellPoints) ->
+            cellPoints.size + 3 * cellPoints.map { it.fishingSessionId }.toSet().size
+        }
+
     fun latitudeForCell(y: Int, gridSizeMeters: Double): Double =
         y * gridSizeMeters / LATITUDE_DEGREE_METERS
 

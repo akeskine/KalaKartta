@@ -70,9 +70,11 @@ class SettingsStoreTest {
         assertEquals(1, store.heatmapMinPoints)
         assertEquals(1, store.heatmapMinPointsByPoints)
         assertEquals(1, store.heatmapMinPointsBySessions)
+        assertEquals(1, store.heatmapMinPointsByPointsAndSessions)
         assertEquals(50, store.heatmapMaxPoints)
         assertEquals(50, store.heatmapMaxPointsByPoints)
         assertEquals(5, store.heatmapMaxPointsBySessions)
+        assertEquals(50, store.heatmapMaxPointsByPointsAndSessions)
         assertEquals(10.0f, store.heatmapMaxSpeed)
         assertEquals(10.0f, store.heatmapMinZoom)
         assertEquals(50_000, store.maxTrackPoints)
@@ -124,9 +126,11 @@ class SettingsStoreTest {
         store.heatmapMinPoints = 3
         store.heatmapMinPointsByPoints = 4
         store.heatmapMinPointsBySessions = 5
+        store.heatmapMinPointsByPointsAndSessions = 6
         store.heatmapMaxPoints = 100
         store.heatmapMaxPointsByPoints = 110
         store.heatmapMaxPointsBySessions = 120
+        store.heatmapMaxPointsByPointsAndSessions = 130
         store.routesFadeEnabled = false
         store.routesFadeStartDays = 100
         store.routesFadeFullDays = 20
@@ -182,9 +186,11 @@ class SettingsStoreTest {
         assertEquals(3, store.heatmapMinPoints)
         assertEquals(4, store.heatmapMinPointsByPoints)
         assertEquals(5, store.heatmapMinPointsBySessions)
+        assertEquals(6, store.heatmapMinPointsByPointsAndSessions)
         assertEquals(100, store.heatmapMaxPoints)
         assertEquals(110, store.heatmapMaxPointsByPoints)
         assertEquals(120, store.heatmapMaxPointsBySessions)
+        assertEquals(130, store.heatmapMaxPointsByPointsAndSessions)
         assertFalse(store.routesFadeEnabled)
         assertEquals(100, store.routesFadeStartDays)
         assertEquals(20, store.routesFadeFullDays)
