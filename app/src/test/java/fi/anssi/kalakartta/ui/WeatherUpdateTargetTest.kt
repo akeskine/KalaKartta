@@ -2,8 +2,6 @@ package fi.anssi.kalakartta.ui
 
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.PressureSample
-import fi.anssi.kalakartta.utils.WeatherStation
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -57,43 +55,6 @@ class WeatherUpdateTargetTest {
         assertTrue(needsPressureHistoryUpdate(fishCatch, now))
     }
 
-    @Test
-    fun weatherStationIsShownWhenWeatherIsEnabledAndStationWasFound() {
-        val state = weatherStationUiState(
-            weatherEnabled = true,
-            station = WeatherStation("123", "Helsinki", 60.0, 24.0)
-        )
-
-        assertTrue(state.visible)
-        assertEquals("Sääasema: Helsinki", state.text)
-    }
-
-    @Test
-    fun weatherStationIsHiddenWhenNoStationWasFound() {
-        val state = weatherStationUiState(weatherEnabled = true, station = null)
-
-        assertFalse(state.visible)
-        assertEquals("", state.text)
-    }
-
-    @Test
-    fun weatherStationIsHiddenWhenWeatherIsDisabled() {
-        val state = weatherStationUiState(
-            weatherEnabled = false,
-            station = WeatherStation("123", "Helsinki", 60.0, 24.0)
-        )
-
-        assertFalse(state.visible)
-        assertEquals("", state.text)
-    }
-
-    @Test
-    fun forceRefreshWithoutStationLeavesWeatherStationHidden() {
-        val state = weatherStationUiState(weatherEnabled = true, station = null)
-
-        assertFalse(state.visible)
-        assertEquals("", state.text)
-    }
 
     @Test
     fun weatherUpdateStartButtonIsHiddenWhenThereAreNoTargets() {

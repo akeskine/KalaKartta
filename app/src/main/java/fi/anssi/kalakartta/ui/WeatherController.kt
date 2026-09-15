@@ -1,55 +1,25 @@
 package fi.anssi.kalakartta.ui
 
 import androidx.appcompat.app.AppCompatActivity
-import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.utils.WeatherService
-import fi.anssi.kalakartta.utils.WeatherStation
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 
-internal data class WeatherStationUiState(
-    val text: String,
-    val visible: Boolean
-)
-
-internal fun weatherStationUiState(
-    weatherEnabled: Boolean,
-    station: WeatherStation?
-): WeatherStationUiState {
-    return if (weatherEnabled && station != null) {
-        WeatherStationUiState(
-            text = "Sääasema: ${station.name}",
-            visible = true
-        )
-    } else {
-        WeatherStationUiState(text = "", visible = false)
-    }
-}
-
-/** Coordinates weather checks with the map location and weather-related UI. */
+/** Coordinates weather checks with the map location. */
 class WeatherController(
     private val activity: AppCompatActivity,
     private val settingsStore: SettingsStore,
-    private val scope: CoroutineScope,
     private val locationProvider: () -> GeoPoint?
 ) {
     val weatherService = WeatherService(activity)
 
     private var weatherCheckDone = false
-    private var lastFoundStation: WeatherStation? = null
 
     fun checkWeather(force: Boolean = false) {
         if (force) {
             weatherCheckDone = false
-            lastFoundStation = null
-            updateWeatherUi()
         }
 
         if (!settingsStore.weatherEnabled) {
-            lastFoundStation = null
-            updateWeatherUi()
             return
         }
 
@@ -63,29 +33,6 @@ class WeatherController(
             myLocation.latitude,
             myLocation.longitude,
             System.currentTimeMillis()
-        ) { station, error ->
-            scope.launch(Dispatchers.Main) {
-                if (error == null && station != null) {
-                    lastFoundStation = station
-                    updateWeatherUi()
-                }
-            }
-        }
-    }
-
-    fun updateWeatherUi() {
-        if (!settingsStore.weatherEnabled) {
-            lastFoundStation = null
-        }
-
-        val state = weatherStationUiState(settingsStore.weatherEnabled, lastFoundStation)
-        activity.findViewById<android.widget.TextView>(R.id.weatherStationText).apply {
-            text = state.text
-            visibility = if (state.visible) {
-                android.view.View.VISIBLE
-            } else {
-                android.view.View.GONE
-            }
-        }
+        ) { _, _ -> }
     }
 }

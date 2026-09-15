@@ -229,7 +229,6 @@ class MainActivity : AppCompatActivity() {
             weatherController = WeatherController(
                 activity = this,
                 settingsStore = settingsStore,
-                scope = lifecycleScope,
                 locationProvider = { locationController.currentLocation }
             )
 
@@ -278,8 +277,6 @@ class MainActivity : AppCompatActivity() {
             settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
                 if (isEnabled) {
                     checkWeather(force = true)
-                } else {
-                    updateWeatherUI()
                 }
             }, onMapSettingsChanged = {
                 updateMapTileSource()
@@ -766,9 +763,6 @@ class MainActivity : AppCompatActivity() {
         weatherController.checkWeather(force)
     }
 
-    private fun updateWeatherUI() {
-        weatherController.updateWeatherUi()
-    }
     private fun updateFishingHeatmap() {
         mapDisplayController.updateFishingHeatmap()
     }

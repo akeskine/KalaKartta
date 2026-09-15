@@ -177,19 +177,6 @@
             android:paddingVertical="2dp"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/weatherStationText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textColor="@color/white"
-            android:textSize="10sp"
-            android:background="#80000000"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="1dp"
-            android:visibility="gone"
-            tools:text="Säätiedot: Helsinki Kaisaniemi" />
-
         <LinearLayout
             android:id="@+id/filterStatusLayout"
             android:layout_width="wrap_content"
