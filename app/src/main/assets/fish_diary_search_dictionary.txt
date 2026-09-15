@@ -1,0 +1,16 @@
+# Päiväkirjahaun kalasanasto.
+# Muokkaa tätä tiedostoa, kun haluat lisätä lajin taivutusmuotoja,
+# yhdyssanoja tai puhekielisiä hakusanoja. Muoto: näyttönimi|alias1,alias2
+Ahven|ahven,ahvenen,ahvenkalastus,ahvenen kalastus,perch
+Hauki|hauki,hauen,hauenkalastus,hauen kalastus,haukikalastus,pike
+Kuha|kuha,kuhan,kuhankalastus,kuhan kalastus,kuhakalastus,zander
+Taimen|taimen,taimenen,taimenkalastus,taimenen kalastus,trout
+Lohi|lohi,lohen,lohikalastus,lohen kalastus,salmon
+Harjus|harjus,harjuksen,harjuksenkalastus,harjuksen kalastus,grayling
+Siika|siika,siian,siikakalastus,siian kalastus,whitefish
+Kirjolohi|kirjolohi,kirjolohen,kirjolohikalastus,kirjolohen kalastus,rainbow trout
+Lahna|lahna,lahnan,lahnakalastus,lahnan kalastus,bream
+Säyne|säyne,säynen,säynekalastus,säynen kalastus,ide
+Rautu|rautu,raudun,rautukalastus,raudun kalastus,arctic char
+Made|made,mateen,mateenkalastus,mateen kalastus,burbot
+Muu kalalaji|muu,muu kalalaji,muukala,other
