@@ -89,13 +89,13 @@
         android:layout_marginBottom="40dp">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/backButton"
+            android:id="@+id/okButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/back" />
+            android:text="@string/save" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/deleteSpeciesButton"
@@ -108,13 +108,13 @@
             android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/okButton"
+            android:id="@+id/backButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:textAppearance="@style/TextAppearance.KalaKartta.ActionLink"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="OK" />
+            android:text="@string/back" />
     </LinearLayout>
 
 </LinearLayout>
