@@ -431,11 +431,16 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
                 // Reittien haku
                 val newRouteData = mutableListOf<RouteWithBounds>()
                 if (routesEnabled) {
-                    val rawPoints = if (routesFilterEnabled) {
-                        getRoutePoints(f, hasAreaFilter, routeSessionStartLimit, latS, latN, lonW, lonE)
-                    } else {
-                        getRoutePoints(f, false, routeSessionStartLimit, latS, latN, lonW, lonE)
-                    }
+                    val routeFilters = FilterManager.filtersForRoutes(f, routesFilterEnabled)
+                    val rawPoints = getRoutePoints(
+                        routeFilters,
+                        routesFilterEnabled && hasAreaFilter,
+                        routeSessionStartLimit,
+                        latS,
+                        latN,
+                        lonW,
+                        lonE
+                    )
 
                     if (rawPoints.isNotEmpty()) {
                         val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Helsinki"))

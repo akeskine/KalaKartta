@@ -93,6 +93,9 @@ class FilterManager(private val context: Context) {
                 else -> true
             }
         }
+
+        fun filtersForRoutes(filters: Filters, filterRoutes: Boolean): Filters =
+            if (filterRoutes) filters else Filters()
     }
 
     fun getFilters(): Filters {

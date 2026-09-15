@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.ui
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -108,5 +109,18 @@ class FilterManagerTest {
                 threshold
             )
         )
+    }
+
+    @Test
+    fun routeFiltersAreClearedWhenRouteFilteringIsDisabled() {
+        val filters = FilterManager.Filters(
+            startDate = 1L,
+            endDate = 2L,
+            latSouth = 60.0,
+            latNorth = 61.0
+        )
+
+        assertEquals(FilterManager.Filters(), FilterManager.filtersForRoutes(filters, false))
+        assertEquals(filters, FilterManager.filtersForRoutes(filters, true))
     }
 }
