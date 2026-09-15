@@ -177,6 +177,23 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/summaryProgressText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Yhteenvetoa valmistellaan..."
+            android:visibility="gone"
+            android:layout_marginBottom="4dp" />
+
+        <ProgressBar
+            android:id="@+id/summaryProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
             android:id="@+id/summaryResultText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

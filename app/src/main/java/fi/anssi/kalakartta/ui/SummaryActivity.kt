@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageButton
+import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -54,6 +55,10 @@ class SummaryActivity : AppCompatActivity() {
     private lateinit var copyToClipboardButton: ImageButton
     private lateinit var showOnMapButton: ImageButton
     private lateinit var fishermanSpinner: Spinner
+    private lateinit var todaySummaryButton: TextView
+    private lateinit var generateRangeSummaryButton: TextView
+    private lateinit var summaryProgress: ProgressBar
+    private lateinit var summaryProgressText: TextView
     private lateinit var filterManager: FilterManager
     private var fishermanList: List<String> = emptyList()
 
@@ -95,6 +100,10 @@ class SummaryActivity : AppCompatActivity() {
         copyToClipboardButton = findViewById(R.id.copyToClipboardButton)
         showOnMapButton = findViewById(R.id.showOnMapButton)
         fishermanSpinner = findViewById<Spinner>(R.id.fishermanSpinner)
+        todaySummaryButton = findViewById(R.id.todaySummaryButton)
+        generateRangeSummaryButton = findViewById(R.id.generateRangeSummaryButton)
+        summaryProgress = findViewById(R.id.summaryProgress)
+        summaryProgressText = findViewById(R.id.summaryProgressText)
 
         filterManager = FilterManager(this)
 
@@ -135,7 +144,7 @@ class SummaryActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<TextView>(R.id.todaySummaryButton).setOnClickListener {
+        todaySummaryButton.setOnClickListener {
             generateTodaySummary()
         }
 
@@ -175,7 +184,7 @@ class SummaryActivity : AppCompatActivity() {
             updateDateButtons()
         }
 
-        findViewById<TextView>(R.id.generateRangeSummaryButton).setOnClickListener {
+        generateRangeSummaryButton.setOnClickListener {
             generateRangeSummary()
         }
 
@@ -359,6 +368,7 @@ class SummaryActivity : AppCompatActivity() {
             fishermanList[fishermanSpinner.selectedItemPosition]
         } else null
 
+        setSummaryLoading(true)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val sessions = db.fishingSessionDao().getSessionsInRange(start, end)
@@ -403,8 +413,20 @@ class SummaryActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@SummaryActivity, "Virhe yhteenvetoa luotaessa", Toast.LENGTH_LONG).show()
                 }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    setSummaryLoading(false)
+                }
             }
         }
+    }
+
+    private fun setSummaryLoading(isLoading: Boolean) {
+        summaryProgress.visibility = if (isLoading) View.VISIBLE else View.GONE
+        summaryProgressText.visibility = if (isLoading) View.VISIBLE else View.GONE
+        todaySummaryButton.isEnabled = !isLoading
+        generateRangeSummaryButton.isEnabled = !isLoading
+        fishermanSpinner.isEnabled = !isLoading
     }
 
     private fun formatSummary(
