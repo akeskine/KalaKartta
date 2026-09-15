@@ -1,2 +1,4 @@
 /build
 /debug/kalakartta.apk
+/release/app-release.apk
+/release/output-metadata.json
