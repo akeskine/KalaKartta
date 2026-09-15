@@ -74,6 +74,27 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getBoolean(SettingsKeys.WEATHER_ENABLED, SettingsDefaults.WEATHER_ENABLED)
         set(value) { preferences.edit().putBoolean(SettingsKeys.WEATHER_ENABLED, value).apply() }
 
+    var automaticMissingWeatherUpdate: Boolean
+        get() = preferences.getBoolean(
+            SettingsKeys.AUTOMATIC_MISSING_WEATHER_UPDATE,
+            SettingsDefaults.AUTOMATIC_MISSING_WEATHER_UPDATE
+        )
+        set(value) { preferences.edit().putBoolean(SettingsKeys.AUTOMATIC_MISSING_WEATHER_UPDATE, value).apply() }
+
+    var lastMissingWeatherUpdateAt: Long
+        get() = preferences.getLong(
+            SettingsKeys.LAST_MISSING_WEATHER_UPDATE_AT,
+            SettingsDefaults.LAST_MISSING_WEATHER_UPDATE_AT
+        )
+        set(value) { preferences.edit().putLong(SettingsKeys.LAST_MISSING_WEATHER_UPDATE_AT, value).apply() }
+
+    var automaticWeatherUpdateIntervalHours: Int
+        get() = preferences.getInt(
+            SettingsKeys.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS,
+            SettingsDefaults.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS
+        )
+        set(value) { preferences.edit().putInt(SettingsKeys.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS, value).apply() }
+
     var talkingClockEnabled: Boolean
         get() = preferences.getBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, SettingsDefaults.TALKING_CLOCK_ENABLED)
         set(value) { preferences.edit().putBoolean(SettingsKeys.TALKING_CLOCK_ENABLED, value).apply() }

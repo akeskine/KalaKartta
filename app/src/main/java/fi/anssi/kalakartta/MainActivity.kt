@@ -32,6 +32,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import fi.anssi.kalakartta.service.FishingSessionService
@@ -46,6 +47,10 @@ import fi.anssi.kalakartta.ui.LocationController
 import fi.anssi.kalakartta.ui.ReplayMapController
 import fi.anssi.kalakartta.ui.MapNavigationController
 import fi.anssi.kalakartta.ui.DialogOrientationLock
+import fi.anssi.kalakartta.ui.MAX_AUTOMATIC_MISSING_WEATHER_UPDATE_COUNT
+import fi.anssi.kalakartta.ui.MissingWeatherDataNotification
+import fi.anssi.kalakartta.ui.MissingWeatherDataUpdater
+import fi.anssi.kalakartta.ui.shouldRunAutomaticWeatherUpdate
 
 class MainActivity : AppCompatActivity() {
 
@@ -113,6 +118,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationController: LocationController
     private lateinit var replayMapController: ReplayMapController
     private lateinit var mapNavigationController: MapNavigationController
+    private var automaticWeatherUpdateJob: Job? = null
     
     private fun addOverlayBelowMarkers(overlay: Overlay) {
         var index = -1
@@ -781,6 +787,39 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         if (::fishingSessionController.isInitialized) {
             fishingSessionController.onStart()
+        }
+        maybeStartAutomaticWeatherUpdate()
+    }
+
+    private fun maybeStartAutomaticWeatherUpdate() {
+        if (!::db.isInitialized) return
+        if (!settingsStore.automaticMissingWeatherUpdate || automaticWeatherUpdateJob?.isActive == true) {
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (!shouldRunAutomaticWeatherUpdate(
+                enabled = settingsStore.automaticMissingWeatherUpdate,
+                now = now,
+                lastUpdateAt = settingsStore.lastMissingWeatherUpdateAt,
+                intervalHours = settingsStore.automaticWeatherUpdateIntervalHours
+            )) return
+
+        automaticWeatherUpdateJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = MissingWeatherDataUpdater(
+                    db,
+                    fi.anssi.kalakartta.utils.WeatherService(this@MainActivity)
+                ).update(maxCount = MAX_AUTOMATIC_MISSING_WEATHER_UPDATE_COUNT)
+                if (!result.cancelled) {
+                    settingsStore.lastMissingWeatherUpdateAt = System.currentTimeMillis()
+                    withContext(Dispatchers.Main) {
+                        MissingWeatherDataNotification.show(this@MainActivity, result)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Automatic weather update failed", e)
+            }
         }
     }
 

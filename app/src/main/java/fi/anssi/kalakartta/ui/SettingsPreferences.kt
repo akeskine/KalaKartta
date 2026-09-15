@@ -64,6 +64,9 @@ object SettingsKeys {
     const val ROUTES_FADE_FULL_DAYS = "routes_fade_full_days"
     const val PRESSURE_TREND_THRESHOLD = "pressure_trend_threshold"
     const val PRESSURE_TURNING_TREND_THRESHOLD = "pressure_turning_trend_threshold"
+    const val AUTOMATIC_MISSING_WEATHER_UPDATE = "automatic_missing_weather_update"
+    const val LAST_MISSING_WEATHER_UPDATE_AT = "last_missing_weather_update_at"
+    const val AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS = "automatic_weather_update_interval_hours"
     const val LAST_VERSION_NAME = "last_version_name"
     const val LAST_VERSION_CODE = "last_version_code"
 
@@ -130,6 +133,9 @@ object SettingsDefaults {
     const val ROUTES_FADE_FULL_DAYS = 30
     const val PRESSURE_TREND_THRESHOLD = 0.10f
     const val PRESSURE_TURNING_TREND_THRESHOLD = 0.20f
+    const val AUTOMATIC_MISSING_WEATHER_UPDATE = false
+    const val LAST_MISSING_WEATHER_UPDATE_AT = 0L
+    const val AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS = 24
     const val LAST_VERSION_NAME = ""
     const val LAST_VERSION_CODE = -1
 }

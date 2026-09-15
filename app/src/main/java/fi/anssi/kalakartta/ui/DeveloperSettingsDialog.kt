@@ -1,11 +1,9 @@
 package fi.anssi.kalakartta.ui
 
-import android.content.Context
-import android.graphics.Color
-import android.view.View
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -166,6 +164,38 @@ class DeveloperSettingsDialog(
         pressureTurningTrendThresholdRow.addView(pressureTurningTrendThresholdHint)
         layout.addView(pressureTurningTrendThresholdRow)
 
+        // Rivi 7: Automaattisen puuttuvien säätietojen päivityksen väli
+        val automaticWeatherUpdateIntervalRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val automaticWeatherUpdateIntervalInputRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        val automaticWeatherUpdateIntervalLabel = TextView(activity).apply {
+            text = "Automaattisen säätietohaun päivitysväli (h)"
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val automaticWeatherUpdateIntervalEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(settingsStore.automaticWeatherUpdateIntervalHours.toString())
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(
+                (80 * activity.resources.displayMetrics.density).toInt(),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val automaticWeatherUpdateIntervalHint = TextView(activity).apply {
+            text = "Oletus ${SettingsDefaults.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS} h."
+            textSize = 12f
+        }
+        automaticWeatherUpdateIntervalInputRow.addView(automaticWeatherUpdateIntervalLabel)
+        automaticWeatherUpdateIntervalInputRow.addView(automaticWeatherUpdateIntervalEdit)
+        automaticWeatherUpdateIntervalRow.addView(automaticWeatherUpdateIntervalInputRow)
+        automaticWeatherUpdateIntervalRow.addView(automaticWeatherUpdateIntervalHint)
+        layout.addView(automaticWeatherUpdateIntervalRow)
+
         // Tulostus: Näkyvät määrät
         val statusText = TextView(activity).apply {
             text = "Lasketaan..."
@@ -236,9 +266,14 @@ class DeveloperSettingsDialog(
             }
         }
 
+        val scrollView = ScrollView(activity).apply {
+            isFillViewport = true
+            addView(layout)
+        }
+
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Kehittäjäasetukset")
-            .setView(layout)
+            .setView(scrollView)
             .setPositiveButton("Tallenna") { _, _ ->
                 val maxPoints = SettingsValueValidator.positiveIntOrDefault(
                     maxPointsEdit.text,
@@ -264,6 +299,10 @@ class DeveloperSettingsDialog(
                     pressureTurningTrendThresholdEdit.text,
                     FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
                 )
+                val automaticWeatherUpdateInterval = SettingsValueValidator.positiveIntOrDefault(
+                    automaticWeatherUpdateIntervalEdit.text,
+                    SettingsDefaults.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS
+                )
                 
                 settingsStore.maxTrackPoints = maxPoints
                 settingsStore.maxHeatmapCells = maxCells
@@ -271,6 +310,7 @@ class DeveloperSettingsDialog(
                 settingsStore.heatmapReferenceLatitude = refLat
                 settingsStore.pressureTrendThreshold = pressureTrendThreshold
                 settingsStore.pressureTurningTrendThreshold = pressureTurningTrendThreshold
+                settingsStore.automaticWeatherUpdateIntervalHours = automaticWeatherUpdateInterval
                 onOpenGeneralSettings()
             }
             .setNegativeButton("Takaisin") { _, _ -> onOpenGeneralSettings() }

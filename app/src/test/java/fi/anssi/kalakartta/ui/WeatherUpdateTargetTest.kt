@@ -66,6 +66,18 @@ class WeatherUpdateTargetTest {
         assertTrue(shouldShowWeatherUpdateStartButton(1))
     }
 
+    @Test
+    fun automaticWeatherUpdateIsDisabledByDefaultSetting() {
+        assertFalse(shouldRunAutomaticWeatherUpdate(false, 25L * hourMillis, 0L, 24))
+    }
+
+    @Test
+    fun automaticWeatherUpdateRunsOnlyAfterConfiguredInterval() {
+        val lastUpdate = 100L
+        assertFalse(shouldRunAutomaticWeatherUpdate(true, lastUpdate + 24 * hourMillis, lastUpdate, 24))
+        assertTrue(shouldRunAutomaticWeatherUpdate(true, lastUpdate + 24 * hourMillis + 1, lastUpdate, 24))
+    }
+
     private fun fishCatchWithTrend(caughtAt: Long, vararg samples: PressureSample): FishCatch {
         return FishCatch(
             species = "AHVEN",

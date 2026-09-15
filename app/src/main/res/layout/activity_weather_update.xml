@@ -26,6 +26,14 @@
             android:textSize="16sp"
             android:layout_marginBottom="8dp" />
 
+        <CheckBox
+            android:id="@+id/automaticUpdateCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Päivitä puuttuvat säätiedot automaattisesti"
+            android:checked="false"
+            android:layout_marginBottom="12dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
