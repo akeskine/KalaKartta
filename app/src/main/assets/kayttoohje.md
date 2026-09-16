@@ -138,6 +138,12 @@ Mittaustyökalulla voit mitata etäisyyksiä ja reittien pituuksia suoraan karta
 
 Kalastussessiot mahdollistavat kuljetun reitin tallentamisen automaattisesti taustalla ja reittitiedon keräämisen.
 
+- **Käyttö taustalla:** Voit siirtyä toiseen sovellukseen tai sammuttaa näytön. Jätä kalastussession ilmoitus näkyviin ja lopeta tallennus aina sovelluksen omalla **Lopeta tallennus** -toiminnolla.
+- **Akunhallinta:** Jos puhelin tarjoaa KalaKartalle akun käytön asetusta, valitse sovellukselle **Rajoittamaton** tai salli taustakäyttö. Androidin **Pakota lopetus** sekä laitteen asetusten tai valmistajan työkalun **Pysäytä aktiiviset sovellukset** voivat keskeyttää tallennuksen.
+- **Sijaintilupa:** Salli sijainnin käyttö myös taustalla ja pidä sijaintipalvelu päällä koko session ajan. Jos sijainti poistetaan käytöstä, sovellus päättää session viimeiseen turvallisesti tallennettavaan tilaan.
+- **Prosessin palautuminen:** Jos Android vapauttaa muistia ja käynnistää palvelun myöhemmin uudelleen, sovellus yrittää jatkaa samaa keskeneräistä sessiota. Jos jatkettava sessio ei ole yksiselitteinen, sovellus kysyy käyttäjältä, mitä keskeneräisille sessioille tehdään.
+- **Tallennusvälit:** Jos olet paikallasi, seuraava reittipiste voidaan tallentaa enintään 300 sekunnin kuluttua. Tämä on akun säästämiseksi tarkoituksellista.
+
 - **Tallennuksen aloitus:** **Valikko -> Kalastussessiot -> Aloita tallennus**. Kun tallennus on käynnissä, kartan vasemmassa yläkulmassa näkyy REC-teksti. Tallennuksen aloitus on mahdollista vain, jos sijaintipalvelu on puhelimessa päällä.
 - **Tallennuksen lopetus:** **Valikko -> Kalastussessiot -> Lopeta tallennus**.
 - **Sessioiden tarkastelu:** Pääset selaamaan tallennettuja sessioita kohdasta **Valikko -> Kalastussessiot -> Hae kalastussessiot**.

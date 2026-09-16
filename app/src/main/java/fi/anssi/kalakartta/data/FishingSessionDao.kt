@@ -28,6 +28,9 @@ interface FishingSessionDao {
     @Query("SELECT * FROM FishingSession WHERE endedAt IS NULL ORDER BY startedAt DESC LIMIT 1")
     fun getActiveSession(): FishingSession?
 
+    @Query("SELECT * FROM FishingSession WHERE endedAt IS NULL ORDER BY startedAt DESC, id DESC")
+    fun getUnfinishedSessions(): List<FishingSession>
+
     @Query("DELETE FROM FishingSession")
     fun deleteAll()
 

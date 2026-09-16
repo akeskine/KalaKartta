@@ -9,8 +9,8 @@ import android.content.Context
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [FishCatch::class, FishSpecies::class, WeatherError::class, WeatherUpdateAttempt::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class, FishDiaryPage::class],
-    version = 23,
+    entities = [FishCatch::class, FishSpecies::class, WeatherError::class, WeatherUpdateAttempt::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class, FishDiaryPage::class, ActiveFishingSession::class],
+    version = 24,
     exportSchema = false
 )
 @TypeConverters(PressureConverter::class)
@@ -22,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun placeOfInterestDao(): PlaceOfInterestDao
     abstract fun placeOfInterestTypeDao(): PlaceOfInterestTypeDao
     abstract fun fishingSessionDao(): FishingSessionDao
+    abstract fun activeFishingSessionDao(): ActiveFishingSessionDao
     abstract fun trackPointDao(): TrackPointDao
     abstract fun mediaDao(): MediaDao
     abstract fun fishDiaryPageDao(): FishDiaryPageDao
@@ -107,7 +108,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kalakartta-db"
                 )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
                 .build()
                 INSTANCE = instance
                 instance
@@ -132,6 +133,34 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_22_23 = object : Migration(22, 23) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE FishCatch ADD COLUMN pressureTurningTrend REAL")
+            }
+        }
+
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `ActiveFishingSession` (" +
+                        "`singletonId` INTEGER NOT NULL, " +
+                        "`sessionId` INTEGER NOT NULL, " +
+                        "`locationCheckIntervalSeconds` INTEGER NOT NULL, " +
+                        "`minTrackPointIntervalSeconds` INTEGER NOT NULL, " +
+                        "`maxTrackPointIntervalSeconds` INTEGER NOT NULL, " +
+                        "`minTrackPointDistanceMeters` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`singletonId`))"
+                )
+
+                // Old releases could leave more than one open session after a
+                // process restart. Preserve all route points, but close every
+                // older orphan at its last recorded point. The newest open row
+                // remains available for recovery by the service.
+                db.execSQL(
+                    "UPDATE FishingSession SET endedAt = COALESCE(" +
+                        "(SELECT MAX(timestamp) FROM TrackPoint " +
+                        "WHERE TrackPoint.fishingSessionId = FishingSession.id), startedAt) " +
+                        "WHERE endedAt IS NULL AND id != (" +
+                        "SELECT id FROM FishingSession WHERE endedAt IS NULL " +
+                        "ORDER BY startedAt DESC, id DESC LIMIT 1)"
+                )
             }
         }
 

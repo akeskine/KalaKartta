@@ -15,18 +15,21 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
+import fi.anssi.kalakartta.data.ActiveFishingSession
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishingSession
 import fi.anssi.kalakartta.data.TrackPoint
 import fi.anssi.kalakartta.service.TalkingClockService
-import fi.anssi.kalakartta.ui.SettingsDefaults
-import fi.anssi.kalakartta.ui.SettingsKeys
 import fi.anssi.kalakartta.ui.SettingsStore
 import fi.anssi.kalakartta.utils.SessionStatsFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class FishingSessionService : Service() {
 
@@ -50,13 +53,16 @@ class FishingSessionService : Service() {
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
+    private val sessionOperationMutex = Mutex()
+    private val pendingPointJobs = mutableSetOf<Job>()
+    private var foregroundStarted = false
 
     companion object {
         var KALASTUSSESSIOT_DEBUG = false
         const val CHANNEL_ID = "FishingSessionChannel"
         const val NOTIFICATION_ID = 101
         const val ACTION_STOP = "STOP_SESSION"
-        var isRunning = false
+        const val ACTION_SESSION_RECOVERY_REQUIRED = "fi.anssi.kalakartta.SESSION_RECOVERY_REQUIRED"
     }
 
     inner class LocalBinder : Binder() {
@@ -67,7 +73,6 @@ class FishingSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        isRunning = true
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         db = AppDatabase.getInstance(this)
         createNotificationChannel()
@@ -109,28 +114,36 @@ class FishingSessionService : Service() {
         currentSessionId = -1L
 
         serviceScope.launch {
-            if (sessionId != -1L) {
-                val session = db.fishingSessionDao().getById(sessionId)
-                if (session != null) {
-                    db.fishingSessionDao().update(session.copy(endedAt = System.currentTimeMillis()))
+            sessionOperationMutex.withLock {
+                synchronized(pendingPointJobs) { pendingPointJobs.toList() }.joinAll()
+                if (sessionId != -1L) {
+                    val session = db.fishingSessionDao().getById(sessionId)
+                    if (session != null) {
+                        db.runInTransaction {
+                            db.fishingSessionDao().update(session.copy(endedAt = System.currentTimeMillis()))
+                            db.activeFishingSessionDao().delete()
+                        }
+                    }
                 }
-            }
-            
-            launch(Dispatchers.Main) {
-                try {
-                    locationManager.removeUpdates(locationListener)
-                } catch (e: Exception) {}
-                
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.cancel(NOTIFICATION_ID)
-                
-                val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF")
-                intent.putExtra("SESSION_ID", sessionId)
-                intent.setPackage(packageName)
-                sendBroadcast(intent)
-                
-                stopSelf()
+                db.activeFishingSessionDao().delete()
+
+                withContext(Dispatchers.Main) {
+                    try {
+                        locationManager.removeUpdates(locationListener)
+                    } catch (e: Exception) {}
+
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    foregroundStarted = false
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.cancel(NOTIFICATION_ID)
+
+                    val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF")
+                    intent.putExtra("SESSION_ID", sessionId)
+                    intent.setPackage(packageName)
+                    sendBroadcast(intent)
+
+                    stopSelf()
+                }
             }
         }
     }
@@ -140,100 +153,195 @@ class FishingSessionService : Service() {
             stopSession()
             return START_NOT_STICKY
         }
-        
-        val locInt = intent?.getIntExtra("LOCATION_CHECK_INTERVAL", 10) ?: 10
-        val minInt = intent?.getIntExtra("MIN_INTERVAL", 30) ?: 30
-        val maxInt = intent?.getIntExtra("MAX_INTERVAL", 300) ?: 300
-        val minDist = intent?.getIntExtra("MIN_DISTANCE", 20) ?: 20
-        val continueId = intent?.getLongExtra("CONTINUE_SESSION_ID", -1L) ?: -1L
 
-        if (recording) {
-            locationCheckIntervalSeconds = locInt
-            minTrackPointIntervalSeconds = minInt
-            maxTrackPointIntervalSeconds = maxInt
-            minTrackPointDistanceMeters = minDist
-            
-            // Päivitetään päivitysväli jos se muuttui lennosta
-            requestLocationUpdates()
-
-            // Päivitetään ilmoitus jos tarpeen tai lähetetään uusi broadcast
-            val updateIntent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
-            updateIntent.setPackage(packageName)
-            sendBroadcast(updateIntent)
-        } else if (continueId != -1L) {
-            continueSession(continueId, locInt, minInt, maxInt, minDist)
-        } else {
-            startSession(locInt, minInt, maxInt, minDist)
+        startForegroundImmediately()
+        serviceScope.launch {
+            sessionOperationMutex.withLock {
+                handleStartCommand(intent)
+            }
         }
-        
+
         return START_STICKY
     }
 
-    private fun startSession(locInt: Int, minInt: Int, maxInt: Int, minDist: Int) {
+    private data class SessionParams(
+        val locationCheckInterval: Int,
+        val minInterval: Int,
+        val maxInterval: Int,
+        val minDistance: Int
+    ) {
+        companion object {
+            fun fromState(state: ActiveFishingSession) = SessionParams(
+                state.locationCheckIntervalSeconds,
+                state.minTrackPointIntervalSeconds,
+                state.maxTrackPointIntervalSeconds,
+                state.minTrackPointDistanceMeters
+            )
+        }
+    }
+
+    private fun settingsParams(): SessionParams {
+        val settings = SettingsStore(getSharedPreferences("settings", Context.MODE_PRIVATE))
+        return SessionParams(
+            settings.locationCheckInterval,
+            settings.minTrackPointInterval,
+            settings.maxTrackPointInterval,
+            settings.minTrackPointDistance
+        )
+    }
+
+    private fun paramsFromIntent(intent: Intent?): SessionParams {
+        val defaults = settingsParams()
+        return SessionParams(
+            intent?.getIntExtra("LOCATION_CHECK_INTERVAL", defaults.locationCheckInterval)
+                ?: defaults.locationCheckInterval,
+            intent?.getIntExtra("MIN_INTERVAL", defaults.minInterval) ?: defaults.minInterval,
+            intent?.getIntExtra("MAX_INTERVAL", defaults.maxInterval) ?: defaults.maxInterval,
+            intent?.getIntExtra("MIN_DISTANCE", defaults.minDistance) ?: defaults.minDistance
+        )
+    }
+
+    private fun paramsWereProvided(intent: Intent?): Boolean = intent != null && listOf(
+        "LOCATION_CHECK_INTERVAL",
+        "MIN_INTERVAL",
+        "MAX_INTERVAL",
+        "MIN_DISTANCE",
+        "CONTINUE_SESSION_ID"
+    ).any(intent::hasExtra)
+
+    private fun applyParameters(params: SessionParams) {
+        locationCheckIntervalSeconds = params.locationCheckInterval
+        minTrackPointIntervalSeconds = params.minInterval
+        maxTrackPointIntervalSeconds = params.maxInterval
+        minTrackPointDistanceMeters = params.minDistance
+        currentStationaryIntervalSeconds = params.minInterval
+    }
+
+    private suspend fun handleStartCommand(intent: Intent?) {
+        if (recording) {
+            val state = db.activeFishingSessionDao().get() ?: return
+            if (paramsWereProvided(intent)) {
+                val params = paramsFromIntent(intent)
+                applyParameters(params)
+                db.activeFishingSessionDao().update(state.copy(
+                    locationCheckIntervalSeconds = params.locationCheckInterval,
+                    minTrackPointIntervalSeconds = params.minInterval,
+                    maxTrackPointIntervalSeconds = params.maxInterval,
+                    minTrackPointDistanceMeters = params.minDistance
+                ))
+                withContext(Dispatchers.Main) { requestLocationUpdates() }
+            }
+            sendSessionStartedBroadcast()
+            return
+        }
+
+        val storedState = db.activeFishingSessionDao().get()
+        if (storedState != null) {
+            val session = db.fishingSessionDao().getById(storedState.sessionId)
+            if (session != null && session.endedAt == null) {
+                resumeSession(storedState)
+                return
+            }
+            db.activeFishingSessionDao().delete()
+        }
+
+        val continueId = intent?.getLongExtra("CONTINUE_SESSION_ID", -1L) ?: -1L
+        val unfinished = db.fishingSessionDao().getUnfinishedSessions()
+        when {
+            continueId != -1L -> {
+                val session = unfinished.firstOrNull { it.id == continueId }
+                if (session != null) {
+                    adoptAndResumeSession(session, paramsFromIntent(intent))
+                } else {
+                    stopAfterRecoveryRequired()
+                }
+            }
+            unfinished.size == 1 && intent == null -> {
+                // Compatibility path for sessions created by releases before
+                // ActiveFishingSession existed.
+                adoptAndResumeSession(unfinished.single(), settingsParams())
+            }
+            unfinished.size == 1 -> stopAfterRecoveryRequired()
+            unfinished.size > 1 -> stopAfterRecoveryRequired()
+            intent != null -> startNewSession(paramsFromIntent(intent))
+            else -> stopServiceWithoutSession()
+        }
+    }
+
+    private suspend fun startNewSession(params: SessionParams) {
         if (recording) return
-        
+
         recording = true
-        locationCheckIntervalSeconds = locInt
-        minTrackPointIntervalSeconds = minInt
-        maxTrackPointIntervalSeconds = maxInt
-        minTrackPointDistanceMeters = minDist
-        
+        applyParameters(params)
         startedAt = System.currentTimeMillis()
         totalDistance = 0.0
         lastLocation = null
         lastSavedLocation = null
         lastSavedTimestamp = 0L
-        currentStationaryIntervalSeconds = minInt
+        currentStationaryIntervalSeconds = params.minInterval
 
-        serviceScope.launch {
-            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-            val settingsStore = SettingsStore(prefs)
-            val defaultFisherman = settingsStore.defaultFisherman
-            val session = FishingSession(startedAt = startedAt, fisherman = defaultFisherman.uppercase())
-            currentSessionId = db.fishingSessionDao().insert(session)
-            
-            launch(Dispatchers.Main) {
-                startForeground(NOTIFICATION_ID, createNotification())
-                requestLocationUpdates()
-                
-                // Käynnistetään kello jos asetus päällä
-                if (settingsStore.talkingClockOnlyFishing) {
-                    settingsStore.talkingClockEnabled = true
-                    val interval = settingsStore.talkingClockInterval
-                    val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
-                        putExtra("interval", interval)
-                        action = "SESSION_STARTED"
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(clockIntent)
-                    } else {
-                        startService(clockIntent)
-                    }
-                }
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val settingsStore = SettingsStore(prefs)
+        val defaultFisherman = settingsStore.defaultFisherman
+        val session = FishingSession(startedAt = startedAt, fisherman = defaultFisherman.uppercase())
+        var newSessionId = -1L
+        db.runInTransaction {
+            newSessionId = db.fishingSessionDao().insert(session)
+            db.activeFishingSessionDao().insert(ActiveFishingSession(
+                sessionId = newSessionId,
+                locationCheckIntervalSeconds = params.locationCheckInterval,
+                minTrackPointIntervalSeconds = params.minInterval,
+                maxTrackPointIntervalSeconds = params.maxInterval,
+                minTrackPointDistanceMeters = params.minDistance
+            ))
+        }
+        currentSessionId = newSessionId
 
-                // Ilmoitetaan MainActivitylle että sessio on alkanut (ja interval on asetettu)
-                val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
-                intent.setPackage(packageName)
-                sendBroadcast(intent)
-            }
+        withContext(Dispatchers.Main) {
+            requestLocationUpdates()
+            startTalkingClockIfNeeded(settingsStore)
+            sendSessionStartedBroadcast()
         }
     }
 
-    private fun continueSession(sessionId: Long, locInt: Int, minInt: Int, maxInt: Int, minDist: Int) {
+    private suspend fun adoptAndResumeSession(session: FishingSession, params: SessionParams) {
+        val otherSessions = db.fishingSessionDao().getUnfinishedSessions()
+            .filter { it.id != session.id }
+        db.runInTransaction {
+            otherSessions.forEach { other ->
+                val points = db.trackPointDao().getPointsForSession(other.id)
+                val actualStart = points.firstOrNull()?.timestamp ?: other.startedAt
+                val actualEnd = points.lastOrNull()?.timestamp ?: other.startedAt
+                db.fishingSessionDao().update(other.copy(startedAt = actualStart, endedAt = actualEnd))
+            }
+            db.activeFishingSessionDao().insert(ActiveFishingSession(
+                sessionId = session.id,
+                locationCheckIntervalSeconds = params.locationCheckInterval,
+                minTrackPointIntervalSeconds = params.minInterval,
+                maxTrackPointIntervalSeconds = params.maxInterval,
+                minTrackPointDistanceMeters = params.minDistance
+            ))
+        }
+        resumeSession(db.activeFishingSessionDao().get()!!)
+    }
+
+    private suspend fun resumeSession(state: ActiveFishingSession) {
+        val session = db.fishingSessionDao().getById(state.sessionId)
+        if (session == null || session.endedAt != null) {
+            db.activeFishingSessionDao().delete()
+            stopServiceWithoutSession()
+            return
+        }
+
         if (recording) return
         recording = true
-        currentSessionId = sessionId
-        locationCheckIntervalSeconds = locInt
-        minTrackPointIntervalSeconds = minInt
-        maxTrackPointIntervalSeconds = maxInt
-        minTrackPointDistanceMeters = minDist
+        currentSessionId = state.sessionId
+        applyParameters(SessionParams.fromState(state))
 
-        serviceScope.launch {
-            val session = db.fishingSessionDao().getById(sessionId)
-            startedAt = session?.startedAt ?: System.currentTimeMillis()
+        startedAt = session.startedAt
             
             // Lasketaan tähänastinen matka tallennetuista pisteistä
-            val points = db.trackPointDao().getPointsForSession(sessionId)
+            val points = db.trackPointDao().getPointsForSession(state.sessionId)
             totalDistance = 0.0
             var prevLoc: Location? = null
             points.forEach { pt ->
@@ -247,63 +355,106 @@ class FishingSessionService : Service() {
             lastLocation = prevLoc
             lastSavedLocation = prevLoc
             lastSavedTimestamp = points.lastOrNull()?.timestamp ?: 0L
-            currentStationaryIntervalSeconds = minInt
+            currentStationaryIntervalSeconds = minTrackPointIntervalSeconds
 
-            launch(Dispatchers.Main) {
-                startForeground(NOTIFICATION_ID, createNotification())
-                requestLocationUpdates()
+        val settingsStore = SettingsStore(getSharedPreferences("settings", Context.MODE_PRIVATE))
+        withContext(Dispatchers.Main) {
+            requestLocationUpdates()
+            startTalkingClockIfNeeded(settingsStore)
+            sendSessionStartedBroadcast()
+        }
+    }
 
-                // Käynnistetään kello jos asetus päällä
-                val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                val settingsStore = SettingsStore(prefs)
-                if (settingsStore.talkingClockOnlyFishing) {
-                    settingsStore.talkingClockEnabled = true
-                    val interval = settingsStore.talkingClockInterval
-                    val clockIntent = Intent(this@FishingSessionService, TalkingClockService::class.java).apply {
-                        putExtra("interval", interval)
-                        action = "SESSION_STARTED"
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(clockIntent)
-                    } else {
-                        startService(clockIntent)
-                    }
-                }
+    private fun startForegroundImmediately() {
+        if (foregroundStarted) return
+        startForeground(NOTIFICATION_ID, createNotification(initializing = true))
+        foregroundStarted = true
+    }
 
-                val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
-                intent.setPackage(packageName)
-                sendBroadcast(intent)
+    private fun sendSessionStartedBroadcast() {
+        val intent = Intent("fi.anssi.kalakartta.SESSION_STARTED")
+        intent.setPackage(packageName)
+        sendBroadcast(intent)
+    }
+
+    private fun startTalkingClockIfNeeded(settingsStore: SettingsStore) {
+        if (!settingsStore.talkingClockOnlyFishing) return
+
+        settingsStore.talkingClockEnabled = true
+        val clockIntent = Intent(this, TalkingClockService::class.java).apply {
+            putExtra("interval", settingsStore.talkingClockInterval)
+            action = "SESSION_STARTED"
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(clockIntent)
+        } else {
+            startService(clockIntent)
+        }
+    }
+
+    private suspend fun stopAfterRecoveryRequired() {
+        withContext(Dispatchers.Main) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            foregroundStarted = false
+            val intent = Intent(ACTION_SESSION_RECOVERY_REQUIRED).setPackage(packageName)
+            sendBroadcast(intent)
+            stopSelf()
+        }
+    }
+
+    private suspend fun stopServiceWithoutSession() {
+        withContext(Dispatchers.Main) {
+            if (foregroundStarted) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                foregroundStarted = false
             }
+            stopSelf()
         }
     }
 
     fun stopSession() {
-        if (!recording) {
-            stopSelf()
-            return
-        }
-
-        recording = false
-        val sessionId = currentSessionId
-        currentSessionId = -1L
-
+        var stoppedSessionId = -1L
         serviceScope.launch {
             var durationMs = 0L
-            if (sessionId != -1L) {
-                val session = db.fishingSessionDao().getById(sessionId)
-                if (session != null) {
-                    val points = db.trackPointDao().getPointsForSession(sessionId)
-                    val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
-                    val actualEnd = points.lastOrNull()?.timestamp ?: System.currentTimeMillis()
-                    
-                    durationMs = actualEnd - actualStart
-                    db.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
+            sessionOperationMutex.withLock {
+                if (!recording) {
+                    db.activeFishingSessionDao().delete()
+                    withContext(Dispatchers.Main) {
+                        if (foregroundStarted) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            foregroundStarted = false
+                        }
+                        stopSelf()
+                    }
+                    return@withLock
                 }
+
+                recording = false
+                val sessionId = currentSessionId
+                stoppedSessionId = sessionId
+                currentSessionId = -1L
+                synchronized(pendingPointJobs) { pendingPointJobs.toList() }.joinAll()
+                if (sessionId != -1L) {
+                    val session = db.fishingSessionDao().getById(sessionId)
+                    if (session != null) {
+                        val points = db.trackPointDao().getPointsForSession(sessionId)
+                        val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
+                        val actualEnd = points.lastOrNull()?.timestamp ?: System.currentTimeMillis()
+
+                        durationMs = actualEnd - actualStart
+                        db.runInTransaction {
+                            db.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
+                            db.activeFishingSessionDao().delete()
+                        }
+                    }
+                }
+                db.activeFishingSessionDao().delete()
             }
             
-            launch(Dispatchers.Main) {
+            withContext(Dispatchers.Main) {
                 locationManager.removeUpdates(locationListener)
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                foregroundStarted = false
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.cancel(NOTIFICATION_ID)
                 
@@ -331,7 +482,7 @@ class FishingSessionService : Service() {
                 
                 // Ilmoitetaan MainActivitylle että sessio loppui, jotta se voi avata dialogin
                 val intent = Intent("fi.anssi.kalakartta.SESSION_ENDED")
-                intent.putExtra("SESSION_ID", sessionId)
+                intent.putExtra("SESSION_ID", stoppedSessionId)
                 intent.putExtra("duration_ms", durationMs)
                 intent.putExtra("distance_m", totalDistance)
                 intent.setPackage(packageName)
@@ -395,7 +546,7 @@ class FishingSessionService : Service() {
             }
 
             if (shouldSave) {
-                saveTrackPoint(location)
+                saveTrackPoint(location, now)
                 lastSavedTimestamp = now
                 lastSavedLocation = location
                 
@@ -421,21 +572,32 @@ class FishingSessionService : Service() {
         }
     }
 
-    private fun saveTrackPoint(location: Location) {
-        serviceScope.launch {
-            val point = TrackPoint(
-                fishingSessionId = currentSessionId,
-                timestamp = System.currentTimeMillis(),
-                latitude = location.latitude,
-                longitude = location.longitude,
-                speed = location.speed,
-                accuracy = location.accuracy
-            )
+    private fun saveTrackPoint(location: Location, timestamp: Long = System.currentTimeMillis()) {
+        val sessionId = currentSessionId
+        if (!recording || sessionId == -1L) return
+
+        val point = TrackPoint(
+            fishingSessionId = sessionId,
+            timestamp = timestamp,
+            latitude = location.latitude,
+            longitude = location.longitude,
+            speed = location.speed,
+            accuracy = location.accuracy
+        )
+        val job = serviceScope.launch {
             db.trackPointDao().insert(point)
+        }
+        synchronized(pendingPointJobs) {
+            pendingPointJobs += job
+        }
+        job.invokeOnCompletion {
+            synchronized(pendingPointJobs) {
+                pendingPointJobs -= job
+            }
         }
     }
 
-    private fun createNotification(): Notification {
+    private fun createNotification(initializing: Boolean = false): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
@@ -443,7 +605,11 @@ class FishingSessionService : Service() {
         )
 
         val duration = System.currentTimeMillis() - startedAt
-        val durationStr = SessionStatsFormatter.formatNotificationDuration(duration)
+        val durationStr = if (initializing || startedAt == 0L) {
+            "Käynnistetään..."
+        } else {
+            SessionStatsFormatter.formatNotificationDuration(duration)
+        }
         val distanceStr = String.format("%.4f km", totalDistance / 1000.0).replace(".", ",")
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -458,6 +624,7 @@ class FishingSessionService : Service() {
     }
 
     private fun updateNotification() {
+        if (!foregroundStarted) return
         val notification = createNotification()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, notification)
@@ -509,7 +676,7 @@ class FishingSessionService : Service() {
     }
 
     override fun onDestroy() {
-        isRunning = false
+        foregroundStarted = false
         locationProviderReceiver?.let {
             unregisterReceiver(it)
         }

@@ -23,6 +23,9 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** Owns the live fishing-session service connection and recording presentation. */
 class FishingSessionController(
@@ -39,6 +42,7 @@ class FishingSessionController(
     private var fishingService: FishingSessionService? = null
     private var isBound = false
     private var sessionPolyline: Polyline? = null
+    private var recoveryDialogShowing = false
     private val recordingHandler = Handler(activity.mainLooper)
     private var recordingDotVisible = true
     private var recordingBlinkRunnable: Runnable? = null
@@ -49,6 +53,7 @@ class FishingSessionController(
             fishingService = binder.getService()
             isBound = true
             updateRecordingStatusUi()
+            checkUnfinishedSessions()
         }
 
         override fun onServiceDisconnected(arg0: android.content.ComponentName) {
@@ -74,19 +79,18 @@ class FishingSessionController(
                     updateRecordingStatusUi()
                     onLocationDisabled()
                 }
+                ACTION_SESSION_RECOVERY_REQUIRED -> checkUnfinishedSessions()
                 ACTION_SESSION_STARTED -> updateRecordingStatusUi()
             }
         }
     }
 
     fun onStart() {
-        val intent = Intent(activity, FishingSessionService::class.java)
-        activity.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-
         val filter = IntentFilter().apply {
             addAction(ACTION_SESSION_STARTED)
             addAction(ACTION_SESSION_ENDED)
             addAction(ACTION_SESSION_ENDED_LOCATION_OFF)
+            addAction(ACTION_SESSION_RECOVERY_REQUIRED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             activity.registerReceiver(sessionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -94,6 +98,9 @@ class FishingSessionController(
             @Suppress("DEPRECATION")
             activity.registerReceiver(sessionReceiver, filter)
         }
+
+        val intent = Intent(activity, FishingSessionService::class.java)
+        activity.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         updateRecordingStatusUi()
     }
 
@@ -163,25 +170,76 @@ class FishingSessionController(
     }
 
     fun checkUnfinishedSessions() {
-        if (FishingSessionService.isRunning) return
+        if (fishingService?.isRecording() == true || recoveryDialogShowing) return
 
         scope.launch(Dispatchers.IO) {
-            val unfinishedSession = database.fishingSessionDao().getActiveSession() ?: return@launch
-            val lastPoint = database.trackPointDao().getLastPointForSession(unfinishedSession.id)
-            val lastTime = lastPoint?.timestamp ?: unfinishedSession.startedAt
+            val activeState = database.activeFishingSessionDao().get()
+            if (activeState != null) {
+                withContext(Dispatchers.Main) {
+                    if (fishingService?.isRecording() != true) {
+                        val resumeIntent = Intent(activity, FishingSessionService::class.java).apply {
+                            putExtra("CONTINUE_SESSION_ID", activeState.sessionId)
+                        }
+                        startService(resumeIntent)
+                    }
+                }
+                return@launch
+            }
+
+            val sessions = database.fishingSessionDao().getUnfinishedSessions()
+            if (sessions.isEmpty()) return@launch
 
             withContext(Dispatchers.Main) {
-                AlertDialog.Builder(activity)
-                    .setTitle("Keskeneräinen sessio löytyi")
-                    .setMessage("Haluatko jatkaa aiempaa sessiota vai päättää sen viimeiseen reittipisteeseen?")
-                    .setPositiveButton("Jatka sessiota") { _, _ -> continueFishingSession(unfinishedSession) }
-                    .setNegativeButton("Päätä sessio viimeiseen pisteeseen") { _, _ ->
-                        finishUnfinishedSession(unfinishedSession, lastTime)
-                    }
-                    .setCancelable(false)
-                    .show()
+                if (fishingService?.isRecording() == true || recoveryDialogShowing) return@withContext
+                recoveryDialogShowing = true
+                if (sessions.size == 1) {
+                    showSingleRecoveryDialog(sessions.single())
+                } else {
+                    showMultipleRecoveryDialog(sessions)
+                }
             }
         }
+    }
+
+    private fun showSingleRecoveryDialog(session: FishingSession) {
+        scope.launch(Dispatchers.IO) {
+            val lastPoint = database.trackPointDao().getLastPointForSession(session.id)
+            val lastTime = lastPoint?.timestamp ?: session.startedAt
+            withContext(Dispatchers.Main) {
+                val dialog = AlertDialog.Builder(activity)
+                    .setTitle("Keskeneräinen sessio löytyi")
+                    .setMessage("Haluatko jatkaa aiempaa sessiota vai päättää sen viimeiseen reittipisteeseen?")
+                    .setPositiveButton("Jatka sessiota") { _, _ -> continueFishingSession(session) }
+                    .setNegativeButton("Päätä sessio viimeiseen pisteeseen") { _, _ ->
+                        finishUnfinishedSession(session, lastTime)
+                    }
+                    .setCancelable(false)
+                    .create()
+                dialog.setOnDismissListener { recoveryDialogShowing = false }
+                dialog.show()
+            }
+        }
+    }
+
+    private fun showMultipleRecoveryDialog(sessions: List<FishingSession>) {
+        val timeFormat = SimpleDateFormat("d.M. HH:mm", Locale.getDefault())
+        val labels = sessions.map { "${timeFormat.format(Date(it.startedAt))} (ID ${it.id})" }.toTypedArray()
+        var selectedIndex = 0
+        val dialog = AlertDialog.Builder(activity)
+            .setTitle("Useita keskeneräisiä sessioita")
+            .setMessage("Valitse jatkettava sessio. Muut päätetään viimeiseen tallennettuun pisteeseen.")
+            .setSingleChoiceItems(labels, 0) { _, which -> selectedIndex = which }
+            .setPositiveButton("Jatka valittua") { _, _ ->
+                val selected = sessions[selectedIndex]
+                finishSessions(sessions.filterIndexed { index, _ -> index != selectedIndex }) {
+                    continueFishingSession(selected)
+                }
+            }
+            .setNegativeButton("Päätä kaikki") { _, _ -> finishSessions(sessions) }
+            .setCancelable(false)
+            .create()
+        dialog.setOnDismissListener { recoveryDialogShowing = false }
+        dialog.show()
     }
 
     private fun continueFishingSession(session: FishingSession) {
@@ -202,10 +260,36 @@ class FishingSessionController(
             val points = database.trackPointDao().getPointsForSession(session.id)
             val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
             val actualEnd = points.lastOrNull()?.timestamp ?: endTime
-            database.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
+            database.runInTransaction {
+                database.fishingSessionDao().update(session.copy(startedAt = actualStart, endedAt = actualEnd))
+                database.activeFishingSessionDao().get()?.let { state ->
+                    if (state.sessionId == session.id) database.activeFishingSessionDao().delete()
+                }
+            }
             withContext(Dispatchers.Main) {
                 updateSessionLine()
                 android.widget.Toast.makeText(activity, "Sessio päätetty", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun finishSessions(sessions: List<FishingSession>, onFinished: (() -> Unit)? = null) {
+        scope.launch(Dispatchers.IO) {
+            val updates = sessions.map { session ->
+                val points = database.trackPointDao().getPointsForSession(session.id)
+                val actualStart = points.firstOrNull()?.timestamp ?: session.startedAt
+                val actualEnd = points.lastOrNull()?.timestamp ?: session.startedAt
+                session.copy(startedAt = actualStart, endedAt = actualEnd)
+            }
+            database.runInTransaction {
+                updates.forEach { database.fishingSessionDao().update(it) }
+                database.activeFishingSessionDao().get()?.let { state ->
+                    if (sessions.any { it.id == state.sessionId }) database.activeFishingSessionDao().delete()
+                }
+            }
+            withContext(Dispatchers.Main) {
+                updateSessionLine()
+                onFinished?.invoke()
             }
         }
     }
@@ -259,5 +343,6 @@ class FishingSessionController(
         const val ACTION_SESSION_STARTED = "fi.anssi.kalakartta.SESSION_STARTED"
         const val ACTION_SESSION_ENDED = "fi.anssi.kalakartta.SESSION_ENDED"
         const val ACTION_SESSION_ENDED_LOCATION_OFF = "fi.anssi.kalakartta.SESSION_ENDED_LOCATION_OFF"
+        const val ACTION_SESSION_RECOVERY_REQUIRED = FishingSessionService.ACTION_SESSION_RECOVERY_REQUIRED
     }
 }

@@ -633,7 +633,6 @@ class MainActivity : AppCompatActivity() {
                 crashFile.delete()
             }
             
-            checkUnfinishedSessions()
             settingsManager.checkShowUserManual()
         } catch (t: Throwable) {
             crashFile.writeText(t.stackTraceToString())
