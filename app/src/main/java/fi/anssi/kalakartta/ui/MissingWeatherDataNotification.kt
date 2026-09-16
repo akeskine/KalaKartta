@@ -10,6 +10,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import fi.anssi.kalakartta.R
 
+internal fun shouldShowMissingWeatherUpdateNotification(result: MissingWeatherUpdateResult): Boolean =
+    result.attempted > 0
+
 internal object MissingWeatherDataNotification {
     private const val CHANNEL_ID = "missing_weather_update"
     private const val NOTIFICATION_ID = 1004

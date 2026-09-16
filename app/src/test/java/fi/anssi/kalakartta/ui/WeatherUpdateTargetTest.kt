@@ -78,6 +78,20 @@ class WeatherUpdateTargetTest {
         assertTrue(shouldRunAutomaticWeatherUpdate(true, lastUpdate + 24 * hourMillis + 1, lastUpdate, 24))
     }
 
+    @Test
+    fun automaticWeatherUpdateNotificationIsHiddenWhenNothingWasAttempted() {
+        assertFalse(
+            shouldShowMissingWeatherUpdateNotification(
+                MissingWeatherUpdateResult(successful = 0, failed = 0, noChanges = 0, attempted = 0)
+            )
+        )
+        assertTrue(
+            shouldShowMissingWeatherUpdateNotification(
+                MissingWeatherUpdateResult(successful = 1, failed = 0, noChanges = 0, attempted = 1)
+            )
+        )
+    }
+
     private fun fishCatchWithTrend(caughtAt: Long, vararg samples: PressureSample): FishCatch {
         return FishCatch(
             species = "AHVEN",

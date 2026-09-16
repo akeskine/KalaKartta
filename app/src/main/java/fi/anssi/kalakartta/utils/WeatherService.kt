@@ -992,11 +992,14 @@ fun formatForecastSpeech(hours: Int, row: ForecastRow): String? {
 }
 
 private fun formatForecastNumber(value: Double): String {
-    return if (value % 1.0 == 0.0) {
-        value.toInt().toString()
+    // Pyöristetään puolikkaatkin normaalisti poispäin nollasta:
+    // esimerkiksi 2,5 -> 3 ja -2,5 -> -3.
+    val rounded = if (value >= 0.0) {
+        floor(value + 0.5)
     } else {
-        String.format(java.util.Locale.US, "%.1f", value).replace('.', ',')
+        ceil(value - 0.5)
     }
+    return rounded.toInt().toString()
 }
 
 private fun formatHourFinnish(hours: Int): String = when (hours) {

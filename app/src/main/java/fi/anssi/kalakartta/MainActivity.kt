@@ -50,6 +50,7 @@ import fi.anssi.kalakartta.ui.DialogOrientationLock
 import fi.anssi.kalakartta.ui.MAX_AUTOMATIC_MISSING_WEATHER_UPDATE_COUNT
 import fi.anssi.kalakartta.ui.MissingWeatherDataNotification
 import fi.anssi.kalakartta.ui.MissingWeatherDataUpdater
+import fi.anssi.kalakartta.ui.shouldShowMissingWeatherUpdateNotification
 import fi.anssi.kalakartta.ui.shouldRunAutomaticWeatherUpdate
 
 class MainActivity : AppCompatActivity() {
@@ -812,8 +813,10 @@ class MainActivity : AppCompatActivity() {
                 ).update(maxCount = MAX_AUTOMATIC_MISSING_WEATHER_UPDATE_COUNT)
                 if (!result.cancelled) {
                     settingsStore.lastMissingWeatherUpdateAt = System.currentTimeMillis()
-                    withContext(Dispatchers.Main) {
-                        MissingWeatherDataNotification.show(this@MainActivity, result)
+                    if (shouldShowMissingWeatherUpdateNotification(result)) {
+                        withContext(Dispatchers.Main) {
+                            MissingWeatherDataNotification.show(this@MainActivity, result)
+                        }
                     }
                 }
             } catch (e: Exception) {

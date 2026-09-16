@@ -83,6 +83,7 @@ internal data class MissingWeatherUpdateResult(
     val successful: Int,
     val failed: Int,
     val noChanges: Int,
+    val attempted: Int = 0,
     val cancelled: Boolean = false
 )
 
@@ -105,6 +106,7 @@ internal class MissingWeatherDataUpdater(
         var successful = 0
         var failed = 0
         var noChanges = 0
+        var attempted = 0
 
         try {
             val allCatches = db.fishCatchDao().getAll()
@@ -112,7 +114,6 @@ internal class MissingWeatherDataUpdater(
             val targetsAll = prioritizeMissingWeatherTargets(allCatches, attemptsByCatchId)
             val targets = if (maxCount > 0) targetsAll.take(maxCount) else targetsAll
 
-            var attempted = 0
             for (fishCatch in targets) {
                 currentCoroutineContext().ensureActive()
                 attempted++
@@ -269,10 +270,10 @@ internal class MissingWeatherDataUpdater(
                 onProgress(MissingWeatherUpdateProgress(attempted, targets.size, successful, noChanges, failed))
             }
         } catch (e: CancellationException) {
-            return MissingWeatherUpdateResult(successful, failed, noChanges, cancelled = true)
+            return MissingWeatherUpdateResult(successful, failed, noChanges, attempted, cancelled = true)
         }
 
-        return MissingWeatherUpdateResult(successful, failed, noChanges)
+        return MissingWeatherUpdateResult(successful, failed, noChanges, attempted)
     }
 
     private fun recordAttempt(catchId: Long, succeeded: Boolean, errorMessage: String? = null) {
