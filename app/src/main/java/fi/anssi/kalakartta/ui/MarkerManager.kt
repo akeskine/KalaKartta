@@ -539,26 +539,35 @@ class MarkerManager(
                 if (forceRebuild || shouldRebuild(zoom)) {
                     // Jos kyseessä on vain skrollaus (forceRebuild), tarkistetaan onko näkymäalue muuttunut tarpeeksi
                     if (forceRebuild && lastZoom >= 13.0 && zoom >= 13.0) {
-                        // Jos pisteitä on vähän, ei tarvita clippingiä (näkymän perusteella suodatusta) JA zoom-kynnys ei ylittynyt.
+                        val totalCount = dataStore.catchCount() + dataStore.placeCount()
+                        val clusterLimit = if (totalCount < 15000) 13.0 else 15.0
+                        val viewportAffectsMarkers = totalCount >= 15000 && zoom >= clusterLimit
+
+                        // Alle 15 000 pisteen aineisto näytetään kokonaan, joten pelkkä
+                        // kartan siirtyminen ei vaadi markerien uudelleenrakennusta.
+                        // Huomaa, että markerit ovat nykyään kolmessa eri kansiossa;
+                        // markersFolder jää tyhjäksi eikä sitä voi käyttää tähän tarkistukseen.
+                        if (!viewportAffectsMarkers && !shouldRebuild(zoom) && hasVisibleMarkers()) {
+                            return
+                        }
+
+                        if (!viewportAffectsMarkers) {
+                            rebuildMarkers(zoom)
+                            return
+                        }
+
                         val catchesCount = dataStore.catchCount()
                         val placesCount = dataStore.placeCount()
-                        if (catchesCount + placesCount < 5000 && !shouldRebuild(zoom)) {
-                            // Varmistetaan että markerit on ladattu joskus, mutta ei ladata niitä joka skrollauksella
-                            if (markersFolder.items.isNotEmpty()) {
-                                return
-                            }
-                        }
- 
                         val bbox = map.boundingBox
                         if (bbox != null && lastBBox != null) {
                             val latDiff = Math.abs(bbox.centerLatitude - lastBBox!!.centerLatitude)
                             val lonDiff = Math.abs(bbox.centerLongitude - lastBBox!!.centerLongitude)
                             // Päivitetään vain jos näkymä on siirtynyt yli 80% leveydestä/korkeudesta
                             // koska clipping-marginaali on 100% (20% suurilla määrillä).
-                            val threshold = if (catchesCount + placesCount < 5000) 0.8 else 0.15
+                            val threshold = 0.15
                             if (latDiff < bbox.latitudeSpan * threshold && lonDiff < (bbox.lonEast - bbox.lonWest) * threshold) {
                                 // Varmistetaan että markerit on ladattu, mutta ei ladata niitä joka skrollauksella
-                                if (defaultPointsFolder.items.isNotEmpty() || catchesFolder.items.isNotEmpty() || placesFolder.items.isNotEmpty()) {
+                                if (hasVisibleMarkers()) {
                                     return
                                 }
                             }
@@ -571,6 +580,12 @@ class MarkerManager(
             }
         }
     }
+
+    private fun hasVisibleMarkers(): Boolean =
+        defaultPointsFolder.items.isNotEmpty() ||
+                catchesFolder.items.isNotEmpty() ||
+                placesFolder.items.isNotEmpty() ||
+                markersFolder.items.isNotEmpty()
 
     private fun shouldRebuild(zoom: Double): Boolean {
         if (lastZoom < 0) return true
