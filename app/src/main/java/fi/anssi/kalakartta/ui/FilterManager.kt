@@ -96,6 +96,9 @@ class FilterManager(private val context: Context) {
 
         fun filtersForRoutes(filters: Filters, filterRoutes: Boolean): Filters =
             if (filterRoutes) filters else Filters()
+
+        fun filtersForHeatmap(filters: Filters, filterHeatmap: Boolean): Filters =
+            if (filterHeatmap) filters else Filters()
     }
 
     fun getFilters(): Filters {

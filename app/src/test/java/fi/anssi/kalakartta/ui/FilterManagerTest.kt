@@ -123,4 +123,19 @@ class FilterManagerTest {
         assertEquals(FilterManager.Filters(), FilterManager.filtersForRoutes(filters, false))
         assertEquals(filters, FilterManager.filtersForRoutes(filters, true))
     }
+
+    @Test
+    fun heatmapFiltersAreClearedWhenHeatmapFilteringIsDisabled() {
+        val filters = FilterManager.Filters(
+            startDate = 1L,
+            endDate = 2L,
+            startTimeMinutes = 60,
+            endTimeMinutes = 120,
+            latSouth = 60.0,
+            latNorth = 61.0
+        )
+
+        assertEquals(FilterManager.Filters(), FilterManager.filtersForHeatmap(filters, false))
+        assertEquals(filters, FilterManager.filtersForHeatmap(filters, true))
+    }
 }
