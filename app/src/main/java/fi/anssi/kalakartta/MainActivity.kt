@@ -627,9 +627,6 @@ class MainActivity : AppCompatActivity() {
                 settingsStore.lastVersionName = currentVersionName
             }
 
-            if (!mapStateRestored) {
-                locationController.centerOnFirstFixIfNeeded()
-            }
             if (crashFile.exists()) {
                 crashFile.delete()
             }
@@ -785,6 +782,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (::locationController.isInitialized) {
+            locationController.onStart()
+        }
         if (::fishingSessionController.isInitialized) {
             fishingSessionController.onStart()
         }
@@ -826,6 +826,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        if (::locationController.isInitialized) {
+            locationController.onStop()
+        }
         if (::fishingSessionController.isInitialized) {
             fishingSessionController.onStop()
         }

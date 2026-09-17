@@ -6,12 +6,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView as OsmMapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
@@ -28,11 +30,18 @@ class LocationController(
     private var screenReceiver: BroadcastReceiver? = null
     private var locationProviderReceiverRegistered = false
     private var userScrolling = false
+    private var activityResumed = false
+    private var autoCenterPending = true
+    private var autoCenterRequestId = 0L
     private val locationPermissionLauncher = activity.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
             enableMyLocationIfPermitted()
+            autoCenterPending = true
+            if (activityResumed) {
+                centerOnForegroundEntryIfNeeded()
+            }
         }
         updateMyLocationButtonVisibility()
     }
@@ -66,7 +75,10 @@ class LocationController(
 
     fun onMapTouch(event: MotionEvent): Boolean {
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> userScrolling = true
+            MotionEvent.ACTION_DOWN -> {
+                userScrolling = true
+                autoCenterRequestId++
+            }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 map.postDelayed({ userScrolling = false }, 500)
             }
@@ -115,14 +127,63 @@ class LocationController(
         }
     }
 
-    fun centerOnFirstFixIfNeeded() {
-        if (!settingsStore.autoCenterOnStart || isSelectionMode() || !::locationOverlay.isInitialized) return
+    fun onStart() {
+        autoCenterPending = true
+        registerScreenReceiver()
+    }
+
+    fun onStop() {
+        activityResumed = false
+        autoCenterPending = true
+        autoCenterRequestId++
+        unregisterScreenReceiver()
+    }
+
+    private fun centerOnForegroundEntryIfNeeded() {
+        if (!autoCenterPending ||
+            !settingsStore.autoCenterOnStart ||
+            isSelectionMode() ||
+            !::locationOverlay.isInitialized
+        ) return
+
+        autoCenterPending = false
+        val requestId = ++autoCenterRequestId
+        val currentLocation = locationOverlay.myLocation
+        if (currentLocation != null) {
+            animateToAutoCenterLocation(requestId, currentLocation)
+            return
+        }
+
+        getLastKnownLocation()?.let {
+            animateToAutoCenterLocation(requestId, GeoPoint(it.latitude, it.longitude))
+            return
+        }
+
         locationOverlay.runOnFirstFix {
             map.post {
+                if (requestId != autoCenterRequestId || !activityResumed || userScrolling) return@post
                 locationOverlay.myLocation?.let {
                     map.controller.animateTo(it, map.zoomLevelDouble, 500L)
                 }
             }
+        }
+    }
+
+    private fun animateToAutoCenterLocation(requestId: Long, point: GeoPoint) {
+        map.post {
+            if (requestId == autoCenterRequestId && activityResumed && !userScrolling) {
+                map.controller.animateTo(point, map.zoomLevelDouble, 500L)
+            }
+        }
+    }
+
+    private fun getLastKnownLocation(): Location? {
+        val locationManager = activity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return try {
+            locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        } catch (_: SecurityException) {
+            null
         }
     }
 
@@ -153,13 +214,15 @@ class LocationController(
     }
 
     fun onResume() {
+        activityResumed = true
         enableMyLocationIfPermitted()
         updateMyLocationButtonVisibility()
         registerLocationProviderReceiver()
-        registerScreenReceiver()
+        centerOnForegroundEntryIfNeeded()
     }
 
     fun onPause() {
+        activityResumed = false
         try {
             if (locationProviderReceiverRegistered) {
                 activity.unregisterReceiver(locationProviderReceiver)
@@ -168,11 +231,6 @@ class LocationController(
         } finally {
             locationProviderReceiverRegistered = false
         }
-        try {
-            screenReceiver?.let { activity.unregisterReceiver(it) }
-        } catch (_: IllegalArgumentException) {
-        }
-        screenReceiver = null
         if (::locationOverlay.isInitialized) {
             locationOverlay.disableMyLocation()
         }
@@ -205,14 +263,25 @@ class LocationController(
     private fun registerScreenReceiver() {
         if (screenReceiver != null) return
 
-        val filter = IntentFilter(Intent.ACTION_SCREEN_ON)
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == Intent.ACTION_SCREEN_ON &&
-                    settingsStore.autoCenterOnStart &&
-                    !isSelectionMode()
-                ) {
-                    currentLocation?.let { map.controller.animateTo(it, map.zoomLevelDouble, 500L) }
+                if (!settingsStore.autoCenterOnStart || isSelectionMode()) return
+
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> {
+                        autoCenterPending = true
+                        autoCenterRequestId++
+                    }
+                    Intent.ACTION_SCREEN_ON -> {
+                        autoCenterPending = true
+                        if (activityResumed) {
+                            centerOnForegroundEntryIfNeeded()
+                        }
+                    }
                 }
             }
         }
@@ -228,6 +297,14 @@ class LocationController(
             screenReceiver = null
             throw e
         }
+    }
+
+    private fun unregisterScreenReceiver() {
+        try {
+            screenReceiver?.let { activity.unregisterReceiver(it) }
+        } catch (_: IllegalArgumentException) {
+        }
+        screenReceiver = null
     }
 
     private val locationProviderReceiver = object : BroadcastReceiver() {
