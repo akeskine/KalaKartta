@@ -16,6 +16,7 @@ import com.google.android.material.button.MaterialButton
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView as OsmMapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.IMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import fi.anssi.kalakartta.R
 
@@ -26,6 +27,11 @@ class LocationController(
     private val settingsStore: SettingsStore,
     private val isSelectionMode: () -> Boolean
 ) {
+    private companion object {
+        const val AUTO_CENTER_LOCATION_WAIT_MILLIS = 10_000L
+        const val AUTO_CENTER_MAX_GPS_ACCURACY_METERS = 30f
+    }
+
     private lateinit var locationOverlay: MyLocationNewOverlay
     private var screenReceiver: BroadcastReceiver? = null
     private var locationProviderReceiverRegistered = false
@@ -33,6 +39,7 @@ class LocationController(
     private var activityResumed = false
     private var autoCenterPending = true
     private var autoCenterRequestId = 0L
+    private var autoCenterWaitingForRequestId: Long? = null
     private val locationPermissionLauncher = activity.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -54,6 +61,27 @@ class LocationController(
 
     fun initialize() {
         locationOverlay = object : MyLocationNewOverlay(GpsMyLocationProvider(activity), map) {
+            override fun onLocationChanged(location: Location, source: IMyLocationProvider) {
+                super.onLocationChanged(location, source)
+                if (!isSufficientGpsLocation(location)) return
+                val requestId = autoCenterWaitingForRequestId ?: return
+                map.post {
+                    if (requestId != autoCenterRequestId ||
+                        requestId != autoCenterWaitingForRequestId ||
+                        !activityResumed ||
+                        userScrolling ||
+                        !areLocationProvidersEnabled()
+                    ) return@post
+
+                    autoCenterWaitingForRequestId = null
+                    map.controller.animateTo(
+                        GeoPoint(location.latitude, location.longitude),
+                        map.zoomLevelDouble,
+                        500L
+                    )
+                }
+            }
+
             override fun draw(canvas: android.graphics.Canvas, map: OsmMapView, shadow: Boolean) {
                 try {
                     super.draw(canvas, map, shadow)
@@ -78,6 +106,7 @@ class LocationController(
             MotionEvent.ACTION_DOWN -> {
                 userScrolling = true
                 autoCenterRequestId++
+                autoCenterWaitingForRequestId = null
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 map.postDelayed({ userScrolling = false }, 500)
@@ -136,6 +165,7 @@ class LocationController(
         activityResumed = false
         autoCenterPending = true
         autoCenterRequestId++
+        autoCenterWaitingForRequestId = null
         unregisterScreenReceiver()
     }
 
@@ -143,38 +173,21 @@ class LocationController(
         if (!autoCenterPending ||
             !settingsStore.autoCenterOnStart ||
             isSelectionMode() ||
-            !::locationOverlay.isInitialized
+            !::locationOverlay.isInitialized ||
+            !hasLocationPermission() ||
+            !areLocationProvidersEnabled()
         ) return
 
         autoCenterPending = false
         val requestId = ++autoCenterRequestId
-        val currentLocation = locationOverlay.myLocation
-        if (currentLocation != null) {
-            animateToAutoCenterLocation(requestId, currentLocation)
-            return
-        }
-
-        getLastKnownLocation()?.let {
-            animateToAutoCenterLocation(requestId, GeoPoint(it.latitude, it.longitude))
-            return
-        }
-
-        locationOverlay.runOnFirstFix {
-            map.post {
-                if (requestId != autoCenterRequestId || !activityResumed || userScrolling) return@post
-                locationOverlay.myLocation?.let {
-                    map.controller.animateTo(it, map.zoomLevelDouble, 500L)
-                }
+        autoCenterWaitingForRequestId = requestId
+        map.postDelayed({
+            if (requestId == autoCenterRequestId &&
+                requestId == autoCenterWaitingForRequestId
+            ) {
+                autoCenterWaitingForRequestId = null
             }
-        }
-    }
-
-    private fun animateToAutoCenterLocation(requestId: Long, point: GeoPoint) {
-        map.post {
-            if (requestId == autoCenterRequestId && activityResumed && !userScrolling) {
-                map.controller.animateTo(point, map.zoomLevelDouble, 500L)
-            }
-        }
+        }, AUTO_CENTER_LOCATION_WAIT_MILLIS)
     }
 
     private fun getLastKnownLocation(): Location? {
@@ -185,6 +198,22 @@ class LocationController(
         } catch (_: SecurityException) {
             null
         }
+    }
+
+    private fun areLocationProvidersEnabled(): Boolean {
+        val locationManager = activity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return try {
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isSufficientGpsLocation(location: Location): Boolean {
+        return location.provider == LocationManager.GPS_PROVIDER &&
+                location.hasAccuracy() &&
+                location.accuracy <= AUTO_CENTER_MAX_GPS_ACCURACY_METERS
     }
 
     fun updateMyLocationButtonVisibility() {
@@ -275,6 +304,7 @@ class LocationController(
                     Intent.ACTION_SCREEN_OFF -> {
                         autoCenterPending = true
                         autoCenterRequestId++
+                        autoCenterWaitingForRequestId = null
                     }
                     Intent.ACTION_SCREEN_ON -> {
                         autoCenterPending = true
@@ -311,6 +341,10 @@ class LocationController(
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
                 updateMyLocationButtonVisibility()
+                if (!areLocationProvidersEnabled()) {
+                    autoCenterRequestId++
+                    autoCenterWaitingForRequestId = null
+                }
             }
         }
     }

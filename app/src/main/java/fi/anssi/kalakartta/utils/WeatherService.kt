@@ -1020,9 +1020,10 @@ private fun formatCloudCover(value: Double): String = when {
 
 private fun formatPrecipitation(value: Double): String = when {
     value < 0.025 -> "ei sadetta"
-    value < 0.4 -> "heikkoa sadetta"
-    value < 4.0 -> "sadetta"
-    else -> "runsasta sadetta"
+    value < 1.5 -> "heikkoa sadetta"
+    value < 3.0 -> "sadetta"
+    value < 7.0 -> "runsasta sadetta"
+    else -> "rankkasadetta"
 }
 
 private fun formatWindDirection(value: Double): String {

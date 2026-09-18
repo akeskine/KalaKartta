@@ -14,7 +14,7 @@ KalaKartan keskeisiä periaatteita ovat:
 
 Kartan keskellä on aina tähtäin. Voit liikkua kartalla raahaamalla ja zoomata nipistämällä.<br><br>
 
-Oma sijaintisi näytetään kartalla, jos GPS on päällä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta.<br><br>
+Oma sijaintisi näytetään kartalla, jos sijaintilupa ja sijaintipalvelu ovat käytössä. Voit keskittää kartan omaan sijaintiisi vasemman alakulman sijaintipainikkeesta. Painikkeella tehtävä kohdistus voi käyttää myös verkkosijaintia tai viimeisintä tunnettua sijaintia, jos GPS-sijainti ei ole saatavilla.<br><br>
 
 Kartan taustakartan voit vaihtaa valikosta (**Valikko -> Taustakartta**).<br><br> 
 
@@ -113,7 +113,7 @@ Yleisistä asetuksista voit:
 - Määrittää **oletuskalastajan**, joka asetetaan automaattisesti uusiin saaliisiin. Kalastajatietoa voidaan käytää myöhemmin suodatus- ja yhteenveto-toimintojen rajaamiseen.
 - Kytkeä päälle/pois **mittaustyökalut**. Tämän valinnan alta voit valita näytetäänkö kartalla mittakaavajana ja/tai mittaustyökalu-painike.
 - Kytkeä päälle/pois **oletuskalastaja** kartan oikeassa alareunassa.
-- Valita keskitetäänkö kartta käynnistyksessä automaattisesti omaan sijaintiisi. Tämä on testatusti kätevää vesillä, jos halutaan lisätä kala puhelimen ollessa taskussa näyttö pois päältä.
+- Valita keskitetäänkö kartta käynnistyksessä tai sovellukseen palattaessa automaattisesti omaan sijaintiisi. Tämä on testatusti kätevää vesillä, jos halutaan lisätä kala puhelimen ollessa taskussa näyttö pois päältä. Automaattinen kohdistus tehdään vain, kun sijaintipalvelu on päällä ja sovellus saa GPS-sijainnin, jonka tarkkuus on enintään 30 metriä, yleensä 10 sekunnin kuluessa. Verkkosijaintia, vanhaa GPS-sijaintia tai liian epätarkkaa sijaintia ei käytetä automaattiseen kohdistukseen. Jos käyttäjä liikuttaa karttaa odotuksen aikana, automaattinen kohdistus perutaan.
 - Määrittää puhuvan kellon asetukset sekä käynnistää ja pysäyttää sen.
 
 ## 11. Karttapohjan pikavalinta
