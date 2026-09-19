@@ -444,8 +444,7 @@ class SummaryActivity : AppCompatActivity() {
         ssb.setSpan(StyleSpan(Typeface.BOLD), titleStart, ssb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         ssb.append("\n\n")
 
-        ssb.append(CatchSummaryFormatter.format(catches, speciesMap)).append("\n\n")
-        if (false) {
+        if (catches.isEmpty()) {
             ssb.append("Ei saaliita tältä ajalta.\n\n")
         } else {
             // Ryhmittele lajeittain
