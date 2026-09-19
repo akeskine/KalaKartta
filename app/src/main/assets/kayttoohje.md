@@ -3,12 +3,11 @@
 KalaKartta on sovellus kalastajille, jotka haluavat pitää tarkkaa kirjaa saaliistaan ja kalapaikoistaan. Sovellus on suunniteltu erityisesti nopeaan ja helppoon käyttöön vesillä ollessa.
 
 KalaKartan keskeisiä periaatteita ovat:
-- **Helppous:** Kalapisteiden lisäys onnistuu parilla klikkauksella suoraan kartalta. Puhelimen näytön ollessa pois päältä sovelluksen saa auki ilman lukituksen avaamista.
-- **Suodatus:** Voit analysoida saaliitasi monipuolisesti, esimerkiksi vuodenaikojen, kellonajan tai sääolosuhteiden (kuten tuulen suunnan) mukaan.
-- **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä ja tuhansia tallennettuja kalastussessioita/reittejä takeltelematta.
-- **Yksityisyys:** Kaikki tiedot tallennetaan vain laitteeseesi. Niitä ei lähetetä palvelimille. Pisteiden jakaminen on aina käyttäjän omassa kontrollissa.
-- **Automaatio:** Sovellus hakee säätiedot automaattisesti kalapisteisiin Ilmatieteen laitoksen (FMI) avoimesta datasta.
-- **Monipuoliset kartat:** Voit käyttää OpenStreetMapin lisäksi Maanmittauslaitoksen (MML) tarkkoja maasto- ja ilmakuvia sekä Traficomin merikartta-aineistoja.
+- **Helppous:** Kalapisteiden lisäys onnistuu parilla klikkauksella suoraan kartalta. Puhelimen näytön ollessa pois päältä sovelluksen saa auki ilman lukituksen avaamista. Säätietojen haku on automaattista.
+- **Yksityisyys:** Kaikki tiedot tallennetaan vain laitteeseesi eikä sovelluksessa ole käyttäjätilejä tai keskitettyä palvelinta. Pisteiden jakaminen on aina käyttäjän omassa kontrollissa.
+- **Suorituskyky:** Sovellus on optimoitu kestämään kymmeniä tuhansia pisteitä ja tuhansia tallennettuja kalastussessioita/reittejä takeltelematta. Tällainen määrä vastaa aktiivisen kalastajan kymmenien vuosien kaikkien kalareissujen tallentamista.
+- **Visualisointi:** Voit visualisoida ja tutkia saaliitasi kartalla monipuolisesti. Voit suodattaa pisteitä esimerkiksi vuodenaikojen, kellonajan tai sääolosuhteiden (kuten tuulen suunnan) mukaan. Näet myös, millä alueilla olet kalastanut eniten ja missä pyyntiponnistus on tuottanut tulosta.
+- **Monipuoliset kartat:** Voit käyttää OpenStreetMapin lisäksi Maanmittauslaitoksen (MML) tarkkoja maasto- ja ilmakuvia sekä Traficomin merikartta-aineistoja ja vaihtaa näkyvää karttapohjaa helposti.
 
 ## 1. Kartan käyttö
 
