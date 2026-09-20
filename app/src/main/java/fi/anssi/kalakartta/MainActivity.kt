@@ -363,7 +363,10 @@ class MainActivity : AppCompatActivity() {
                 markerManager = markerManager,
                 scope = lifecycleScope,
                 addOverlayBelowMarkers = { overlay -> addOverlayBelowMarkers(overlay) },
-                onReplayVisibilityChanged = { updateMyLocationButtonVisibility() }
+                onReplayVisibilityChanged = { isReplayActive ->
+                    locationController.setReplayActive(isReplayActive)
+                    updateMyLocationButtonVisibility()
+                }
             )
 
             catchManager = CatchManager(this, map, db, weatherController.weatherService, dialogOrientationLock,

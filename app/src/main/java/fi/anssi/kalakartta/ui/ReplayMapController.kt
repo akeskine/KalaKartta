@@ -38,7 +38,7 @@ class ReplayMapController(
     private val markerManager: MarkerManager,
     private val scope: CoroutineScope,
     private val addOverlayBelowMarkers: (Overlay) -> Unit,
-    private val onReplayVisibilityChanged: () -> Unit
+    private val onReplayVisibilityChanged: (Boolean) -> Unit
 ) {
     private val replayController = SessionReplayController()
     private var replayJob: Job? = null
@@ -57,11 +57,17 @@ class ReplayMapController(
         replayController.clear()
         isOnlySessionCatchesMode = onlySessionCatches
         visibleArchivedSessionId = -1L
+        onReplayVisibilityChanged(true)
 
         loadJob = scope.launch(Dispatchers.IO) {
             val session = database.fishingSessionDao().getById(sessionId)
             val points = database.trackPointDao().getPointsForSession(sessionId)
-            if (points.isEmpty() || session == null) return@launch
+            if (points.isEmpty() || session == null) {
+                withContext(Dispatchers.Main) {
+                    if (isCurrentRequest(request)) onReplayVisibilityChanged(false)
+                }
+                return@launch
+            }
             val endTime = session.endedAt ?: points.last().timestamp
             val initialTime = if (startAtEnd) endTime else session.startedAt
 
@@ -116,17 +122,23 @@ class ReplayMapController(
         replayController.clear()
         isOnlySessionCatchesMode = false
         visibleArchivedSessionId = -1L
+        onReplayVisibilityChanged(true)
         activity.findViewById<View>(R.id.replayPlayerLayout).visibility = View.GONE
         activity.findViewById<View>(R.id.replayPlayerContainer).visibility = View.VISIBLE
         activity.findViewById<View>(R.id.replayRestoreButton).visibility = View.GONE
         activity.findViewById<View>(R.id.addCatchButton).visibility = View.VISIBLE
-        onReplayVisibilityChanged()
+        onReplayVisibilityChanged(true)
         markerManager.resetTimeRange()
 
         loadJob = scope.launch(Dispatchers.IO) {
             val session = database.fishingSessionDao().getById(sessionId)
             val points = database.trackPointDao().getPointsForSession(sessionId)
-            if (points.isEmpty() || session == null) return@launch
+            if (points.isEmpty() || session == null) {
+                withContext(Dispatchers.Main) {
+                    if (isCurrentRequest(request)) onReplayVisibilityChanged(false)
+                }
+                return@launch
+            }
 
             withContext(Dispatchers.Main) {
                 if (!isCurrentRequest(request)) return@withContext
@@ -151,7 +163,7 @@ class ReplayMapController(
         activity.findViewById<View>(R.id.replayPlayerLayout).visibility = View.GONE
         activity.findViewById<View>(R.id.sessionInfoText).visibility = View.GONE
         activity.findViewById<View>(R.id.addCatchButton).visibility = View.VISIBLE
-        onReplayVisibilityChanged()
+        onReplayVisibilityChanged(false)
 
         archivedSessionPolyline?.let {
             map.overlays.remove(it)
@@ -218,7 +230,7 @@ class ReplayMapController(
         restoreButton.visibility = View.GONE
         playerContainer.setOnClickListener { }
         activity.findViewById<View>(R.id.addCatchButton).visibility = View.GONE
-        onReplayVisibilityChanged()
+        onReplayVisibilityChanged(true)
 
         playPauseButton.setOnClickListener {
             replayController.setPlaying(!replayController.isPlaying)

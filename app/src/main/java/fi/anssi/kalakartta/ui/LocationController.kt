@@ -37,6 +37,7 @@ class LocationController(
     private var locationProviderReceiverRegistered = false
     private var userScrolling = false
     private var activityResumed = false
+    private var replayActive = false
     private var autoCenterPending = true
     private var autoCenterRequestId = 0L
     private var autoCenterWaitingForRequestId: Long? = null
@@ -161,6 +162,16 @@ class LocationController(
         registerScreenReceiver()
     }
 
+    /** Prevents the startup location centering from taking control during a session replay. */
+    fun setReplayActive(active: Boolean) {
+        replayActive = active
+        if (active) {
+            autoCenterPending = false
+            autoCenterRequestId++
+            autoCenterWaitingForRequestId = null
+        }
+    }
+
     fun onStop() {
         activityResumed = false
         autoCenterPending = true
@@ -171,6 +182,7 @@ class LocationController(
 
     private fun centerOnForegroundEntryIfNeeded() {
         if (!autoCenterPending ||
+            replayActive ||
             !settingsStore.autoCenterOnStart ||
             isSelectionMode() ||
             !::locationOverlay.isInitialized ||
@@ -298,7 +310,7 @@ class LocationController(
         }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (!settingsStore.autoCenterOnStart || isSelectionMode()) return
+                if (replayActive || !settingsStore.autoCenterOnStart || isSelectionMode()) return
 
                 when (intent?.action) {
                     Intent.ACTION_SCREEN_OFF -> {
