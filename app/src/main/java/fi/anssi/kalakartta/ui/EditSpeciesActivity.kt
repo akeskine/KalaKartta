@@ -17,6 +17,9 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -48,6 +51,7 @@ class EditSpeciesActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_species)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         db = AppDatabase.getInstance(this)
         
@@ -63,7 +67,20 @@ class EditSpeciesActivity : AppCompatActivity() {
             val intent = Intent(this, EditSpeciesDetailActivity::class.java)
             startActivity(intent)
         }
-        findViewById<TextView>(R.id.backButton).setOnClickListener { finishToSettings() }
+        val backButton = findViewById<TextView>(R.id.backButton)
+        val baseBackButtonPaddingBottom = backButton.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(backButton) { view, insets ->
+            val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.setPadding(
+                view.paddingLeft,
+                view.paddingTop,
+                view.paddingRight,
+                baseBackButtonPaddingBottom + navigationBottom
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(backButton)
+        backButton.setOnClickListener { finishToSettings() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 finishToSettings()
