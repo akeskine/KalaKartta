@@ -158,7 +158,6 @@ class MainActivity : AppCompatActivity() {
             true
         } catch (e: Exception) {
             android.util.Log.e("KalaKartta", "Database initialization failed", e)
-            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
             showDatabaseInitializationError(e)
             false
         }
