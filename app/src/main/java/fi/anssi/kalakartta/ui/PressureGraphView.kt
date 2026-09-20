@@ -21,13 +21,13 @@ class PressureGraphView @JvmOverloads constructor(
     }
 
     private val axisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
+        color = context.resolveThemeColor(android.R.attr.textColorPrimary, Color.BLACK)
         strokeWidth = 2f
         style = Paint.Style.STROKE
     }
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
+        color = context.resolveThemeColor(android.R.attr.textColorPrimary, Color.BLACK)
         textSize = 30f
     }
 

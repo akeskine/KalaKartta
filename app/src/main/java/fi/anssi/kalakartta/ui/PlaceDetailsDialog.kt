@@ -1,7 +1,6 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
@@ -59,7 +58,7 @@ class PlaceDetailsDialog(
             container.addView(TextView(context).apply {
                 text = message.toString().trim()
                 TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
-                setTextColor(Color.BLACK)
+                setTextColor(context.resolveThemeColor(android.R.attr.textColorPrimary))
             })
         }
 
@@ -104,7 +103,7 @@ class PlaceDetailsDialog(
             text = "\nMedia"
             TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
             setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.BLACK)
+            setTextColor(context.resolveThemeColor(android.R.attr.textColorPrimary))
         })
 
         mediaList.filter { it.mimeType.startsWith("image/") }.forEach { media ->

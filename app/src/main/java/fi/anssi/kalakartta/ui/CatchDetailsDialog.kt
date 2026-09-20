@@ -3,7 +3,6 @@ package fi.anssi.kalakartta.ui
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.text.SpannableString
 import android.text.Spanned
@@ -196,7 +195,7 @@ class CatchDetailsDialog(
             container.addView(TextView(context).apply {
                 this.text = text
                 TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
-                setTextColor(Color.BLACK)
+                setTextColor(context.resolveThemeColor(android.R.attr.textColorPrimary))
                 movementMethod = LinkMovementMethod.getInstance()
             })
         }
@@ -236,7 +235,7 @@ class CatchDetailsDialog(
             text = "\nMedia"
             TextViewCompat.setTextAppearance(this, android.R.style.TextAppearance_Medium)
             setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(Color.BLACK)
+            setTextColor(context.resolveThemeColor(android.R.attr.textColorPrimary))
         })
 
         mediaList.filter { it.mimeType.startsWith("image/") }.forEach { media ->
