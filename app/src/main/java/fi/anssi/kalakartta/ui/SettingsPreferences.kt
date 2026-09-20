@@ -90,7 +90,7 @@ object SettingsDefaults {
     const val DEFAULT_FISHERMAN = ""
     const val SHOW_FISHERMAN_ON_MAP = false
     const val FISH_ICON_SCALE = 1.0f
-    const val OTHER_ICON_SCALE = 1.0f
+    const val OTHER_ICON_SCALE = 0.75f
     const val WEATHER_ENABLED = true
     const val TALKING_CLOCK_ENABLED = false
     const val TALKING_CLOCK_ONLY_FISHING = false
@@ -110,6 +110,7 @@ object SettingsDefaults {
     const val ROUTES_FILTER_ENABLED = false
     const val SHOW_HEATMAP_SHORTCUT = false
     const val HEATMAP_SHORTCUT_MODE = 0
+    const val HEATMAP_CALCULATION_METHOD = "Reittipisteet + 3x sessiot"
     const val HEATMAP_MIN_POINTS = 1
     const val HEATMAP_MAX_POINTS = 50
     const val HEATMAP_MIN_POINTS_BY_POINTS = 1
@@ -119,9 +120,9 @@ object SettingsDefaults {
     const val HEATMAP_MIN_POINTS_BY_POINTS_AND_SESSIONS = 1
     const val HEATMAP_MAX_POINTS_BY_POINTS_AND_SESSIONS = 50
     const val HEATMAP_AUTO_CONFIGURE = true
-    const val HEATMAP_REMOVE_TRANSITIONS = false
+    const val HEATMAP_REMOVE_TRANSITIONS = true
     const val HEATMAP_REMOVE_TRANSITIONS_MODE = 0
-    const val HEATMAP_GRID_SIZE = 300.0f
+    const val HEATMAP_GRID_SIZE = 100.0f
     const val HEATMAP_MAX_SPEED = 10.0f
     const val MAX_TRACK_POINTS = 50_000
     const val MAX_HEATMAP_CELLS = 10_000
@@ -131,11 +132,11 @@ object SettingsDefaults {
     const val ROUTES_FADE_ENABLED = true
     const val ROUTES_FADE_START_DAYS = 365
     const val ROUTES_FADE_FULL_DAYS = 30
-    const val PRESSURE_TREND_THRESHOLD = 0.10f
+    const val PRESSURE_TREND_THRESHOLD = 0.20f
     const val PRESSURE_TURNING_TREND_THRESHOLD = 0.20f
     const val AUTOMATIC_MISSING_WEATHER_UPDATE = false
     const val LAST_MISSING_WEATHER_UPDATE_AT = 0L
-    const val AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS = 24
+    const val AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS = 6
     const val LAST_VERSION_NAME = ""
     const val LAST_VERSION_CODE = -1
 }

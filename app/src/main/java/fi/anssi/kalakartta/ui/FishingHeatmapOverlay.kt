@@ -116,7 +116,9 @@ class FishingHeatmapOverlay(private val context: Context, private val db: AppDat
         routesFadeEnabled = settingsStore.routesFadeEnabled
         routesFadeStartLimitDays = settingsStore.routesFadeStartDays
         routesFadeFullLimitDays = settingsStore.routesFadeFullDays
-        calculationMethod = settingsStore.getHeatmapCalculationMethod(context.getString(R.string.heatmap_method_points))
+        calculationMethod = settingsStore.getHeatmapCalculationMethod(
+            SettingsDefaults.HEATMAP_CALCULATION_METHOD
+        )
         removeTransitions = settingsStore.heatmapRemoveTransitions
         removeTransitionsMode = settingsStore.heatmapRemoveTransitionsMode
         maxSpeed = settingsStore.heatmapMaxSpeed

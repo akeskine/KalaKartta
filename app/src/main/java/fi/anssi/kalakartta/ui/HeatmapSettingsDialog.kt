@@ -323,7 +323,7 @@ class HeatmapSettingsDialog(
         val midText = TextView(activity).apply {
             id = View.generateViewId()
             val method = settingsStore.getHeatmapCalculationMethod(
-                pointsMethod
+                SettingsDefaults.HEATMAP_CALCULATION_METHOD
             )
             text = countDescription(method)
             textSize = 14f
@@ -350,7 +350,7 @@ class HeatmapSettingsDialog(
                     )
                     settingsStore.heatmapMinPoints = value
                     val method = settingsStore.getHeatmapCalculationMethod(
-                        pointsMethod
+                        SettingsDefaults.HEATMAP_CALCULATION_METHOD
                     )
                     if (method == pointsMethod) {
                         settingsStore.heatmapMinPointsByPoints = value
@@ -386,7 +386,7 @@ class HeatmapSettingsDialog(
                     )
                     settingsStore.heatmapMaxPoints = value
                     val method = settingsStore.getHeatmapCalculationMethod(
-                        pointsMethod
+                        SettingsDefaults.HEATMAP_CALCULATION_METHOD
                     )
                     if (method == pointsMethod) {
                         settingsStore.heatmapMaxPointsByPoints = value
@@ -528,7 +528,7 @@ class HeatmapSettingsDialog(
         methodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         methodSpinner.adapter = methodAdapter
         val currentMethod = settingsStore.getHeatmapCalculationMethod(
-            pointsMethod
+            SettingsDefaults.HEATMAP_CALCULATION_METHOD
         )
         val methodIndex = methods.indexOf(currentMethod).coerceAtLeast(0)
         methodSpinner.setSelection(methodIndex)
@@ -536,7 +536,7 @@ class HeatmapSettingsDialog(
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedMethod = methods[position]
                 val oldMethod = settingsStore.getHeatmapCalculationMethod(
-                    pointsMethod
+                    SettingsDefaults.HEATMAP_CALCULATION_METHOD
                 )
                 if (selectedMethod != oldMethod) {
                     settingsStore.setHeatmapCalculationMethod(selectedMethod)

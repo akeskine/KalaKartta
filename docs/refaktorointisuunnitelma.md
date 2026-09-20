@@ -107,10 +107,10 @@ Keskeinen `settings`-preferenssien inventaario ennen keskittämistä:
 | `fishing_routes_enabled` | `false` | Reitit |
 | `heatmap_filter_enabled` / `routes_filter_enabled` | `false` | Suodatuksen käyttö |
 | `heatmap_auto_configure` | `true` | Heatmapin pistealue |
-| `heatmap_grid_size` | `300.0` m | Heatmap-solun koko |
+| `heatmap_grid_size` | `100.0` m | Heatmap-solun koko |
 | `heatmap_min_points` / `heatmap_max_points` | `1` / `50` | Heatmapin piste-/solurajat |
 | `max_track_points` / `max_heatmap_cells` | `50000` / `10000` | Laskennan turvarajat |
-| `heatmap_remove_transitions` | `false` | Siirtymien poisto |
+| `heatmap_remove_transitions` | `true` | Siirtymien poisto |
 | `heatmap_remove_transitions_mode` | `0` | Poiston kohde |
 | `heatmap_max_speed` | `10.0` | Nopeusraja |
 | `heatmap_min_zoom` | `10.0` | Näkyvyysraja |
@@ -128,7 +128,7 @@ Keskeinen `settings`-preferenssien inventaario ennen keskittämistä:
 | `auto_center_on_start` | `true` | Kartan aloituskeskitys |
 | `talking_clock_enabled` | `false` | Puhuva kello |
 | `talking_clock_interval` | `30` min | Puhuvan kellon väli |
-| `fish_icon_scale` / `other_icon_scale` | `1.0` / `1.0` | Markerien koko |
+| `fish_icon_scale` / `other_icon_scale` | `1.0` / `0.75` | Markerien koko |
 
 Suodattimet ovat erillisessä `filters`-preferenssissä. Niiden tyhjä oletustila on `FilterManager.Filters()`, ja `weightLengthOperator`-oletus on `OR`. Koordinaatit tallennetaan nykyisessä toteutuksessa `Float`-arvoina; tämä säilytetään yhteensopivuussyistä, kunnes erillinen muutos arvioi tarkkuuden.
 
