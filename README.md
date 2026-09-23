@@ -31,6 +31,15 @@ Kartta- ja sääpalvelujen aineistot eivät kuulu tämän projektin MIT-lisenssi
 - Traficom: merikartta- ja veneilykartta-aineistot Traficomin ehtojen mukaisesti. Aineistot eivät ole navigointikäyttöön.
 - Ilmatieteen laitos: sää- ja säähavaintodata Ilmatieteen laitoksen avoimen datan ehtojen mukaisesti.
 
+## Suomen merialueen ruudukko
+
+`FinlandSeaService` on erillinen palvelu, joka luokittelee WGS84-koordinaatin
+MML-aineistosta johdettuun 500 metrin EPSG:3067-ruutuun. Palvelua ei ole vielä
+kytketty käyttöliittymään, karttanäkymään, saalistietoihin tai reittien
+tallennukseen. Generaattori, binääriformaatti, validoitu assetti,
+visualisointi ja tarkemman ruudukon päivitysohje ovat dokumentissa
+[`docs/finland_sea_grid.md`](docs/finland_sea_grid.md).
+
 ## Käyttöoikeudet ja rajoitukset
 
 Sovellus käyttää sijaintia nykyisen sijainnin näyttämiseen ja kalastussessioiden reittien tallentamiseen. Käyttöjärjestelmä voi pyytää sijainti-, ilmoitus- ja hälytysten käyttöoikeuksia ominaisuuksien mukaan.

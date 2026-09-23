@@ -75,6 +75,7 @@ Hakutoiminto ei käytä FTS5:ttä. Nykyinen `LIKE`-toteutus ja repossa ylläpide
 - `WeatherService.kt`: FMI-sääasemien ja sää- sekä painehistoriatietojen haku.
 - `FishingSessionService.kt`: taustalla toimiva kalastussession sijainti- ja reittitallennus.
 - `TalkingClockService.kt`: puhuvan kellon foreground-palvelu.
+- `FinlandSeaService.kt`: itsenäinen MML-aineistosta johdetun EPSG:3067-meriruudukon kyselypalvelu. Sen generaattori, binääriformaatti ja päivitysohje ovat dokumentissa [docs/finland_sea_grid.md](docs/finland_sea_grid.md).
 - `FishDiaryPageSearchQuery.kt`: päiväkirjahaun kriteerien jäsennys ja SQL-kyselyjen muodostus.
 - `FishDiarySearchDictionary.kt`: repossa ylläpidettävän päiväkirjahakusanaston lataus ja normalisointi.
 

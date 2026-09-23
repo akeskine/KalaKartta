@@ -14,3 +14,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local planning and offline geospatial tooling
+/.junie/
+/tools/.venv/
+/tools/__pycache__/
+__pycache__/
+*.py[cod]
