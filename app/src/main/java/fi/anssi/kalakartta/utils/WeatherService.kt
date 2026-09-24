@@ -770,6 +770,19 @@ class WeatherService(private val context: Context) {
         }
     }
 
+    suspend fun isSeaLocation(latitude: Double, longitude: Double): Boolean {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                finlandSeaService.isSea(latitude, longitude)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Merialueen tarkistus epäonnistui: ${e.message}", e)
+                false
+            }
+        }
+    }
+
     private fun parseAllWeatherObservations(inputStream: java.io.InputStream): Map<Long, Map<String, Double>> {
         val allObservations = mutableMapOf<Long, MutableMap<String, Double>>()
         val parser = Xml.newPullParser()

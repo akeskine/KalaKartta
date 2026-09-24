@@ -86,6 +86,9 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var otherSpeciesContainer: View
     private lateinit var pressureEditText: EditText
     private lateinit var pressureGraph: PressureGraphView
+    private lateinit var seaLevelInputLayout: View
+    private lateinit var seaLevelEditText: EditText
+    private lateinit var seaLevelGraph: SeaLevelGraphView
     private lateinit var latEditText: EditText
     private lateinit var lonEditText: EditText
     private lateinit var titleSpeciesIcon: ImageView
@@ -113,6 +116,10 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var weatherService: WeatherService
     private var nearestStation: WeatherStation? = null
     private var currentSeaLevelResult: SeaLevelStationResult? = null
+    private var seaLevelPointIsSea: Boolean? = null
+    private var isUpdatingSeaLevelFromCode = false
+    private var isSeaLevelManuallyEdited = false
+    private var originalSeaLevel: String = ""
     
     private var currentWeatherSource: String = ""
     private var currentWeatherTime: Long = 0
@@ -214,6 +221,9 @@ class EditCatchActivity : AppCompatActivity() {
         otherSpeciesContainer = findViewById(R.id.otherSpeciesContainer)
         pressureEditText = findViewById(R.id.pressureEditText)
         pressureGraph = findViewById(R.id.pressureGraph)
+        seaLevelInputLayout = findViewById(R.id.seaLevelInputLayout)
+        seaLevelEditText = findViewById(R.id.seaLevelEditText)
+        seaLevelGraph = findViewById(R.id.seaLevelGraph)
         placeNameEditText = findViewById(R.id.placeNameEditText)
         placeNameContainer = findViewById(R.id.placeNameContainer)
         latEditText = findViewById(R.id.latEditText)
@@ -599,6 +609,9 @@ class EditCatchActivity : AppCompatActivity() {
                 windSpeedEditText.setText(windSpeed)
                 windDirectionEditText.setText(windDirection)
                 pressureEditText.setText(pressure)
+                originalSeaLevel = fc.seaLevel?.toString() ?: ""
+                isSeaLevelManuallyEdited = false
+                setSeaLevelInput(originalSeaLevel)
                 
                 if (fc.pressure == 0.0 && fc.weatherSource == "FMI" && nearestStation != null) {
                     fetchWeatherForDisplay(onlyMissing = true)
@@ -636,6 +649,7 @@ class EditCatchActivity : AppCompatActivity() {
         updateMoonData()
         refreshDiaryLinks()
         setupListeners()
+        if (!isPlace) updateSeaLevelVisibility()
     }
 
     private fun refreshDiaryLinks() {
@@ -735,6 +749,7 @@ class EditCatchActivity : AppCompatActivity() {
             updateDateTimeButtonText()
             updateMoonData()
             pressureGraph.visibility = View.GONE
+            seaLevelGraph.visibility = View.GONE
             autoWeatherCheckBox.visibility = View.GONE
             refreshDiaryLinks()
         }
@@ -783,6 +798,13 @@ class EditCatchActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateWindArrow(s?.toString()) }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
+        seaLevelEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (!isUpdatingSeaLevelFromCode) isSeaLevelManuallyEdited = true
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
         
         autoWeatherCheckBox.setOnCheckedChangeListener { _, isChecked ->
             nearestStationText.visibility = if (isChecked) View.VISIBLE else View.GONE
@@ -813,17 +835,34 @@ class EditCatchActivity : AppCompatActivity() {
                 currentWeatherTime = originalWeatherTime
                 currentWeatherStation = originalWeatherStation
                 isUpdatingFromCode = false
+                currentSeaLevelResult = null
+                if (!isSeaLevelManuallyEdited) setSeaLevelInput(originalSeaLevel)
+                updateSeaLevelGraph()
             }
         }
 
         latEditText.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateMoonData() }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateMoonData()
+                if (!isUpdatingFromCode) {
+                    currentSeaLevelResult = null
+                    seaLevelGraph.visibility = View.GONE
+                    updateSeaLevelVisibility()
+                }
+            }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
         lonEditText.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateMoonData() }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateMoonData()
+                if (!isUpdatingFromCode) {
+                    currentSeaLevelResult = null
+                    seaLevelGraph.visibility = View.GONE
+                    updateSeaLevelVisibility()
+                }
+            }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
     }
@@ -857,9 +896,20 @@ class EditCatchActivity : AppCompatActivity() {
         weatherService.fetchWeatherFromMultipleStations(lat, lon, caughtAt, null, catchInfo) { data, time, error, stations ->
             lifecycleScope.launch(Dispatchers.Main) {
                 android.util.Log.d("KalaKartta", "fetchWeatherForDisplay callback: data=${data?.size} keys, time=$time, stations='$stations'")
-                val seaLevelResult = weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, caughtAt)
-                if (selectedCalendar.timeInMillis == caughtAt) {
+                val seaLevelResult = if (autoWeatherCheckBox.isChecked) {
+                    weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, caughtAt)
+                } else {
+                    null
+                }
+                val currentLatitude = latEditText.text.toString().toDoubleSafe()
+                val currentLongitude = lonEditText.text.toString().toDoubleSafe()
+                if (selectedCalendar.timeInMillis == caughtAt &&
+                    kotlin.math.abs(currentLatitude - lat) <= 0.0001 &&
+                    kotlin.math.abs(currentLongitude - lon) <= 0.0001 &&
+                    autoWeatherCheckBox.isChecked
+                ) {
                     currentSeaLevelResult = seaLevelResult
+                    seaLevelResult?.let { applySeaLevelResult(it, caughtAt, onlyMissing) }
                 }
                 if (data != null) {
                     currentWeatherStation = stations
@@ -910,6 +960,8 @@ class EditCatchActivity : AppCompatActivity() {
                 selectedCalendar.set(Calendar.HOUR_OF_DAY, h)
                 selectedCalendar.set(Calendar.MINUTE, min)
                 isTimeSetManually = true
+                currentSeaLevelResult = null
+                seaLevelGraph.visibility = View.GONE
                 updateDateTimeButtonText()
                 updateMoonData()
                 refreshDiaryLinks()
@@ -927,9 +979,6 @@ class EditCatchActivity : AppCompatActivity() {
         val caughtAt = selectedCalendar.timeInMillis
         val lat = latEditText.text.toString().toDoubleSafe()
         val lon = lonEditText.text.toString().toDoubleSafe()
-        lifecycleScope.launch {
-            currentSeaLevelResult = weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, caughtAt)
-        }
         weatherService.fetchNearestStation(lat, lon, caughtAt) { station, error ->
             lifecycleScope.launch(Dispatchers.Main) {
                 if (!isTimeSetManually || selectedCalendar.timeInMillis != caughtAt) return@launch
@@ -955,8 +1004,15 @@ class EditCatchActivity : AppCompatActivity() {
                 } else {
                     null
                 }
-                currentSeaLevelResult = caughtAt?.let {
-                    weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, it)
+                val isSea = weatherService.isSeaLocation(lat, lon)
+                seaLevelPointIsSea = isSea
+                currentSeaLevelResult = null
+                updateSeaLevelControls(isSea, caughtAt)
+                if (isSea && caughtAt != null &&
+                    autoWeatherCheckBox.visibility == View.VISIBLE && autoWeatherCheckBox.isChecked
+                ) {
+                    currentSeaLevelResult = weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, caughtAt)
+                    currentSeaLevelResult?.let { applySeaLevelResult(it, caughtAt, onlyMissing = false) }
                 }
             }
             if (autoWeatherCheckBox.visibility == View.VISIBLE && autoWeatherCheckBox.isChecked) {
@@ -1071,19 +1127,30 @@ class EditCatchActivity : AppCompatActivity() {
                 longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude),
                 pressureSamples = fc.pressureSamples
             )
+            val enteredSeaLevel = seaLevelEditText.text.toString().trim().toLongOrNull()
             val updatedWithSeaLevel = when {
-                updatedCaughtAt == null -> updated.copy(
+                seaLevelPointIsSea != true -> updated.copy(
                     seaLevel = null,
                     seaLevelDataCompleteTime = null,
                     seaLevelTrend = null,
                     seaLevelTurningTrend = null,
                     seaLevelSamples = emptyList()
                 )
-                currentSeaLevelResult != null -> updated.withSeaLevelResult(
-                    currentSeaLevelResult!!,
-                    caughtAt = updatedCaughtAt
+                updatedCaughtAt == null -> updated.copy(
+                    seaLevel = enteredSeaLevel,
+                    seaLevelDataCompleteTime = null,
+                    seaLevelTrend = null,
+                    seaLevelTurningTrend = null,
+                    seaLevelSamples = emptyList()
                 )
-                else -> updated
+                currentSeaLevelResult != null -> {
+                    val withResult = updated.withSeaLevelResult(
+                        currentSeaLevelResult!!,
+                        caughtAt = updatedCaughtAt
+                    )
+                    withResult.copy(seaLevel = if (isSeaLevelManuallyEdited) enteredSeaLevel else withResult.seaLevel)
+                }
+                else -> updated.copy(seaLevel = enteredSeaLevel)
             }
             val updatedWithPressureTrends = if (updatedWithSeaLevel.pressureSamples.isNotEmpty()) {
                 updatedWithSeaLevel.copy(
@@ -1146,6 +1213,7 @@ class EditCatchActivity : AppCompatActivity() {
         if (strikeDepthEditText.text.toString().toDoubleOrNull() != (if ((fc.strikeDepth ?: 0.0) != 0.0) fc.strikeDepth else null)) return true
         if (waterDepthEditText.text.toString().toDoubleOrNull() != (if ((fc.waterDepth ?: 0.0) != 0.0) fc.waterDepth else null)) return true
         if (waterTempEditText.text.toString().toDoubleOrNull() != (if ((fc.waterTemp ?: 0.0) != 0.0) fc.waterTemp else null)) return true
+        if (seaLevelEditText.text.toString().trim().toLongOrNull() != fc.seaLevel) return true
 
         if (methodEditText.text.toString() != (fc.method ?: "")) return true
         if (lureEditText.text.toString() != (fc.lure ?: "")) return true
@@ -1189,6 +1257,81 @@ class EditCatchActivity : AppCompatActivity() {
             moonAltitudeEditText.setText("")
             moonPhaseSymbol.setPhase(0.0)
         }
+    }
+
+    private fun updateSeaLevelVisibility() {
+        if (isPlace) {
+            updateSeaLevelControls(false, null)
+            return
+        }
+
+        val latitude = latEditText.text.toString().toDoubleSafe()
+        val longitude = lonEditText.text.toString().toDoubleSafe()
+        lifecycleScope.launch {
+            val isSea = weatherService.isSeaLocation(latitude, longitude)
+            if (isFinishing || isDestroyed) return@launch
+            val currentLatitude = latEditText.text.toString().toDoubleSafe()
+            val currentLongitude = lonEditText.text.toString().toDoubleSafe()
+            if (currentLatitude != latitude || currentLongitude != longitude) return@launch
+            seaLevelPointIsSea = isSea
+            updateSeaLevelControls(isSea, currentCaughtAt())
+        }
+    }
+
+    private fun updateSeaLevelControls(isSea: Boolean, caughtAt: Long?) {
+        val showSeaLevel = !isPlace && isSea
+        seaLevelInputLayout.visibility = if (showSeaLevel) View.VISIBLE else View.GONE
+        if (!showSeaLevel || caughtAt == null || caughtAt <= 0L) {
+            seaLevelGraph.visibility = View.GONE
+            return
+        }
+
+        val currentLatitude = latEditText.text.toString().toDoubleSafe()
+        val currentLongitude = lonEditText.text.toString().toDoubleSafe()
+        val storedCatch = fishCatch?.takeIf {
+            it.caughtAt == caughtAt &&
+                kotlin.math.abs(it.latitude - currentLatitude) <= 0.0001 &&
+                kotlin.math.abs(it.longitude - currentLongitude) <= 0.0001
+        }
+        val samples = currentSeaLevelResult?.seaLevelSamples?.takeIf { it.isNotEmpty() }
+            ?: storedCatch?.seaLevelSamples.orEmpty()
+        val visibleSamples = samples.filter {
+            kotlin.math.abs(it.time - caughtAt) <= 6 * 60 * 60 * 1000L
+        }
+        if (visibleSamples.isEmpty()) {
+            seaLevelGraph.visibility = View.GONE
+        } else {
+            seaLevelGraph.setData(visibleSamples, caughtAt)
+            seaLevelGraph.visibility = View.VISIBLE
+        }
+    }
+
+    private fun updateSeaLevelGraph() {
+        updateSeaLevelControls(seaLevelPointIsSea == true, currentCaughtAt())
+    }
+
+    private fun currentCaughtAt(): Long? {
+        return if (!isPlace && (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L)) {
+            selectedCalendar.timeInMillis
+        } else {
+            null
+        }
+    }
+
+    private fun applySeaLevelResult(result: SeaLevelStationResult, caughtAt: Long, onlyMissing: Boolean) {
+        seaLevelPointIsSea = result.isSea
+        if (result.isSea && result.seaLevel != null && !isSeaLevelManuallyEdited &&
+            (!onlyMissing || seaLevelEditText.text.isNullOrEmpty())
+        ) {
+            setSeaLevelInput(result.seaLevel.toString())
+        }
+        updateSeaLevelControls(result.isSea, caughtAt)
+    }
+
+    private fun setSeaLevelInput(value: String) {
+        isUpdatingSeaLevelFromCode = true
+        seaLevelEditText.setText(value)
+        isUpdatingSeaLevelFromCode = false
     }
 
     private fun getFmisidFromStationInfo(stationInfo: String): String? {
