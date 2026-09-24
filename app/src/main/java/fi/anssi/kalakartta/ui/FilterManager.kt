@@ -29,6 +29,8 @@ class FilterManager(private val context: Context) {
         val windMax: Float? = null,
         val pressureMin: Float? = null,
         val pressureMax: Float? = null,
+        val seaLevelMin: Float? = null,
+        val seaLevelMax: Float? = null,
         val pressureTrendDirection: String? = null,
         val pressureTurningTrendDirection: String? = null,
         val seaLevelTrendDirection: String? = null,
@@ -93,6 +95,14 @@ class FilterManager(private val context: Context) {
             return true
         }
 
+        fun matchesSeaLevelRange(value: Long?, min: Float?, max: Float?): Boolean {
+            if (min == null && max == null) return true
+            if (value == null) return false
+
+            val seaLevel = value.toDouble()
+            return (min == null || seaLevel >= min) && (max == null || seaLevel <= max)
+        }
+
         fun matchesPressureTrend(value: Double?, direction: String?, threshold: Double): Boolean {
             if (direction == null) return true
             if (value == null || !threshold.isFinite() || threshold <= 0.0) return false
@@ -145,6 +155,8 @@ class FilterManager(private val context: Context) {
         val windMax = if (prefs.contains("windMax")) prefs.getFloat("windMax", 0f) else null
         val pressureMin = if (prefs.contains("pressureMin")) prefs.getFloat("pressureMin", 0f) else null
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
+        val seaLevelMin = if (prefs.contains("seaLevelMin")) prefs.getFloat("seaLevelMin", 0f) else null
+        val seaLevelMax = if (prefs.contains("seaLevelMax")) prefs.getFloat("seaLevelMax", 0f) else null
         val pressureTrendDirection = prefs.getString("pressureTrendDirection", null)
         val pressureTurningTrendDirection = prefs.getString("pressureTurningTrendDirection", null)
         val seaLevelTrendDirection = prefs.getString("seaLevelTrendDirection", null)
@@ -181,6 +193,7 @@ class FilterManager(private val context: Context) {
             annualStartTimeMinutes, annualEndTimeMinutes,
             windMin, windMax,
             pressureMin, pressureMax,
+            seaLevelMin, seaLevelMax,
             pressureTrendDirection, pressureTurningTrendDirection,
             seaLevelTrendDirection, seaLevelTurningTrendDirection,
             waterTempMin, waterTempMax,
@@ -212,6 +225,8 @@ class FilterManager(private val context: Context) {
             if (filters.windMax != null) putFloat("windMax", filters.windMax) else remove("windMax")
             if (filters.pressureMin != null) putFloat("pressureMin", filters.pressureMin) else remove("pressureMin")
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
+            if (filters.seaLevelMin != null) putFloat("seaLevelMin", filters.seaLevelMin) else remove("seaLevelMin")
+            if (filters.seaLevelMax != null) putFloat("seaLevelMax", filters.seaLevelMax) else remove("seaLevelMax")
             if (filters.pressureTrendDirection != null) putString("pressureTrendDirection", filters.pressureTrendDirection) else remove("pressureTrendDirection")
             if (filters.pressureTurningTrendDirection != null) putString("pressureTurningTrendDirection", filters.pressureTurningTrendDirection) else remove("pressureTurningTrendDirection")
             if (filters.seaLevelTrendDirection != null) putString("seaLevelTrendDirection", filters.seaLevelTrendDirection) else remove("seaLevelTrendDirection")
@@ -252,6 +267,7 @@ class FilterManager(private val context: Context) {
                 f.annualStartTimeMinutes != null || f.annualEndTimeMinutes != null ||
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
+                f.seaLevelMin != null || f.seaLevelMax != null ||
                 f.pressureTrendDirection != null || f.pressureTurningTrendDirection != null ||
                 f.seaLevelTrendDirection != null || f.seaLevelTurningTrendDirection != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
@@ -348,6 +364,8 @@ class FilterManager(private val context: Context) {
             if (f.pressureMin != null && fish.pressure != null && fish.pressure < f.pressureMin) return@filter false
             if (f.pressureMax != null && fish.pressure != null && fish.pressure > f.pressureMax) return@filter false
             if ((f.pressureMin != null || f.pressureMax != null) && fish.pressure == null) return@filter false
+
+            if (!matchesSeaLevelRange(fish.seaLevel, f.seaLevelMin, f.seaLevelMax)) return@filter false
 
             if (!matchesPressureTrend(fish.pressureTrend, f.pressureTrendDirection, pressureTrendThreshold)) return@filter false
             if (!matchesPressureTrend(fish.pressureTurningTrend, f.pressureTurningTrendDirection, pressureTurningTrendThreshold)) return@filter false
@@ -635,6 +653,16 @@ class FilterManager(private val context: Context) {
                 parts.add("paine $min hPa")
             } else {
                 parts.add("paine $min-$max hPa")
+            }
+        }
+
+        if (f.seaLevelMin != null || f.seaLevelMax != null) {
+            val min = f.seaLevelMin?.toInt()?.toString() ?: "..."
+            val max = f.seaLevelMax?.toInt()?.toString() ?: "..."
+            if (min == max && min != "...") {
+                parts.add("meriveden korkeus $min cm (MW)")
+            } else {
+                parts.add("meriveden korkeus $min-$max cm (MW)")
             }
         }
 

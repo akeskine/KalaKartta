@@ -65,6 +65,7 @@ Suodatusmahdollisuuksia ovat mm.:
 - **Kellonaika:** Esim. vain iltasyönnin saaliit.
 - **Kalalaji tai paikan tyyppi.**
 - **Sääolosuhteet:** Ilmanpaine, veden lämpötila ja tuulen suunta.
+- **Meriveden korkeus:** Voit rajata saaliita saantihetken meriveden korkeuden minimi- ja maksimiarvolla (cm suhteessa MW:hen).
 - **Meriveden kehitys:** Voit suodattaa meriveden korkeuden nousevan, tasaisen tai laskevan muutoksen sekä valita, kääntyykö kehitys alaspäin, ei selvästi vai ylöspäin. Oletusrajat ovat 1 cm/h korkeuden muutokselle ja 3 cm/h muutoksen kääntymiselle; rajoja voi muuttaa **Kehittäjäasetukset**-valikossa.
 - **Tuulen suunta:** Voit määrittää sektorin (asteet min-max) 
 - **Vapaa teksti:** Etsii tekstiä lisätiedoista tai muistiinpanoista.

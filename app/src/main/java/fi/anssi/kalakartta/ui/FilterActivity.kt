@@ -71,6 +71,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var windDirectionPreview: WindDirectionView
     private lateinit var pressureMinEdit: EditText
     private lateinit var pressureMaxEdit: EditText
+    private lateinit var seaLevelMinEdit: EditText
+    private lateinit var seaLevelMaxEdit: EditText
     private lateinit var pressureTrendSpinner: Spinner
     private lateinit var pressureTurningTrendSpinner: Spinner
     private lateinit var seaLevelTrendSpinner: Spinner
@@ -193,6 +195,8 @@ class FilterActivity : AppCompatActivity() {
         windDirectionPreview = findViewById(R.id.windDirectionPreview)
         pressureMinEdit = findViewById(R.id.pressureMinEdit)
         pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
+        seaLevelMinEdit = findViewById(R.id.seaLevelMinEdit)
+        seaLevelMaxEdit = findViewById(R.id.seaLevelMaxEdit)
         pressureTrendSpinner = findViewById(R.id.pressureTrendSpinner)
         pressureTurningTrendSpinner = findViewById(R.id.pressureTurningTrendSpinner)
 
@@ -398,6 +402,8 @@ class FilterActivity : AppCompatActivity() {
 
         pressureMinEdit.setText(currentFilters.pressureMin?.toString() ?: "")
         pressureMaxEdit.setText(currentFilters.pressureMax?.toString() ?: "")
+        seaLevelMinEdit.setText(currentFilters.seaLevelMin?.toString() ?: "")
+        seaLevelMaxEdit.setText(currentFilters.seaLevelMax?.toString() ?: "")
         pressureTrendSpinner.setSelection(
             when (currentFilters.pressureTrendDirection) {
                 FilterManager.PRESSURE_TREND_FALLING -> 1
@@ -486,6 +492,8 @@ class FilterActivity : AppCompatActivity() {
         val windMax = FilterValueParser.floatOrNull(windMaxEdit.text)
         val pressureMin = FilterValueParser.floatOrNull(pressureMinEdit.text)
         val pressureMax = FilterValueParser.floatOrNull(pressureMaxEdit.text)
+        val seaLevelMin = FilterValueParser.floatOrNull(seaLevelMinEdit.text)
+        val seaLevelMax = FilterValueParser.floatOrNull(seaLevelMaxEdit.text)
         val waterTempMin = FilterValueParser.floatOrNull(waterTempMinEdit.text)
         val waterTempMax = FilterValueParser.floatOrNull(waterTempMaxEdit.text)
         val moonPhaseMin = FilterValueParser.floatOrNull(moonPhaseMinEdit.text)
@@ -510,6 +518,7 @@ class FilterActivity : AppCompatActivity() {
                 f.annualStartTimeMinutes != null || f.annualEndTimeMinutes != null ||
                 windMin != null || windMax != null ||
                 pressureMin != null || pressureMax != null ||
+                seaLevelMin != null || seaLevelMax != null ||
                 pressureTrendSpinner.selectedItemPosition > 0 ||
                 pressureTurningTrendSpinner.selectedItemPosition > 0 ||
                 seaLevelTrendSpinner.selectedItemPosition > 0 ||
@@ -642,6 +651,8 @@ class FilterActivity : AppCompatActivity() {
         freeTextEdit.addTextChangedListener(updateButtonsWatcher)
         pressureMinEdit.addTextChangedListener(updateButtonsWatcher)
         pressureMaxEdit.addTextChangedListener(updateButtonsWatcher)
+        seaLevelMinEdit.addTextChangedListener(updateButtonsWatcher)
+        seaLevelMaxEdit.addTextChangedListener(updateButtonsWatcher)
         waterTempMinEdit.addTextChangedListener(updateButtonsWatcher)
         waterTempMaxEdit.addTextChangedListener(updateButtonsWatcher)
         moonPhaseMinEdit.addTextChangedListener(updateButtonsWatcher)
@@ -738,6 +749,8 @@ class FilterActivity : AppCompatActivity() {
             updateWindPreview()
             pressureMinEdit.setText("")
             pressureMaxEdit.setText("")
+            seaLevelMinEdit.setText("")
+            seaLevelMaxEdit.setText("")
             pressureTrendSpinner.setSelection(0)
             pressureTurningTrendSpinner.setSelection(0)
             seaLevelTrendSpinner.setSelection(0)
@@ -886,6 +899,8 @@ class FilterActivity : AppCompatActivity() {
         val windMax = FilterValueParser.floatOrNull(windMaxEdit.text)
         val pressureMin = FilterValueParser.floatOrNull(pressureMinEdit.text)
         val pressureMax = FilterValueParser.floatOrNull(pressureMaxEdit.text)
+        val seaLevelMin = FilterValueParser.floatOrNull(seaLevelMinEdit.text)
+        val seaLevelMax = FilterValueParser.floatOrNull(seaLevelMaxEdit.text)
         val pressureTrendDirection = when (pressureTrendSpinner.selectedItemPosition) {
             1 -> FilterManager.PRESSURE_TREND_FALLING
             2 -> FilterManager.PRESSURE_TREND_FLAT
@@ -970,6 +985,8 @@ class FilterActivity : AppCompatActivity() {
             windMax = windMax,
             pressureMin = pressureMin,
             pressureMax = pressureMax,
+            seaLevelMin = seaLevelMin,
+            seaLevelMax = seaLevelMax,
             pressureTrendDirection = pressureTrendDirection,
             pressureTurningTrendDirection = pressureTurningTrendDirection,
             seaLevelTrendDirection = seaLevelTrendDirection,

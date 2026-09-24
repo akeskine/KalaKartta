@@ -41,6 +41,8 @@ class FilterManagerPersistenceTest {
             windMax = 8.5f,
             pressureMin = 995.5f,
             pressureMax = 1_025.5f,
+            seaLevelMin = -25f,
+            seaLevelMax = 45f,
             waterTempMin = 4.5f,
             waterTempMax = 18.5f,
             moonPhaseMin = 0.2f,
@@ -75,6 +77,7 @@ class FilterManagerPersistenceTest {
             FilterManager.Filters(
                 speciesId = "PIKE",
                 freeText = "to clear",
+                seaLevelMin = -12f,
                 onlyCaughtFish = true,
                 onlyFishPoints = true
             )

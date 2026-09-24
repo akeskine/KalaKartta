@@ -75,6 +75,8 @@
     <string name="max_degrees">Max (°)</string>
     <string name="min_pressure">Min (hPa)</string>
     <string name="max_pressure">Max (hPa)</string>
+    <string name="min_sea_level">Min (cm)</string>
+    <string name="max_sea_level">Max (cm)</string>
     <string name="pressure_trend_filter">Ilmanpaine -6h ... +6h</string>
     <string name="pressure_turning_trend_filter">Ilmanpaineen kehityksen muutos -6h ... +6h</string>
     <string-array name="pressure_trend_filter_options">

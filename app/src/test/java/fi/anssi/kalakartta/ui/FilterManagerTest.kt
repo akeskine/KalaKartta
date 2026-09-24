@@ -37,6 +37,18 @@ class FilterManagerTest {
     }
 
     @Test
+    fun seaLevelRangeIncludesEndpointsSupportsOneSidedBoundsAndExcludesMissingValues() {
+        assertTrue(FilterManager.matchesSeaLevelRange(-10L, -10f, 20f))
+        assertTrue(FilterManager.matchesSeaLevelRange(20L, -10f, 20f))
+        assertTrue(FilterManager.matchesSeaLevelRange(-15L, null, -10f))
+        assertTrue(FilterManager.matchesSeaLevelRange(25L, 20f, null))
+        assertTrue(FilterManager.matchesSeaLevelRange(null, null, null))
+        assertFalse(FilterManager.matchesSeaLevelRange(-11L, -10f, 20f))
+        assertFalse(FilterManager.matchesSeaLevelRange(21L, -10f, 20f))
+        assertFalse(FilterManager.matchesSeaLevelRange(null, -10f, null))
+    }
+
+    @Test
     fun pressureTrendUsesSymmetricThresholds() {
         val threshold = 0.10
 
