@@ -5,7 +5,7 @@ import java.nio.ByteOrder
 import kotlin.math.floor
 
 /**
- * A validated 500 m sea-cell grid in EPSG:3067 coordinates.
+ * A validated 100 m sea-cell grid in EPSG:3067 coordinates.
  */
 class FinlandSeaGrid internal constructor(
     val originX: Long,
@@ -47,14 +47,14 @@ class FinlandSeaGrid internal constructor(
 }
 
 /**
- * Exception thrown when a sea-grid binary does not conform to format v1.
+ * Exception thrown when a sea-grid binary does not conform to format v2.
  */
 class SeaGridFormatException(message: String) : IllegalArgumentException(message)
 
 object SeaGridBinaryReader {
     const val HEADER_SIZE = 40
-    const val CELL_SIZE = 500
-    private const val VERSION = 1
+    const val CELL_SIZE = 100
+    private const val VERSION = 2
     private val MAGIC = byteArrayOf('K'.code.toByte(), 'S'.code.toByte(), 'E'.code.toByte(), 'A'.code.toByte())
     private const val MAX_EPSG3067_EASTING = 1_000_000L
     private const val MAX_EPSG3067_NORTHING = 10_000_000L

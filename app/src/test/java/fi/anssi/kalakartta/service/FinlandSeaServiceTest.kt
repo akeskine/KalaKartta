@@ -45,7 +45,7 @@ class FinlandSeaServiceTest {
     fun validatedMmlAssetMarksACellWithOnlyASmallSeaIntersection() {
         val service = generatedAssetService()
 
-        assertTrue(service.isSea(59.882119213249844, 24.842572271778625))
+        assertTrue(service.isSea(59.88385529222567, 24.838885306667358))
     }
 
     @Test
@@ -99,7 +99,7 @@ class FinlandSeaServiceTest {
         bytes[1] = 'S'.code.toByte()
         bytes[2] = 'E'.code.toByte()
         bytes[3] = 'A'.code.toByte()
-        putShort(bytes, 4, 1)
+        putShort(bytes, 4, 2)
         putShort(bytes, 6, SeaGridBinaryReader.HEADER_SIZE)
         putInt(bytes, 8, SeaGridBinaryReader.CELL_SIZE)
         putLong(bytes, 12, originX)

@@ -34,7 +34,7 @@ Kartta- ja sääpalvelujen aineistot eivät kuulu tämän projektin MIT-lisenssi
 ## Suomen merialueen ruudukko
 
 `FinlandSeaService` on erillinen palvelu, joka luokittelee WGS84-koordinaatin
-MML-aineistosta johdettuun 500 metrin EPSG:3067-ruutuun. Palvelua ei ole vielä
+MML-aineistosta johdettuun 100 metrin EPSG:3067-ruutuun. Palvelua ei ole vielä
 kytketty käyttöliittymään, karttanäkymään, saalistietoihin tai reittien
 tallennukseen. Generaattori, binääriformaatti, validoitu assetti,
 visualisointi ja tarkemman ruudukon päivitysohje ovat dokumentissa

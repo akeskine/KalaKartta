@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the FinlandSeaService v1 grid from MML GeoPackage data.
+"""Generate the FinlandSeaService v2 grid from MML GeoPackage data.
 
 The generator deliberately accepts only the MML sea-water class and the MML
 sea-shoreline class. It never treats all water polygons as sea.
@@ -20,6 +20,9 @@ try:
     from pyproj import CRS, Transformer
     from shapely import area as geometry_area
     from shapely import box, clip_by_rect, intersection as geometry_intersection
+    from shapely import contains_properly as geometry_contains_properly
+    from shapely import intersects as geometry_intersects
+    from shapely import prepare as prepare_geometry
     from shapely.geometry import shape
     from shapely.ops import transform, unary_union
     from shapely.strtree import STRtree
@@ -31,11 +34,11 @@ except ImportError as error:  # pragma: no cover - exercised by the CLI environm
 
 
 TARGET_CRS = CRS.from_epsg(3067)
-CELL_SIZE = 500
-BUFFER_DISTANCE = 50_000
+CELL_SIZE = 100
+BUFFER_DISTANCE = 100_000
 HEADER_SIZE = 40
 MAGIC = b"KSEA"
-VERSION = 1
+VERSION = 2
 BATCH_ROWS = 64
 RASTER_TILE_SIZE = 100_000
 DEFAULT_OUTPUT = Path("app/src/main/assets/finland_sea_grid.bin")
@@ -228,7 +231,7 @@ def build_allowed_sea(
         raise GeneratorError("The MML sea or shoreline geometry is empty")
 
     if sea.distance(shoreline) > BUFFER_DISTANCE:
-        raise GeneratorError("The 50 km shoreline mask has no positive-area sea geometry")
+        raise GeneratorError("The 100 km shoreline mask has no positive-area sea geometry")
 
     shoreline_parts = []
     if shoreline.geom_type == "LineString":
@@ -238,9 +241,9 @@ def build_allowed_sea(
     else:
         raise GeneratorError(f"Unexpected shoreline geometry after union: {shoreline.geom_type}")
     if not shoreline_parts:
-        raise GeneratorError("The 50 km shoreline mask has no line geometry")
+        raise GeneratorError("The 100 km shoreline mask has no line geometry")
 
-    # A global 50 km buffer of the nationwide shoreline can require several
+    # A global 100 km buffer of the nationwide shoreline can require several
     # gigabytes of temporary geometry. The distance predicate below is
     # mathematically equivalent to intersecting with that buffer, while the
     # STRtree keeps only the shoreline pieces relevant to each cell batch.
@@ -264,7 +267,7 @@ def rasterise(mask: tuple[object, list[object]]) -> tuple[int, int, int, int, by
     cell_count = columns * rows
     payload_size = (cell_count + 7) // 8
     if columns > 0x7FFFFFFF or rows > 0x7FFFFFFF or payload_size > 0xFFFFFFFF:
-        raise GeneratorError("The generated grid is too large for the v1 format")
+        raise GeneratorError("The generated grid is too large for the v2 format")
 
     payload = np.zeros(payload_size, dtype=np.uint8)
     shoreline_array = np.asarray(shoreline_parts, dtype=object)
@@ -273,10 +276,10 @@ def rasterise(mask: tuple[object, list[object]]) -> tuple[int, int, int, int, by
     tile_columns = math.ceil(columns / tile_cells)
     tile_rows = math.ceil(rows / tile_cells)
 
-    # A global 50 km buffer of the nationwide shoreline can require several
+    # A global 100 km buffer of the nationwide shoreline can require several
     # gigabytes of temporary geometry. Each tile instead uses the distance
     # predicate against only its nearby shoreline pieces; this is equivalent
-    # to intersecting the sea geometry with the 50 km shoreline buffer.
+    # to intersecting the sea geometry with the 100 km shoreline buffer.
     for tile_row in range(tile_rows):
         row_start = tile_row * tile_cells
         row_end = min(rows, row_start + tile_cells)
@@ -308,11 +311,23 @@ def rasterise(mask: tuple[object, list[object]]) -> tuple[int, int, int, int, by
             local_sea = clip_by_rect(sea, tile_min_x, tile_min_y, tile_max_x, tile_max_y)
             if local_sea.is_empty:
                 continue
+            prepare_geometry(local_sea)
 
             local_columns = np.arange(column_start, column_end, dtype=np.int64)
             x0 = origin_x + local_columns * CELL_SIZE
             x1 = x0 + CELL_SIZE
-            for batch_start in range(row_start, row_end, BATCH_ROWS):
+            batch_count = math.ceil((row_end - row_start) / BATCH_ROWS)
+            for batch_index, batch_start in enumerate(
+                range(row_start, row_end, BATCH_ROWS), start=1
+            ):
+                if batch_index == 1 or batch_index % 4 == 0 or batch_index == batch_count:
+                    print(
+                        f"Rasterizing tile {tile_row + 1}/{tile_rows}, "
+                        f"{tile_column + 1}/{tile_columns}; batch "
+                        f"{batch_index}/{batch_count}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 batch_end = min(row_end, batch_start + BATCH_ROWS)
                 local_rows = np.arange(batch_start, batch_end, dtype=np.int64)
                 y0 = origin_y + local_rows * CELL_SIZE
@@ -323,17 +338,33 @@ def rasterise(mask: tuple[object, list[object]]) -> tuple[int, int, int, int, by
                     x1[np.newaxis, :],
                     y1[:, np.newaxis],
                 )
-                sea_cells = geometry_intersection(cells, local_sea)
-                positive_area = geometry_area(sea_cells) > 0
-                if not np.any(positive_area):
+                contained_cells = geometry_contains_properly(local_sea, cells)
+                intersecting_cells = geometry_intersects(local_sea, cells)
+                partial_cells = intersecting_cells & ~contained_cells
+                partial_rows, partial_columns = np.nonzero(partial_cells)
+                if len(partial_rows):
+                    partial_sea_cells = geometry_intersection(cells[partial_cells], local_sea)
+                    positive_area = geometry_area(partial_sea_cells) > 0
+                    partial_rows = partial_rows[positive_area]
+                    partial_columns = partial_columns[positive_area]
+                    partial_sea_cells = partial_sea_cells[positive_area]
+                else:
+                    partial_sea_cells = np.empty(0, dtype=object)
+
+                contained_rows, contained_columns = np.nonzero(contained_cells)
+                if not len(contained_rows) and not len(partial_rows):
                     continue
 
-                candidate_rows, candidate_columns = np.nonzero(positive_area)
-                candidate_sea_cells = sea_cells[positive_area]
-                nearby_pairs = local_tree.query(
+                candidate_rows = np.concatenate((contained_rows, partial_rows))
+                candidate_columns = np.concatenate((contained_columns, partial_columns))
+                candidate_sea_cells = np.concatenate((
+                    cells[contained_cells],
+                    partial_sea_cells,
+                ))
+                nearby_pairs = local_tree.query_nearest(
                     candidate_sea_cells,
-                    predicate="dwithin",
-                    distance=BUFFER_DISTANCE,
+                    max_distance=math.nextafter(float(BUFFER_DISTANCE), 0.0),
+                    all_matches=False,
                 )
                 if nearby_pairs.shape[1] == 0:
                     continue
@@ -376,7 +407,7 @@ def write_grid(
         len(payload),
     )
     if len(header) != HEADER_SIZE:
-        raise GeneratorError("Internal error: v1 header is not 40 bytes")
+        raise GeneratorError("Internal error: v2 header is not 40 bytes")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(header + payload)

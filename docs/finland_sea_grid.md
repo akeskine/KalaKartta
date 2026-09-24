@@ -6,10 +6,33 @@ process geometries.
 
 ## Source data
 
-The source is the Finnish National Land Survey (`Maanmittauslaitos`, MML)
-Maastotietokanta GeoPackage. The generator accepts the official GeoPackage
-download from Karttapaikka, including a whole-country file or a file covering
-the required coastal area.
+The feature classes are from the Finnish National Land Survey
+(`Maanmittauslaitos`, MML). The complete source used for the v2 asset is the
+MML-derived 1:1,000,000 generalised map product, mirrored at
+`https://kartat.kapsi.fi/files/yleiskartta_1000k/kaikki/etrs89/shape/` and
+repacked as a two-layer GeoPackage. It is not the full-resolution 1:10,000
+Maastotietokanta GeoPackage.
+
+This source limitation matters: the 100 m cell size is raster spacing, not
+100 m shoreline accuracy. The 1:1,000,000 source is strongly generalised and
+cannot support precise coastal classification. The full Maastotietokanta
+GeoPackage is over 100 GB, and MML's bounded file-service download requires an
+API key that was not available in this environment. Results remain limited
+to the MML-derived source coverage and must not be interpreted as navigation
+or precise shoreline data.
+
+The selected source has one valid `36211` sea polygon (area about
+`55,446.8 km²`, bounds X `59,797–544,061 m`, Y `6,603,737–7,300,765 m`) and
+`5,147` valid `30223` shoreline lines (total length about `16,473 km`, bounds
+X `73,812–544,061 m`, Y `6,632,288–7,300,765 m`). These are EPSG:3067
+bounding boxes, not claims that sea geometry fills the rectangle or reaches
+100 km offshore. Each selected cell still has to intersect the sea polygon
+and lie within 100,000 m of a shoreline segment.
+
+The selected geometry bounds predict a `4,844 × 6,971` v2 grid at 100 m.
+That is `33,767,524` cells, a `4,220,941`-byte bit payload and a
+`4,220,981`-byte complete binary including its 40-byte header. Generation
+must verify and report the actual values before the asset is accepted.
 
 Only these MML classes are accepted:
 
@@ -29,16 +52,27 @@ Install the offline tools with Python 3:
 python -m pip install -r tools/requirements-finland-sea-grid.txt
 ```
 
-Generate the default asset path from the project root:
+To reproduce the current v2 asset, download the MML-derived 1:1,000,000
+shapefile archive and prepare a minimal GeoPackage containing only its sea and
+shoreline classes:
 
 ```text
-python tools/finland_sea_grid_generator.py path\to\mtkmaasto.gpkg
+curl.exe -L "https://kartat.kapsi.fi/files/yleiskartta_1000k/kaikki/etrs89/shape/1_milj_Shape_etrs_shape.zip" -o mml_1milj.zip
+python tools/prepare_finland_sea_source.py mml_1milj.zip mml_sea_source.gpkg
+python tools/finland_sea_grid_generator.py mml_sea_source.gpkg
+python tools/render_finland_sea_grid.py
+python -m unittest tools.test_finland_sea_grid_generator
 ```
 
-The default output is
-`app/src/main/assets/finland_sea_grid.bin`. A different output and explicit
-GeoPackage layers can be supplied when a download uses non-standard layer
-names:
+The default binary output is `app/src/main/assets/finland_sea_grid.bin` and
+the PNG is `docs/finland_sea_grid.png`. For a full-resolution Maastotietokanta
+GeoPackage, skip the preparation command and pass its path directly to the
+generator. The bounded MML file service requires an API key; follow MML's
+current access instructions and confirm that the file contains both required
+classes before generating.
+
+A different output and explicit GeoPackage layers can be supplied when a
+source uses non-standard layer names:
 
 ```text
 python tools/finland_sea_grid_generator.py path\to\mtkmaasto.gpkg `
@@ -53,15 +87,15 @@ The source CRS is read from every selected layer and transformed with
 projection is approximated in Python or on Android.
 
 The transformed sea polygons are unioned with one another. The allowed mask
-is the intersection of that sea union and the shoreline buffer at exactly
-`50,000` metres in EPSG:3067. The implementation evaluates the equivalent
+is the intersection of that sea union and the shoreline buffer at at most
+`100,000` metres in EPSG:3067. The implementation evaluates the equivalent
 distance predicate in bounded tiles instead of materialising the nationwide
 buffer at once; this keeps memory use bounded without changing the mask
-definition. The result is therefore limited to MML sea polygons within 50 km
+definition. The result is therefore limited to MML sea polygons within 100 km
 of the MML sea shoreline; the buffer cannot turn a lake or inland land area
 into sea.
 
-Each 500 m cell is classified using:
+Each 100 m cell is classified using:
 
 ```text
 cellPolygon.intersection(allowedSea).area > 0
@@ -72,16 +106,16 @@ sea extent relevant to the shoreline mask; cells outside the allowed mask
 remain zero. The generator processes bounded tiles, sets bits from positive
 intersection areas, and verifies the final file size.
 
-## Binary format v1
+## Binary format v2
 
 All multi-byte values are little-endian. The 40-byte header is:
 
 | Offset | Field | Type/value |
 |---:|---|---|
 | 0 | magic | ASCII `KSEA` |
-| 4 | version | unsigned 16-bit, `1` |
+| 4 | version | unsigned 16-bit, `2` |
 | 6 | header size | unsigned 16-bit, `40` |
-| 8 | cell size | unsigned 32-bit, `500` |
+| 8 | cell size | unsigned 32-bit, `100` |
 | 12 | originX | signed 64-bit EPSG:3067 easting in metres |
 | 20 | originY | signed 64-bit EPSG:3067 northing in metres |
 | 28 | columns | unsigned 32-bit |
@@ -107,12 +141,12 @@ from EPSG:4326 to EPSG:3067 with Proj4J, and reads one bit from the grid.
 Invalid values, including `NaN`, infinities, and coordinates outside the
 latitude/longitude ranges, return `false`.
 
-The result is a conservative 500 m-cell classification: a cell is true even
+The result is a conservative 100 m-cell classification: a cell is true even
 when only a positive-area sliver intersects the allowed sea. It is not a
 precise shoreline test. MML source version, generalisation, download date,
 and output dimensions must be recorded alongside each generated asset.
 
-## Validated asset
+## Previous validated v1 asset (superseded by this v2 update)
 
 The asset was generated on `2026-09-22` from an official MML-derived
 GeoPackage in EPSG:3067. The input layers were `sea` and `shoreline`, with
@@ -141,53 +175,65 @@ The following geographic checks were made against this asset:
   query coordinate is `59.882119, 24.842572` WGS84, demonstrating that a small
   positive intersection—not the cell centre—is sufficient.
 
+## Validated v2 asset
+
+The v2 asset was generated on `2026-09-24` from the MML-derived 1:1,000,000
+source described above. It uses EPSG:3067, origin `(59,700, 6,603,700)`,
+`4,844 × 6,971` cells at `100 m`, a `4,220,941`-byte payload and a total
+binary size of `4,220,981` bytes. It contains `5,651,494` sea bits out of
+`33,767,524` cells. The shoreline-distance predicate is capped at `100,000 m`;
+source polygon coverage can reduce the actual extent.
+The matching 1-bit PNG preview is `111,214` bytes.
+
+The updated geographic unit test checks the named sea, inland-water, inland,
+and out-of-coverage coordinates listed above against this v2 asset. The
+positive-area case is the projected cell with origin `(379000, 6640400)`: its
+intersection with the sea polygon is `747.69 m²` (`7.48%` of the 10,000 m²
+cell), and its centre is WGS84 `59.88385529222567, 24.838885306667358`.
+
+Because a cell is marked when any part of it intersects the allowed geometry,
+the query result is a conservative cell-level classification. A point near
+the outer buffer edge can be classified true even when its exact coordinate
+is outside the geometric 100 km mask, by up to one cell diagonal (about
+141 m). This is inherent in the required positive-area cell rule.
+
 ### Visual inspection
 
 ![Generated Finland sea grid](finland_sea_grid.png)
 
-The image shows sea cells in blue and non-sea cells in light gray. It is a
-direct rendering of the binary payload, with the northward grid direction
-flipped for normal image coordinates. Regenerate it after updating the asset:
+The image is a 1-bit black-and-white rendering of the binary payload: white
+pixels are sea cells, black pixels are other cells. Rows are flipped for
+normal image coordinates. Regenerate it after updating the asset:
 
 ```text
 python tools/render_finland_sea_grid.py
 ```
 
-## Finer than 500 m cells
+## Changing the cell size in a future format
 
-The current v1 format and Android reader intentionally support only `500 m`
-cells. The generator's `CELL_SIZE` constant and the Kotlin reader's fixed
-`CELL_SIZE` validation must therefore be changed together; changing only the
-Python constant would create an asset that the application correctly rejects.
+Format v2 and the Android reader intentionally support only `100 m` cells.
+Changing the cell size requires coordinated changes to the generator, reader,
+fixture and geographic tests, renderer, and format documentation.
 
-To produce a finer grid later:
+1. Estimate the new dimensions and payload before running the full-country
+   job. Halving cell width and height makes the number of cells roughly four
+   times larger and can substantially increase rasterisation time.
+2. Change `CELL_SIZE` in `tools/finland_sea_grid_generator.py` and ensure the
+   header records the selected value.
+3. Add a new format version and update `FinlandSeaGrid.kt` and
+   `SeaGridBinaryReader` together; the current reader must continue rejecting
+   unsupported versions and cell sizes.
+4. Extend `SeaGridBinaryReaderTest` with new header and boundary cases,
+   regenerate geographic expectations from source geometry, and update the
+   PNG renderer's dimensions and pixel encoding.
+5. Generate to a temporary output, inspect its complete header and
+   visualisation, run the geographic checks and full unit-test task, and
+   replace the asset only after those checks pass. Record source release,
+   command, extent, dimensions, and payload size here.
 
-1. Choose a cell size in metres, for example `250`, and estimate the resulting
-   dimensions and payload before running the full-country job. Halving the
-   cell size makes the cell count roughly four times larger and may also make
-   rasterisation substantially slower.
-2. Change `CELL_SIZE` in
-   `tools/finland_sea_grid_generator.py`, and pass that value into the header
-   instead of treating `500` as an implicit constant.
-3. Update `FinlandSeaGrid.kt` and `SeaGridBinaryReader` so that the supported
-   cell size is read from the header, validated as a positive supported value,
-   and used for origin alignment, bounds, and coordinate-to-cell calculations.
-   Prefer a new binary format version for this change, or keep v1 explicitly
-   500 m-only and add a separately versioned format for variable cell sizes.
-4. Extend `SeaGridBinaryReaderTest` with the new header value, origin and
-   boundary calculations, payload-size checks, and rejection of unsupported
-   sizes. Regenerate the geographic service tests because a finer grid can
-   change shoreline-adjacent answers.
-5. Generate the new asset to a temporary output first, inspect its header and
-   visualisation, run the geographic checks and the full unit-test task, and
-   replace `app/src/main/assets/finland_sea_grid.bin` only after those checks
-   pass. Record the new dimensions, payload size, source release and command
-   in this document.
-
-Do not commit a smaller-grid file while the Android reader still enforces v1
-with `500 m`; that would make application startup fail when the asset is
-loaded. A finer grid also does not remove the source-data uncertainty or the
-conservative rule that any positive-area sea intersection marks the whole cell.
+A 100 m cell size does not make this asset's 1:1,000,000 source geometry more
+accurate. The conservative rule remains that any positive-area sea
+intersection marks the whole cell.
 
 ## Runtime integration boundary
 
@@ -205,12 +251,11 @@ source.
 
 ## Updating
 
-1. Download a current MML Maastotietokanta GeoPackage covering all required
-   sea areas.
-2. Install the pinned-compatible Python dependencies.
-3. Run the generator and record the source release/date, selected layers,
-   source CRS, command, output size, dimensions, and payload size.
-4. Inspect the header and run `SeaGridBinaryReaderTest` plus the full unit-test
-   task before committing the asset.
-5. Commit the binary only after its source and geographic validation are
-   available; do not substitute hand-written or all-water geometry.
+Use the current MML-derived source workflow above to reproduce this v2 asset.
+For improved shoreline accuracy, obtain a bounded full-resolution MML
+Maastotietokanta GeoPackage containing both required classes and pass it
+directly to the generator; the MML file service requires an API key. Record
+the exact source, release/date, CRS, output size, dimensions, payload size,
+and geographic test results. Inspect the header and run `SeaGridBinaryReaderTest`
+plus `testDebugUnitTest` before committing. Never replace missing source
+coverage with hand-written geometry or by treating all water as sea.

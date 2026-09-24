@@ -7,7 +7,7 @@ import org.locationtech.proj4j.CoordinateTransformFactory
 import org.locationtech.proj4j.ProjCoordinate
 
 /**
- * Answers whether a WGS84 coordinate falls in a sea-marked 500 m EPSG:3067 cell.
+ * Answers whether a WGS84 coordinate falls in a sea-marked 100 m EPSG:3067 cell.
  *
  * The grid is loaded once when the service is created. Invalid WGS84 values and
  * coordinates outside the generated grid return false.

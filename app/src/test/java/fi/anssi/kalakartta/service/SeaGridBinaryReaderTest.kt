@@ -27,10 +27,11 @@ class SeaGridBinaryReaderTest {
         val grid = SeaGridBinaryReader.read(fixture())
 
         assertTrue(grid.isSeaAtProjectedCoordinate(1_000.0, 2_000.0))
-        assertTrue(grid.isSeaAtProjectedCoordinate(1_500.0, 2_500.0))
-        assertFalse(grid.isSeaAtProjectedCoordinate(2_000.0, 2_500.0))
-        assertFalse(grid.isSeaAtProjectedCoordinate(2_500.0, 3_500.0))
-        assertFalse(grid.isSeaAtProjectedCoordinate(2_500.0, 2_000.0))
+        assertTrue(grid.isSeaAtProjectedCoordinate(1_100.0, 2_100.0))
+        assertTrue(grid.isSeaAtProjectedCoordinate(1_250.0, 2_250.0))
+        assertFalse(grid.isSeaAtProjectedCoordinate(1_300.0, 2_100.0))
+        assertFalse(grid.isSeaAtProjectedCoordinate(1_100.0, 2_300.0))
+        assertFalse(grid.isSeaAtProjectedCoordinate(1_250.0, 2_050.0))
         assertFalse(grid.isSeaAtProjectedCoordinate(Double.NaN, 2_000.0))
     }
 
@@ -41,7 +42,7 @@ class SeaGridBinaryReaderTest {
 
     @Test
     fun rejectsUnsupportedVersion() {
-        assertInvalid(fixture().also { putShort(it, 4, 2) })
+        assertInvalid(fixture().also { putShort(it, 4, 1) })
     }
 
     @Test
@@ -66,7 +67,7 @@ class SeaGridBinaryReaderTest {
         bytes[1] = 'S'.code.toByte()
         bytes[2] = 'E'.code.toByte()
         bytes[3] = 'A'.code.toByte()
-        putShort(bytes, 4, 1)
+        putShort(bytes, 4, 2)
         putShort(bytes, 6, SeaGridBinaryReader.HEADER_SIZE)
         putInt(bytes, 8, SeaGridBinaryReader.CELL_SIZE)
         putLong(bytes, 12, 1_000)
