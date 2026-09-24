@@ -73,6 +73,8 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var pressureMaxEdit: EditText
     private lateinit var pressureTrendSpinner: Spinner
     private lateinit var pressureTurningTrendSpinner: Spinner
+    private lateinit var seaLevelTrendSpinner: Spinner
+    private lateinit var seaLevelTurningTrendSpinner: Spinner
     private lateinit var waterTempMinEdit: EditText
     private lateinit var waterTempMaxEdit: EditText
     private lateinit var moonPhaseMinEdit: EditText
@@ -193,6 +195,24 @@ class FilterActivity : AppCompatActivity() {
         pressureMaxEdit = findViewById(R.id.pressureMaxEdit)
         pressureTrendSpinner = findViewById(R.id.pressureTrendSpinner)
         pressureTurningTrendSpinner = findViewById(R.id.pressureTurningTrendSpinner)
+
+        seaLevelTrendSpinner = findViewById(R.id.seaLevelTrendSpinner)
+        val seaLevelTrendAdapter = ArrayAdapter(
+            this,
+            R.layout.spinner_item,
+            resources.getStringArray(R.array.sea_level_trend_filter_options).toList()
+        )
+        seaLevelTrendAdapter.setDropDownViewResource(R.layout.spinner_item)
+        seaLevelTrendSpinner.adapter = seaLevelTrendAdapter
+
+        seaLevelTurningTrendSpinner = findViewById(R.id.seaLevelTurningTrendSpinner)
+        val seaLevelTurningTrendAdapter = ArrayAdapter(
+            this,
+            R.layout.spinner_item,
+            resources.getStringArray(R.array.sea_level_turning_trend_filter_options).toList()
+        )
+        seaLevelTurningTrendAdapter.setDropDownViewResource(R.layout.spinner_item)
+        seaLevelTurningTrendSpinner.adapter = seaLevelTurningTrendAdapter
 
         val pressureTrendAdapter = ArrayAdapter(
             this,
@@ -394,6 +414,22 @@ class FilterActivity : AppCompatActivity() {
                 else -> 0
             }
         )
+        seaLevelTrendSpinner.setSelection(
+            when (currentFilters.seaLevelTrendDirection) {
+                FilterManager.SEA_LEVEL_TREND_FALLING -> 1
+                FilterManager.SEA_LEVEL_TREND_FLAT -> 2
+                FilterManager.SEA_LEVEL_TREND_RISING -> 3
+                else -> 0
+            }
+        )
+        seaLevelTurningTrendSpinner.setSelection(
+            when (currentFilters.seaLevelTurningTrendDirection) {
+                FilterManager.SEA_LEVEL_TURNING_TREND_FALLING -> 1
+                FilterManager.SEA_LEVEL_TURNING_TREND_FLAT -> 2
+                FilterManager.SEA_LEVEL_TURNING_TREND_RISING -> 3
+                else -> 0
+            }
+        )
         waterTempMinEdit.setText(currentFilters.waterTempMin?.toString() ?: "")
         waterTempMaxEdit.setText(currentFilters.waterTempMax?.toString() ?: "")
         moonPhaseMinEdit.setText(currentFilters.moonPhaseMin?.toString() ?: "")
@@ -476,6 +512,8 @@ class FilterActivity : AppCompatActivity() {
                 pressureMin != null || pressureMax != null ||
                 pressureTrendSpinner.selectedItemPosition > 0 ||
                 pressureTurningTrendSpinner.selectedItemPosition > 0 ||
+                seaLevelTrendSpinner.selectedItemPosition > 0 ||
+                seaLevelTurningTrendSpinner.selectedItemPosition > 0 ||
                 waterTempMin != null || waterTempMax != null ||
                 moonPhaseMin != null || moonPhaseMax != null ||
                 moonAltitudeMin != null || moonAltitudeMax != null ||
@@ -581,7 +619,12 @@ class FilterActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        val pressureTrendSpinners = listOf(pressureTrendSpinner, pressureTurningTrendSpinner)
+        val pressureTrendSpinners = listOf(
+            pressureTrendSpinner,
+            pressureTurningTrendSpinner,
+            seaLevelTrendSpinner,
+            seaLevelTurningTrendSpinner
+        )
         pressureTrendSpinners.forEach { spinner ->
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -697,6 +740,8 @@ class FilterActivity : AppCompatActivity() {
             pressureMaxEdit.setText("")
             pressureTrendSpinner.setSelection(0)
             pressureTurningTrendSpinner.setSelection(0)
+            seaLevelTrendSpinner.setSelection(0)
+            seaLevelTurningTrendSpinner.setSelection(0)
             waterTempMinEdit.setText("")
             waterTempMaxEdit.setText("")
             moonPhaseMinEdit.setText("")
@@ -853,6 +898,18 @@ class FilterActivity : AppCompatActivity() {
             3 -> FilterManager.PRESSURE_TURNING_TREND_RISING
             else -> null
         }
+        val seaLevelTrendDirection = when (seaLevelTrendSpinner.selectedItemPosition) {
+            1 -> FilterManager.SEA_LEVEL_TREND_FALLING
+            2 -> FilterManager.SEA_LEVEL_TREND_FLAT
+            3 -> FilterManager.SEA_LEVEL_TREND_RISING
+            else -> null
+        }
+        val seaLevelTurningTrendDirection = when (seaLevelTurningTrendSpinner.selectedItemPosition) {
+            1 -> FilterManager.SEA_LEVEL_TURNING_TREND_FALLING
+            2 -> FilterManager.SEA_LEVEL_TURNING_TREND_FLAT
+            3 -> FilterManager.SEA_LEVEL_TURNING_TREND_RISING
+            else -> null
+        }
         val waterTempMin = FilterValueParser.floatOrNull(waterTempMinEdit.text)
         val waterTempMax = FilterValueParser.floatOrNull(waterTempMaxEdit.text)
         val moonPhaseMin = FilterValueParser.floatOrNull(moonPhaseMinEdit.text)
@@ -915,6 +972,8 @@ class FilterActivity : AppCompatActivity() {
             pressureMax = pressureMax,
             pressureTrendDirection = pressureTrendDirection,
             pressureTurningTrendDirection = pressureTurningTrendDirection,
+            seaLevelTrendDirection = seaLevelTrendDirection,
+            seaLevelTurningTrendDirection = seaLevelTurningTrendDirection,
             waterTempMin = waterTempMin,
             waterTempMax = waterTempMax,
             moonPhaseMin = moonPhaseMin,

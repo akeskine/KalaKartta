@@ -112,6 +112,91 @@ class FilterManagerTest {
     }
 
     @Test
+    fun seaLevelTrendUsesItsThreeWayClassificationAndDefaultThreshold() {
+        val threshold = FilterManager.DEFAULT_SEA_LEVEL_TREND_THRESHOLD.toDouble()
+
+        assertEquals(1.0f, FilterManager.DEFAULT_SEA_LEVEL_TREND_THRESHOLD, 0.0f)
+        assertTrue(
+            FilterManager.matchesSeaLevelTrend(
+                -threshold - 0.01,
+                FilterManager.SEA_LEVEL_TREND_FALLING,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesSeaLevelTrend(
+                threshold,
+                FilterManager.SEA_LEVEL_TREND_FLAT,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesSeaLevelTrend(
+                threshold + 0.01,
+                FilterManager.SEA_LEVEL_TREND_RISING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesSeaLevelTrend(
+                -threshold,
+                FilterManager.SEA_LEVEL_TREND_FALLING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesSeaLevelTrend(
+                null,
+                FilterManager.SEA_LEVEL_TREND_FLAT,
+                threshold
+            )
+        )
+        assertTrue(FilterManager.matchesSeaLevelTrend(null, null, threshold))
+    }
+
+    @Test
+    fun seaLevelTurningTrendUsesSeparateThresholdAndThreeWayClassification() {
+        val threshold = FilterManager.DEFAULT_SEA_LEVEL_TURNING_TREND_THRESHOLD.toDouble()
+
+        assertEquals(3.0f, FilterManager.DEFAULT_SEA_LEVEL_TURNING_TREND_THRESHOLD, 0.0f)
+        assertTrue(
+            FilterManager.matchesSeaLevelTrend(
+                -threshold - 0.01,
+                FilterManager.SEA_LEVEL_TURNING_TREND_FALLING,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesSeaLevelTrend(
+                0.0,
+                FilterManager.SEA_LEVEL_TURNING_TREND_FLAT,
+                threshold
+            )
+        )
+        assertTrue(
+            FilterManager.matchesSeaLevelTrend(
+                threshold + 0.01,
+                FilterManager.SEA_LEVEL_TURNING_TREND_RISING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesSeaLevelTrend(
+                threshold,
+                FilterManager.SEA_LEVEL_TURNING_TREND_RISING,
+                threshold
+            )
+        )
+        assertFalse(
+            FilterManager.matchesSeaLevelTrend(
+                null,
+                FilterManager.SEA_LEVEL_TURNING_TREND_FALLING,
+                threshold
+            )
+        )
+    }
+
+    @Test
     fun routeFiltersAreClearedWhenRouteFilteringIsDisabled() {
         val filters = FilterManager.Filters(
             startDate = 1L,

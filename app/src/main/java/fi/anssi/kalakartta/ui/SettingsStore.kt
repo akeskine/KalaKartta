@@ -254,6 +254,17 @@ class SettingsStore(private val preferences: SharedPreferences) {
         )
         set(value) { preferences.edit().putFloat(SettingsKeys.PRESSURE_TURNING_TREND_THRESHOLD, value).apply() }
 
+    var seaLevelTrendThreshold: Float
+        get() = preferences.getFloat(SettingsKeys.SEA_LEVEL_TREND_THRESHOLD, SettingsDefaults.SEA_LEVEL_TREND_THRESHOLD)
+        set(value) { preferences.edit().putFloat(SettingsKeys.SEA_LEVEL_TREND_THRESHOLD, value).apply() }
+
+    var seaLevelTurningTrendThreshold: Float
+        get() = preferences.getFloat(
+            SettingsKeys.SEA_LEVEL_TURNING_TREND_THRESHOLD,
+            SettingsDefaults.SEA_LEVEL_TURNING_TREND_THRESHOLD
+        )
+        set(value) { preferences.edit().putFloat(SettingsKeys.SEA_LEVEL_TURNING_TREND_THRESHOLD, value).apply() }
+
     var lastVersionName: String
         get() = preferences.getString(SettingsKeys.LAST_VERSION_NAME, SettingsDefaults.LAST_VERSION_NAME)
             ?: SettingsDefaults.LAST_VERSION_NAME

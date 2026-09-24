@@ -31,6 +31,8 @@ class FilterManager(private val context: Context) {
         val pressureMax: Float? = null,
         val pressureTrendDirection: String? = null,
         val pressureTurningTrendDirection: String? = null,
+        val seaLevelTrendDirection: String? = null,
+        val seaLevelTurningTrendDirection: String? = null,
         val waterTempMin: Float? = null,
         val waterTempMax: Float? = null,
         val moonPhaseMin: Float? = null,
@@ -65,10 +67,22 @@ class FilterManager(private val context: Context) {
         const val PRESSURE_TURNING_TREND_FLAT = "TURNING_FLAT"
         const val PRESSURE_TURNING_TREND_RISING = "TURNING_RISING"
 
+        const val SEA_LEVEL_TREND_FALLING = "SEA_LEVEL_FALLING"
+        const val SEA_LEVEL_TREND_FLAT = "SEA_LEVEL_FLAT"
+        const val SEA_LEVEL_TREND_RISING = "SEA_LEVEL_RISING"
+
+        const val SEA_LEVEL_TURNING_TREND_FALLING = "SEA_LEVEL_TURNING_FALLING"
+        const val SEA_LEVEL_TURNING_TREND_FLAT = "SEA_LEVEL_TURNING_FLAT"
+        const val SEA_LEVEL_TURNING_TREND_RISING = "SEA_LEVEL_TURNING_RISING"
+
         const val PRESSURE_TREND_THRESHOLD_KEY = SettingsKeys.PRESSURE_TREND_THRESHOLD
         const val PRESSURE_TURNING_TREND_THRESHOLD_KEY = SettingsKeys.PRESSURE_TURNING_TREND_THRESHOLD
         const val DEFAULT_PRESSURE_TREND_THRESHOLD = SettingsDefaults.PRESSURE_TREND_THRESHOLD
         const val DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD = SettingsDefaults.PRESSURE_TURNING_TREND_THRESHOLD
+        const val SEA_LEVEL_TREND_THRESHOLD_KEY = SettingsKeys.SEA_LEVEL_TREND_THRESHOLD
+        const val SEA_LEVEL_TURNING_TREND_THRESHOLD_KEY = SettingsKeys.SEA_LEVEL_TURNING_TREND_THRESHOLD
+        const val DEFAULT_SEA_LEVEL_TREND_THRESHOLD = SettingsDefaults.SEA_LEVEL_TREND_THRESHOLD
+        const val DEFAULT_SEA_LEVEL_TURNING_TREND_THRESHOLD = SettingsDefaults.SEA_LEVEL_TURNING_TREND_THRESHOLD
 
         fun isValueInRange(value: Double, min: Double?, max: Double?, wraps: Boolean): Boolean {
             if (min != null && max != null && wraps && min > max) {
@@ -90,6 +104,21 @@ class FilterManager(private val context: Context) {
                 PRESSURE_TURNING_TREND_FLAT -> value >= -threshold && value <= threshold
                 PRESSURE_TREND_RISING,
                 PRESSURE_TURNING_TREND_RISING -> value > threshold
+                else -> true
+            }
+        }
+
+        fun matchesSeaLevelTrend(value: Double?, direction: String?, threshold: Double): Boolean {
+            if (direction == null) return true
+            if (value == null || !threshold.isFinite() || threshold <= 0.0) return false
+
+            return when (direction) {
+                SEA_LEVEL_TREND_FALLING,
+                SEA_LEVEL_TURNING_TREND_FALLING -> value < -threshold
+                SEA_LEVEL_TREND_FLAT,
+                SEA_LEVEL_TURNING_TREND_FLAT -> value >= -threshold && value <= threshold
+                SEA_LEVEL_TREND_RISING,
+                SEA_LEVEL_TURNING_TREND_RISING -> value > threshold
                 else -> true
             }
         }
@@ -118,6 +147,8 @@ class FilterManager(private val context: Context) {
         val pressureMax = if (prefs.contains("pressureMax")) prefs.getFloat("pressureMax", 0f) else null
         val pressureTrendDirection = prefs.getString("pressureTrendDirection", null)
         val pressureTurningTrendDirection = prefs.getString("pressureTurningTrendDirection", null)
+        val seaLevelTrendDirection = prefs.getString("seaLevelTrendDirection", null)
+        val seaLevelTurningTrendDirection = prefs.getString("seaLevelTurningTrendDirection", null)
         val waterTempMin = if (prefs.contains("waterTempMin")) prefs.getFloat("waterTempMin", 0f) else null
         val waterTempMax = if (prefs.contains("waterTempMax")) prefs.getFloat("waterTempMax", 0f) else null
         val moonPhaseMin = if (prefs.contains("moonPhaseMin")) prefs.getFloat("moonPhaseMin", 0f) else null
@@ -151,6 +182,7 @@ class FilterManager(private val context: Context) {
             windMin, windMax,
             pressureMin, pressureMax,
             pressureTrendDirection, pressureTurningTrendDirection,
+            seaLevelTrendDirection, seaLevelTurningTrendDirection,
             waterTempMin, waterTempMax,
             moonPhaseMin, moonPhaseMax,
             moonAltitudeMin, moonAltitudeMax,
@@ -182,6 +214,8 @@ class FilterManager(private val context: Context) {
             if (filters.pressureMax != null) putFloat("pressureMax", filters.pressureMax) else remove("pressureMax")
             if (filters.pressureTrendDirection != null) putString("pressureTrendDirection", filters.pressureTrendDirection) else remove("pressureTrendDirection")
             if (filters.pressureTurningTrendDirection != null) putString("pressureTurningTrendDirection", filters.pressureTurningTrendDirection) else remove("pressureTurningTrendDirection")
+            if (filters.seaLevelTrendDirection != null) putString("seaLevelTrendDirection", filters.seaLevelTrendDirection) else remove("seaLevelTrendDirection")
+            if (filters.seaLevelTurningTrendDirection != null) putString("seaLevelTurningTrendDirection", filters.seaLevelTurningTrendDirection) else remove("seaLevelTurningTrendDirection")
             if (filters.waterTempMin != null) putFloat("waterTempMin", filters.waterTempMin) else remove("waterTempMin")
             if (filters.waterTempMax != null) putFloat("waterTempMax", filters.waterTempMax) else remove("waterTempMax")
             if (filters.moonPhaseMin != null) putFloat("moonPhaseMin", filters.moonPhaseMin) else remove("moonPhaseMin")
@@ -219,6 +253,7 @@ class FilterManager(private val context: Context) {
                 f.windMin != null || f.windMax != null ||
                 f.pressureMin != null || f.pressureMax != null ||
                 f.pressureTrendDirection != null || f.pressureTurningTrendDirection != null ||
+                f.seaLevelTrendDirection != null || f.seaLevelTurningTrendDirection != null ||
                 f.waterTempMin != null || f.waterTempMax != null ||
                 f.moonPhaseMin != null || f.moonPhaseMax != null ||
                 f.moonAltitudeMin != null || f.moonAltitudeMax != null ||
@@ -232,6 +267,8 @@ class FilterManager(private val context: Context) {
         val f = getFilters()
         val pressureTrendThreshold = settingsStore.pressureTrendThreshold.toDouble()
         val pressureTurningTrendThreshold = settingsStore.pressureTurningTrendThreshold.toDouble()
+        val seaLevelTrendThreshold = settingsStore.seaLevelTrendThreshold.toDouble()
+        val seaLevelTurningTrendThreshold = settingsStore.seaLevelTurningTrendThreshold.toDouble()
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
 
         return catches.filter { fish ->
@@ -314,6 +351,8 @@ class FilterManager(private val context: Context) {
 
             if (!matchesPressureTrend(fish.pressureTrend, f.pressureTrendDirection, pressureTrendThreshold)) return@filter false
             if (!matchesPressureTrend(fish.pressureTurningTrend, f.pressureTurningTrendDirection, pressureTurningTrendThreshold)) return@filter false
+            if (!matchesSeaLevelTrend(fish.seaLevelTrend, f.seaLevelTrendDirection, seaLevelTrendThreshold)) return@filter false
+            if (!matchesSeaLevelTrend(fish.seaLevelTurningTrend, f.seaLevelTurningTrendDirection, seaLevelTurningTrendThreshold)) return@filter false
 
             // Water Temp Range
             if (f.waterTempMin != null && fish.waterTemp != null && fish.waterTemp < f.waterTempMin) return@filter false
@@ -609,6 +648,18 @@ class FilterManager(private val context: Context) {
             PRESSURE_TURNING_TREND_FALLING -> parts.add("paineen muutos: Kääntyy alaspäin")
             PRESSURE_TURNING_TREND_FLAT -> parts.add("paineen muutos: Ei selvää kääntymistä")
             PRESSURE_TURNING_TREND_RISING -> parts.add("paineen muutos: Kääntyy ylöspäin")
+        }
+
+        when (f.seaLevelTrendDirection) {
+            SEA_LEVEL_TREND_FALLING -> parts.add("meriveden korkeuden muutos: Laskeva")
+            SEA_LEVEL_TREND_FLAT -> parts.add("meriveden korkeuden muutos: Tasainen")
+            SEA_LEVEL_TREND_RISING -> parts.add("meriveden korkeuden muutos: Nouseva")
+        }
+
+        when (f.seaLevelTurningTrendDirection) {
+            SEA_LEVEL_TURNING_TREND_FALLING -> parts.add("meriveden kehityksen muutos: Kääntyy alaspäin")
+            SEA_LEVEL_TURNING_TREND_FLAT -> parts.add("meriveden kehityksen muutos: Ei selvää kääntymistä")
+            SEA_LEVEL_TURNING_TREND_RISING -> parts.add("meriveden kehityksen muutos: Kääntyy ylöspäin")
         }
 
         if (f.waterTempMin != null || f.waterTempMax != null) {

@@ -89,6 +89,20 @@
         <item>Ei selvää kääntymistä</item>
         <item>Kääntyy ylöspäin</item>
     </string-array>
+    <string name="sea_level_trend_filter">Meriveden korkeuden muutos -6h ... +6h</string>
+    <string name="sea_level_turning_trend_filter">Meriveden korkeuden kehityksen muutos -6h ... +6h</string>
+    <string-array name="sea_level_trend_filter_options">
+        <item>@string/empty_selection</item>
+        <item>Laskeva</item>
+        <item>Tasainen</item>
+        <item>Nouseva</item>
+    </string-array>
+    <string-array name="sea_level_turning_trend_filter_options">
+        <item>@string/empty_selection</item>
+        <item>Kääntyy alaspäin</item>
+        <item>Ei selvää kääntymistä</item>
+        <item>Kääntyy ylöspäin</item>
+    </string-array>
     <string name="water_temp_c">Veden lämpötila (C)</string>
     <string name="min_temp">Min (C)</string>
     <string name="max_temp">Max (C)</string>

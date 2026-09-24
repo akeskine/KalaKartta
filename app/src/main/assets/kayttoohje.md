@@ -53,6 +53,7 @@ Klikkaa kartalla olevaa kuvaketta nähdäksesi sen tiedot.
 Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
 - Muuttaa kaikkia tallennettuja tietoja.
 - Poistaa pisteen.
+- **Meriveden korkeus:** Jos kalapisteen sijainti tunnistetaan merialueeksi, tiedoissa näytetään korkeus, jos se on saatavilla, ja sen kehityskäyrä, jos näytteitä on. Muokkausnäkymässä voit tarvittaessa syöttää tai muuttaa arvon itse kentässä **Meriveden korkeus (MW)**.
 - **Media:** Voit liittää pisteeseen kuvia, äänitteitä ja videoita. Media voidaan myös yhdistää automaattisesti, jos se on tallennettu 5 metrin etäisyydellä ja 1 sekunnin aikaikkunalla pisteen tallennushetkestä. Liitetyt mediatiedostot näkyvät pisteen tiedot -dialogissa.
 
 ## 5. Tiedon suodatus
@@ -64,6 +65,7 @@ Suodatusmahdollisuuksia ovat mm.:
 - **Kellonaika:** Esim. vain iltasyönnin saaliit.
 - **Kalalaji tai paikan tyyppi.**
 - **Sääolosuhteet:** Ilmanpaine, veden lämpötila ja tuulen suunta.
+- **Meriveden kehitys:** Voit suodattaa meriveden korkeuden nousevan, tasaisen tai laskevan muutoksen sekä valita, kääntyykö kehitys alaspäin, ei selvästi vai ylöspäin. Oletusrajat ovat 1 cm/h korkeuden muutokselle ja 3 cm/h muutoksen kääntymiselle; rajoja voi muuttaa **Kehittäjäasetukset**-valikossa.
 - **Tuulen suunta:** Voit määrittää sektorin (asteet min-max) 
 - **Vapaa teksti:** Etsii tekstiä lisätiedoista tai muistiinpanoista.
 - **Aluerajaus:** Voit rajata suodatuksen vain tietylle kartta-alueelle. Paina "Rajaa alue kartalta", rajaa haluamasi alue ja vahvista valinta.
@@ -74,8 +76,9 @@ Suodatus on voimassa, kunnes se nollataan (Poista suodattimet). Aktiivinen suoda
 
 Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdollista kytkeä pois päältä **Valikko -> Sää -> Sääasetukset** -valikosta.
 - **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta (max. 300 km säteeltä kalapisteestä) parhaan tarkkuuden saavuttamiseksi.
+- **Meriveden korkeus:** Sovellus tarkistaa pisteen sijainnin ja hakee korkeustiedon vain, jos sijainti tunnistetaan merialueeksi; sisävesille tai maalle sitä ei haeta. Arvo haetaan lähimmältä havaintoja tarjoavalta mareografiasemalta. Korkeus ilmoitetaan senttimetreinä suhteessa teoreettiseen keskiveteen (MW), joka on vertailutaso: esimerkiksi **+22 cm** tarkoittaa 22 cm keskiveden yläpuolella ja **−22 cm** sen alapuolella.
 - **Automaattinen päivitys:** Voit kytkeä automaattihaun pois päältä sääasetuksista.
-- **Puuttuvien tietojen haku:** Voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla.
+- **Puuttuvien tietojen haku:** Voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla. Päivitys hakee myös puuttuvat meriveden korkeustiedot.
 
 ## 7. Kalalajien hallinta
 

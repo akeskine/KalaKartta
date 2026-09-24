@@ -164,7 +164,47 @@ class DeveloperSettingsDialog(
         pressureTurningTrendThresholdRow.addView(pressureTurningTrendThresholdHint)
         layout.addView(pressureTurningTrendThresholdRow)
 
-        // Rivi 7: Automaattisen puuttuvien säätietojen päivityksen väli
+        val seaLevelTrendThresholdRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val seaLevelTrendThresholdLabel = TextView(activity).apply {
+            text = "Meriveden korkeuden muutoksen raja-arvo (cm/h):"
+        }
+        val seaLevelTrendThresholdEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(settingsStore.seaLevelTrendThreshold.toString())
+        }
+        val seaLevelTrendThresholdHint = TextView(activity).apply {
+            text = "Oletus ${FilterManager.DEFAULT_SEA_LEVEL_TREND_THRESHOLD} (sama raja-arvo laskevalle ja nousevalle)."
+            textSize = 12f
+        }
+        seaLevelTrendThresholdRow.addView(seaLevelTrendThresholdLabel)
+        seaLevelTrendThresholdRow.addView(seaLevelTrendThresholdEdit)
+        seaLevelTrendThresholdRow.addView(seaLevelTrendThresholdHint)
+        layout.addView(seaLevelTrendThresholdRow)
+
+        val seaLevelTurningTrendThresholdRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val seaLevelTurningTrendThresholdLabel = TextView(activity).apply {
+            text = "Meriveden korkeuden kehityksen muutoksen raja-arvo (cm/h):"
+        }
+        val seaLevelTurningTrendThresholdEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(settingsStore.seaLevelTurningTrendThreshold.toString())
+        }
+        val seaLevelTurningTrendThresholdHint = TextView(activity).apply {
+            text = "Oletus ${FilterManager.DEFAULT_SEA_LEVEL_TURNING_TREND_THRESHOLD} (sama raja-arvo ala- ja ylöspäin kääntyvälle)."
+            textSize = 12f
+        }
+        seaLevelTurningTrendThresholdRow.addView(seaLevelTurningTrendThresholdLabel)
+        seaLevelTurningTrendThresholdRow.addView(seaLevelTurningTrendThresholdEdit)
+        seaLevelTurningTrendThresholdRow.addView(seaLevelTurningTrendThresholdHint)
+        layout.addView(seaLevelTurningTrendThresholdRow)
+
+        // Automaattisen puuttuvien säätietojen päivityksen väli
         val automaticWeatherUpdateIntervalRow = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 20, 0, 0)
@@ -299,6 +339,14 @@ class DeveloperSettingsDialog(
                     pressureTurningTrendThresholdEdit.text,
                     FilterManager.DEFAULT_PRESSURE_TURNING_TREND_THRESHOLD
                 )
+                val seaLevelTrendThreshold = SettingsValueValidator.positiveFloatOrDefault(
+                    seaLevelTrendThresholdEdit.text,
+                    FilterManager.DEFAULT_SEA_LEVEL_TREND_THRESHOLD
+                )
+                val seaLevelTurningTrendThreshold = SettingsValueValidator.positiveFloatOrDefault(
+                    seaLevelTurningTrendThresholdEdit.text,
+                    FilterManager.DEFAULT_SEA_LEVEL_TURNING_TREND_THRESHOLD
+                )
                 val automaticWeatherUpdateInterval = SettingsValueValidator.positiveIntOrDefault(
                     automaticWeatherUpdateIntervalEdit.text,
                     SettingsDefaults.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS
@@ -310,6 +358,8 @@ class DeveloperSettingsDialog(
                 settingsStore.heatmapReferenceLatitude = refLat
                 settingsStore.pressureTrendThreshold = pressureTrendThreshold
                 settingsStore.pressureTurningTrendThreshold = pressureTurningTrendThreshold
+                settingsStore.seaLevelTrendThreshold = seaLevelTrendThreshold
+                settingsStore.seaLevelTurningTrendThreshold = seaLevelTurningTrendThreshold
                 settingsStore.automaticWeatherUpdateIntervalHours = automaticWeatherUpdateInterval
                 onOpenGeneralSettings()
             }
