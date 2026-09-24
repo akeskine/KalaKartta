@@ -120,6 +120,13 @@ class CatchDetailsTextBuilder(private val context: Context) {
             if (shouldShowPressureGraph && !pressureGraphMarkerAdded) {
                 details.append(PRESSURE_GRAPH_MARKER)
             }
+            if (it.seaLevel != null) {
+                val signedSeaLevel = if (it.seaLevel >= 0) "+${it.seaLevel}" else it.seaLevel.toString()
+                details.append("Meriveden korkeus: $signedSeaLevel cm (MW)\n")
+            }
+            if (it.seaLevelSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L) {
+                details.append(SEA_LEVEL_GRAPH_MARKER)
+            }
             if (it.additionalInfo.isNotEmpty()) details.append("\nLisätieto: ${it.additionalInfo}\n")
             if (it.originalRef.isNotEmpty()) details.append("Alkuperäinen viite: ${it.originalRef}\n")
         }
@@ -129,5 +136,6 @@ class CatchDetailsTextBuilder(private val context: Context) {
 
     companion object {
         const val PRESSURE_GRAPH_MARKER = "\u0000PRESSURE_GRAPH\u0000"
+        const val SEA_LEVEL_GRAPH_MARKER = "\u0000SEA_LEVEL_GRAPH\u0000"
     }
 }

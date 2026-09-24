@@ -2,6 +2,7 @@ package fi.anssi.kalakartta.ui
 
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.utils.SeaLevelStationResult
 import fi.anssi.kalakartta.data.WeatherError
 import fi.anssi.kalakartta.data.WeatherUpdateAttempt
 import fi.anssi.kalakartta.data.WeatherUpdateAttemptSelector
@@ -23,6 +24,57 @@ internal fun needsPressureHistoryUpdate(fishCatch: FishCatch, now: Long): Boolea
     val completionWindowEnd = caughtAt + SIX_HOURS_MILLIS
     return fishCatch.pressureSamples.none { sample ->
         sample.time in completionWindowStart..completionWindowEnd && sample.pressure.isFinite()
+    }
+}
+
+internal fun needsSeaLevelHistoryUpdate(fishCatch: FishCatch, now: Long): Boolean {
+    val caughtAt = fishCatch.caughtAt ?: return false
+    if (fishCatch.seaLevelDataCompleteTime != null || now - caughtAt <= SIX_HOURS_MILLIS) return false
+
+    val completionWindowStart = caughtAt + 5 * 60 * 60 * 1000L
+    val completionWindowEnd = caughtAt + SIX_HOURS_MILLIS
+    return fishCatch.seaLevelSamples.none { sample ->
+        sample.time in completionWindowStart..completionWindowEnd
+    }
+}
+
+internal fun hasMissingSeaLevelData(fishCatch: FishCatch): Boolean {
+    return fishCatch.seaLevelDataCompleteTime == null &&
+            (fishCatch.seaLevel == null || fishCatch.seaLevelSamples.isEmpty())
+}
+
+internal fun FishCatch.withSeaLevelResult(
+    result: SeaLevelStationResult,
+    now: Long = System.currentTimeMillis(),
+    caughtAt: Long? = this.caughtAt
+): FishCatch {
+    if (!result.isSea) {
+        return copy(
+            seaLevel = null,
+            seaLevelDataCompleteTime = now,
+            seaLevelTrend = null,
+            seaLevelTurningTrend = null,
+            seaLevelSamples = emptyList()
+        )
+    }
+
+    val samples = result.seaLevelSamples.ifEmpty { seaLevelSamples }
+    val updated = copy(
+        seaLevel = result.seaLevel ?: seaLevel,
+        seaLevelDataCompleteTime = if (caughtAt != null && now - caughtAt > SIX_HOURS_MILLIS) {
+            now
+        } else {
+            seaLevelDataCompleteTime
+        },
+        seaLevelSamples = samples
+    )
+    return if (result.seaLevelSamples.isNotEmpty()) {
+        updated.copy(
+            seaLevelTrend = updated.calculateSeaLevelTrend() ?: seaLevelTrend,
+            seaLevelTurningTrend = updated.calculateSeaLevelTurningTrend() ?: seaLevelTurningTrend
+        )
+    } else {
+        updated
     }
 }
 
@@ -56,7 +108,9 @@ internal fun isMissingWeatherUpdateTarget(fishCatch: FishCatch, now: Long): Bool
     return (fishCatch.caughtAt ?: 0L) > 0L &&
             (hasMissingWeatherData(fishCatch) ||
                     fishCatch.pressureTrend == null ||
-                    needsPressureHistoryUpdate(fishCatch, now))
+                    needsPressureHistoryUpdate(fishCatch, now) ||
+                    hasMissingSeaLevelData(fishCatch) ||
+                    needsSeaLevelHistoryUpdate(fishCatch, now))
 }
 
 internal fun prioritizeMissingWeatherTargets(
@@ -122,10 +176,20 @@ internal class MissingWeatherDataUpdater(
                     val needsWeatherData = hasMissingWeatherData(fishCatch)
                     val needsPressureData = fishCatch.pressureTrend == null ||
                             needsPressureHistoryUpdate(fishCatch, System.currentTimeMillis())
+                    val needsSeaLevelData = hasMissingSeaLevelData(fishCatch) ||
+                            needsSeaLevelHistoryUpdate(fishCatch, System.currentTimeMillis())
                     val caughtAt = fishCatch.caughtAt ?: 0L
 
                     val pressureResult = if (needsPressureData) {
                         weatherService.fetchPressureFromMultipleStationsSuspend(
+                            fishCatch.latitude,
+                            fishCatch.longitude,
+                            caughtAt
+                        )
+                    } else null
+
+                    val seaLevelResult = if (needsSeaLevelData) {
+                        weatherService.fetchSeaLevelFromMultipleStationsSuspend(
                             fishCatch.latitude,
                             fishCatch.longitude,
                             caughtAt
@@ -174,7 +238,7 @@ internal class MissingWeatherDataUpdater(
                     val pressureTrend = fetchedPressureTrend ?: fishCatch.pressureTrend
                     val pressureTurningTrend = fetchedPressureTurningTrend ?: fishCatch.pressureTurningTrend
 
-                    val updatedCatch = if (hasWeatherData) {
+                    val weatherUpdatedCatch = if (hasWeatherData) {
                         val airTemp = data?.get("t2m") ?: fishCatch.airTemp
                         val cloudiness = data?.get("nn_ll01")?.toLong()
                                 ?: data?.get("n_man")?.toLong()
@@ -212,24 +276,35 @@ internal class MissingWeatherDataUpdater(
                         )
                     } else fishCatch
 
+                    val updatedCatch = seaLevelResult?.let { result ->
+                        weatherUpdatedCatch.withSeaLevelResult(result, caughtAt = caughtAt)
+                    } ?: weatherUpdatedCatch
+
+                    val now = System.currentTimeMillis()
                     val pressureHistoryComplete = !needsPressureHistoryUpdate(
                         updatedCatch,
-                        System.currentTimeMillis()
+                        now
                     )
+                    val seaLevelHistoryComplete = !needsSeaLevelHistoryUpdate(updatedCatch, now)
+                    val seaLevelUpdateComplete = !needsSeaLevelData || seaLevelResult != null
                     val updateCompleted = (!needsWeatherData || hasWeatherData) &&
                             (!needsPressureData || fetchedPressureTrend != null) &&
-                            pressureHistoryComplete
+                            pressureHistoryComplete && seaLevelUpdateComplete && seaLevelHistoryComplete
 
-                    if (hasWeatherData || pressureResult != null) {
+                    if (hasWeatherData || pressureResult != null || seaLevelResult != null) {
                         if (updatedCatch != fishCatch) db.fishCatchDao().update(updatedCatch)
                         if (updateCompleted) {
                             recordAttempt(fishCatch.id, true)
                             if (updatedCatch != fishCatch) successful++ else noChanges++
                         } else {
-                            val message = if (needsPressureData && fetchedPressureTrend == null) {
+                            val message = if (needsSeaLevelData && seaLevelResult == null) {
+                                "Meriveden korkeustietojen haku epäonnistui."
+                            } else if (needsPressureData && fetchedPressureTrend == null) {
                                 "Painehistoriasta ei saatu laskettavaa trendiä."
                             } else if (!pressureHistoryComplete) {
                                 "Painehistoria ei ulotu saantihetken jälkeiseen ikkunaan."
+                            } else if (!seaLevelHistoryComplete) {
+                                "Meriveden korkeushistoria ei ulotu saantihetken jälkeiseen ikkunaan."
                             } else "Ei säädataa saatavilla."
                             failed++
                             recordAttempt(fishCatch.id, false, message)

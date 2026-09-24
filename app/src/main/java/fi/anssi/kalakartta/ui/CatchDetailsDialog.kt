@@ -65,25 +65,7 @@ class CatchDetailsDialog(
             setPadding(padding, padding / 2, padding, padding)
         }
 
-        val graphMarker = CatchDetailsTextBuilder.PRESSURE_GRAPH_MARKER
-        val graphMarkerIndex = messageText.indexOf(graphMarker)
-        if (graphMarkerIndex >= 0) {
-            val beforeGraphEnd = messageText.substring(0, graphMarkerIndex).trimEnd().length
-            val afterGraphStart = graphMarkerIndex + graphMarker.length
-            val afterGraphText = messageText.substring(afterGraphStart)
-            val firstAfterGraphCharacter = afterGraphText.indexOfFirst { !it.isWhitespace() }
-            val afterGraphContentStart = if (firstAfterGraphCharacter >= 0) {
-                afterGraphStart + firstAfterGraphCharacter
-            } else {
-                messageText.length
-            }
-
-            addDetailsText(container, spannableMessage.subSequence(0, beforeGraphEnd))
-            fish?.let { addPressureGraph(container, it) }
-            addDetailsText(container, spannableMessage.subSequence(afterGraphContentStart, messageText.length))
-        } else {
-            addDetailsText(container, spannableMessage)
-        }
+        addDetailsAndGraphs(container, spannableMessage, messageText, fish)
 
         addDiaryLinks(container, diaryPages)
         addMedia(container, mediaList)
@@ -211,6 +193,49 @@ class CatchDetailsDialog(
             }
             setData(fish.pressureSamples, fish.caughtAt!!)
         })
+    }
+
+    private fun addSeaLevelGraph(container: LinearLayout, fish: FishCatch) {
+        container.addView(SeaLevelGraphView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (180 * context.resources.displayMetrics.density).toInt()
+            ).apply {
+                topMargin = (8 * context.resources.displayMetrics.density).toInt()
+            }
+            setData(fish.seaLevelSamples, fish.caughtAt!!)
+        })
+    }
+
+    private fun addDetailsAndGraphs(
+        container: LinearLayout,
+        spannableMessage: SpannableString,
+        messageText: String,
+        fish: FishCatch?
+    ) {
+        val graphMarkers = listOf(
+            CatchDetailsTextBuilder.PRESSURE_GRAPH_MARKER to ::addPressureGraph,
+            CatchDetailsTextBuilder.SEA_LEVEL_GRAPH_MARKER to ::addSeaLevelGraph
+        )
+        var offset = 0
+        while (offset < messageText.length) {
+            val nextMarker = graphMarkers
+                .mapNotNull { (marker, addGraph) ->
+                    val index = messageText.indexOf(marker, offset)
+                    if (index < 0) null else Triple(index, marker, addGraph)
+                }
+                .minByOrNull { it.first }
+                ?: break
+
+            addDetailsText(container, spannableMessage.subSequence(offset, nextMarker.first))
+            fish?.let { nextMarker.third(container, it) }
+            offset = nextMarker.first + nextMarker.second.length
+            while (offset < messageText.length && messageText[offset].isWhitespace()) offset++
+        }
+
+        if (offset < messageText.length) {
+            addDetailsText(container, spannableMessage.subSequence(offset, messageText.length))
+        }
     }
 
     private fun addDiaryLinks(container: LinearLayout, pages: List<FishDiaryPage>) {

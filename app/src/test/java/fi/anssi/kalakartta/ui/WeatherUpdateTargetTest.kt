@@ -2,6 +2,7 @@ package fi.anssi.kalakartta.ui
 
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.PressureSample
+import fi.anssi.kalakartta.data.SeaLevelSample
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,6 +54,54 @@ class WeatherUpdateTargetTest {
         )
 
         assertTrue(needsPressureHistoryUpdate(fishCatch, now))
+    }
+
+    @Test
+    fun missingSeaLevelMakesCatchAnUpdateTargetEvenWhenWeatherWasMarkedComplete() {
+        val catch = fishCatchWithTrend(10 * hourMillis).copy(
+            weatherDataCompleteTime = 1L,
+            seaLevel = null,
+            seaLevelSamples = emptyList(),
+            pressureSamples = listOf(PressureSample(15 * hourMillis, 1001.0))
+        )
+
+        assertTrue(hasMissingSeaLevelData(catch))
+        assertTrue(isMissingWeatherUpdateTarget(catch, catch.caughtAt!! + 12 * hourMillis))
+    }
+
+    @Test
+    fun inlandCatchMarkedSeaLevelCompleteIsNotRepeatedlyUpdatedForSeaLevel() {
+        val catch = fishCatchWithTrend(10 * hourMillis).copy(
+            weatherDataCompleteTime = 1L,
+            seaLevelDataCompleteTime = 20 * hourMillis,
+            pressureSamples = listOf(PressureSample(15 * hourMillis, 1001.0))
+        )
+
+        assertFalse(hasMissingSeaLevelData(catch))
+        assertFalse(needsSeaLevelHistoryUpdate(catch, 30 * hourMillis))
+        assertFalse(isMissingWeatherUpdateTarget(catch, 30 * hourMillis))
+    }
+
+    @Test
+    fun seaLevelHistoryNeedsUpdateWhenPlusFiveToSixHourWindowIsMissing() {
+        val caughtAt = 10 * hourMillis
+        val catch = fishCatchWithTrend(caughtAt).copy(
+            seaLevel = 42L,
+            seaLevelSamples = listOf(SeaLevelSample(caughtAt + 4 * hourMillis, 41L))
+        )
+
+        assertTrue(needsSeaLevelHistoryUpdate(catch, caughtAt + 7 * hourMillis))
+    }
+
+    @Test
+    fun seaLevelSampleInCompletionWindowCompletesHistory() {
+        val caughtAt = 10 * hourMillis
+        val catch = fishCatchWithTrend(caughtAt).copy(
+            seaLevel = 42L,
+            seaLevelSamples = listOf(SeaLevelSample(caughtAt + 5 * hourMillis, 45L))
+        )
+
+        assertFalse(needsSeaLevelHistoryUpdate(catch, caughtAt + 7 * hourMillis))
     }
 
 

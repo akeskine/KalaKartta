@@ -42,6 +42,11 @@ data class FishCatch(
     val pressureTrend: Double? = null, // hPa/h
     val pressureTurningTrend: Double? = null, // hPa/h
     val pressureSamples: List<PressureSample> = emptyList(),
+    val seaLevel: Long? = null,
+    val seaLevelDataCompleteTime: Long? = null,
+    val seaLevelTrend: Double? = null, // cm/h
+    val seaLevelTurningTrend: Double? = null, // cm/h
+    val seaLevelSamples: List<SeaLevelSample> = emptyList(),
     val moonPhase: Double? = null,
     val moonAltitude: Double? = null
 ) {
@@ -60,6 +65,21 @@ data class FishCatch(
         return trendAfter - trendBefore
     }
 
+    fun calculateSeaLevelTrend(): Double? {
+        return calculateAverageSeaLevelTrend(seaLevelSamples)
+    }
+
+    fun calculateSeaLevelTurningTrend(): Double? {
+        caughtAt ?: return null
+        val sortedSamples = seaLevelSamples.sortedBy { it.time }
+        if (sortedSamples.size < 12) return null
+
+        val trendBefore = calculateAverageSeaLevelTrend(sortedSamples.take(6)) ?: return null
+        val trendAfter = calculateAverageSeaLevelTrend(sortedSamples.takeLast(6)) ?: return null
+
+        return trendAfter - trendBefore
+    }
+
     private fun calculateAveragePressureTrend(samples: List<PressureSample>): Double? {
         if (samples.size < 2) return null
 
@@ -70,6 +90,18 @@ data class FishCatch(
         if (elapsedHours == 0.0) return null
 
         return (last.pressure - first.pressure) / elapsedHours
+    }
+
+    private fun calculateAverageSeaLevelTrend(samples: List<SeaLevelSample>): Double? {
+        if (samples.size < 2) return null
+
+        val sortedSamples = samples.sortedBy { it.time }
+        val first = sortedSamples.first()
+        val last = sortedSamples.last()
+        val elapsedHours = (last.time - first.time).toDouble() / (1000 * 60 * 60)
+        if (elapsedHours == 0.0) return null
+
+        return (last.seaLevel - first.seaLevel) / elapsedHours
     }
 
     companion object {

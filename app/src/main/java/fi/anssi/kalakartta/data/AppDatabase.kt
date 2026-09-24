@@ -10,10 +10,10 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [FishCatch::class, FishSpecies::class, WeatherError::class, WeatherUpdateAttempt::class, PlaceOfInterest::class, PlaceOfInterestType::class, FishingSession::class, TrackPoint::class, Media::class, FishDiaryPage::class, ActiveFishingSession::class],
-    version = 24,
+    version = 25,
     exportSchema = false
 )
-@TypeConverters(PressureConverter::class)
+@TypeConverters(PressureConverter::class, SeaLevelConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun fishCatchDao(): FishCatchDao
     abstract fun fishSpeciesDao(): FishSpeciesDao
@@ -108,7 +108,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kalakartta-db"
                 )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25)
                 .build()
                 INSTANCE = instance
                 instance
@@ -164,13 +164,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE FishCatch ADD COLUMN seaLevel INTEGER")
+                db.execSQL("ALTER TABLE FishCatch ADD COLUMN seaLevelDataCompleteTime INTEGER")
+                db.execSQL("ALTER TABLE FishCatch ADD COLUMN seaLevelTrend REAL")
+                db.execSQL("ALTER TABLE FishCatch ADD COLUMN seaLevelTurningTrend REAL")
+                db.execSQL("ALTER TABLE FishCatch ADD COLUMN seaLevelSamples TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
         val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // Poistetaan tripNotes-kenttä FishCatch-taulusta.
                 // SQLite ei tue sarakkeen poistamista suoraan, joten luodaan uusi taulu ja kopioidaan tiedot.
-                db.execSQL("CREATE TABLE `FishCatch_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `species` TEXT NOT NULL, `eventType` TEXT, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `caughtAt` INTEGER, `weight` INTEGER, `length` INTEGER, `method` TEXT NOT NULL, `strikeDepth` REAL, `waterDepth` REAL, `waterTemp` REAL, `airTemp` REAL, `cloudiness` INTEGER, `rain` INTEGER, `rainHourMm` REAL, `windSpeed` REAL, `windDirection` INTEGER, `pressure` REAL, `weatherSource` TEXT NOT NULL, `weatherTime` INTEGER, `weatherStation` TEXT NOT NULL, `additionalInfo` TEXT NOT NULL, `originalRef` TEXT NOT NULL, `fisherman` TEXT NOT NULL, `lure` TEXT, `lureColor` TEXT, `otherSpecies` TEXT, `weatherDataCompleteTime` INTEGER)")
+                db.execSQL("CREATE TABLE `FishCatch_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `species` TEXT NOT NULL, `eventType` TEXT, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `caughtAt` INTEGER, `weight` INTEGER, `length` INTEGER, `method` TEXT NOT NULL, `strikeDepth` REAL, `waterDepth` REAL, `waterTemp` REAL, `airTemp` REAL, `cloudiness` INTEGER, `rain` INTEGER, `rainHourMm` REAL, `windSpeed` REAL, `windDirection` INTEGER, `seaLevel` REAL, `weatherSource` TEXT NOT NULL, `weatherTime` INTEGER, `weatherStation` TEXT NOT NULL, `additionalInfo` TEXT NOT NULL, `originalRef` TEXT NOT NULL, `fisherman` TEXT NOT NULL, `lure` TEXT, `lureColor` TEXT, `otherSpecies` TEXT, `weatherDataCompleteTime` INTEGER)")
                 
-                db.execSQL("INSERT INTO `FishCatch_new` (`id`, `species`, `eventType`, `latitude`, `longitude`, `caughtAt`, `weight`, `length`, `method`, `strikeDepth`, `waterDepth`, `waterTemp`, `airTemp`, `cloudiness`, `rain`, `rainHourMm`, `windSpeed`, `windDirection`, `pressure`, `weatherSource`, `weatherTime`, `weatherStation`, `additionalInfo`, `originalRef`, `fisherman`, `lure`, `lureColor`, `otherSpecies`, `weatherDataCompleteTime`) SELECT `id`, `species`, `eventType`, `latitude`, `longitude`, `caughtAt`, `weight`, `length`, `method`, `strikeDepth`, `waterDepth`, `waterTemp`, `airTemp`, `cloudiness`, `rain`, `rainHourMm`, `windSpeed`, `windDirection`, `pressure`, `weatherSource`, `weatherTime`, `weatherStation`, `additionalInfo`, `originalRef`, `fisherman`, `lure`, `lureColor`, `otherSpecies`, `weatherDataCompleteTime` FROM `FishCatch`")
+                db.execSQL("INSERT INTO `FishCatch_new` (`id`, `species`, `eventType`, `latitude`, `longitude`, `caughtAt`, `weight`, `length`, `method`, `strikeDepth`, `waterDepth`, `waterTemp`, `airTemp`, `cloudiness`, `rain`, `rainHourMm`, `windSpeed`, `windDirection`, `seaLevel`, `weatherSource`, `weatherTime`, `weatherStation`, `additionalInfo`, `originalRef`, `fisherman`, `lure`, `lureColor`, `otherSpecies`, `weatherDataCompleteTime`) SELECT `id`, `species`, `eventType`, `latitude`, `longitude`, `caughtAt`, `weight`, `length`, `method`, `strikeDepth`, `waterDepth`, `waterTemp`, `airTemp`, `cloudiness`, `rain`, `rainHourMm`, `windSpeed`, `windDirection`, `seaLevel`, `weatherSource`, `weatherTime`, `weatherStation`, `additionalInfo`, `originalRef`, `fisherman`, `lure`, `lureColor`, `otherSpecies`, `weatherDataCompleteTime` FROM `FishCatch`")
                 
                 db.execSQL("DROP TABLE `FishCatch`")
                 db.execSQL("ALTER TABLE `FishCatch_new` RENAME TO `FishCatch`")
@@ -316,7 +326,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "rainHourMm REAL",
                     "windSpeed REAL",
                     "windDirection INTEGER",
-                    "pressure REAL",
+                    "seaLevel REAL",
                     "weatherSource TEXT NOT NULL DEFAULT ''",
                     "weatherTime INTEGER",
                     "weatherStation TEXT NOT NULL DEFAULT ''",
@@ -362,7 +372,7 @@ abstract class AppDatabase : RoomDatabase() {
                         "rainHourMm REAL, " +
                         "windSpeed REAL, " +
                         "windDirection INTEGER, " +
-                        "pressure REAL, " +
+                        "seaLevel REAL, " +
                         "weatherSource TEXT NOT NULL, " +
                         "weatherTime INTEGER, " +
                         "weatherStation TEXT NOT NULL, " +
@@ -371,7 +381,7 @@ abstract class AppDatabase : RoomDatabase() {
                         "tripNotes TEXT NOT NULL, " +
                         "weatherDataCompleteTime INTEGER)")
                 
-                val columns = "id, species, eventType, latitude, longitude, caughtAt, weight, length, method, strikeDepth, waterDepth, waterTemp, airTemp, cloudiness, rain, rainHourMm, windSpeed, windDirection, pressure, weatherSource, weatherTime, weatherStation, additionalInfo, originalRef, tripNotes, weatherDataCompleteTime"
+                val columns = "id, species, eventType, latitude, longitude, caughtAt, weight, length, method, strikeDepth, waterDepth, waterTemp, airTemp, cloudiness, rain, rainHourMm, windSpeed, windDirection, seaLevel, weatherSource, weatherTime, weatherStation, additionalInfo, originalRef, tripNotes, weatherDataCompleteTime"
                 db.execSQL("INSERT INTO FishCatch_new ($columns) SELECT $columns FROM FishCatch")
                 db.execSQL("DROP TABLE FishCatch")
                 db.execSQL("ALTER TABLE FishCatch_new RENAME TO FishCatch")

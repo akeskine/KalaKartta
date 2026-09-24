@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.proj4j.epsg)
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
+    testImplementation("net.sf.kxml:kxml2:2.3.0")
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }

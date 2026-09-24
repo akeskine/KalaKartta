@@ -28,6 +28,7 @@ import fi.anssi.kalakartta.data.PlaceOfInterestType
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.formatFishermanName
 import fi.anssi.kalakartta.utils.WeatherStation
+import fi.anssi.kalakartta.utils.SeaLevelStationResult
 import fi.anssi.kalakartta.utils.FishDiaryDialog
 import fi.anssi.kalakartta.utils.FishDiaryPageMatcher
 import fi.anssi.kalakartta.utils.enlargeButtons
@@ -111,6 +112,7 @@ class EditCatchActivity : AppCompatActivity() {
     private lateinit var nearestStationText: TextView
     private lateinit var weatherService: WeatherService
     private var nearestStation: WeatherStation? = null
+    private var currentSeaLevelResult: SeaLevelStationResult? = null
     
     private var currentWeatherSource: String = ""
     private var currentWeatherTime: Long = 0
@@ -728,6 +730,7 @@ class EditCatchActivity : AppCompatActivity() {
         dateTimeButton.setOnClickListener { showDateTimePicker() }
         clearTimeButton.setOnClickListener {
             isTimeSetManually = false
+            currentSeaLevelResult = null
             fishCatch = fishCatch?.copy(caughtAt = null)
             updateDateTimeButtonText()
             updateMoonData()
@@ -848,11 +851,16 @@ class EditCatchActivity : AppCompatActivity() {
     private fun fetchWeatherForDisplay(onlyMissing: Boolean = false) {
         val lat = latEditText.text.toString().toDoubleSafe()
         val lon = lonEditText.text.toString().toDoubleSafe()
+        val caughtAt = selectedCalendar.timeInMillis
         nearestStationText.text = "Haetaan säätietoja..."
         val catchInfo = if (fishCatch != null) "ID: ${fishCatch!!.id}" else "Uusi saalis"
-        weatherService.fetchWeatherFromMultipleStations(lat, lon, selectedCalendar.timeInMillis, null, catchInfo) { data, time, error, stations ->
+        weatherService.fetchWeatherFromMultipleStations(lat, lon, caughtAt, null, catchInfo) { data, time, error, stations ->
             lifecycleScope.launch(Dispatchers.Main) {
                 android.util.Log.d("KalaKartta", "fetchWeatherForDisplay callback: data=${data?.size} keys, time=$time, stations='$stations'")
+                val seaLevelResult = weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, caughtAt)
+                if (selectedCalendar.timeInMillis == caughtAt) {
+                    currentSeaLevelResult = seaLevelResult
+                }
                 if (data != null) {
                     currentWeatherStation = stations
                     applyWeatherData(data, time, null, onlyMissing)
@@ -919,6 +927,9 @@ class EditCatchActivity : AppCompatActivity() {
         val caughtAt = selectedCalendar.timeInMillis
         val lat = latEditText.text.toString().toDoubleSafe()
         val lon = lonEditText.text.toString().toDoubleSafe()
+        lifecycleScope.launch {
+            currentSeaLevelResult = weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, caughtAt)
+        }
         weatherService.fetchNearestStation(lat, lon, caughtAt) { station, error ->
             lifecycleScope.launch(Dispatchers.Main) {
                 if (!isTimeSetManually || selectedCalendar.timeInMillis != caughtAt) return@launch
@@ -936,6 +947,18 @@ class EditCatchActivity : AppCompatActivity() {
 
     private fun saveChanges() {
         lifecycleScope.launch {
+            if (!isPlace) {
+                val lat = latEditText.text.toString().toDoubleSafe()
+                val lon = lonEditText.text.toString().toDoubleSafe()
+                val caughtAt = if (isTimeSetManually || (fishCatch?.caughtAt ?: 0L) > 0L) {
+                    selectedCalendar.timeInMillis
+                } else {
+                    null
+                }
+                currentSeaLevelResult = caughtAt?.let {
+                    weatherService.fetchSeaLevelFromMultipleStationsSuspend(lat, lon, it)
+                }
+            }
             if (autoWeatherCheckBox.visibility == View.VISIBLE && autoWeatherCheckBox.isChecked) {
                 val progress = withContext(Dispatchers.Main) {
                     AlertDialog.Builder(this@EditCatchActivity).setMessage("Päivitetään säätietoja...").setCancelable(false).show()
@@ -1048,13 +1071,27 @@ class EditCatchActivity : AppCompatActivity() {
                 longitude = lonEditText.text.toString().toDoubleSafe(fc.longitude),
                 pressureSamples = fc.pressureSamples
             )
-            val updatedWithPressureTrends = if (updated.pressureSamples.isNotEmpty()) {
-                updated.copy(
-                    pressureTrend = updated.calculatePressureTrend(),
-                    pressureTurningTrend = updated.calculatePressureTurningTrend()
+            val updatedWithSeaLevel = when {
+                updatedCaughtAt == null -> updated.copy(
+                    seaLevel = null,
+                    seaLevelDataCompleteTime = null,
+                    seaLevelTrend = null,
+                    seaLevelTurningTrend = null,
+                    seaLevelSamples = emptyList()
+                )
+                currentSeaLevelResult != null -> updated.withSeaLevelResult(
+                    currentSeaLevelResult!!,
+                    caughtAt = updatedCaughtAt
+                )
+                else -> updated
+            }
+            val updatedWithPressureTrends = if (updatedWithSeaLevel.pressureSamples.isNotEmpty()) {
+                updatedWithSeaLevel.copy(
+                    pressureTrend = updatedWithSeaLevel.calculatePressureTrend(),
+                    pressureTurningTrend = updatedWithSeaLevel.calculatePressureTurningTrend()
                 )
             } else {
-                updated
+                updatedWithSeaLevel
             }
             android.util.Log.d("KalaKartta", "performFinalSave: tallennetaan ${updatedWithPressureTrends.pressureSamples.size} näytettä")
             lifecycleScope.launch(Dispatchers.IO) {

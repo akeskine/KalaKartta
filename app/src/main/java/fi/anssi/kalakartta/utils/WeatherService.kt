@@ -1,11 +1,12 @@
 ﻿package fi.anssi.kalakartta.utils
 
 import android.content.Context
-import android.location.Location
 import android.util.Xml
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.data.PressureSample
+import fi.anssi.kalakartta.data.SeaLevelSample
+import fi.anssi.kalakartta.service.FinlandSeaService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +31,18 @@ data class PressureStationResult(
     val pressureSamples: List<PressureSample>
 )
 
+data class SeaLevelStationResult(
+    val isSea: Boolean,
+    val seaLevel: Long?,
+    val seaLevelSamples: List<SeaLevelSample>
+)
+
+internal data class SeaLevelObservation(
+    val latitude: Double,
+    val longitude: Double,
+    val sample: SeaLevelSample
+)
+
 data class ForecastRow(
     val time: Long,
     val parameters: Map<String, Double>
@@ -44,6 +57,131 @@ internal fun buildPressureSamplesUrl(
 ): String {
     val url = "$observationsUrl$fmisid&starttime=$startTime&endtime=$endTime"
     return if (includeTimestep) "$url&timestep=60" else url
+}
+
+internal fun buildSeaLevelSamplesUrl(
+    observationsUrl: String,
+    startTime: String,
+    endTime: String
+): String = "$observationsUrl&starttime=$startTime&endtime=$endTime&timestep=10"
+
+internal fun parseSeaLevelCoverage(inputStream: java.io.InputStream): List<SeaLevelObservation> {
+    val parser = Xml.newPullParser()
+    parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
+    parser.setInput(inputStream, null)
+    return parseSeaLevelCoverage(parser)
+}
+
+internal fun parseSeaLevelCoverage(parser: XmlPullParser): List<SeaLevelObservation> {
+    val observations = mutableListOf<SeaLevelObservation>()
+    var inGridSeriesObservation = false
+    var inRangeType = false
+    var fieldIndex = 0
+    var waterLevelIndex = -1
+    var positionsText = ""
+    var valuesText = ""
+
+    fun collectGridObservations() {
+        if (waterLevelIndex < 0 || positionsText.isBlank() || valuesText.isBlank()) return
+
+        val positions = positionsText.trim().split(Regex("\\s+"))
+        val values = valuesText.trim().split(Regex("\\s+"))
+        val valueCount = fieldIndex
+        if (valueCount <= waterLevelIndex) return
+
+        val positionCount = positions.size / 3
+        val rowCount = values.size / valueCount
+        for (index in 0 until minOf(positionCount, rowCount)) {
+            val latitude = positions[index * 3].toDoubleOrNull() ?: continue
+            val longitude = positions[index * 3 + 1].toDoubleOrNull() ?: continue
+            val epochSeconds = positions[index * 3 + 2].toDoubleOrNull() ?: continue
+            val millimeters = values[index * valueCount + waterLevelIndex].toDoubleOrNull() ?: continue
+            if (!latitude.isFinite() || !longitude.isFinite() || !millimeters.isFinite()) continue
+
+            observations += SeaLevelObservation(
+                latitude = latitude,
+                longitude = longitude,
+                sample = SeaLevelSample(
+                    time = (epochSeconds * 1000).toLong(),
+                    seaLevel = (millimeters / 10.0).roundToLong()
+                )
+            )
+        }
+    }
+
+    var eventType = parser.eventType
+    while (eventType != XmlPullParser.END_DOCUMENT) {
+        when (eventType) {
+            XmlPullParser.START_TAG -> when (parser.name) {
+                "GridSeriesObservation" -> {
+                    inGridSeriesObservation = true
+                    inRangeType = false
+                    fieldIndex = 0
+                    waterLevelIndex = -1
+                    positionsText = ""
+                    valuesText = ""
+                }
+                "rangeType" -> if (inGridSeriesObservation) inRangeType = true
+                "field" -> if (inGridSeriesObservation && inRangeType) {
+                    if (parser.getAttributeValue(null, "name") == "WATLEV") {
+                        waterLevelIndex = fieldIndex
+                    }
+                    fieldIndex++
+                }
+                "positions" -> if (inGridSeriesObservation) positionsText = parser.nextText()
+                "doubleOrNilReasonTupleList" -> if (inGridSeriesObservation) valuesText = parser.nextText()
+            }
+            XmlPullParser.END_TAG -> when (parser.name) {
+                "rangeType" -> inRangeType = false
+                "GridSeriesObservation" -> {
+                    collectGridObservations()
+                    inGridSeriesObservation = false
+                }
+            }
+        }
+        eventType = parser.next()
+    }
+
+    return observations
+}
+
+internal fun selectNearestSeaLevelStation(
+    observations: List<SeaLevelObservation>,
+    latitude: Double,
+    longitude: Double,
+    caughtAt: Long
+): SeaLevelStationResult? {
+    val startTime = caughtAt - 6 * 60 * 60 * 1000L
+    val endTime = caughtAt + 6 * 60 * 60 * 1000L
+    val nearestStationSamples = observations
+        .groupBy { it.latitude to it.longitude }
+        .mapNotNull { (coordinates, stationObservations) ->
+            val samples = stationObservations
+                .map { it.sample }
+                .filter { it.time in startTime..endTime }
+                .distinctBy { it.time }
+                .sortedBy { it.time }
+            if (samples.isEmpty()) return@mapNotNull null
+            val distance = seaLevelDistanceKm(latitude, longitude, coordinates.first, coordinates.second)
+            Triple(distance, samples, samples.minByOrNull { abs(it.time - caughtAt) } ?: return@mapNotNull null)
+        }
+        .minByOrNull { it.first }
+        ?: return null
+
+    return SeaLevelStationResult(
+        isSea = true,
+        seaLevel = nearestStationSamples.third.seaLevel,
+        seaLevelSamples = nearestStationSamples.second
+    )
+}
+
+private fun seaLevelDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val latitudeDifference = Math.toRadians(lat2 - lat1)
+    val longitudeDifference = Math.toRadians(lon2 - lon1)
+    val a = sin(latitudeDifference / 2) * sin(latitudeDifference / 2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+            sin(longitudeDifference / 2) * sin(longitudeDifference / 2)
+    return 6371.0 * 2 * atan2(sqrt(a), sqrt(1 - a))
 }
 
 internal fun extrapolatePressureSampleIntoCompletionWindow(
@@ -92,7 +230,9 @@ class WeatherService(private val context: Context) {
 
     private val STATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::ef::stations"
     private val OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::observations::weather::simple&fmisid="
+    private val SEA_LEVEL_OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::mareograph::instant::multipointcoverage"
     private val FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::harmonie::surface::point::simple"
+    private val finlandSeaService by lazy { FinlandSeaService.fromAssets(context) }
     private val requestScope: CoroutineScope = if (context is LifecycleOwner) {
         context.lifecycleScope
     } else {
@@ -550,7 +690,7 @@ class WeatherService(private val context: Context) {
 
                         android.util.Log.d("KalaKartta", "Löydetty ${samples.size} ilmanpainenäytettä asemalta $fmisid")
                         samples.forEach {
-                            android.util.Log.d("KalaKartta", "  Sample: time=${it.time}, pressure=${it.pressure}")
+                            android.util.Log.d("KalaKartta", "  Sample: time=${it.time}, seaLevel=${it.pressure}")
                         }
 
                         if (samples.isNotEmpty()) {
@@ -569,6 +709,63 @@ class WeatherService(private val context: Context) {
             } catch (e: Exception) {
                 android.util.Log.e("KalaKartta", "Virhe painenäytteiden haussa: ${e.message}", e)
                 emptyList<PressureSample>()
+            }
+        }
+    }
+
+    suspend fun fetchSeaLevelFromMultipleStationsSuspend(
+        latitude: Double,
+        longitude: Double,
+        caughtAt: Long
+    ): SeaLevelStationResult? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                if (!finlandSeaService.isSea(latitude, longitude)) {
+                    return@withContext SeaLevelStationResult(false, null, emptyList())
+                }
+
+                val timestepMillis = 10 * 60 * 1000L
+                val roundedCatchTime = caughtAt / timestepMillis * timestepMillis
+                val startTime = roundedCatchTime - 6 * 60 * 60 * 1000L
+                val roundedNow = System.currentTimeMillis() / timestepMillis * timestepMillis
+                val endTime = minOf(roundedCatchTime + 6 * 60 * 60 * 1000L, roundedNow)
+                if (endTime < startTime) {
+                    return@withContext SeaLevelStationResult(true, null, emptyList())
+                }
+
+                val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                }
+                val urlString = buildSeaLevelSamplesUrl(
+                    SEA_LEVEL_OBSERVATIONS_URL,
+                    isoFormat.format(java.util.Date(startTime)),
+                    isoFormat.format(java.util.Date(endTime))
+                )
+                android.util.Log.i("KalaKartta", "Haetaan meriveden korkeushistoria FMI:ltä: $urlString")
+
+                val connection = URL(urlString).openConnection() as HttpURLConnection
+                connection.connectTimeout = 15000
+                connection.readTimeout = 20000
+                try {
+                    if (connection.responseCode != 200) {
+                        android.util.Log.e(
+                            "KalaKartta",
+                            "FMI:n merivedenkorkeushaku epäonnistui: ${connection.responseCode} ${connection.responseMessage}"
+                        )
+                        return@withContext null
+                    }
+
+                    val observations = connection.inputStream.use(::parseSeaLevelCoverage)
+                    selectNearestSeaLevelStation(observations, latitude, longitude, roundedCatchTime)
+                        ?: SeaLevelStationResult(true, null, emptyList())
+                } finally {
+                    connection.disconnect()
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Virhe meriveden korkeushistoriaa haettaessa: ${e.message}", e)
+                null
             }
         }
     }

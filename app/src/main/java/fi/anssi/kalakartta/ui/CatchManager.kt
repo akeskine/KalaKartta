@@ -442,63 +442,83 @@ class CatchManager(
                 null,
                 catchInfo
             ) { data, obsTime, _, stations ->
-                if (data == null) return@fetchWeatherFromMultipleStations
-
                 // WeatherServicein callback tulee omasta taustatyöstään. Siirretään
                 // jatkokäsittely Activityn lifecycleen ennen tietokanta-/UI-päivityksiä.
                 activity.lifecycleScope.launch {
-                    var updatedFish = fishWithId.copy(
-                        airTemp = data["t2m"],
-                        cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
-                        rainHourMm = data["r_1h"] ?: data["ri_10min"],
-                        windSpeed = data["ws_10min"],
-                        windDirection = data["wd_10min"]?.toLong(),
-                        pressure = data["p_sea"] ?: data["p_msl"],
-                        weatherSource = "FMI",
-                        weatherTime = obsTime ?: caughtAt,
-                        weatherStation = stations
-                    )
+                    var updatedFish = if (data != null) {
+                        fishWithId.copy(
+                            airTemp = data["t2m"],
+                            cloudiness = data["nn_ll01"]?.toLong() ?: data["n_man"]?.toLong(),
+                            rainHourMm = data["r_1h"] ?: data["ri_10min"],
+                            windSpeed = data["ws_10min"],
+                            windDirection = data["wd_10min"]?.toLong(),
+                            pressure = data["p_sea"] ?: data["p_msl"],
+                            weatherSource = "FMI",
+                            weatherTime = obsTime ?: caughtAt,
+                            weatherStation = stations
+                        )
+                    } else fishWithId
 
-                    // Haetaan FMISID historiatiedon hakua varten.
-                    val fmisid = stations.substringBefore(":").trim().ifEmpty { null }
-                    if (fmisid != null) {
-                        try {
-                            val startTime = caughtAt - 6 * 60 * 60 * 1000L
-                            val endTime = minOf(
-                                caughtAt + 6 * 60 * 60 * 1000L,
-                                System.currentTimeMillis()
-                            )
-                            val samples = weatherService.fetchPressureSamplesSuspend(fmisid, startTime, endTime)
-
-                            if (samples.isNotEmpty()) {
-                                val withSamples = updatedFish.copy(pressureSamples = samples)
-                                updatedFish = withSamples.copy(
-                                    pressureTrend = withSamples.calculatePressureTrend(),
-                                    pressureTurningTrend = withSamples.calculatePressureTurningTrend()
+                    if (data != null) {
+                        // Haetaan FMISID historiatiedon hakua varten.
+                        val fmisid = stations.substringBefore(":").trim().ifEmpty { null }
+                        if (fmisid != null) {
+                            try {
+                                val startTime = caughtAt - 6 * 60 * 60 * 1000L
+                                val endTime = minOf(
+                                    caughtAt + 6 * 60 * 60 * 1000L,
+                                    System.currentTimeMillis()
                                 )
+                                val samples = weatherService.fetchPressureSamplesSuspend(fmisid, startTime, endTime)
+
+                                if (samples.isNotEmpty()) {
+                                    val withSamples = updatedFish.copy(pressureSamples = samples)
+                                    updatedFish = withSamples.copy(
+                                        pressureTrend = withSamples.calculatePressureTrend(),
+                                        pressureTurningTrend = withSamples.calculatePressureTurningTrend()
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("CatchManager", "Error fetching seaLevel history", e)
                             }
-                        } catch (e: Exception) {
-                            android.util.Log.e("CatchManager", "Error fetching pressure history", e)
                         }
+                    }
+
+                    try {
+                        val seaLevelResult = weatherService.fetchSeaLevelFromMultipleStationsSuspend(
+                            point.latitude,
+                            point.longitude,
+                            caughtAt
+                        )
+                        if (seaLevelResult != null) {
+                            updatedFish = updatedFish.withSeaLevelResult(seaLevelResult)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("CatchManager", "Error fetching sea level history", e)
                     }
 
                     // Varmistetaan ennen päivitystä, ettei kohdetta ole juuri poistettu.
                     val current = withContext(Dispatchers.IO) {
                         db.fishCatchDao().getById(updatedFish.id)
                     }
-                    if (current != null) {
+                    if (current != null && updatedFish != fishWithId) {
                         withContext(Dispatchers.IO) {
                             db.fishCatchDao().update(updatedFish)
                         }
                         if (!activity.isFinishing && !activity.isDestroyed) {
-                            val logSuffix = if (updatedFish.pressureSamples.isNotEmpty()) {
-                                " and ${updatedFish.pressureSamples.size} samples"
+                            val pressureSuffix = if (updatedFish.pressureSamples.isNotEmpty()) {
+                                " and ${updatedFish.pressureSamples.size} seaLevel samples"
+                            } else {
+                                ""
+                            }
+                            val seaLevelSuffix = if (updatedFish.seaLevelSamples.isNotEmpty()) {
+                                " and ${updatedFish.seaLevelSamples.size} sea-level samples"
                             } else {
                                 ""
                             }
                             android.util.Log.d(
                                 "CatchManager",
-                                "Updating catch with weather$logSuffix: ID=${updatedFish.id}"
+                                "Updating catch with weather$pressureSuffix$seaLevelSuffix: ID=${updatedFish.id}"
                             )
                             onCatchAdded(updatedFish)
                         }
