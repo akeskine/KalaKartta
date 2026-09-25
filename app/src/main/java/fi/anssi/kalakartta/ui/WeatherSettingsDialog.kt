@@ -238,10 +238,13 @@ class WeatherSettingsDialog(
                 val stationName = stations.firstOrNull()?.name?.takeIf(String::isNotBlank)
                 titleView.text = stationName?.let { "Sää $it" } ?: "Sää"
                 rowsLayout.removeAllViews()
-                forecasts.forEach { (_, row) ->
-                    formatForecastSummary(row)?.let { summary ->
-                        rowsLayout.addView(createForecastRow(summary))
-                    }
+                val forecastSummaries = forecasts.mapNotNull { (_, row) -> formatForecastSummary(row) }
+                val timeColumnWidth = forecastSummaries.maxOfOrNull { summary ->
+                    val timeText = createForecastText("${summary.time}:")
+                    timeText.paint.measureText(timeText.text.toString()).toInt() + dp(4)
+                } ?: 0
+                forecastSummaries.forEach { summary ->
+                    rowsLayout.addView(createForecastRow(summary, timeColumnWidth))
                 }
                 if (rowsLayout.childCount == 0) {
                     rowsLayout.addView(createInfoText("Sääennustetta ei saatu haettua."))
@@ -265,13 +268,15 @@ class WeatherSettingsDialog(
         }
     }
 
-    private fun createForecastRow(summary: ForecastSummary): LinearLayout {
+    private fun createForecastRow(summary: ForecastSummary, timeColumnWidth: Int): LinearLayout {
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(2), 0, dp(2))
 
-            addView(createForecastText("${summary.time}:"))
+            addView(createForecastText("${summary.time}:").apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            }, LinearLayout.LayoutParams(timeColumnWidth, LinearLayout.LayoutParams.WRAP_CONTENT))
             summary.temperatureText?.let { temperature ->
                 addView(createForecastText(temperature), forecastItemLayoutParams())
             }
