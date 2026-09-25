@@ -41,7 +41,7 @@ class WeatherServiceUrlTest {
     }
 
     @Test
-    fun seaLevelHistoryRequestsAllMareographsAtTenMinuteIntervals() {
+    fun seaLevelHistoryRequestsAllMareographsAtHourlyIntervals() {
         val url = buildSeaLevelSamplesUrl(
             "https://opendata.fmi.fi/wfs?service=WFS&storedquery_id=fmi::observations::mareograph::instant::multipointcoverage",
             "2026-09-21T03:00:00Z",
@@ -51,6 +51,18 @@ class WeatherServiceUrlTest {
         assertTrue(url.contains("storedquery_id=fmi::observations::mareograph::instant::multipointcoverage"))
         assertTrue(url.contains("starttime=2026-09-21T03:00:00Z"))
         assertTrue(url.contains("endtime=2026-09-21T15:00:00Z"))
+        assertTrue(url.endsWith("&timestep=60"))
+    }
+
+    @Test
+    fun seaLevelCatchTimeRequestUsesTenMinuteIntervals() {
+        val url = buildSeaLevelSamplesUrl(
+            "https://opendata.fmi.fi/wfs?service=WFS&storedquery_id=fmi::observations::mareograph::instant::multipointcoverage",
+            "2026-09-21T14:50:00Z",
+            "2026-09-21T15:10:00Z",
+            timestepMinutes = 10
+        )
+
         assertTrue(url.endsWith("&timestep=10"))
     }
 

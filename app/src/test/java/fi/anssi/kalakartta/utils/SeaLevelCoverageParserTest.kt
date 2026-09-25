@@ -58,20 +58,42 @@ class SeaLevelCoverageParserTest {
     }
 
     @Test
-    fun nearestAvailableStationSuppliesCurrentLevelAndItsHistory() {
+    fun nearestStationSuppliesTenMinuteCatchValueAndHourlyHistory() {
+        val hourMillis = 60 * 60 * 1000L
+        val tenMinuteMillis = 10 * 60 * 1000L
+        val caughtAt = 12 * hourMillis + 17 * 60 * 1000L
+        val roundedCatchTime = caughtAt / tenMinuteMillis * tenMinuteMillis
+        val hourlyObservations = (6L..18L).map { hour ->
+            SeaLevelObservation(
+                60.0,
+                24.0,
+                SeaLevelSample(hour * hourMillis, hour)
+            )
+        }
+
         val result = selectNearestSeaLevelStation(
-            observations = listOf(
-                SeaLevelObservation(60.0, 24.0, SeaLevelSample(1_000L, 40L)),
-                SeaLevelObservation(60.0, 24.0, SeaLevelSample(2_000L, 41L)),
-                SeaLevelObservation(61.0, 25.0, SeaLevelSample(2_000L, 80L))
+            observations = hourlyObservations + SeaLevelObservation(
+                61.0,
+                25.0,
+                SeaLevelSample(12 * hourMillis, 80L)
+            ),
+            catchObservations = listOf(
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(roundedCatchTime - tenMinuteMillis, 40L)),
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(roundedCatchTime, 41L)),
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(roundedCatchTime + tenMinuteMillis, 42L)),
+                SeaLevelObservation(61.0, 25.0, SeaLevelSample(roundedCatchTime, 80L))
             ),
             latitude = 60.01,
             longitude = 24.01,
-            caughtAt = 1_900L
+            caughtAt = caughtAt,
+            catchTargetTime = roundedCatchTime
         )
 
         assertEquals(41L, result?.seaLevel)
-        assertEquals(2, result?.seaLevelSamples?.size)
+        assertEquals(12, result?.seaLevelSamples?.size)
+        assertTrue(result!!.seaLevelSamples.zipWithNext().all { (first, second) ->
+            second.time - first.time == hourMillis
+        })
     }
 
     private fun parserFor(xml: String): XmlPullParser = KXmlParser().apply {

@@ -62,8 +62,9 @@ internal fun buildPressureSamplesUrl(
 internal fun buildSeaLevelSamplesUrl(
     observationsUrl: String,
     startTime: String,
-    endTime: String
-): String = "$observationsUrl&starttime=$startTime&endtime=$endTime&timestep=10"
+    endTime: String,
+    timestepMinutes: Int = 60
+): String = "$observationsUrl&starttime=$startTime&endtime=$endTime&timestep=$timestepMinutes"
 
 internal fun parseSeaLevelCoverage(inputStream: java.io.InputStream): List<SeaLevelObservation> {
     val parser = Xml.newPullParser()
@@ -149,28 +150,37 @@ internal fun selectNearestSeaLevelStation(
     observations: List<SeaLevelObservation>,
     latitude: Double,
     longitude: Double,
-    caughtAt: Long
+    caughtAt: Long,
+    catchObservations: List<SeaLevelObservation> = observations,
+    catchTargetTime: Long = caughtAt
 ): SeaLevelStationResult? {
     val startTime = caughtAt - 6 * 60 * 60 * 1000L
     val endTime = caughtAt + 6 * 60 * 60 * 1000L
-    val nearestStationSamples = observations
-        .groupBy { it.latitude to it.longitude }
-        .mapNotNull { (coordinates, stationObservations) ->
-            val samples = stationObservations
+    val observationsByStation = observations.groupBy { it.latitude to it.longitude }
+    val catchObservationsByStation = catchObservations.groupBy { it.latitude to it.longitude }
+    val catchToleranceMillis = 10 * 60 * 1000L
+    val nearestStationSamples = (observationsByStation.keys + catchObservationsByStation.keys)
+        .distinct()
+        .mapNotNull { coordinates ->
+            val samples = observationsByStation[coordinates].orEmpty()
                 .map { it.sample }
                 .filter { it.time in startTime..endTime }
                 .distinctBy { it.time }
                 .sortedBy { it.time }
-            if (samples.isEmpty()) return@mapNotNull null
+            val catchSample = catchObservationsByStation[coordinates].orEmpty()
+                .map { it.sample }
+                .filter { abs(it.time - catchTargetTime) <= catchToleranceMillis }
+                .minByOrNull { abs(it.time - catchTargetTime) }
+            if (samples.isEmpty() && catchSample == null) return@mapNotNull null
             val distance = seaLevelDistanceKm(latitude, longitude, coordinates.first, coordinates.second)
-            Triple(distance, samples, samples.minByOrNull { abs(it.time - caughtAt) } ?: return@mapNotNull null)
+            Triple(distance, samples, catchSample ?: samples.minByOrNull { abs(it.time - catchTargetTime) })
         }
         .minByOrNull { it.first }
         ?: return null
 
     return SeaLevelStationResult(
         isSea = true,
-        seaLevel = nearestStationSamples.third.seaLevel,
+        seaLevel = nearestStationSamples.third?.seaLevel,
         seaLevelSamples = nearestStationSamples.second
     )
 }
@@ -725,10 +735,11 @@ class WeatherService(private val context: Context) {
                 }
 
                 val timestepMillis = 10 * 60 * 1000L
+                val hourMillis = 60 * 60 * 1000L
                 val roundedCatchTime = caughtAt / timestepMillis * timestepMillis
-                val startTime = roundedCatchTime - 6 * 60 * 60 * 1000L
+                val startTime = caughtAt - 6 * hourMillis
                 val roundedNow = System.currentTimeMillis() / timestepMillis * timestepMillis
-                val endTime = minOf(roundedCatchTime + 6 * 60 * 60 * 1000L, roundedNow)
+                val endTime = minOf(caughtAt + 6 * hourMillis, System.currentTimeMillis())
                 if (endTime < startTime) {
                     return@withContext SeaLevelStationResult(true, null, emptyList())
                 }
@@ -736,30 +747,78 @@ class WeatherService(private val context: Context) {
                 val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
                     timeZone = java.util.TimeZone.getTimeZone("UTC")
                 }
-                val urlString = buildSeaLevelSamplesUrl(
+                val historyStartTime = startTime / hourMillis * hourMillis
+                val historyEndTime = endTime / hourMillis * hourMillis
+                if (historyEndTime < historyStartTime) {
+                    return@withContext SeaLevelStationResult(true, null, emptyList())
+                }
+                val historyUrl = buildSeaLevelSamplesUrl(
                     SEA_LEVEL_OBSERVATIONS_URL,
-                    isoFormat.format(java.util.Date(startTime)),
-                    isoFormat.format(java.util.Date(endTime))
+                    isoFormat.format(java.util.Date(historyStartTime)),
+                    isoFormat.format(java.util.Date(historyEndTime))
                 )
-                android.util.Log.i("KalaKartta", "Haetaan meriveden korkeushistoria FMI:ltä: $urlString")
+                android.util.Log.i("KalaKartta", "Haetaan meriveden korkeushistoria FMI:ltä: $historyUrl")
 
-                val connection = URL(urlString).openConnection() as HttpURLConnection
-                connection.connectTimeout = 15000
-                connection.readTimeout = 20000
+                val historyConnection = URL(historyUrl).openConnection() as HttpURLConnection
+                historyConnection.connectTimeout = 15000
+                historyConnection.readTimeout = 20000
                 try {
-                    if (connection.responseCode != 200) {
+                    if (historyConnection.responseCode != 200) {
                         android.util.Log.e(
                             "KalaKartta",
-                            "FMI:n merivedenkorkeushaku epäonnistui: ${connection.responseCode} ${connection.responseMessage}"
+                            "FMI:n merivedenkorkeushaku epäonnistui: ${historyConnection.responseCode} ${historyConnection.responseMessage}"
                         )
                         return@withContext null
                     }
 
-                    val observations = connection.inputStream.use(::parseSeaLevelCoverage)
-                    selectNearestSeaLevelStation(observations, latitude, longitude, roundedCatchTime)
+                    val historyObservations = historyConnection.inputStream.use(::parseSeaLevelCoverage)
+                    val catchStartTime = roundedCatchTime - timestepMillis
+                    val catchEndTime = minOf(roundedCatchTime + timestepMillis, roundedNow)
+                    val catchObservations = if (roundedCatchTime <= roundedNow && catchEndTime >= catchStartTime) {
+                        val catchUrl = buildSeaLevelSamplesUrl(
+                            SEA_LEVEL_OBSERVATIONS_URL,
+                            isoFormat.format(java.util.Date(catchStartTime)),
+                            isoFormat.format(java.util.Date(catchEndTime)),
+                            timestepMinutes = 10
+                        )
+                        try {
+                            val catchConnection = URL(catchUrl).openConnection() as HttpURLConnection
+                            catchConnection.connectTimeout = 15000
+                            catchConnection.readTimeout = 20000
+                            try {
+                                if (catchConnection.responseCode == 200) {
+                                    catchConnection.inputStream.use(::parseSeaLevelCoverage)
+                                } else {
+                                    android.util.Log.w(
+                                        "KalaKartta",
+                                        "FMI:n meriveden saantihetken haku epäonnistui: ${catchConnection.responseCode} ${catchConnection.responseMessage}"
+                                    )
+                                    emptyList()
+                                }
+                            } finally {
+                                catchConnection.disconnect()
+                            }
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            android.util.Log.e("KalaKartta", "Meriveden saantihetken arvon haku epäonnistui: ${e.message}", e)
+                            emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
+
+                    selectNearestSeaLevelStation(
+                        historyObservations,
+                        latitude,
+                        longitude,
+                        caughtAt,
+                        catchObservations,
+                        roundedCatchTime
+                    )
                         ?: SeaLevelStationResult(true, null, emptyList())
                 } finally {
-                    connection.disconnect()
+                    historyConnection.disconnect()
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

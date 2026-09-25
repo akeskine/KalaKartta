@@ -11,7 +11,7 @@ class PressureConverter {
         for (sample in value) {
             val obj = JSONObject()
             obj.put("time", sample.time)
-            obj.put("seaLevel", sample.pressure)
+            obj.put("pressure", sample.pressure)
             array.put(obj)
         }
         return array.toString()
@@ -27,7 +27,7 @@ class PressureConverter {
                 list.add(
                     PressureSample(
                         obj.getLong("time"),
-                        obj.getDouble("seaLevel")
+                        obj.getDouble("pressure")
                     )
                 )
             }
