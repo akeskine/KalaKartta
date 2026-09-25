@@ -21,6 +21,7 @@ class CatchDetailsTextBuilder(private val context: Context) {
 
         fish?.let {
             val shouldShowPressureGraph = it.pressureSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L
+            val shouldShowSeaLevelGraph = it.seaLevelSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L
             var pressureGraphMarkerAdded = false
             if (species != null) {
                 val speciesName = if (it.species == "OTHER" && !it.otherSpecies.isNullOrEmpty()) {
@@ -120,11 +121,14 @@ class CatchDetailsTextBuilder(private val context: Context) {
             if (shouldShowPressureGraph && !pressureGraphMarkerAdded) {
                 details.append(PRESSURE_GRAPH_MARKER)
             }
+            if (shouldShowPressureGraph && (it.seaLevel != null || shouldShowSeaLevelGraph || it.seaLevelStation.isNotEmpty())) {
+                details.append(SEA_LEVEL_DETAILS_SPACER_MARKER)
+            }
             if (it.seaLevel != null) {
                 val signedSeaLevel = if (it.seaLevel >= 0) "+${it.seaLevel}" else it.seaLevel.toString()
                 details.append("Meriveden korkeus: $signedSeaLevel cm (MW)\n")
             }
-            if (it.seaLevelSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L) {
+            if (shouldShowSeaLevelGraph) {
                 details.append(SEA_LEVEL_GRAPH_MARKER)
             }
             if (it.seaLevelStation.isNotEmpty()) {
@@ -139,6 +143,7 @@ class CatchDetailsTextBuilder(private val context: Context) {
 
     companion object {
         const val PRESSURE_GRAPH_MARKER = "\u0000PRESSURE_GRAPH\u0000"
+        const val SEA_LEVEL_DETAILS_SPACER_MARKER = "\u0000SEA_LEVEL_DETAILS_SPACER\u0000"
         const val SEA_LEVEL_GRAPH_MARKER = "\u0000SEA_LEVEL_GRAPH\u0000"
     }
 }

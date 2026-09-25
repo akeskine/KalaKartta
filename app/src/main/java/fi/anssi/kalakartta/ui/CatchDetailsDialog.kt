@@ -187,7 +187,7 @@ class CatchDetailsDialog(
         container.addView(PressureGraphView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                (180 * context.resources.displayMetrics.density).toInt()
+                (120 * context.resources.displayMetrics.density).toInt()
             ).apply {
                 topMargin = (8 * context.resources.displayMetrics.density).toInt()
             }
@@ -199,12 +199,19 @@ class CatchDetailsDialog(
         container.addView(SeaLevelGraphView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                (180 * context.resources.displayMetrics.density).toInt()
+                (120 * context.resources.displayMetrics.density).toInt()
             ).apply {
                 topMargin = (8 * context.resources.displayMetrics.density).toInt()
             }
             setData(fish.seaLevelSamples, fish.caughtAt!!)
         })
+    }
+
+    private fun addSeaLevelDetailsSpacer(container: LinearLayout) {
+        container.addView(View(context), LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (24 * context.resources.displayMetrics.density).toInt()
+        ))
     }
 
     private fun addDetailsAndGraphs(
@@ -215,6 +222,7 @@ class CatchDetailsDialog(
     ) {
         val graphMarkers = listOf(
             CatchDetailsTextBuilder.PRESSURE_GRAPH_MARKER to ::addPressureGraph,
+            CatchDetailsTextBuilder.SEA_LEVEL_DETAILS_SPACER_MARKER to { layout, _ -> addSeaLevelDetailsSpacer(layout) },
             CatchDetailsTextBuilder.SEA_LEVEL_GRAPH_MARKER to ::addSeaLevelGraph
         )
         var offset = 0
