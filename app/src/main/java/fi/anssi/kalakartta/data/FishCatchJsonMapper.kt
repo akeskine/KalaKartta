@@ -45,7 +45,7 @@ class FishCatchJsonMapper(
             if (fishCatch.rainHourMm != null) obj.put("rainHourMm", fishCatch.rainHourMm)
             if (fishCatch.windSpeed != null) obj.put("windSpeed", fishCatch.windSpeed)
             if (fishCatch.windDirection != null) obj.put("windDirection", fishCatch.windDirection)
-            if (fishCatch.pressure != null) obj.put("seaLevel", fishCatch.pressure)
+            if (fishCatch.pressure != null) obj.put("pressure", fishCatch.pressure)
             if (fishCatch.seaLevel != null) obj.put("seaLevel", fishCatch.seaLevel)
             obj.put("weatherSource", fishCatch.weatherSource)
             if (fishCatch.weatherTime != null && fishCatch.weatherTime > 0) {
@@ -70,7 +70,7 @@ class FishCatchJsonMapper(
                 fishCatch.pressureSamples.forEach { sample ->
                     val sampleObj = JSONObject()
                     sampleObj.put("time", isoFormatProvider().format(Date(sample.time)))
-                    sampleObj.put("seaLevel", normalizePressure(sample.pressure))
+                    sampleObj.put("pressure", normalizePressure(sample.pressure))
                     samplesArray.put(sampleObj)
                 }
                 obj.put("pressureSamples", samplesArray)
@@ -167,7 +167,13 @@ class FishCatchJsonMapper(
                     rainHourMm = if (obj.isNull("rainHourMm")) null else obj.optDouble("rainHourMm"),
                     windSpeed = if (obj.isNull("windSpeed")) null else obj.optDouble("windSpeed"),
                     windDirection = if (obj.isNull("windDirection")) null else obj.optLong("windDirection"),
-                    pressure = if (obj.isNull("seaLevel")) null else obj.optDouble("seaLevel"),
+                    pressure = if (obj.has("pressure") && !obj.isNull("pressure")) {
+                        obj.optDouble("pressure")
+                    } else if (obj.isNull("seaLevel")) {
+                        null
+                    } else {
+                        obj.optDouble("seaLevel")
+                    },
                     seaLevel = if (obj.isNull("seaLevel")) null else obj.optLong("seaLevel"),
                     weatherSource = obj.optString("weatherSource", ""),
                     weatherTime = weatherTime,
@@ -199,8 +205,9 @@ class FishCatchJsonMapper(
         val result = mutableListOf<PressureSample>()
         for (index in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(index)
+            if (!obj.has("pressure") || obj.isNull("pressure")) continue
             val time = parseOptionalDate(obj, "time") ?: obj.optLong("time", 0L)
-            val pressure = normalizePressure(obj.optDouble("seaLevel", 0.0))
+            val pressure = normalizePressure(obj.optDouble("pressure", 0.0))
             result += PressureSample(time, pressure)
         }
         return result

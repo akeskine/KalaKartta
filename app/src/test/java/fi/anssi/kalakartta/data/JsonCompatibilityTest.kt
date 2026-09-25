@@ -22,8 +22,8 @@ class JsonCompatibilityTest {
         val samples1 = listOf(PressureSample(1000L, 1010.0))
         val samples2 = listOf(PressureSample(3000L, 1020.0))
         
-        val catch1 = FishCatch(species = "AHVEN", latitude = 60.0, longitude = 24.0, caughtAt = 1000L, pressureSamples = samples1)
-        val catch2 = FishCatch(species = "HAUKI", latitude = 61.0, longitude = 25.0, caughtAt = 2000L, pressureSamples = samples2)
+        val catch1 = FishCatch(species = "AHVEN", latitude = 60.0, longitude = 24.0, caughtAt = 1000L, pressure = 1008.0, seaLevel = 37L, pressureSamples = samples1)
+        val catch2 = FishCatch(species = "HAUKI", latitude = 61.0, longitude = 25.0, caughtAt = 2000L, pressure = 1009.0, seaLevel = 36L, pressureSamples = samples2)
         
         val catches = listOf(catch1, catch2)
         val root = service.exportCatchesAndPlaces(catches, emptyList())
@@ -33,13 +33,19 @@ class JsonCompatibilityTest {
         
         val obj1 = catchesArray.getJSONObject(0)
         assertTrue(obj1.has("pressureSamples"))
+        assertEquals(1008.0, obj1.getDouble("pressure"), 0.001)
+        assertEquals(37L, obj1.getLong("seaLevel"))
         assertEquals(1, obj1.getJSONArray("pressureSamples").length())
-        assertEquals(1010.0, obj1.getJSONArray("pressureSamples").getJSONObject(0).getDouble("seaLevel"), 0.001)
+        assertEquals(1010.0, obj1.getJSONArray("pressureSamples").getJSONObject(0).getDouble("pressure"), 0.001)
+        assertFalse(obj1.getJSONArray("pressureSamples").getJSONObject(0).has("seaLevel"))
         
         val obj2 = catchesArray.getJSONObject(1)
         assertTrue(obj2.has("pressureSamples"))
+        assertEquals(1009.0, obj2.getDouble("pressure"), 0.001)
+        assertEquals(36L, obj2.getLong("seaLevel"))
         assertEquals(1, obj2.getJSONArray("pressureSamples").length())
-        assertEquals(1020.0, obj2.getJSONArray("pressureSamples").getJSONObject(0).getDouble("seaLevel"), 0.001)
+        assertEquals(1020.0, obj2.getJSONArray("pressureSamples").getJSONObject(0).getDouble("pressure"), 0.001)
+        assertFalse(obj2.getJSONArray("pressureSamples").getJSONObject(0).has("seaLevel"))
     }
 
     @Test
@@ -73,8 +79,8 @@ class JsonCompatibilityTest {
         
         val samplesArray = obj.getJSONArray("pressureSamples")
         assertEquals(2, samplesArray.length())
-        assertEquals(1013.25123, samplesArray.getJSONObject(0).getDouble("seaLevel"), 0.000001)
-        assertEquals(1012.0, samplesArray.getJSONObject(1).getDouble("seaLevel"), 0.001)
+        assertEquals(1013.25123, samplesArray.getJSONObject(0).getDouble("pressure"), 0.000001)
+        assertEquals(1012.0, samplesArray.getJSONObject(1).getDouble("pressure"), 0.001)
     }
 
     @Test
@@ -169,9 +175,11 @@ class JsonCompatibilityTest {
                         "longitude": 26.0,
                         "pressureTrend": -0.5,
                         "pressureTurningTrend": 0.125,
+                        "pressure": 1008.5,
+                        "seaLevel": 37,
                         "pressureSamples": [
-                            {"time": "2023-01-01T00:00:00Z", "seaLevel": 1010.0},
-                            {"time": "2023-01-01T01:00:00Z", "seaLevel": 1009.5}
+                            {"time": "2023-01-01T00:00:00Z", "pressure": 1010.0},
+                            {"time": "2023-01-01T01:00:00Z", "pressure": 1009.5}
                         ],
                         "moonPhase": 0.25,
                         "moonAltitude": 30.0
@@ -185,6 +193,8 @@ class JsonCompatibilityTest {
         val fishCatch = importData.catches[0]
         
         assertEquals("KUHA", fishCatch.species)
+        assertEquals(1008.5, fishCatch.pressure!!, 0.001)
+        assertEquals(37L, fishCatch.seaLevel)
         assertEquals(-0.5, fishCatch.pressureTrend!!, 0.001)
         assertEquals(0.125, fishCatch.pressureTurningTrend!!, 0.001)
         assertEquals(2, fishCatch.pressureSamples.size)
@@ -203,7 +213,7 @@ class JsonCompatibilityTest {
                     "pressureTrend": 0.9876543,
                     "pressureTurningTrend": -0.1234567,
                     "pressureSamples": [
-                        {"time": "2023-01-01T00:00:00Z", "seaLevel": 1012.3456789}
+                        {"time": "2023-01-01T00:00:00Z", "pressure": 1012.3456789}
                     ]
                 }]
             }
@@ -214,5 +224,24 @@ class JsonCompatibilityTest {
         assertEquals(0.98765, fishCatch.pressureTrend!!, 0.000001)
         assertEquals(-0.12346, fishCatch.pressureTurningTrend!!, 0.000001)
         assertEquals(1012.34568, fishCatch.pressureSamples.single().pressure, 0.000001)
+    }
+
+    @Test
+    fun testImportIgnoresSeaLevelKeyInPressureSamples() {
+        val service = JsonService()
+        val json = """
+            {
+                "catches": [{
+                    "species": "KUHA",
+                    "pressureSamples": [
+                        {"time": "2023-01-01T00:00:00Z", "seaLevel": 1012.3456789}
+                    ]
+                }]
+            }
+        """.trimIndent()
+
+        val fishCatch = service.parseImportData(json).catches.single()
+
+        assertTrue(fishCatch.pressureSamples.isEmpty())
     }
 }
