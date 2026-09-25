@@ -105,6 +105,12 @@ class MainActivity : AppCompatActivity() {
         activityResultLauncher.launch(intent)
     }
 
+    fun getCurrentMapCenterCoordinates(): Pair<Double, Double>? {
+        if (!::map.isInitialized) return null
+        val center = map.mapCenter
+        return center.latitude to center.longitude
+    }
+
     private lateinit var db: AppDatabase
     private lateinit var importExportManager: ImportExportManager
     private lateinit var settingsManager: SettingsManager

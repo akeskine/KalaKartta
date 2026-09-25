@@ -297,7 +297,9 @@ class WeatherService(private val context: Context) {
                     timeZone = java.util.TimeZone.getTimeZone("UTC")
                 }
                 val startTime = dateFormat.format(java.util.Date(now))
-                val endTime = dateFormat.format(java.util.Date(now + 12 * 60 * 60 * 1000L))
+                val maxTargetHours = targetHours.maxOrNull()?.coerceAtLeast(0)?.toLong()
+                    ?: return@withContext emptyList()
+                val endTime = dateFormat.format(java.util.Date(now + (maxTargetHours + 1) * 60 * 60 * 1000L))
                 val urlString = "$FORECAST_URL&latlon=$latitude,$longitude" +
                     "&starttime=$startTime&endtime=$endTime&timestep=60" +
                     "&parameters=Temperature,WindSpeedMS,WindGust,WindDirection,Precipitation1h,TotalCloudCover"
@@ -1304,6 +1306,74 @@ class WeatherService(private val context: Context) {
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
     }
+}
+
+data class ForecastSummary(
+    val time: String,
+    val conditions: String,
+    val temperatureText: String?,
+    val cloudCoverPercent: Double?,
+    val cloudCoverDescription: String?,
+    val precipitationMmPerHour: Double?,
+    val precipitationDescription: String?,
+    val windText: String?,
+    val windDirectionDegrees: Float?
+)
+
+fun formatForecastSummary(
+    row: ForecastRow,
+    locale: java.util.Locale = java.util.Locale.getDefault(),
+    referenceTime: Long = System.currentTimeMillis()
+): ForecastSummary? {
+    val values = row.parameters
+    val parts = mutableListOf<String>()
+
+    val temperatureText = values["Temperature"]?.takeIf(Double::isFinite)?.let { temperature ->
+        val sign = if (temperature >= 0) "+" else ""
+        "$sign${formatForecastNumber(temperature)}°"
+    }
+    val cloudCoverPercent = values["TotalCloudCover"]?.takeIf(Double::isFinite)
+    val cloudCoverDescription = cloudCoverPercent?.let(::formatCloudCover)
+    val precipitationMmPerHour = values["Precipitation1h"]?.takeIf(Double::isFinite)
+    val precipitationDescription = precipitationMmPerHour?.let(::formatPrecipitation)
+    temperatureText?.let(parts::add)
+    cloudCoverDescription?.let(parts::add)
+    precipitationDescription?.let(parts::add)
+
+    val windSpeed = values["WindSpeedMS"]?.takeIf(Double::isFinite)?.let(::formatForecastNumber)
+    val windGust = values["WindGust"]?.takeIf(Double::isFinite)?.let(::formatForecastNumber)
+    val windText = when {
+        windSpeed != null && windGust != null -> "$windSpeed($windGust) m/s"
+        windSpeed != null -> "$windSpeed m/s"
+        windGust != null -> "puuskissa $windGust m/s"
+        else -> null
+    }
+    windText?.let(parts::add)
+
+    if (parts.isEmpty()) return null
+    val timeFormatter = java.text.SimpleDateFormat("HH:mm", locale)
+    val time = timeFormatter.format(java.util.Date(row.time))
+    val nextDay = java.util.Calendar.getInstance().apply {
+        timeInMillis = referenceTime
+        add(java.util.Calendar.DAY_OF_YEAR, 1)
+    }
+    val forecastDate = java.util.Calendar.getInstance().apply { timeInMillis = row.time }
+    val displayTime = if (
+        nextDay.get(java.util.Calendar.YEAR) == forecastDate.get(java.util.Calendar.YEAR) &&
+        nextDay.get(java.util.Calendar.DAY_OF_YEAR) == forecastDate.get(java.util.Calendar.DAY_OF_YEAR)
+    ) "$time (+1)" else time
+    return ForecastSummary(
+        time = displayTime,
+        conditions = parts.joinToString(", "),
+        temperatureText = temperatureText,
+        cloudCoverPercent = cloudCoverPercent,
+        cloudCoverDescription = cloudCoverDescription,
+        precipitationMmPerHour = precipitationMmPerHour,
+        precipitationDescription = precipitationDescription,
+        windText = windText,
+        windDirectionDegrees = values["WindDirection"]?.takeIf(Double::isFinite)?.toFloat()
+            ?.takeIf(Float::isFinite)
+    )
 }
 
 fun formatForecastSpeech(hours: Int, row: ForecastRow): String? {

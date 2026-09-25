@@ -13,6 +13,7 @@ class PressureGraphView @JvmOverloads constructor(
 
     private var samples: List<PressureSample> = emptyList()
     private var caughtAt: Long = 0L
+    private var isHistoryOnly = false
 
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.BLUE
@@ -45,12 +46,22 @@ class PressureGraphView @JvmOverloads constructor(
         style = Paint.Style.STROKE
     }
 
-    private val timeRangeHours = 6f // -6 to +6
+    private var timeRangeHours = 6f // -6 to +6
 
     fun setData(samples: List<PressureSample>, caughtAt: Long) {
         android.util.Log.d("KalaKartta", "PressureGraphView.setData: samples=${samples.size}, caughtAt=$caughtAt")
         this.samples = samples.sortedBy { it.time }
         this.caughtAt = caughtAt
+        isHistoryOnly = false
+        timeRangeHours = 6f
+        invalidate()
+    }
+
+    fun setHistoryData(samples: List<PressureSample>, endTime: Long) {
+        this.samples = samples.sortedBy { it.time }
+        caughtAt = endTime
+        isHistoryOnly = true
+        timeRangeHours = 12f
         invalidate()
     }
 
@@ -68,7 +79,12 @@ class PressureGraphView @JvmOverloads constructor(
         val millisInRange = timeRangeHours * 60 * 60 * 1000
         val visibleSamples = samples.filter { sample ->
             val relativeTime = sample.time - caughtAt
-            Math.abs(relativeTime) <= millisInRange && sample.pressure.isFinite()
+            val inRange = if (isHistoryOnly) {
+                sample.time in (caughtAt - millisInRange.toLong())..caughtAt
+            } else {
+                Math.abs(relativeTime) <= millisInRange
+            }
+            inRange && sample.pressure.isFinite()
         }
         if (visibleSamples.isEmpty()) return
 
@@ -90,28 +106,40 @@ class PressureGraphView @JvmOverloads constructor(
             pressure += PressureGraphScale.TICK_STEP_HPA
         }
 
-        // Draw grid and X-axis labels (Time every 2h)
-        for (h in -6..6 step 2) {
-            val x = paddingLeft + graphWidth / 2 + (h.toFloat() / timeRangeHours) * (graphWidth / 2)
-            
-            // Grid line (vertical)
-            if (h != 0 && Math.abs(h.toFloat()) != timeRangeHours) {
-                canvas.drawLine(x, paddingTop, x, height.toFloat() - paddingBottom, gridPaint)
+        // Draw grid and X-axis labels.
+        if (isHistoryOnly) {
+            for (hoursAgo in 12 downTo 0 step 3) {
+                val x = paddingLeft + graphWidth * (12 - hoursAgo) / 12
+                if (hoursAgo != 0 && hoursAgo != 12) {
+                    canvas.drawLine(x, paddingTop, x, height.toFloat() - paddingBottom, gridPaint)
+                }
+                val label = if (hoursAgo == 0) "Nyt" else "${hoursAgo}h"
+                val textWidth = textPaint.measureText(label)
+                canvas.drawText(label, x - textWidth / 2, height.toFloat() - 10f, textPaint)
             }
-            
-            // Label
-            val label = if (h == 0) "0" else "${h}h"
-            val textWidth = textPaint.measureText(label)
-            canvas.drawText(label, x - textWidth / 2, height.toFloat() - 10f, textPaint)
+        } else {
+            for (h in -6..6 step 2) {
+                val x = paddingLeft + graphWidth / 2 + (h.toFloat() / timeRangeHours) * (graphWidth / 2)
+
+                if (h != 0 && Math.abs(h.toFloat()) != timeRangeHours) {
+                    canvas.drawLine(x, paddingTop, x, height.toFloat() - paddingBottom, gridPaint)
+                }
+
+                val label = if (h == 0) "0" else "${h}h"
+                val textWidth = textPaint.measureText(label)
+                canvas.drawText(label, x - textWidth / 2, height.toFloat() - 10f, textPaint)
+            }
         }
 
         // Draw axes
         canvas.drawLine(paddingLeft, paddingTop, paddingLeft, height.toFloat() - paddingBottom, axisPaint) // Y-axis
         canvas.drawLine(paddingLeft, height.toFloat() - paddingBottom, width.toFloat() - paddingRight, height.toFloat() - paddingBottom, axisPaint) // X-axis
 
-        // Vertical line for caughtAt (0 point)
-        val centerX = paddingLeft + graphWidth / 2
-        canvas.drawLine(centerX, paddingTop, centerX, height.toFloat() - paddingBottom, caughtAtPaint)
+        if (!isHistoryOnly) {
+            // Vertical line for caughtAt (0 point)
+            val centerX = paddingLeft + graphWidth / 2
+            canvas.drawLine(centerX, paddingTop, centerX, height.toFloat() - paddingBottom, caughtAtPaint)
+        }
 
         // Plot samples
         val path = Path()
@@ -119,10 +147,18 @@ class PressureGraphView @JvmOverloads constructor(
 
         for (sample in samples) {
             val relativeTime = sample.time - caughtAt
-            if (Math.abs(relativeTime) > millisInRange) continue
+            if (isHistoryOnly) {
+                if (sample.time !in (caughtAt - millisInRange.toLong())..caughtAt) continue
+            } else if (Math.abs(relativeTime) > millisInRange) {
+                continue
+            }
             if (!sample.pressure.isFinite()) continue
 
-            val x = paddingLeft + graphWidth / 2 + (relativeTime.toFloat() / millisInRange) * (graphWidth / 2)
+            val x = if (isHistoryOnly) {
+                paddingLeft + ((sample.time - (caughtAt - millisInRange.toLong())).toFloat() / millisInRange) * graphWidth
+            } else {
+                paddingLeft + graphWidth / 2 + (relativeTime.toFloat() / millisInRange) * (graphWidth / 2)
+            }
             val y = height.toFloat() - paddingBottom -
                     ((sample.pressure.toFloat() - pressureRange.min) /
                             (pressureRange.max - pressureRange.min)) * graphHeight

@@ -102,6 +102,7 @@ class SettingsManager(
             settingsStore = settingsStore,
             onWeatherSettingsChanged = onWeatherSettingsChanged,
             onOpenSettings = { generalSettingsDialog.show() },
+            locationProvider = { (activity as? MainActivity)?.getCurrentMapCenterCoordinates() },
             onShowDialog = ::showDialog
         )
     }
