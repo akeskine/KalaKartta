@@ -3,6 +3,7 @@ package fi.anssi.kalakartta.ui
 import fi.anssi.kalakartta.data.FishCatch
 import fi.anssi.kalakartta.data.PressureSample
 import fi.anssi.kalakartta.data.SeaLevelSample
+import fi.anssi.kalakartta.utils.SeaLevelStationResult
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -102,6 +103,39 @@ class WeatherUpdateTargetTest {
         )
 
         assertFalse(needsSeaLevelHistoryUpdate(catch, caughtAt + 7 * hourMillis))
+    }
+
+    @Test
+    fun seaLevelFmiResultStoresSourceTimeAndStation() {
+        val catch = fishCatchWithTrend(10 * hourMillis).withSeaLevelResult(
+            SeaLevelStationResult(
+                isSea = true,
+                seaLevel = 42L,
+                seaLevelSamples = listOf(SeaLevelSample(10 * hourMillis, 42L)),
+                seaLevelTime = 10 * hourMillis,
+                seaLevelStation = "100539:Kemi Ajos"
+            ),
+            now = 20 * hourMillis
+        )
+
+        assertTrue(catch.seaLevelSource == "FMI")
+        assertTrue(catch.seaLevelTime == 10 * hourMillis)
+        assertTrue(catch.seaLevelStation == "100539:Kemi Ajos")
+    }
+
+    @Test
+    fun manuallyEditedSeaLevelClearsAutomaticStationMetadata() {
+        val catch = fishCatchWithTrend(10 * hourMillis).copy(
+            seaLevel = 42L,
+            seaLevelSource = "FMI",
+            seaLevelTime = 10 * hourMillis,
+            seaLevelStation = "100539:Kemi Ajos"
+        ).withManualSeaLevelValue(45L, manuallyEdited = true)
+
+        assertTrue(catch.seaLevel == 45L)
+        assertTrue(catch.seaLevelSource == "MANUAL")
+        assertTrue(catch.seaLevelTime == null)
+        assertTrue(catch.seaLevelStation.isEmpty())
     }
 
 

@@ -109,6 +109,35 @@ class JsonCompatibilityTest {
     }
 
     @Test
+    fun seaLevelMetadataRoundTripsThroughJson() {
+        val service = JsonService()
+        val fishCatch = FishCatch(
+            species = "AHVEN",
+            latitude = 60.0,
+            longitude = 24.0,
+            caughtAt = 1672531200000L,
+            seaLevel = 37L,
+            seaLevelSource = "FMI",
+            seaLevelTime = 1672531800000L,
+            seaLevelStation = "100539:Kemi Ajos"
+        )
+
+        val exported = service.exportCatchesAndPlaces(listOf(fishCatch), emptyList())
+            .getJSONArray("catches")
+            .getJSONObject(0)
+
+        assertEquals("FMI", exported.getString("seaLevelSource"))
+        assertEquals("2023-01-01T00:10:00Z", exported.getString("seaLevelTime"))
+        assertEquals("100539:Kemi Ajos", exported.getString("seaLevelStation"))
+
+        val imported = service.parseImportData(exported.let { "{\"catches\":[$it]}" }).catches.single()
+
+        assertEquals("FMI", imported.seaLevelSource)
+        assertEquals(1672531800000L, imported.seaLevelTime)
+        assertEquals("100539:Kemi Ajos", imported.seaLevelStation)
+    }
+
+    @Test
     fun seaLevelFieldsAndSamplesRoundTrip() {
         val service = JsonService()
         val fishCatch = FishCatch(

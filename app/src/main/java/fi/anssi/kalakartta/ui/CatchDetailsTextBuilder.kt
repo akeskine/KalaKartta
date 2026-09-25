@@ -127,6 +127,9 @@ class CatchDetailsTextBuilder(private val context: Context) {
             if (it.seaLevelSamples.isNotEmpty() && (it.caughtAt ?: 0L) > 0L) {
                 details.append(SEA_LEVEL_GRAPH_MARKER)
             }
+            if (it.seaLevelStation.isNotEmpty()) {
+                details.append("  Asema: ${it.seaLevelStation.substringAfter(":")}\n")
+            }
             if (it.additionalInfo.isNotEmpty()) details.append("\nLisätieto: ${it.additionalInfo}\n")
             if (it.originalRef.isNotEmpty()) details.append("Alkuperäinen viite: ${it.originalRef}\n")
         }

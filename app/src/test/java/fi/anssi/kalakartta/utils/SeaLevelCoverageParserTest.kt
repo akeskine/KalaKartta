@@ -86,10 +86,13 @@ class SeaLevelCoverageParserTest {
             latitude = 60.01,
             longitude = 24.01,
             caughtAt = caughtAt,
-            catchTargetTime = roundedCatchTime
+            catchTargetTime = roundedCatchTime,
+            stations = listOf(WeatherStation("100539", "Kemi Ajos", 60.0, 24.0))
         )
 
         assertEquals(41L, result?.seaLevel)
+        assertEquals(roundedCatchTime, result?.seaLevelTime)
+        assertEquals("100539:Kemi Ajos", result?.seaLevelStation)
         assertEquals(12, result?.seaLevelSamples?.size)
         assertTrue(result!!.seaLevelSamples.zipWithNext().all { (first, second) ->
             second.time - first.time == hourMillis

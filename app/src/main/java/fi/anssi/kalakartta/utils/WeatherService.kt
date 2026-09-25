@@ -34,7 +34,9 @@ data class PressureStationResult(
 data class SeaLevelStationResult(
     val isSea: Boolean,
     val seaLevel: Long?,
-    val seaLevelSamples: List<SeaLevelSample>
+    val seaLevelSamples: List<SeaLevelSample>,
+    val seaLevelTime: Long? = null,
+    val seaLevelStation: String = ""
 )
 
 internal data class SeaLevelObservation(
@@ -152,13 +154,21 @@ internal fun selectNearestSeaLevelStation(
     longitude: Double,
     caughtAt: Long,
     catchObservations: List<SeaLevelObservation> = observations,
-    catchTargetTime: Long = caughtAt
+    catchTargetTime: Long = caughtAt,
+    stations: List<WeatherStation> = emptyList()
 ): SeaLevelStationResult? {
     val startTime = caughtAt - 6 * 60 * 60 * 1000L
     val endTime = caughtAt + 6 * 60 * 60 * 1000L
     val observationsByStation = observations.groupBy { it.latitude to it.longitude }
     val catchObservationsByStation = catchObservations.groupBy { it.latitude to it.longitude }
     val catchToleranceMillis = 10 * 60 * 1000L
+    data class StationSamples(
+        val distance: Double,
+        val coordinates: Pair<Double, Double>,
+        val samples: List<SeaLevelSample>,
+        val catchSample: SeaLevelSample?
+    )
+
     val nearestStationSamples = (observationsByStation.keys + catchObservationsByStation.keys)
         .distinct()
         .mapNotNull { coordinates ->
@@ -173,15 +183,38 @@ internal fun selectNearestSeaLevelStation(
                 .minByOrNull { abs(it.time - catchTargetTime) }
             if (samples.isEmpty() && catchSample == null) return@mapNotNull null
             val distance = seaLevelDistanceKm(latitude, longitude, coordinates.first, coordinates.second)
-            Triple(distance, samples, catchSample ?: samples.minByOrNull { abs(it.time - catchTargetTime) })
+            StationSamples(
+                distance = distance,
+                coordinates = coordinates,
+                samples = samples,
+                catchSample = catchSample ?: samples.minByOrNull { abs(it.time - catchTargetTime) }
+            )
         }
-        .minByOrNull { it.first }
+        .minByOrNull { it.distance }
         ?: return null
+
+    val selectedStation = stations
+        .map { station ->
+            station to seaLevelDistanceKm(
+                nearestStationSamples.coordinates.first,
+                nearestStationSamples.coordinates.second,
+                station.latitude,
+                station.longitude
+            )
+        }
+        .filter { (_, distance) -> distance <= 0.1 }
+        .minByOrNull { (_, distance) -> distance }
+        ?.first
+    val stationName = selectedStation?.let { station ->
+        if (station.name.isBlank()) station.fmisid else "${station.fmisid}:${station.name}"
+    }.orEmpty()
 
     return SeaLevelStationResult(
         isSea = true,
-        seaLevel = nearestStationSamples.third?.seaLevel,
-        seaLevelSamples = nearestStationSamples.second
+        seaLevel = nearestStationSamples.catchSample?.seaLevel,
+        seaLevelSamples = nearestStationSamples.samples,
+        seaLevelTime = nearestStationSamples.catchSample?.time,
+        seaLevelStation = stationName
     )
 }
 
@@ -233,6 +266,7 @@ class WeatherService(private val context: Context) {
 
     companion object {
         private var cachedStations: List<WeatherStation>? = null
+        private var cachedSeaLevelStations: List<WeatherStation>? = null
         private var isFetchingStations = false
         private val pendingCallbacks = mutableListOf<(List<WeatherStation>?, String?) -> Unit>()
         private val fetchLock = Any()
@@ -814,7 +848,8 @@ class WeatherService(private val context: Context) {
                         longitude,
                         caughtAt,
                         catchObservations,
-                        roundedCatchTime
+                        roundedCatchTime,
+                        fetchSeaLevelStations()
                     )
                         ?: SeaLevelStationResult(true, null, emptyList())
                 } finally {
@@ -839,6 +874,36 @@ class WeatherService(private val context: Context) {
                 android.util.Log.e("KalaKartta", "Merialueen tarkistus epäonnistui: ${e.message}", e)
                 false
             }
+        }
+    }
+
+    private fun fetchSeaLevelStations(): List<WeatherStation> {
+        synchronized(fetchLock) { cachedSeaLevelStations }?.let { return it }
+
+        return try {
+            val connection = URL(STATIONS_URL).openConnection() as HttpURLConnection
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+            try {
+                if (connection.responseCode != 200) {
+                    android.util.Log.w("KalaKartta", "FMI:n asematietojen haku merivedelle epäonnistui: ${connection.responseCode}")
+                    return emptyList()
+                }
+                val stations = connection.inputStream.use { parseStations(it, includeNonWeatherStations = true) }
+                if (stations.isNotEmpty()) {
+                    synchronized(fetchLock) {
+                        if (cachedSeaLevelStations == null) cachedSeaLevelStations = stations
+                        cachedSeaLevelStations ?: stations
+                    }
+                } else {
+                    stations
+                }
+            } finally {
+                connection.disconnect()
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("KalaKartta", "FMI:n meriveden asematietoja ei saatu ladattua: ${e.message}")
+            emptyList()
         }
     }
 
@@ -1119,7 +1184,10 @@ class WeatherService(private val context: Context) {
         }
     }
 
-    private fun parseStations(inputStream: java.io.InputStream): List<WeatherStation> {
+    private fun parseStations(
+        inputStream: java.io.InputStream,
+        includeNonWeatherStations: Boolean = false
+    ): List<WeatherStation> {
         val stations = mutableListOf<WeatherStation>()
         val parser = Xml.newPullParser()
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
@@ -1204,7 +1272,7 @@ class WeatherService(private val context: Context) {
                     }
                     XmlPullParser.END_TAG -> {
                         if (tagName == "EnvironmentalMonitoringFacility") {
-                            if (isWeatherStation && currentFmisid.isNotEmpty()) {
+                            if ((includeNonWeatherStations || isWeatherStation) && currentFmisid.isNotEmpty()) {
                                 stations.add(WeatherStation(currentFmisid, currentName, currentLat, currentLon, currentStartTime, currentEndTime))
                             }
                             // Reset for next

@@ -6,6 +6,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -53,6 +54,23 @@ class FishCatchMigrationTest {
         val cursor = database.query("SELECT pressureTurningTrend FROM FishCatch WHERE id = 1")
         assertTrue(cursor.moveToFirst())
         assertTrue(cursor.isNull(0))
+        cursor.close()
+    }
+
+    @Test
+    fun migrationAddsSeaLevelSourceTimeAndStationColumns() {
+        val database = helper.writableDatabase
+
+        AppDatabase.MIGRATION_25_26.migrate(database)
+
+        database.execSQL("INSERT INTO FishCatch (id) VALUES (1)")
+        val cursor = database.query(
+            "SELECT seaLevelSource, seaLevelTime, seaLevelStation FROM FishCatch WHERE id = 1"
+        )
+        assertTrue(cursor.moveToFirst())
+        assertEquals("", cursor.getString(0))
+        assertTrue(cursor.isNull(1))
+        assertEquals("", cursor.getString(2))
         cursor.close()
     }
 }

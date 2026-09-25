@@ -1131,26 +1131,31 @@ class EditCatchActivity : AppCompatActivity() {
             val updatedWithSeaLevel = when {
                 seaLevelPointIsSea != true -> updated.copy(
                     seaLevel = null,
+                    seaLevelSource = "",
+                    seaLevelTime = null,
+                    seaLevelStation = "",
                     seaLevelDataCompleteTime = null,
                     seaLevelTrend = null,
                     seaLevelTurningTrend = null,
                     seaLevelSamples = emptyList()
                 )
                 updatedCaughtAt == null -> updated.copy(
-                    seaLevel = enteredSeaLevel,
                     seaLevelDataCompleteTime = null,
                     seaLevelTrend = null,
                     seaLevelTurningTrend = null,
                     seaLevelSamples = emptyList()
-                )
+                ).withManualSeaLevelValue(enteredSeaLevel, isSeaLevelManuallyEdited)
                 currentSeaLevelResult != null -> {
                     val withResult = updated.withSeaLevelResult(
                         currentSeaLevelResult!!,
                         caughtAt = updatedCaughtAt
                     )
-                    withResult.copy(seaLevel = if (isSeaLevelManuallyEdited) enteredSeaLevel else withResult.seaLevel)
+                    withResult.withManualSeaLevelValue(
+                        if (isSeaLevelManuallyEdited) enteredSeaLevel else withResult.seaLevel,
+                        isSeaLevelManuallyEdited
+                    )
                 }
-                else -> updated.copy(seaLevel = enteredSeaLevel)
+                else -> updated.withManualSeaLevelValue(enteredSeaLevel, isSeaLevelManuallyEdited)
             }
             val updatedWithPressureTrends = if (updatedWithSeaLevel.pressureSamples.isNotEmpty()) {
                 updatedWithSeaLevel.copy(

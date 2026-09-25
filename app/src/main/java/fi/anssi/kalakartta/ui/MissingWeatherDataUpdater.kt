@@ -51,6 +51,9 @@ internal fun FishCatch.withSeaLevelResult(
     if (!result.isSea) {
         return copy(
             seaLevel = null,
+            seaLevelSource = "",
+            seaLevelTime = null,
+            seaLevelStation = "",
             seaLevelDataCompleteTime = now,
             seaLevelTrend = null,
             seaLevelTurningTrend = null,
@@ -61,6 +64,9 @@ internal fun FishCatch.withSeaLevelResult(
     val samples = result.seaLevelSamples.ifEmpty { seaLevelSamples }
     val updated = copy(
         seaLevel = result.seaLevel ?: seaLevel,
+        seaLevelSource = if (result.seaLevel != null) "FMI" else seaLevelSource,
+        seaLevelTime = if (result.seaLevel != null) result.seaLevelTime else seaLevelTime,
+        seaLevelStation = if (result.seaLevel != null) result.seaLevelStation else seaLevelStation,
         seaLevelDataCompleteTime = if (caughtAt != null && now - caughtAt > SIX_HOURS_MILLIS) {
             now
         } else {
@@ -76,6 +82,26 @@ internal fun FishCatch.withSeaLevelResult(
     } else {
         updated
     }
+}
+
+internal fun FishCatch.withManualSeaLevelValue(value: Long?, manuallyEdited: Boolean): FishCatch {
+    if (value == null) {
+        return copy(
+            seaLevel = null,
+            seaLevelSource = "",
+            seaLevelTime = null,
+            seaLevelStation = ""
+        )
+    }
+    if (manuallyEdited || seaLevelSource.isBlank()) {
+        return copy(
+            seaLevel = value,
+            seaLevelSource = "MANUAL",
+            seaLevelTime = null,
+            seaLevelStation = ""
+        )
+    }
+    return copy(seaLevel = value)
 }
 
 internal fun shouldRunAutomaticWeatherUpdate(

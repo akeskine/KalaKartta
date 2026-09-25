@@ -47,6 +47,11 @@ class FishCatchJsonMapper(
             if (fishCatch.windDirection != null) obj.put("windDirection", fishCatch.windDirection)
             if (fishCatch.pressure != null) obj.put("pressure", fishCatch.pressure)
             if (fishCatch.seaLevel != null) obj.put("seaLevel", fishCatch.seaLevel)
+            obj.put("seaLevelSource", fishCatch.seaLevelSource)
+            if (fishCatch.seaLevelTime != null && fishCatch.seaLevelTime > 0) {
+                obj.put("seaLevelTime", isoFormatProvider().format(Date(fishCatch.seaLevelTime)))
+            }
+            obj.put("seaLevelStation", fishCatch.seaLevelStation)
             obj.put("weatherSource", fishCatch.weatherSource)
             if (fishCatch.weatherTime != null && fishCatch.weatherTime > 0) {
                 obj.put("weatherTime", isoFormatProvider().format(Date(fishCatch.weatherTime)))
@@ -123,6 +128,7 @@ class FishCatchJsonMapper(
                 val obj = jsonArray.getJSONObject(index)
                 val caughtAt = parseOptionalDate(obj, "caughtAt")
                 val weatherTime = parseOptionalDate(obj, "weatherTime")
+                val seaLevelTime = parseOptionalDate(obj, "seaLevelTime")
 
                 var moonPhase = if (obj.isNull("moonPhase")) null else obj.optDouble("moonPhase")
                 var moonAltitude = if (obj.isNull("moonAltitude")) null else obj.optDouble("moonAltitude")
@@ -175,6 +181,9 @@ class FishCatchJsonMapper(
                         obj.optDouble("seaLevel")
                     },
                     seaLevel = if (obj.isNull("seaLevel")) null else obj.optLong("seaLevel"),
+                    seaLevelSource = obj.optString("seaLevelSource", ""),
+                    seaLevelTime = seaLevelTime,
+                    seaLevelStation = obj.optString("seaLevelStation", ""),
                     weatherSource = obj.optString("weatherSource", ""),
                     weatherTime = weatherTime,
                     weatherStation = obj.optString("weatherStation", ""),

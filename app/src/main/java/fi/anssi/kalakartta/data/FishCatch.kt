@@ -43,6 +43,9 @@ data class FishCatch(
     val pressureTurningTrend: Double? = null, // hPa/h
     val pressureSamples: List<PressureSample> = emptyList(),
     val seaLevel: Long? = null,
+    val seaLevelSource: String = "",
+    val seaLevelTime: Long? = null,
+    val seaLevelStation: String = "",
     val seaLevelDataCompleteTime: Long? = null,
     val seaLevelTrend: Double? = null, // cm/h
     val seaLevelTurningTrend: Double? = null, // cm/h
