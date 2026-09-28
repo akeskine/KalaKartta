@@ -18,7 +18,9 @@ class SeaLevelGraphView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
     private var samples: List<SeaLevelSample> = emptyList()
+    private var forecastSamples: List<SeaLevelSample> = emptyList()
     private var caughtAt: Long = 0L
+    private var isWeatherSummary = false
 
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(0, 105, 92)
@@ -28,6 +30,12 @@ class SeaLevelGraphView @JvmOverloads constructor(
     private val axisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.resolveThemeColor(android.R.attr.textColorPrimary, Color.BLACK)
         strokeWidth = 2f
+        style = Paint.Style.STROKE
+    }
+    private val forecastLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(0, 105, 92)
+        strokeWidth = 5f
+        pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
         style = Paint.Style.STROKE
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -51,13 +59,27 @@ class SeaLevelGraphView @JvmOverloads constructor(
 
     fun setData(samples: List<SeaLevelSample>, caughtAt: Long) {
         this.samples = samples.sortedBy { it.time }
+        forecastSamples = emptyList()
         this.caughtAt = caughtAt
+        isWeatherSummary = false
+        invalidate()
+    }
+
+    fun setWeatherSummaryData(
+        historySamples: List<SeaLevelSample>,
+        forecastSamples: List<SeaLevelSample>,
+        now: Long
+    ) {
+        samples = historySamples.filter { it.time <= now }.sortedBy { it.time }
+        this.forecastSamples = forecastSamples.filter { it.time > now }.sortedBy { it.time }
+        caughtAt = now
+        isWeatherSummary = true
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (samples.isEmpty() || caughtAt == 0L) return
+        if (caughtAt == 0L || (!isWeatherSummary && samples.isEmpty())) return
 
         val paddingLeft = 80f
         val paddingRight = 40f
@@ -67,10 +89,19 @@ class SeaLevelGraphView @JvmOverloads constructor(
         val graphHeight = height.toFloat() - paddingTop - paddingBottom
         if (graphWidth <= 0f || graphHeight <= 0f) return
 
-        val millisInRange = timeRangeHours * 60 * 60 * 1000
-        val visibleSamples = samples.filter { sample ->
-            kotlin.math.abs(sample.time - caughtAt) <= millisInRange
+        val rangeHours = if (isWeatherSummary) 12f else timeRangeHours
+        val millisInRange = rangeHours * 60 * 60 * 1000
+        val visibleHistory = samples.filter { sample ->
+            val relativeTime = sample.time - caughtAt
+            if (isWeatherSummary) relativeTime in -millisInRange.toLong()..0L
+            else kotlin.math.abs(relativeTime) <= millisInRange
         }
+        val visibleForecast = if (isWeatherSummary) {
+            forecastSamples.filter { sample -> sample.time - caughtAt in 0L..millisInRange.toLong() }
+        } else {
+            emptyList()
+        }
+        val visibleSamples = visibleHistory + visibleForecast
         if (visibleSamples.isEmpty()) return
 
         val rawMin = visibleSamples.minOf { it.seaLevel }.toFloat()
@@ -94,12 +125,17 @@ class SeaLevelGraphView @JvmOverloads constructor(
             level += 10f
         }
 
-        for (hour in -6..6 step 2) {
-            val x = paddingLeft + graphWidth / 2 + (hour.toFloat() / timeRangeHours) * (graphWidth / 2)
-            if (hour != 0 && kotlin.math.abs(hour.toFloat()) != timeRangeHours) {
+        val hoursBetweenLabels = if (isWeatherSummary) 6 else 2
+        for (hour in -rangeHours.toInt()..rangeHours.toInt() step hoursBetweenLabels) {
+            val x = paddingLeft + graphWidth / 2 + (hour.toFloat() / rangeHours) * (graphWidth / 2)
+            if (hour != 0 && kotlin.math.abs(hour.toFloat()) != rangeHours) {
                 canvas.drawLine(x, paddingTop, x, height.toFloat() - paddingBottom, gridPaint)
             }
-            val label = if (hour == 0) "0" else "${hour}h"
+            val label = if (hour == 0) {
+                if (isWeatherSummary) "Nyt" else "0"
+            } else {
+                "${hour}h"
+            }
             canvas.drawText(label, x - textPaint.measureText(label) / 2, height.toFloat() - 10f, textPaint)
         }
 
@@ -108,20 +144,26 @@ class SeaLevelGraphView @JvmOverloads constructor(
         val centerX = paddingLeft + graphWidth / 2
         canvas.drawLine(centerX, paddingTop, centerX, height.toFloat() - paddingBottom, caughtAtPaint)
 
-        val path = Path()
-        var first = true
-        visibleSamples.forEach { sample ->
-            val relativeTime = sample.time - caughtAt
-            val x = paddingLeft + graphWidth / 2 + (relativeTime.toFloat() / millisInRange) * (graphWidth / 2)
-            val y = height.toFloat() - paddingBottom -
-                    ((sample.seaLevel.toFloat() - minLevel) / (maxLevel - minLevel)) * graphHeight
-            if (first) {
-                path.moveTo(x, y)
-                first = false
-            } else {
-                path.lineTo(x, y)
+        fun drawSeaLevelLine(lineSamples: List<SeaLevelSample>, paint: Paint) {
+            val path = Path()
+            var first = true
+            lineSamples.forEach { sample ->
+                val relativeTime = sample.time - caughtAt
+                val x = paddingLeft + graphWidth / 2 +
+                        (relativeTime.toFloat() / millisInRange) * (graphWidth / 2)
+                val y = height.toFloat() - paddingBottom -
+                        ((sample.seaLevel.toFloat() - minLevel) / (maxLevel - minLevel)) * graphHeight
+                if (first) {
+                    path.moveTo(x, y)
+                    first = false
+                } else {
+                    path.lineTo(x, y)
+                }
             }
+            canvas.drawPath(path, paint)
         }
-        canvas.drawPath(path, linePaint)
+
+        drawSeaLevelLine(visibleHistory, linePaint)
+        drawSeaLevelLine(visibleForecast, forecastLinePaint)
     }
 }

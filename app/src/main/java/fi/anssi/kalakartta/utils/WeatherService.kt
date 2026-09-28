@@ -10,6 +10,8 @@ import fi.anssi.kalakartta.service.FinlandSeaService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.xmlpull.v1.XmlPullParser
 import java.net.HttpURLConnection
@@ -37,6 +39,14 @@ data class SeaLevelStationResult(
     val seaLevelSamples: List<SeaLevelSample>,
     val seaLevelTime: Long? = null,
     val seaLevelStation: String = ""
+)
+
+data class SeaLevelWeatherSummary(
+    val isSea: Boolean,
+    val historySamples: List<SeaLevelSample>,
+    val forecastSamples: List<SeaLevelSample>,
+    val currentSeaLevel: Long? = null,
+    val stationName: String = ""
 )
 
 internal data class SeaLevelObservation(
@@ -91,6 +101,27 @@ internal fun buildSeaLevelSamplesUrl(
     timestepMinutes: Int = 60
 ): String = "$observationsUrl&starttime=$startTime&endtime=$endTime&timestep=$timestepMinutes"
 
+internal fun buildSeaLevelForecastUrl(
+    forecastUrl: String,
+    latitude: Double,
+    longitude: Double,
+    startTime: String,
+    endTime: String
+): String = "$forecastUrl&latlon=$latitude,$longitude&starttime=$startTime&endtime=$endTime&timestep=60"
+
+internal fun seaLevelForecastSamples(
+    observations: List<SeaLevelObservation>,
+    startTime: Long,
+    endTime: Long
+): List<SeaLevelSample> {
+    if (endTime < startTime) return emptyList()
+
+    return observations.map { it.sample }
+        .filter { it.time in startTime..endTime }
+        .distinctBy { it.time }
+        .sortedBy { it.time }
+}
+
 internal fun parseSeaLevelCoverage(inputStream: java.io.InputStream): List<SeaLevelObservation> {
     val parser = Xml.newPullParser()
     parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
@@ -104,6 +135,7 @@ internal fun parseSeaLevelCoverage(parser: XmlPullParser): List<SeaLevelObservat
     var inRangeType = false
     var fieldIndex = 0
     var waterLevelIndex = -1
+    var waterLevelIsMillimeters = false
     var positionsText = ""
     var valuesText = ""
 
@@ -121,15 +153,15 @@ internal fun parseSeaLevelCoverage(parser: XmlPullParser): List<SeaLevelObservat
             val latitude = positions[index * 3].toDoubleOrNull() ?: continue
             val longitude = positions[index * 3 + 1].toDoubleOrNull() ?: continue
             val epochSeconds = positions[index * 3 + 2].toDoubleOrNull() ?: continue
-            val millimeters = values[index * valueCount + waterLevelIndex].toDoubleOrNull() ?: continue
-            if (!latitude.isFinite() || !longitude.isFinite() || !millimeters.isFinite()) continue
+            val waterLevel = values[index * valueCount + waterLevelIndex].toDoubleOrNull() ?: continue
+            if (!latitude.isFinite() || !longitude.isFinite() || !waterLevel.isFinite()) continue
 
             observations += SeaLevelObservation(
                 latitude = latitude,
                 longitude = longitude,
                 sample = SeaLevelSample(
                     time = (epochSeconds * 1000).toLong(),
-                    seaLevel = (millimeters / 10.0).roundToLong()
+                    seaLevel = (if (waterLevelIsMillimeters) waterLevel / 10.0 else waterLevel).roundToLong()
                 )
             )
         }
@@ -144,13 +176,24 @@ internal fun parseSeaLevelCoverage(parser: XmlPullParser): List<SeaLevelObservat
                     inRangeType = false
                     fieldIndex = 0
                     waterLevelIndex = -1
+                    waterLevelIsMillimeters = false
                     positionsText = ""
                     valuesText = ""
                 }
                 "rangeType" -> if (inGridSeriesObservation) inRangeType = true
                 "field" -> if (inGridSeriesObservation && inRangeType) {
-                    if (parser.getAttributeValue(null, "name") == "WATLEV") {
-                        waterLevelIndex = fieldIndex
+                    when (parser.getAttributeValue(null, "name")) {
+                        "WATLEV" -> if (waterLevelIndex < 0) {
+                            waterLevelIndex = fieldIndex
+                            waterLevelIsMillimeters = true
+                        }
+                        "SeaLevelN2000" -> if (waterLevelIndex < 0) {
+                            waterLevelIndex = fieldIndex
+                        }
+                        "SeaLevel" -> {
+                            waterLevelIndex = fieldIndex
+                            waterLevelIsMillimeters = false
+                        }
                     }
                     fieldIndex++
                 }
@@ -178,9 +221,10 @@ internal fun selectNearestSeaLevelStation(
     caughtAt: Long,
     catchObservations: List<SeaLevelObservation> = observations,
     catchTargetTime: Long = caughtAt,
-    stations: List<WeatherStation> = emptyList()
+    stations: List<WeatherStation> = emptyList(),
+    historyHoursBefore: Int = 6
 ): SeaLevelStationResult? {
-    val startTime = caughtAt - 6 * 60 * 60 * 1000L
+    val startTime = caughtAt - historyHoursBefore.coerceAtLeast(0) * 60 * 60 * 1000L
     val endTime = caughtAt + 6 * 60 * 60 * 1000L
     val observationsByStation = observations.groupBy { it.latitude to it.longitude }
     val catchObservationsByStation = catchObservations.groupBy { it.latitude to it.longitude }
@@ -298,6 +342,7 @@ class WeatherService(private val context: Context) {
     private val STATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::ef::stations"
     private val OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::observations::weather::simple&fmisid="
     private val SEA_LEVEL_OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::mareograph::instant::multipointcoverage"
+    private val SEA_LEVEL_FORECAST_URL = "https://opendata.fmi.fi/wfs?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::forecast::sealevel::point::multipointcoverage"
     private val FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::harmonie::surface::point::simple"
     private val finlandSeaService by lazy { FinlandSeaService.fromAssets(context) }
     private val requestScope: CoroutineScope = if (context is LifecycleOwner) {
@@ -821,10 +866,87 @@ class WeatherService(private val context: Context) {
         }
     }
 
+    suspend fun fetchSeaLevelForecastSuspend(
+        latitude: Double,
+        longitude: Double,
+        startTime: Long
+    ): List<SeaLevelSample> {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            val endTime = startTime + 12 * 60 * 60 * 1000L
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }
+            val urlString = buildSeaLevelForecastUrl(
+                SEA_LEVEL_FORECAST_URL,
+                latitude,
+                longitude,
+                dateFormat.format(java.util.Date(startTime)),
+                dateFormat.format(java.util.Date(endTime))
+            )
+
+            try {
+                val connection = URL(urlString).openConnection() as HttpURLConnection
+                connection.connectTimeout = 10000
+                connection.readTimeout = 15000
+                try {
+                    if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                        emptyList()
+                    } else {
+                        val observations = connection.inputStream.use(::parseSeaLevelCoverage)
+                        seaLevelForecastSamples(observations, startTime, endTime)
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Virhe meriveden korkeuden ennusteen haussa: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
+
+    suspend fun fetchSeaLevelWeatherSummarySuspend(
+        latitude: Double,
+        longitude: Double,
+        now: Long
+    ): SeaLevelWeatherSummary {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            if (!isSeaLocation(latitude, longitude)) {
+                return@withContext SeaLevelWeatherSummary(false, emptyList(), emptyList())
+            }
+
+            coroutineScope {
+                val historyRequest = async {
+                    fetchSeaLevelFromMultipleStationsSuspend(
+                        latitude,
+                        longitude,
+                        now,
+                        historyHoursBefore = 12
+                    )
+                }
+                val forecastRequest = async {
+                    fetchSeaLevelForecastSuspend(latitude, longitude, now)
+                }
+                val history = historyRequest.await()
+                SeaLevelWeatherSummary(
+                    isSea = true,
+                    historySamples = history?.seaLevelSamples.orEmpty(),
+                    forecastSamples = forecastRequest.await(),
+                    currentSeaLevel = history?.seaLevel
+                        ?: history?.seaLevelSamples?.lastOrNull { it.time <= now }?.seaLevel,
+                    stationName = history?.seaLevelStation.orEmpty()
+                )
+            }
+        }
+    }
+
     suspend fun fetchSeaLevelFromMultipleStationsSuspend(
         latitude: Double,
         longitude: Double,
-        caughtAt: Long
+        caughtAt: Long,
+        historyHoursBefore: Int = 6
     ): SeaLevelStationResult? {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
@@ -835,7 +957,7 @@ class WeatherService(private val context: Context) {
                 val timestepMillis = 10 * 60 * 1000L
                 val hourMillis = 60 * 60 * 1000L
                 val roundedCatchTime = caughtAt / timestepMillis * timestepMillis
-                val startTime = caughtAt - 6 * hourMillis
+                val startTime = caughtAt - historyHoursBefore.coerceAtLeast(0) * hourMillis
                 val roundedNow = System.currentTimeMillis() / timestepMillis * timestepMillis
                 val endTime = minOf(caughtAt + 6 * hourMillis, System.currentTimeMillis())
                 if (endTime < startTime) {
@@ -913,7 +1035,8 @@ class WeatherService(private val context: Context) {
                         caughtAt,
                         catchObservations,
                         roundedCatchTime,
-                        fetchSeaLevelStations()
+                        fetchSeaLevelStations(),
+                        historyHoursBefore = historyHoursBefore
                     )
                         ?: SeaLevelStationResult(true, null, emptyList())
                 } finally {

@@ -58,6 +58,27 @@ class SeaLevelCoverageParserTest {
     }
 
     @Test
+    fun parsesSeaLevelForecastFieldInsteadOfN2000Field() {
+        val observations = parseSeaLevelCoverage(parserFor("""
+            <gml:GridSeriesObservation xmlns:gml="http://www.opengis.net/gml/3.2"
+                xmlns:swe="http://www.opengis.net/swe/2.0">
+                <gml:domainSet><gml:SimpleMultiPoint>
+                    <gml:positions>60.17 24.94 1000 60.17 24.94 4600</gml:positions>
+                </gml:SimpleMultiPoint></gml:domainSet>
+                <gml:rangeType><swe:DataRecord>
+                    <swe:field name="SeaLevel"/>
+                    <swe:field name="SeaLevelN2000"/>
+                </swe:DataRecord></gml:rangeType>
+                <gml:rangeSet><gml:DataBlock>
+                    <gml:doubleOrNilReasonTupleList>17.4 38.5 18.4 39.5</gml:doubleOrNilReasonTupleList>
+                </gml:DataBlock></gml:rangeSet>
+            </gml:GridSeriesObservation>
+        """.trimIndent()))
+
+        assertEquals(listOf(17L, 18L), observations.map { it.sample.seaLevel })
+    }
+
+    @Test
     fun nearestStationSuppliesTenMinuteCatchValueAndHourlyHistory() {
         val hourMillis = 60 * 60 * 1000L
         val tenMinuteMillis = 10 * 60 * 1000L
@@ -97,6 +118,26 @@ class SeaLevelCoverageParserTest {
         assertTrue(result!!.seaLevelSamples.zipWithNext().all { (first, second) ->
             second.time - first.time == hourMillis
         })
+    }
+
+    @Test
+    fun weatherSummaryCanSelectTwelveHoursOfSeaLevelHistory() {
+        val hourMillis = 60 * 60 * 1000L
+        val caughtAt = 12 * hourMillis
+        val observations = (0L..12L).map { hour ->
+            SeaLevelObservation(60.0, 24.0, SeaLevelSample(hour * hourMillis, hour))
+        }
+
+        val result = selectNearestSeaLevelStation(
+            observations = observations,
+            latitude = 60.0,
+            longitude = 24.0,
+            caughtAt = caughtAt,
+            historyHoursBefore = 12
+        )
+
+        assertEquals(13, result?.seaLevelSamples?.size)
+        assertEquals(0L, result?.seaLevelSamples?.first()?.time)
     }
 
     private fun parserFor(xml: String): XmlPullParser = KXmlParser().apply {

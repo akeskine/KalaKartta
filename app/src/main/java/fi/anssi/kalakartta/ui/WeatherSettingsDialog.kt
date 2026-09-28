@@ -83,6 +83,25 @@ class WeatherSettingsDialog(
             summaryTime,
             coordinates
         )
+        val seaLevelGraph = SeaLevelGraphView(activity)
+        val seaLevelStatus = TextView(activity).apply {
+            textSize = 10f
+            setTextColor(activity.resolveThemeColor(android.R.attr.textColorSecondary))
+        }
+        val seaLevelTitle = TextView(activity).apply {
+            textSize = 10f
+            setTextColor(activity.resolveThemeColor(android.R.attr.textColorPrimary))
+        }
+        val seaLevelContent = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = android.view.View.GONE
+            addView(seaLevelTitle)
+            addView(seaLevelStatus)
+            addView(seaLevelGraph, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(112)
+            ))
+        }
         val sunriseSunsetSummary = createSunriseSunsetSummary(summaryTime, coordinates)
 
         val forecastBox = LinearLayout(activity).apply {
@@ -104,6 +123,12 @@ class WeatherSettingsDialog(
             addView(moonAndPressureVisuals, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(112)
+            ).apply {
+                topMargin = dp(6)
+            })
+            addView(seaLevelContent, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 topMargin = dp(6)
             })
@@ -164,7 +189,11 @@ class WeatherSettingsDialog(
                 titleView = forecastTitle,
                 rowsLayout = forecastRows,
                 pressureGraph = pressureGraph,
-                currentPressureLabel = currentPressureLabel
+                currentPressureLabel = currentPressureLabel,
+                seaLevelContent = seaLevelContent,
+                seaLevelTitle = seaLevelTitle,
+                seaLevelStatus = seaLevelStatus,
+                seaLevelGraph = seaLevelGraph
             )
         } else {
             forecastTitle.text = "Sääennuste"
@@ -274,7 +303,11 @@ class WeatherSettingsDialog(
         titleView: TextView,
         rowsLayout: LinearLayout,
         pressureGraph: PressureGraphView,
-        currentPressureLabel: TextView
+        currentPressureLabel: TextView,
+        seaLevelContent: LinearLayout,
+        seaLevelTitle: TextView,
+        seaLevelStatus: TextView,
+        seaLevelGraph: SeaLevelGraphView
     ): Job {
         val weatherService = WeatherService(activity)
         return activity.lifecycleScope.launch {
@@ -289,9 +322,13 @@ class WeatherSettingsDialog(
                 val stationRequest = async {
                     weatherService.fetchNearestStationsSuspend(latitude, longitude, summaryTime, 5)
                 }
+                val seaLevelSummaryRequest = async {
+                    weatherService.fetchSeaLevelWeatherSummarySuspend(latitude, longitude, summaryTime)
+                }
                 val forecasts = forecastRequest.await()
                 val pressureForecast = pressureForecastRequest.await()
                 val stations = stationRequest.await().orEmpty()
+                val seaLevelSummary = seaLevelSummaryRequest.await()
 
                 var pressureHistory: Pair<List<PressureSample>, Double>? = null
                 for (station in stations.take(3)) {
@@ -308,6 +345,26 @@ class WeatherSettingsDialog(
                 }
 
                 if (activity.isFinishing || activity.isDestroyed) return@launch
+                if (seaLevelSummary.isSea) {
+                    seaLevelTitle.text = formatSeaLevelTitle(
+                        seaLevelSummary.stationName,
+                        seaLevelSummary.currentSeaLevel
+                    )
+                    seaLevelContent.visibility = android.view.View.VISIBLE
+                    if (seaLevelSummary.historySamples.isEmpty() && seaLevelSummary.forecastSamples.isEmpty()) {
+                        seaLevelStatus.text = "Meriveden korkeustietoja ei saatu haettua."
+                        seaLevelStatus.visibility = android.view.View.VISIBLE
+                        seaLevelGraph.visibility = android.view.View.GONE
+                    } else {
+                        seaLevelStatus.visibility = android.view.View.GONE
+                        seaLevelGraph.setWeatherSummaryData(
+                            seaLevelSummary.historySamples,
+                            seaLevelSummary.forecastSamples,
+                            summaryTime
+                        )
+                        seaLevelGraph.visibility = android.view.View.VISIBLE
+                    }
+                }
                 val stationName = stations.firstOrNull()?.name?.takeIf(String::isNotBlank)
                 titleView.text = stationName?.let { "Sää $it" } ?: "Sää"
                 rowsLayout.removeAllViews()
@@ -433,4 +490,11 @@ class WeatherSettingsDialog(
     }
 
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+}
+
+internal fun formatSeaLevelTitle(stationName: String, seaLevel: Long?): String {
+    val station = stationName.substringAfter(':').trim().takeIf(String::isNotEmpty)
+    val value = seaLevel?.let { if (it >= 0) "+$it" else it.toString() } ?: "—"
+    val stationLabel = station?.let { " $it" }.orEmpty()
+    return "Meriveden korkeus$stationLabel: $value cm (MW)"
 }

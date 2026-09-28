@@ -1,6 +1,7 @@
 package fi.anssi.kalakartta.utils
 
 import fi.anssi.kalakartta.data.PressureSample
+import fi.anssi.kalakartta.data.SeaLevelSample
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -103,6 +104,45 @@ class WeatherServiceUrlTest {
         )
 
         assertTrue(url.endsWith("&timestep=10"))
+    }
+
+    @Test
+    fun seaLevelForecastRequestsThePointAndHourlyTimeRange() {
+        val url = buildSeaLevelForecastUrl(
+            "https://opendata.fmi.fi/wfs?storedquery_id=fmi::forecast::sealevel::point::multipointcoverage",
+            60.17,
+            24.94,
+            "2026-09-21T03:00:00Z",
+            "2026-09-21T15:00:00Z"
+        )
+
+        assertTrue(url.contains("storedquery_id=fmi::forecast::sealevel::point::multipointcoverage"))
+        assertTrue(url.contains("latlon=60.17,24.94"))
+        assertTrue(url.contains("starttime=2026-09-21T03:00:00Z"))
+        assertTrue(url.contains("endtime=2026-09-21T15:00:00Z"))
+        assertTrue(url.endsWith("&timestep=60"))
+    }
+
+    @Test
+    fun seaLevelForecastSamplesAreLimitedToTheRequestedRange() {
+        val samples = seaLevelForecastSamples(
+            listOf(
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(9L, 9L)),
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(10L, 10L)),
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(20L, 20L)),
+                SeaLevelObservation(60.0, 24.0, SeaLevelSample(21L, 21L))
+            ),
+            startTime = 10L,
+            endTime = 20L
+        )
+
+        assertEquals(
+            listOf(
+                SeaLevelSample(10L, 10L),
+                SeaLevelSample(20L, 20L)
+            ),
+            samples
+        )
     }
 
     @Test
