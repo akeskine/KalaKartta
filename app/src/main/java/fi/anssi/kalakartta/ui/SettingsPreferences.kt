@@ -12,6 +12,7 @@ object SettingsKeys {
     const val AUTO_CENTER_ON_START = "auto_center_on_start"
     const val MAP_SOURCE = "map_source"
     const val MML_API_KEY = "mml_api_key"
+    const val MML_API_KEY_INVALID = "mml_api_key_invalid"
     const val COPERNICUS_CLIENT_ID = "copernicus_client_id"
     const val COPERNICUS_CUSTOM_DATE_ENABLED = "copernicus_custom_date_enabled"
     const val COPERNICUS_TARGET_DATE = "copernicus_target_date"
@@ -87,6 +88,7 @@ object SettingsDefaults {
     const val AUTO_CENTER_ON_START = true
     const val MAP_SOURCE = "OSM"
     const val MML_API_KEY = ""
+    const val MML_API_KEY_INVALID = false
     const val COPERNICUS_CLIENT_ID = ""
     const val COPERNICUS_CUSTOM_DATE_ENABLED = false
     const val COPERNICUS_TILE_CACHE_LIMIT_MB = 512
@@ -159,14 +161,43 @@ object MapSourceIds {
 }
 
 object MapSourceQuickSelectPolicy {
-    fun isAvailable(sourceId: String, copernicusCredentialsAvailable: Boolean): Boolean =
-        sourceId != MapSourceIds.COPERNICUS_S2 || copernicusCredentialsAvailable
-
-    fun defaultEnabled(sourceId: String, mmlApiKey: String, copernicusCredentialsAvailable: Boolean): Boolean = when {
-        sourceId.startsWith("MML_") -> mmlApiKey.isNotEmpty()
+    fun isAvailable(
+        sourceId: String,
+        mmlApiKey: String,
+        mmlApiKeyInvalid: Boolean,
+        copernicusCredentialsAvailable: Boolean
+    ): Boolean = when {
+        sourceId.startsWith("MML_") -> mmlApiKey.isNotBlank() && !mmlApiKeyInvalid
         sourceId == MapSourceIds.COPERNICUS_S2 -> copernicusCredentialsAvailable
         else -> true
     }
+
+    fun defaultEnabled(
+        sourceId: String,
+        mmlApiKey: String,
+        mmlApiKeyInvalid: Boolean,
+        copernicusCredentialsAvailable: Boolean
+    ): Boolean = when {
+        sourceId.startsWith("MML_") -> mmlApiKey.isNotBlank() && !mmlApiKeyInvalid
+        sourceId == MapSourceIds.COPERNICUS_S2 -> copernicusCredentialsAvailable
+        else -> true
+    }
+
+    fun selectedSourceAfterAvailabilityChange(
+        currentSourceId: String,
+        orderedSourceIds: List<String>,
+        isAvailable: (String) -> Boolean,
+        isQuickSelectEnabled: (String) -> Boolean
+    ): String {
+        if (isAvailable(currentSourceId)) return currentSourceId
+        return orderedSourceIds.firstOrNull { isAvailable(it) && isQuickSelectEnabled(it) } ?: "OSM"
+    }
+
+    fun sourceToDisplayAfterSelection(
+        requestedSourceId: String,
+        currentSourceId: String,
+        isAvailable: (String) -> Boolean
+    ): String = if (isAvailable(requestedSourceId)) requestedSourceId else currentSourceId
 }
 
 object CopernicusDateSettings {

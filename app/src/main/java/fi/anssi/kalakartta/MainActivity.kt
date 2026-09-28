@@ -520,9 +520,15 @@ class MainActivity : AppCompatActivity() {
                     val default = MapSourceQuickSelectPolicy.defaultEnabled(
                         id,
                         currentApiKey,
+                        settingsStore.mmlApiKeyInvalid,
                         copernicusCredentialsAvailable
                     )
-                    MapSourceQuickSelectPolicy.isAvailable(id, copernicusCredentialsAvailable) &&
+                    MapSourceQuickSelectPolicy.isAvailable(
+                        id,
+                        currentApiKey,
+                        settingsStore.mmlApiKeyInvalid,
+                        copernicusCredentialsAvailable
+                    ) &&
                             settingsStore.isQuickMapSourceEnabled(id, default)
                 }
 
@@ -670,6 +676,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMapTileSource() {
+        val sourceIds = listOf(
+            "OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING", MapSourceIds.COPERNICUS_S2
+        )
+        val currentApiKey = settingsStore.mmlApiKey
+        val copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
+                CopernicusCredentialStore(this).hasClientSecret()
+        val selectedSource = MapSourceQuickSelectPolicy.selectedSourceAfterAvailabilityChange(
+            settingsStore.mapSource,
+            sourceIds,
+            { id ->
+                MapSourceQuickSelectPolicy.isAvailable(
+                    id,
+                    currentApiKey,
+                    settingsStore.mmlApiKeyInvalid,
+                    copernicusCredentialsAvailable
+                )
+            },
+            { id ->
+                val default = MapSourceQuickSelectPolicy.defaultEnabled(
+                    id,
+                    currentApiKey,
+                    settingsStore.mmlApiKeyInvalid,
+                    copernicusCredentialsAvailable
+                )
+                settingsStore.isQuickMapSourceEnabled(id, default)
+            }
+        )
+        if (selectedSource != settingsStore.mapSource) {
+            settingsStore.mapSource = selectedSource
+        }
         mapDisplayController.updateMapTileSource()
     }
 

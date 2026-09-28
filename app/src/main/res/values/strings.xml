@@ -179,6 +179,7 @@
     <string name="copernicus_credentials_saved">Copernicus-tunnukset tallennettu</string>
     <string name="copernicus_credentials_incomplete">Anna Client ID ja Client Secret</string>
     <string name="copernicus_custom_date">Valitse kuvauspäivä</string>
+    <string name="copernicus_image_date">Kuvattu %1$s</string>
     <string name="copernicus_attribution">Kuva: Copernicus Sentinel-2, Euroopan unionin ohjelma.</string>
     <string name="copernicus_scene_not_found">Tälle päivälle ei löytynyt kuvaa, jonka pilvisyys olisi alle 20 %.</string>
     <string name="copernicus_catalog_unavailable">Satelliittikuvien haku epäonnistui. Tarkista verkkoyhteys ja yritä myöhemmin uudelleen.</string>

@@ -32,8 +32,9 @@ class MapSettingsDialog(
     fun show() {
         val currentSource = settingsStore.mapSource
         val currentApiKey = settingsStore.mmlApiKey
+        var mmlApiKeyInvalid = settingsStore.mmlApiKeyInvalid
         val copernicusCredentialStore = CopernicusCredentialStore(activity)
-        val copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
+        var copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
                 copernicusCredentialStore.hasClientSecret()
         var showQuickMapCurrent = settingsStore.showQuickMapSource
 
@@ -48,11 +49,71 @@ class MapSettingsDialog(
         val internalIds = arrayOf(
             "OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING", MapSourceIds.COPERNICUS_S2
         )
+        val radioButtons = mutableListOf<RadioButton>()
+        val checkBoxes = mutableMapOf<String, CheckBox>()
+        var selectedSourceId = currentSource
         val quickSelectEnabled = internalIds.associateWith { id ->
-            val default = MapSourceQuickSelectPolicy.defaultEnabled(id, currentApiKey, copernicusCredentialsAvailable)
-            MapSourceQuickSelectPolicy.isAvailable(id, copernicusCredentialsAvailable) &&
+            val default = MapSourceQuickSelectPolicy.defaultEnabled(
+                id,
+                currentApiKey,
+                mmlApiKeyInvalid,
+                copernicusCredentialsAvailable
+            )
+            MapSourceQuickSelectPolicy.isAvailable(
+                id,
+                currentApiKey,
+                mmlApiKeyInvalid,
+                copernicusCredentialsAvailable
+            ) &&
                     settingsStore.isQuickMapSourceEnabled(id, default)
         }.toMutableMap()
+
+        fun isSourceAvailable(sourceId: String): Boolean = MapSourceQuickSelectPolicy.isAvailable(
+            sourceId,
+            settingsStore.mmlApiKey,
+            mmlApiKeyInvalid,
+            copernicusCredentialsAvailable
+        )
+
+        fun activateSelectedSourceIfAvailable(sourceId: String) {
+            if (selectedSourceId != sourceId || !isSourceAvailable(sourceId)) return
+            if (settingsStore.mapSource != sourceId) {
+                settingsStore.mapSource = sourceId
+                onMapSettingsChanged()
+            }
+        }
+
+        fun refreshSourceAvailability(sourceId: String) {
+            val available = isSourceAvailable(sourceId)
+            checkBoxes[sourceId]?.isEnabled = available
+            if (!available) {
+                quickSelectEnabled[sourceId] = false
+                settingsStore.setQuickMapSourceEnabled(sourceId, false)
+                checkBoxes[sourceId]?.isChecked = false
+            }
+        }
+
+        fun ensureSelectedSourceAvailable() {
+            val selectedSource = settingsStore.mapSource
+            val fallbackSource = MapSourceQuickSelectPolicy.selectedSourceAfterAvailabilityChange(
+                selectedSource,
+                internalIds.toList(),
+                ::isSourceAvailable,
+                { sourceId ->
+                    val default = MapSourceQuickSelectPolicy.defaultEnabled(
+                        sourceId,
+                        settingsStore.mmlApiKey,
+                        mmlApiKeyInvalid,
+                        copernicusCredentialsAvailable
+                    )
+                    isSourceAvailable(sourceId) && settingsStore.isQuickMapSourceEnabled(sourceId, default)
+                }
+            )
+            if (fallbackSource != selectedSource) {
+                settingsStore.mapSource = fallbackSource
+                onMapSettingsChanged()
+            }
+        }
 
         val contentLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -80,9 +141,6 @@ class MapSettingsDialog(
         })
         contentLayout.addView(headerLayout)
 
-        val radioButtons = mutableListOf<RadioButton>()
-        val checkBoxes = mutableMapOf<String, CheckBox>()
-
         for (i in sources.indices) {
             val id = internalIds[i]
             val row = LinearLayout(activity).apply {
@@ -99,8 +157,16 @@ class MapSettingsDialog(
                 setOnClickListener {
                     radioButtons.forEach { it.isChecked = false }
                     isChecked = true
-                    settingsStore.mapSource = id
-                    onMapSettingsChanged()
+                    selectedSourceId = id
+                    val sourceToDisplay = MapSourceQuickSelectPolicy.sourceToDisplayAfterSelection(
+                        id,
+                        settingsStore.mapSource,
+                        ::isSourceAvailable
+                    )
+                    if (sourceToDisplay != settingsStore.mapSource) {
+                        settingsStore.mapSource = sourceToDisplay
+                        onMapSettingsChanged()
+                    }
                 }
             }
             radioButtons.add(rb)
@@ -108,7 +174,7 @@ class MapSettingsDialog(
 
             val cb = CheckBox(activity).apply {
                 isChecked = quickSelectEnabled[id] ?: true
-                isEnabled = MapSourceQuickSelectPolicy.isAvailable(id, copernicusCredentialsAvailable)
+                isEnabled = isSourceAvailable(id)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.3f)
                 gravity = android.view.Gravity.CENTER
                 setOnCheckedChangeListener { _, isChecked ->
@@ -120,6 +186,8 @@ class MapSettingsDialog(
             row.addView(cb)
             contentLayout.addView(row)
         }
+
+        arrayOf("MML_MAASTO", "MML_ILMA", MapSourceIds.COPERNICUS_S2).forEach(::refreshSourceAvailability)
 
         val quickMapCheckbox = CheckBox(activity).apply {
             text = activity.getString(R.string.show_quick_map_source)
@@ -149,7 +217,16 @@ class MapSettingsDialog(
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
                 override fun afterTextChanged(s: android.text.Editable?) {
-                    settingsStore.mmlApiKey = s.toString()
+                    val mmlApiKey = s?.toString().orEmpty()
+                    if (mmlApiKey != settingsStore.mmlApiKey) {
+                        settingsStore.mmlApiKeyInvalid = true
+                    }
+                    settingsStore.mmlApiKey = mmlApiKey
+                    mmlApiKeyInvalid = settingsStore.mmlApiKeyInvalid
+                    arrayOf("MML_MAASTO", "MML_ILMA").forEach { sourceId ->
+                        refreshSourceAvailability(sourceId)
+                    }
+                    ensureSelectedSourceAvailable()
                 }
             })
         }
@@ -179,6 +256,11 @@ class MapSettingsDialog(
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
                 override fun afterTextChanged(s: android.text.Editable?) {
                     settingsStore.copernicusClientId = s.toString().trim()
+                    copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
+                            copernicusCredentialStore.hasClientSecret()
+                    refreshSourceAvailability(MapSourceIds.COPERNICUS_S2)
+                    ensureSelectedSourceAvailable()
+                    activateSelectedSourceIfAvailable(MapSourceIds.COPERNICUS_S2)
                 }
             })
         }
@@ -215,13 +297,15 @@ class MapSettingsDialog(
                     copernicusCredentialStore.saveClientSecret(copernicusSecretInput.text.toString())
                     copernicusSecretInput.text?.clear()
                 }
-                val credentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
+                copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
                         copernicusCredentialStore.hasClientSecret()
-                checkBoxes[MapSourceIds.COPERNICUS_S2]?.isEnabled = credentialsAvailable
-                if (credentialsAvailable && !settingsStore.hasQuickMapSourceSetting(MapSourceIds.COPERNICUS_S2)) {
+                refreshSourceAvailability(MapSourceIds.COPERNICUS_S2)
+                if (copernicusCredentialsAvailable && !settingsStore.hasQuickMapSourceSetting(MapSourceIds.COPERNICUS_S2)) {
                     checkBoxes[MapSourceIds.COPERNICUS_S2]?.isChecked = true
                 }
-                val message = if (credentialsAvailable) {
+                ensureSelectedSourceAvailable()
+                activateSelectedSourceIfAvailable(MapSourceIds.COPERNICUS_S2)
+                val message = if (copernicusCredentialsAvailable) {
                     R.string.copernicus_credentials_saved
                 } else {
                     R.string.copernicus_credentials_incomplete
@@ -239,8 +323,9 @@ class MapSettingsDialog(
                 copernicusClientIdInput.setText("")
                 copernicusCredentialStore.clearClientSecret()
                 copernicusSecretInput.text?.clear()
-                checkBoxes[MapSourceIds.COPERNICUS_S2]?.isEnabled = false
-                checkBoxes[MapSourceIds.COPERNICUS_S2]?.isChecked = false
+                copernicusCredentialsAvailable = false
+                refreshSourceAvailability(MapSourceIds.COPERNICUS_S2)
+                ensureSelectedSourceAvailable()
                 onMapSettingsChanged()
             }
         }
@@ -278,13 +363,12 @@ class MapSettingsDialog(
         contentLayout.addView(customDateCheckBox)
         contentLayout.addView(dateButton)
 
-        val copernicusQuickCheckBox = checkBoxes[MapSourceIds.COPERNICUS_S2]
-
         fun selectedId(): Int = radioButtons.indexOfFirst { it.isChecked }
 
         fun validateApiKey(apiKey: String) {
             if (apiKey.isEmpty()) return
             val selectedLayer = if (selectedId() == 2) "ortokuva" else "maastokartta"
+            val validatedSourceId = if (selectedLayer == "ortokuva") "MML_ILMA" else "MML_MAASTO"
             activity.lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val urlString = "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/$selectedLayer/default/WGS84_Pseudo-Mercator/0/0/0.png?api-key=$apiKey"
@@ -294,15 +378,25 @@ class MapSettingsDialog(
                     connection.readTimeout = 5000
                     val responseCode = connection.responseCode
                     withContext(Dispatchers.Main) {
+                        if (settingsStore.mmlApiKey != apiKey) return@withContext
                         if (responseCode == 200) {
+                            settingsStore.mmlApiKeyInvalid = false
+                            mmlApiKeyInvalid = false
+                            arrayOf("MML_MAASTO", "MML_ILMA").forEach(::refreshSourceAvailability)
                             Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
+                            activateSelectedSourceIfAvailable(validatedSourceId)
                             if (!settingsStore.hasQuickMapSourceSetting("MML_MAASTO") && checkBoxes["MML_MAASTO"]?.isChecked == false) {
                                 checkBoxes["MML_MAASTO"]?.isChecked = true
                             }
                             if (!settingsStore.hasQuickMapSourceSetting("MML_ILMA") && checkBoxes["MML_ILMA"]?.isChecked == false) {
                                 checkBoxes["MML_ILMA"]?.isChecked = true
                             }
+                            ensureSelectedSourceAvailable()
                         } else {
+                            settingsStore.mmlApiKeyInvalid = true
+                            mmlApiKeyInvalid = true
+                            arrayOf("MML_MAASTO", "MML_ILMA").forEach(::refreshSourceAvailability)
+                            ensureSelectedSourceAvailable()
                             Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -348,16 +442,14 @@ class MapSettingsDialog(
                 } else {
                     View.GONE
                 }
-                if (id == MapSourceIds.COPERNICUS_S2) {
-                    copernicusQuickCheckBox?.isEnabled = settingsStore.copernicusClientId.isNotBlank() &&
-                            copernicusCredentialStore.hasClientSecret()
-                }
                 attributionText.text = attribution(id)
                 if (index in 1..2 && apiKeyInput.text.isNotEmpty()) {
                     validateApiKey(apiKeyInput.text.toString())
                 }
             }
         }
+
+        ensureSelectedSourceAvailable()
 
         val dialog = AlertDialog.Builder(activity)
             .setTitle("Taustakartta")

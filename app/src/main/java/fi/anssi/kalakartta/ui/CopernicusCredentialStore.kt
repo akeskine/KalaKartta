@@ -48,7 +48,7 @@ class CopernicusCredentialStore(context: Context) {
         }
     }
 
-    fun hasClientSecret(): Boolean = getClientSecret() != null
+    fun hasClientSecret(): Boolean = !getClientSecret().isNullOrBlank()
 
     fun clearClientSecret() {
         preferences.edit().remove(ENCRYPTED_SECRET).apply()

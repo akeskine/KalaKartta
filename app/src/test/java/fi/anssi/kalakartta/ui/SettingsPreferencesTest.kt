@@ -12,6 +12,7 @@ class SettingsPreferencesTest {
         assertEquals(true, SettingsDefaults.AUTO_CENTER_ON_START)
         assertEquals("OSM", SettingsDefaults.MAP_SOURCE)
         assertEquals("", SettingsDefaults.MML_API_KEY)
+        assertEquals(false, SettingsDefaults.MML_API_KEY_INVALID)
         assertEquals("", SettingsDefaults.COPERNICUS_CLIENT_ID)
         assertEquals(false, SettingsDefaults.COPERNICUS_CUSTOM_DATE_ENABLED)
         assertEquals(512, SettingsDefaults.COPERNICUS_TILE_CACHE_LIMIT_MB)
@@ -79,6 +80,7 @@ class SettingsPreferencesTest {
         assertEquals("auto_center_on_start", SettingsKeys.AUTO_CENTER_ON_START)
         assertEquals("map_source", SettingsKeys.MAP_SOURCE)
         assertEquals("mml_api_key", SettingsKeys.MML_API_KEY)
+        assertEquals("mml_api_key_invalid", SettingsKeys.MML_API_KEY_INVALID)
         assertEquals("copernicus_client_id", SettingsKeys.COPERNICUS_CLIENT_ID)
         assertEquals("copernicus_custom_date_enabled", SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED)
         assertEquals("copernicus_target_date", SettingsKeys.COPERNICUS_TARGET_DATE)
@@ -142,13 +144,74 @@ class SettingsPreferencesTest {
 
     @Test
     fun copernicusQuickSelectRequiresCredentials() {
-        assertEquals(false, MapSourceQuickSelectPolicy.isAvailable(MapSourceIds.COPERNICUS_S2, false))
-        assertEquals(true, MapSourceQuickSelectPolicy.isAvailable(MapSourceIds.COPERNICUS_S2, true))
-        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled(MapSourceIds.COPERNICUS_S2, "", false))
-        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled(MapSourceIds.COPERNICUS_S2, "", true))
-        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "", false))
-        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "key", false))
-        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled("OSM", "", false))
+        assertEquals(false, MapSourceQuickSelectPolicy.isAvailable(MapSourceIds.COPERNICUS_S2, "", false, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.isAvailable(MapSourceIds.COPERNICUS_S2, "", false, true))
+        assertEquals(false, MapSourceQuickSelectPolicy.isAvailable("MML_MAASTO", "", false, false))
+        assertEquals(false, MapSourceQuickSelectPolicy.isAvailable("MML_ILMA", "  ", false, true))
+        assertEquals(false, MapSourceQuickSelectPolicy.isAvailable("MML_MAASTO", "bad-key", true, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.isAvailable("MML_MAASTO", "key", false, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.isAvailable("OSM", "", false, false))
+        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled(MapSourceIds.COPERNICUS_S2, "", false, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled(MapSourceIds.COPERNICUS_S2, "", false, true))
+        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "", false, false))
+        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "  ", false, false))
+        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "bad-key", true, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "key", false, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled("OSM", "", false, false))
+    }
+
+    @Test
+    fun unavailableSelectedSourceFallsBackToFirstQuickSourceOrOsm() {
+        val sources = listOf("OSM", "MML_MAASTO", "MML_ILMA", MapSourceIds.COPERNICUS_S2)
+        val available = setOf("OSM", "MML_ILMA", MapSourceIds.COPERNICUS_S2)
+        val quickSelected = setOf("MML_ILMA", MapSourceIds.COPERNICUS_S2)
+
+        assertEquals(
+            "MML_ILMA",
+            MapSourceQuickSelectPolicy.selectedSourceAfterAvailabilityChange(
+                "MML_MAASTO",
+                sources,
+                { it in available },
+                { it in quickSelected }
+            )
+        )
+        assertEquals(
+            "OSM",
+            MapSourceQuickSelectPolicy.selectedSourceAfterAvailabilityChange(
+                "MML_MAASTO",
+                sources,
+                { it == "OSM" },
+                { false }
+            )
+        )
+        assertEquals(
+            "MML_ILMA",
+            MapSourceQuickSelectPolicy.selectedSourceAfterAvailabilityChange(
+                "MML_ILMA",
+                sources,
+                { it in available },
+                { false }
+            )
+        )
+    }
+
+    @Test
+    fun selectingUnavailableSourceKeepsCurrentDisplayUntilItBecomesAvailable() {
+        assertEquals(
+            "OSM",
+            MapSourceQuickSelectPolicy.sourceToDisplayAfterSelection("MML_MAASTO", "OSM") { false }
+        )
+        assertEquals(
+            "OSM",
+            MapSourceQuickSelectPolicy.sourceToDisplayAfterSelection(
+                MapSourceIds.COPERNICUS_S2,
+                "OSM"
+            ) { false }
+        )
+        assertEquals(
+            "MML_MAASTO",
+            MapSourceQuickSelectPolicy.sourceToDisplayAfterSelection("MML_MAASTO", "OSM") { true }
+        )
     }
 
     @Test
@@ -157,5 +220,6 @@ class SettingsPreferencesTest {
         assertEquals("2026-09-27", CopernicusDateSettings.format(2026, 8, 27))
         assertEquals("2026-09-27", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
             .format(CopernicusDateSettings.calendarFor("2026-09-27").time))
+        assertEquals("24.12.2025", CopernicusDateSettings.display("2025-12-24"))
     }
 }

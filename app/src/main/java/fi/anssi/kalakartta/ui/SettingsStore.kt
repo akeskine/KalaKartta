@@ -30,6 +30,10 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
         set(value) { preferences.edit().putString(SettingsKeys.MML_API_KEY, value).apply() }
 
+    var mmlApiKeyInvalid: Boolean
+        get() = preferences.getBoolean(SettingsKeys.MML_API_KEY_INVALID, SettingsDefaults.MML_API_KEY_INVALID)
+        set(value) { preferences.edit().putBoolean(SettingsKeys.MML_API_KEY_INVALID, value).apply() }
+
     var copernicusClientId: String
         get() = preferences.getString(SettingsKeys.COPERNICUS_CLIENT_ID, SettingsDefaults.COPERNICUS_CLIENT_ID)
             ?: SettingsDefaults.COPERNICUS_CLIENT_ID

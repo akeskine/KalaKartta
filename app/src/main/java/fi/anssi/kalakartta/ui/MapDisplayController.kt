@@ -97,6 +97,7 @@ class MapDisplayController(
                 updateUIColors(useBlack = false)
             }
         }
+        updateCopernicusDateOverlay()
         updateScaleBar()
         if (settingsStore.mapSource == MapSourceIds.COPERNICUS_S2) {
             updateCopernicusSceneDateForCenter()
@@ -225,6 +226,21 @@ class MapDisplayController(
         if (settingsStore.mapSource == MapSourceIds.COPERNICUS_S2) {
             setMapTileSource(CopernicusTileSource(imageDate, sceneAvailable))
         }
+        updateCopernicusDateOverlay()
+    }
+
+    private fun updateCopernicusDateOverlay() {
+        val dateText = activity.findViewById<TextView>(R.id.copernicusDateText) ?: return
+        if (settingsStore.mapSource != MapSourceIds.COPERNICUS_S2 || !copernicusSceneAvailable || copernicusSceneKey == null) {
+            dateText.visibility = View.GONE
+            return
+        }
+
+        dateText.text = activity.getString(
+            R.string.copernicus_image_date,
+            CopernicusDateSettings.display(copernicusSceneDate)
+        )
+        dateText.visibility = View.VISIBLE
     }
 
     fun updateScaleBar() {
