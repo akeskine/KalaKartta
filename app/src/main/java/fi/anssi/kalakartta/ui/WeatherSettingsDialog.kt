@@ -214,10 +214,14 @@ class WeatherSettingsDialog(
                 val forecastRequest = async {
                     weatherService.fetchForecastSuspend(latitude, longitude, listOf(1, 3, 6, 12, 24))
                 }
+                val pressureForecastRequest = async {
+                    weatherService.fetchPressureForecastSuspend(latitude, longitude, summaryTime)
+                }
                 val stationRequest = async {
                     weatherService.fetchNearestStationsSuspend(latitude, longitude, summaryTime, 5)
                 }
                 val forecasts = forecastRequest.await()
+                val pressureForecast = pressureForecastRequest.await()
                 val stations = stationRequest.await().orEmpty()
 
                 var pressureHistory: Pair<List<PressureSample>, Double>? = null
@@ -250,8 +254,15 @@ class WeatherSettingsDialog(
                     rowsLayout.addView(createInfoText("Sääennustetta ei saatu haettua."))
                 }
 
+                pressureGraph.setWeatherSummaryData(
+                    historySamples = pressureHistory?.first.orEmpty(),
+                    forecastSamples = buildList {
+                        pressureHistory?.second?.let { add(PressureSample(summaryTime, it)) }
+                        addAll(pressureForecast.filter { it.time > summaryTime })
+                    },
+                    now = summaryTime
+                )
                 if (pressureHistory != null) {
-                    pressureGraph.setHistoryData(pressureHistory.first, summaryTime)
                     currentPressureLabel.text = "Nyt: ${String.format(Locale.getDefault(), "%.1f", pressureHistory.second)} hPa"
                 } else {
                     currentPressureLabel.text = "Painehistoria ei saatavilla"

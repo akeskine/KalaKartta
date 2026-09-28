@@ -61,6 +61,29 @@ internal fun buildPressureSamplesUrl(
     return if (includeTimestep) "$url&timestep=60" else url
 }
 
+internal fun buildPressureForecastUrl(
+    forecastUrl: String,
+    latitude: Double,
+    longitude: Double,
+    startTime: String,
+    endTime: String
+): String = "$forecastUrl&latlon=$latitude,$longitude&starttime=$startTime&endtime=$endTime" +
+        "&timestep=60&parameters=Pressure"
+
+internal fun pressureForecastSamples(
+    observations: Map<Long, Map<String, Double>>,
+    startTime: Long,
+    endTime: Long
+): List<PressureSample> {
+    if (endTime < startTime) return emptyList()
+
+    return observations.mapNotNull { (time, values) ->
+        val pressure = values["Pressure"] ?: return@mapNotNull null
+        if (time !in startTime..endTime || !pressure.isFinite()) return@mapNotNull null
+        PressureSample(time, pressure)
+    }.sortedBy { it.time }
+}
+
 internal fun buildSeaLevelSamplesUrl(
     observationsUrl: String,
     startTime: String,
@@ -319,6 +342,45 @@ class WeatherService(private val context: Context) {
                 }
             } catch (e: Exception) {
                 android.util.Log.e("KalaKartta", "Virhe sääennusteen haussa: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
+
+    suspend fun fetchPressureForecastSuspend(
+        latitude: Double,
+        longitude: Double,
+        startTime: Long
+    ): List<PressureSample> {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val endTime = startTime + 12 * 60 * 60 * 1000L
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }
+            val urlString = buildPressureForecastUrl(
+                FORECAST_URL,
+                latitude,
+                longitude,
+                dateFormat.format(java.util.Date(startTime)),
+                dateFormat.format(java.util.Date(endTime))
+            )
+
+            try {
+                val connection = URL(urlString).openConnection() as HttpURLConnection
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                try {
+                    if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                        emptyList()
+                    } else {
+                        val observations = connection.inputStream.use { parseAllWeatherObservations(it) }
+                        pressureForecastSamples(observations, startTime, endTime)
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("KalaKartta", "Virhe ilmanpaine-ennusteen haussa: ${e.message}", e)
                 emptyList()
             }
         }

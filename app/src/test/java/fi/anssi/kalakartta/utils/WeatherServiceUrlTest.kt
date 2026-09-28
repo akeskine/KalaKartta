@@ -41,6 +41,45 @@ class WeatherServiceUrlTest {
     }
 
     @Test
+    fun pressureForecastRequestsTwelveHoursOfSurfacePressure() {
+        val url = buildPressureForecastUrl(
+            "https://opendata.fmi.fi/wfs?storedquery_id=fmi::forecast::harmonie::surface::point::simple",
+            60.17,
+            24.94,
+            "2026-09-21T03:00:00Z",
+            "2026-09-21T15:00:00Z"
+        )
+
+        assertTrue(url.contains("latlon=60.17,24.94"))
+        assertTrue(url.contains("starttime=2026-09-21T03:00:00Z"))
+        assertTrue(url.contains("endtime=2026-09-21T15:00:00Z"))
+        assertTrue(url.endsWith("&timestep=60&parameters=Pressure"))
+    }
+
+    @Test
+    fun pressureForecastSamplesAreFiniteAndLimitedToTheRequestedRange() {
+        val startTime = 10L
+        val endTime = 20L
+        val samples = pressureForecastSamples(
+            mapOf(
+                9L to mapOf("Pressure" to 999.0),
+                10L to mapOf("Pressure" to 1000.0),
+                15L to mapOf("Pressure" to Double.NaN),
+                20L to mapOf("Pressure" to 1002.0),
+                21L to mapOf("Pressure" to 1003.0),
+                18L to mapOf("Temperature" to 10.0)
+            ),
+            startTime,
+            endTime
+        )
+
+        assertEquals(
+            listOf(PressureSample(10L, 1000.0), PressureSample(20L, 1002.0)),
+            samples
+        )
+    }
+
+    @Test
     fun seaLevelHistoryRequestsAllMareographsAtHourlyIntervals() {
         val url = buildSeaLevelSamplesUrl(
             "https://opendata.fmi.fi/wfs?service=WFS&storedquery_id=fmi::observations::mareograph::instant::multipointcoverage",
