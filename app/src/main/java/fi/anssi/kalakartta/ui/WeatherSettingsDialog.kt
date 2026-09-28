@@ -24,6 +24,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 /** Sääasetusten ja puuttuvien säätietojen päivityksen dialogi. */
@@ -75,7 +78,8 @@ class WeatherSettingsDialog(
         val moonAndPressureVisuals = createMoonAndPressureVisuals(
             pressureGraph,
             currentPressureLabel,
-            summaryTime
+            summaryTime,
+            coordinates
         )
 
         val forecastBox = LinearLayout(activity).apply {
@@ -163,7 +167,8 @@ class WeatherSettingsDialog(
     private fun createMoonAndPressureVisuals(
         pressureGraph: PressureGraphView,
         currentPressureLabel: TextView,
-        now: Long
+        now: Long,
+        coordinates: Pair<Double, Double>?
     ): LinearLayout {
         val visualRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -179,9 +184,36 @@ class WeatherSettingsDialog(
             gravity = Gravity.CENTER
             setTextColor(activity.resolveThemeColor(android.R.attr.textColorPrimary))
         })
+        val moonCalculator = MoonCalculator()
         moonColumn.addView(MoonPhaseView(activity).apply {
-            setPhase(MoonCalculator().getMoonPhase(now))
+            setPhase(moonCalculator.getMoonPhase(now))
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+        })
+        val moonRiseSetTimes = coordinates?.let { (latitude, longitude) ->
+            val startOfDay = Calendar.getInstance().apply {
+                timeInMillis = now
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val startOfNextDay = (startOfDay.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+            moonCalculator.getMoonRiseSetTimes(
+                latitude,
+                longitude,
+                startOfDay.timeInMillis,
+                startOfNextDay.timeInMillis
+            )
+        }
+        val timeFormatter = SimpleDateFormat("H:mm", Locale.getDefault())
+        moonColumn.addView(TextView(activity).apply {
+            text = "Nousee: ${moonRiseSetTimes?.riseTimeMillis?.let { timeFormatter.format(Date(it)) } ?: "—"}\n" +
+                    "Laskee: ${moonRiseSetTimes?.setTimeMillis?.let { timeFormatter.format(Date(it)) } ?: "—"}"
+            textSize = 8f
+            gravity = Gravity.CENTER
+            setTextColor(activity.resolveThemeColor(android.R.attr.textColorPrimary))
         })
         visualRow.addView(moonColumn, LinearLayout.LayoutParams(dp(68), LinearLayout.LayoutParams.MATCH_PARENT))
 

@@ -2,8 +2,13 @@ package fi.anssi.kalakartta.utils
 
 import kotlin.math.*
 
+data class MoonRiseSetTimes(
+    val riseTimeMillis: Long?,
+    val setTimeMillis: Long?
+)
+
 /**
- * Laskee kuun vaiheen ja korkeuden.
+ * Laskee kuun vaiheen, korkeuden sekä nousu- ja laskuajat.
  */
 class MoonCalculator {
 
@@ -67,6 +72,60 @@ class MoonCalculator {
         )
         
         return Math.toDegrees(alt)
+    }
+
+    /** Palauttaa kuun horisontin ylitysajat annetulta aikaväliltä. */
+    fun getMoonRiseSetTimes(
+        lat: Double,
+        lon: Double,
+        startTimeMillis: Long,
+        endTimeMillis: Long
+    ): MoonRiseSetTimes {
+        if (!lat.isFinite() || lat !in -90.0..90.0 || !lon.isFinite() || lon !in -180.0..180.0 ||
+            endTimeMillis <= startTimeMillis
+        ) {
+            return MoonRiseSetTimes(null, null)
+        }
+
+        val searchStepMillis = 5 * 60 * 1000L
+        var riseTimeMillis: Long? = null
+        var setTimeMillis: Long? = null
+        var previousTime = startTimeMillis
+        var previousAltitude = getMoonAltitude(lat, lon, previousTime)
+
+        while (previousTime < endTimeMillis && (riseTimeMillis == null || setTimeMillis == null)) {
+            val currentTime = minOf(previousTime + searchStepMillis, endTimeMillis)
+            val currentAltitude = getMoonAltitude(lat, lon, currentTime)
+
+            if (riseTimeMillis == null && previousAltitude <= 0.0 && currentAltitude > 0.0) {
+                riseTimeMillis = findHorizonCrossing(lat, lon, previousTime, currentTime)
+            } else if (setTimeMillis == null && previousAltitude >= 0.0 && currentAltitude < 0.0) {
+                setTimeMillis = findHorizonCrossing(lat, lon, previousTime, currentTime)
+            }
+
+            previousTime = currentTime
+            previousAltitude = currentAltitude
+        }
+
+        return MoonRiseSetTimes(riseTimeMillis, setTimeMillis)
+    }
+
+    private fun findHorizonCrossing(lat: Double, lon: Double, startTime: Long, endTime: Long): Long {
+        var low = startTime
+        var high = endTime
+        val startsAboveHorizon = getMoonAltitude(lat, lon, low) >= 0.0
+
+        while (high - low > 1000L) {
+            val middle = low + (high - low) / 2
+            val middleIsAboveHorizon = getMoonAltitude(lat, lon, middle) >= 0.0
+            if (middleIsAboveHorizon == startsAboveHorizon) {
+                low = middle
+            } else {
+                high = middle
+            }
+        }
+
+        return low + (high - low) / 2
     }
 
     private fun normalizeAngle(angle: Double): Double {

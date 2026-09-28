@@ -1,6 +1,7 @@
 package fi.anssi.kalakartta.utils
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
@@ -53,5 +54,25 @@ class MoonCalculatorTest {
         
         // Varmistetaan että saadaan jokin järkevä arvo väliltä -90 ja 90
         assertTrue("Korkeuden pitäisi olla välillä -90 ja 90: $altitude", altitude in -90.0..90.0)
+    }
+
+    @Test
+    fun moonRiseAndSetTimesAreFoundWithinTheRequestedDay() {
+        val startOfDay = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(2026, Calendar.SEPTEMBER, 7)
+        }.timeInMillis
+        val endOfDay = startOfDay + 24 * 60 * 60 * 1000L
+
+        val times = calculator.getMoonRiseSetTimes(60.17, 24.94, startOfDay, endOfDay)
+
+        assertNotNull(times.riseTimeMillis)
+        assertNotNull(times.setTimeMillis)
+        assertTrue(times.riseTimeMillis!! in startOfDay until endOfDay)
+        assertTrue(times.setTimeMillis!! in startOfDay until endOfDay)
+        assertTrue(calculator.getMoonAltitude(60.17, 24.94, times.riseTimeMillis - 60_000L) < 0.0)
+        assertTrue(calculator.getMoonAltitude(60.17, 24.94, times.riseTimeMillis + 60_000L) > 0.0)
+        assertTrue(calculator.getMoonAltitude(60.17, 24.94, times.setTimeMillis - 60_000L) > 0.0)
+        assertTrue(calculator.getMoonAltitude(60.17, 24.94, times.setTimeMillis + 60_000L) < 0.0)
     }
 }
