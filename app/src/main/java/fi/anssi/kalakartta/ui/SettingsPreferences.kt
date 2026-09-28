@@ -12,6 +12,9 @@ object SettingsKeys {
     const val AUTO_CENTER_ON_START = "auto_center_on_start"
     const val MAP_SOURCE = "map_source"
     const val MML_API_KEY = "mml_api_key"
+    const val COPERNICUS_CLIENT_ID = "copernicus_client_id"
+    const val COPERNICUS_CUSTOM_DATE_ENABLED = "copernicus_custom_date_enabled"
+    const val COPERNICUS_TARGET_DATE = "copernicus_target_date"
     const val SHOW_QUICK_MAP_SOURCE = "show_quick_map_source"
     const val SHOW_LIVE_SESSION_ROUTE = "show_live_session_route"
     const val LOCATION_CHECK_INTERVAL = "location_check_interval"
@@ -83,6 +86,8 @@ object SettingsDefaults {
     const val AUTO_CENTER_ON_START = true
     const val MAP_SOURCE = "OSM"
     const val MML_API_KEY = ""
+    const val COPERNICUS_CLIENT_ID = ""
+    const val COPERNICUS_CUSTOM_DATE_ENABLED = false
     const val SHOW_QUICK_MAP_SOURCE = false
     const val SHOW_LIVE_SESSION_ROUTE = true
     const val LOCATION_CHECK_INTERVAL = 10
@@ -143,4 +148,43 @@ object SettingsDefaults {
     const val AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS = 6
     const val LAST_VERSION_NAME = ""
     const val LAST_VERSION_CODE = -1
+}
+
+object MapSourceIds {
+    const val COPERNICUS_S2 = "COPERNICUS_S2"
+}
+
+object MapSourceQuickSelectPolicy {
+    fun isAvailable(sourceId: String, copernicusCredentialsAvailable: Boolean): Boolean =
+        sourceId != MapSourceIds.COPERNICUS_S2 || copernicusCredentialsAvailable
+
+    fun defaultEnabled(sourceId: String, mmlApiKey: String, copernicusCredentialsAvailable: Boolean): Boolean = when {
+        sourceId.startsWith("MML_") -> mmlApiKey.isNotEmpty()
+        sourceId == MapSourceIds.COPERNICUS_S2 -> copernicusCredentialsAvailable
+        else -> true
+    }
+}
+
+object CopernicusDateSettings {
+    private const val STORAGE_FORMAT = "yyyy-MM-dd"
+
+    fun today(): String = java.text.SimpleDateFormat(STORAGE_FORMAT, java.util.Locale.US)
+        .format(java.util.Date())
+
+    fun format(year: Int, month: Int, day: Int): String =
+        String.format(java.util.Locale.US, "%04d-%02d-%02d", year, month + 1, day)
+
+    fun calendarFor(value: String): java.util.Calendar {
+        val calendar = java.util.Calendar.getInstance()
+        val parts = value.split('-').mapNotNull { it.toIntOrNull() }
+        if (parts.size == 3) {
+            calendar.set(java.util.Calendar.YEAR, parts[0])
+            calendar.set(java.util.Calendar.MONTH, parts[1] - 1)
+            calendar.set(java.util.Calendar.DAY_OF_MONTH, parts[2])
+        }
+        return calendar
+    }
+
+    fun display(value: String): String = java.text.SimpleDateFormat("d.M.yyyy", java.util.Locale.getDefault())
+        .format(calendarFor(value).time)
 }

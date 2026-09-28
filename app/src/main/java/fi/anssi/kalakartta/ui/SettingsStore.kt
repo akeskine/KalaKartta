@@ -30,6 +30,23 @@ class SettingsStore(private val preferences: SharedPreferences) {
         get() = preferences.getString(SettingsKeys.MML_API_KEY, SettingsDefaults.MML_API_KEY) ?: SettingsDefaults.MML_API_KEY
         set(value) { preferences.edit().putString(SettingsKeys.MML_API_KEY, value).apply() }
 
+    var copernicusClientId: String
+        get() = preferences.getString(SettingsKeys.COPERNICUS_CLIENT_ID, SettingsDefaults.COPERNICUS_CLIENT_ID)
+            ?: SettingsDefaults.COPERNICUS_CLIENT_ID
+        set(value) { preferences.edit().putString(SettingsKeys.COPERNICUS_CLIENT_ID, value).apply() }
+
+    var copernicusCustomDateEnabled: Boolean
+        get() = preferences.getBoolean(
+            SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED,
+            SettingsDefaults.COPERNICUS_CUSTOM_DATE_ENABLED
+        )
+        set(value) { preferences.edit().putBoolean(SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED, value).apply() }
+
+    var copernicusTargetDate: String
+        get() = preferences.getString(SettingsKeys.COPERNICUS_TARGET_DATE, CopernicusDateSettings.today())
+            ?.takeIf { it.isNotBlank() } ?: CopernicusDateSettings.today()
+        set(value) { preferences.edit().putString(SettingsKeys.COPERNICUS_TARGET_DATE, value).apply() }
+
     var showQuickMapSource: Boolean
         get() = preferences.getBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
         set(value) { preferences.edit().putBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, value).apply() }

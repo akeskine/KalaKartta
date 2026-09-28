@@ -12,6 +12,8 @@ class SettingsPreferencesTest {
         assertEquals(true, SettingsDefaults.AUTO_CENTER_ON_START)
         assertEquals("OSM", SettingsDefaults.MAP_SOURCE)
         assertEquals("", SettingsDefaults.MML_API_KEY)
+        assertEquals("", SettingsDefaults.COPERNICUS_CLIENT_ID)
+        assertEquals(false, SettingsDefaults.COPERNICUS_CUSTOM_DATE_ENABLED)
         assertEquals(false, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
         assertEquals(true, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
         assertEquals(10, SettingsDefaults.LOCATION_CHECK_INTERVAL)
@@ -74,6 +76,9 @@ class SettingsPreferencesTest {
         assertEquals("auto_center_on_start", SettingsKeys.AUTO_CENTER_ON_START)
         assertEquals("map_source", SettingsKeys.MAP_SOURCE)
         assertEquals("mml_api_key", SettingsKeys.MML_API_KEY)
+        assertEquals("copernicus_client_id", SettingsKeys.COPERNICUS_CLIENT_ID)
+        assertEquals("copernicus_custom_date_enabled", SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED)
+        assertEquals("copernicus_target_date", SettingsKeys.COPERNICUS_TARGET_DATE)
         assertEquals("show_quick_map_source", SettingsKeys.SHOW_QUICK_MAP_SOURCE)
         assertEquals("quick_select_MML_MAASTO", SettingsKeys.quickSelect("MML_MAASTO"))
         assertEquals("show_live_session_route", SettingsKeys.SHOW_LIVE_SESSION_ROUTE)
@@ -129,5 +134,24 @@ class SettingsPreferencesTest {
         assertEquals("routes_fade_enabled", SettingsKeys.ROUTES_FADE_ENABLED)
         assertEquals("routes_fade_start_days", SettingsKeys.ROUTES_FADE_START_DAYS)
         assertEquals("routes_fade_full_days", SettingsKeys.ROUTES_FADE_FULL_DAYS)
+    }
+
+    @Test
+    fun copernicusQuickSelectRequiresCredentials() {
+        assertEquals(false, MapSourceQuickSelectPolicy.isAvailable(MapSourceIds.COPERNICUS_S2, false))
+        assertEquals(true, MapSourceQuickSelectPolicy.isAvailable(MapSourceIds.COPERNICUS_S2, true))
+        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled(MapSourceIds.COPERNICUS_S2, "", false))
+        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled(MapSourceIds.COPERNICUS_S2, "", true))
+        assertEquals(false, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "", false))
+        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled("MML_MAASTO", "key", false))
+        assertEquals(true, MapSourceQuickSelectPolicy.defaultEnabled("OSM", "", false))
+    }
+
+    @Test
+    fun copernicusDateUsesStableStorageFormatAndDefaultsToToday() {
+        assertEquals(true, CopernicusDateSettings.today().matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
+        assertEquals("2026-09-27", CopernicusDateSettings.format(2026, 8, 27))
+        assertEquals("2026-09-27", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(CopernicusDateSettings.calendarFor("2026-09-27").time))
     }
 }

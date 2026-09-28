@@ -25,6 +25,9 @@ import fi.anssi.kalakartta.ui.MarkerManager
 import fi.anssi.kalakartta.ui.FilterManager
 import fi.anssi.kalakartta.ui.SettingsDefaults
 import fi.anssi.kalakartta.ui.SettingsStore
+import fi.anssi.kalakartta.ui.CopernicusCredentialStore
+import fi.anssi.kalakartta.ui.MapSourceIds
+import fi.anssi.kalakartta.ui.MapSourceQuickSelectPolicy
 import fi.anssi.kalakartta.ui.WindDirectionView
 import fi.anssi.kalakartta.utils.SessionStatsFormatter
 import android.widget.FrameLayout
@@ -229,7 +232,15 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main)
 
             android.util.Log.d("KalaKartta", "before map init")
-            map = findViewById(R.id.map)
+            val mapContainer = findViewById<FrameLayout>(R.id.map)
+            map = MapView(this)
+            mapContainer.addView(
+                map,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
 
             filterManager = FilterManager(this)
             locationController = LocationController(
@@ -425,6 +436,7 @@ class MainActivity : AppCompatActivity() {
                 val helsinkiCenter = org.osmdroid.util.GeoPoint(60.1695, 24.9354)
                 map.controller.setCenter(helsinkiCenter)
             }
+            mapDisplayController.onMapCenterChanged()
 
             locationController.initialize()
             map.setOnTouchListener { _, event ->
@@ -496,13 +508,22 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.quickMapSourceButton).setOnClickListener {
                 val currentApiKey = settingsStore.mmlApiKey
                 val currentSource = settingsStore.mapSource
+                val copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
+                        CopernicusCredentialStore(this).hasClientSecret()
 
-                val internalIds = arrayOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING")
+                val internalIds = arrayOf(
+                    "OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING", MapSourceIds.COPERNICUS_S2
+                )
 
                 // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
                 val enabledSources = internalIds.filter { id ->
-                    val default = if (id.startsWith("MML_")) currentApiKey.isNotEmpty() else true
-                    settingsStore.isQuickMapSourceEnabled(id, default)
+                    val default = MapSourceQuickSelectPolicy.defaultEnabled(
+                        id,
+                        currentApiKey,
+                        copernicusCredentialsAvailable
+                    )
+                    MapSourceQuickSelectPolicy.isAvailable(id, copernicusCredentialsAvailable) &&
+                            settingsStore.isQuickMapSourceEnabled(id, default)
                 }
 
                 if (enabledSources.isNotEmpty()) {
@@ -536,11 +557,13 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     measurementController.onMapMoved()
+                    mapDisplayController.onMapCenterChanged()
                     return false
                 }
                 override fun onZoom(event: ZoomEvent?): Boolean {
                     updateHeatmapDelayed()
                     updateMarkersVisibility()
+                    mapDisplayController.onMapCenterChanged()
                     return true
                 }
             })
@@ -976,6 +999,7 @@ class MainActivity : AppCompatActivity() {
         map.onResume()
         
         intent?.let { mapNavigationController.handleIntent(it) }
+        mapDisplayController.onMapCenterChanged()
         
         fishingSessionController.updateRecordingStatus()
 
