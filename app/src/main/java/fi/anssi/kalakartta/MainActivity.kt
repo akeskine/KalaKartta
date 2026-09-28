@@ -875,7 +875,7 @@ class MainActivity : AppCompatActivity() {
 
     fun getVisibleArchivedSessionId(): Long = replayMapController.getVisibleArchivedSessionId()
 
-    private fun showSessionNotesDialog(sessionId: Long, durationMs: Long, distanceM: Float) {
+    private fun showSessionNotesDialog(sessionId: Long, durationMs: Long, distanceM: Double) {
         if (isFinishing || isDestroyed) return
         
         lifecycleScope.launch {
@@ -892,7 +892,7 @@ class MainActivity : AppCompatActivity() {
 
             // Session kesto ja matka
             val statsLabel = android.widget.TextView(this@MainActivity)
-            statsLabel.text = SessionStatsFormatter.formatSummary(durationMs, distanceM.toDouble())
+            statsLabel.text = SessionStatsFormatter.formatSummary(durationMs, distanceM)
             statsLabel.textSize = 16f
             statsLabel.setPadding(0, 0, 0, 24)
             layout.addView(statsLabel)

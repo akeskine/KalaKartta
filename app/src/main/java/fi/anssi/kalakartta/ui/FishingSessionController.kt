@@ -36,7 +36,7 @@ class FishingSessionController(
     private val scope: CoroutineScope,
     private val addOverlayBelowMarkers: (Overlay) -> Unit,
     private val hideArchivedSession: () -> Unit,
-    private val onSessionEnded: (sessionId: Long, durationMs: Long, distanceM: Float) -> Unit,
+    private val onSessionEnded: (sessionId: Long, durationMs: Long, distanceM: Double) -> Unit,
     private val onLocationDisabled: () -> Unit
 ) {
     private var fishingService: FishingSessionService? = null
@@ -69,7 +69,7 @@ class FishingSessionController(
                 ACTION_SESSION_ENDED -> {
                     val sessionId = intent.getLongExtra("SESSION_ID", -1L)
                     val durationMs = intent.getLongExtra("duration_ms", 0L)
-                    val distanceM = intent.getFloatExtra("distance_m", 0f)
+                    val distanceM = intent.getDoubleExtra("distance_m", 0.0)
                     updateRecordingStatusUi()
                     if (sessionId != -1L) {
                         onSessionEnded(sessionId, durationMs, distanceM)
