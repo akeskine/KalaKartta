@@ -1,6 +1,7 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -18,6 +19,7 @@ import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.utils.ForecastSummary
 import fi.anssi.kalakartta.utils.MoonCalculator
+import fi.anssi.kalakartta.utils.SunService
 import fi.anssi.kalakartta.utils.WeatherService
 import fi.anssi.kalakartta.utils.formatForecastSummary
 import kotlinx.coroutines.CancellationException
@@ -81,6 +83,7 @@ class WeatherSettingsDialog(
             summaryTime,
             coordinates
         )
+        val sunriseSunsetSummary = createSunriseSunsetSummary(summaryTime, coordinates)
 
         val forecastBox = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -92,6 +95,12 @@ class WeatherSettingsDialog(
             }
             addView(forecastTitle)
             addView(forecastRows)
+            addView(sunriseSunsetSummary, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(6)
+            })
             addView(moonAndPressureVisuals, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(112)
@@ -161,6 +170,34 @@ class WeatherSettingsDialog(
             forecastTitle.text = "Sääennuste"
             forecastRows.addView(createInfoText("Karttasijaintia ei ole saatavilla."))
             currentPressureLabel.text = "Painehistoria ei saatavilla"
+        }
+    }
+
+    private fun createSunriseSunsetSummary(
+        now: Long,
+        coordinates: Pair<Double, Double>?
+    ): TextView {
+        val sunTimes = coordinates?.let { (latitude, longitude) ->
+            SunService().getSunriseSunset(
+                latitude,
+                longitude,
+                Calendar.getInstance().apply { timeInMillis = now }
+            )
+        }
+        val timeFormatter = SimpleDateFormat("H:mm", Locale.getDefault())
+        val sunrise = sunTimes?.first?.timeInMillis?.let { timeFormatter.format(Date(it)) } ?: "—"
+        val sunset = sunTimes?.second?.timeInMillis?.let { timeFormatter.format(Date(it)) } ?: "—"
+
+        return TextView(activity).apply {
+            text = "Aurinko nousee $sunrise, laskee $sunset."
+            textSize = 10f
+            setTextColor(activity.resolveThemeColor(android.R.attr.textColorPrimary))
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(activity.resolveThemeColor(android.R.attr.colorBackground))
+                setStroke(1, Color.BLACK)
+            }
         }
     }
 
