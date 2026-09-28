@@ -110,7 +110,7 @@ class ImportExportManager(
     fun launchExport(catches: List<FishCatch>? = null, places: List<PlaceOfInterest>? = null) {
         pendingExportCatches = catches
         pendingExportPlaces = places
-        exportLauncher.launch("kalakartta.json")
+        exportLauncher.launch("kalakartta-pisteet-${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())}.json")
     }
 
     fun launchExportSpecies() {
@@ -126,7 +126,7 @@ class ImportExportManager(
     }
 
     fun launchExportRoutes() {
-        exportRoutesLauncher.launch("reitit.json")
+        exportRoutesLauncher.launch("kalakartta-sessiot-${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())}.json")
     }
 
     fun launchImportRoutes() {
@@ -134,7 +134,7 @@ class ImportExportManager(
     }
 
     fun launchExportDiary() {
-        exportDiaryLauncher.launch("paivakirja.json")
+        exportDiaryLauncher.launch("kalakartta-pk-${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())}.json")
     }
 
     fun launchImportDiary() {
