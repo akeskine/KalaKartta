@@ -24,6 +24,10 @@ class SessionReplayController {
         private set
     var isPlaying: Boolean = false
         private set
+    private var speedAfterPlayback: Int? = null
+
+    val restoresSpeedAfterPlayback: Boolean
+        get() = speedAfterPlayback != null
 
     fun load(
         points: List<TrackPoint>,
@@ -31,28 +35,46 @@ class SessionReplayController {
         endTime: Long,
         currentTime: Long = startTime,
         speed: Int = this.speed,
-        isPlaying: Boolean = false
+        isPlaying: Boolean = false,
+        restoreSpeedAfterPlayback: Boolean = false
     ) {
         this.points = points.sortedBy { it.timestamp }
         this.startTime = startTime
         this.endTime = endTime.coerceAtLeast(startTime)
         this.currentTime = currentTime.coerceIn(this.startTime, this.endTime)
         this.speed = speed.coerceAtLeast(1)
+        speedAfterPlayback = DEFAULT_SPEED.takeIf { restoreSpeedAfterPlayback }
         this.isPlaying = isPlaying && this.points.isNotEmpty() && this.currentTime < this.endTime
+        if (restoreSpeedAfterPlayback && !this.isPlaying) restorePlaybackSpeed()
     }
 
-    fun restorePlaybackState(currentTime: Long, speed: Int, isPlaying: Boolean) {
+    fun restorePlaybackState(
+        currentTime: Long,
+        speed: Int,
+        isPlaying: Boolean,
+        restoreSpeedAfterPlayback: Boolean = false
+    ) {
         this.currentTime = currentTime
         this.speed = speed.coerceAtLeast(1)
+        speedAfterPlayback = DEFAULT_SPEED.takeIf { restoreSpeedAfterPlayback }
         this.isPlaying = isPlaying
     }
 
     fun setPlaying(playing: Boolean) {
+        if (!playing) restorePlaybackSpeed()
         isPlaying = playing && points.isNotEmpty() && currentTime < endTime
     }
 
     fun setSpeed(speed: Int) {
         this.speed = speed.coerceAtLeast(1)
+        speedAfterPlayback = null
+    }
+
+    fun playAtSpeedUntilEnd(speed: Int, restoreSpeed: Int = DEFAULT_SPEED) {
+        this.speed = speed.coerceAtLeast(1)
+        speedAfterPlayback = restoreSpeed.coerceAtLeast(1)
+        isPlaying = points.isNotEmpty() && currentTime < endTime
+        if (!isPlaying) restorePlaybackSpeed()
     }
 
     fun seek(time: Long): Frame {
@@ -67,6 +89,7 @@ class SessionReplayController {
             currentTime = (currentTime + simulationStep).coerceAtMost(endTime)
             if (currentTime >= endTime) {
                 isPlaying = false
+                restorePlaybackSpeed()
             }
         }
         return frame()
@@ -84,11 +107,27 @@ class SessionReplayController {
         startTime = 0L
         endTime = 0L
         currentTime = 0L
+        speed = DEFAULT_SPEED
         isPlaying = false
+        speedAfterPlayback = null
+    }
+
+    private fun restorePlaybackSpeed() {
+        speedAfterPlayback?.let { speed = it }
+        speedAfterPlayback = null
     }
 
     companion object {
-        const val DEFAULT_SPEED = 60
+        const val DEFAULT_SPEED = 360
         const val DEFAULT_STEP_MILLIS = 100L
+        const val AUTO_PLAY_DURATION_MILLIS = 2_000L
+
+        fun speedForPlaybackDuration(durationMillis: Long, playbackDurationMillis: Long = AUTO_PLAY_DURATION_MILLIS): Int {
+            if (durationMillis <= 0L || playbackDurationMillis <= 0L) return DEFAULT_SPEED
+
+            val speed = durationMillis / playbackDurationMillis +
+                    if (durationMillis % playbackDurationMillis == 0L) 0L else 1L
+            return speed.coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(1)
+        }
     }
 }

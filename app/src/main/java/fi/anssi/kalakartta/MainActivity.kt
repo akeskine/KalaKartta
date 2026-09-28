@@ -952,7 +952,7 @@ class MainActivity : AppCompatActivity() {
         replayMapController.replaySessionOnMap(
             sessionId = sessionId,
             onlySessionCatches = true,
-            startAtEnd = true
+            autoPlayToEnd = true
         )
     }
 

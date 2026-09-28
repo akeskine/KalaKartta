@@ -47,15 +47,18 @@ class ReplayMapController(
     private var archivedSessionPolyline: Polyline? = null
     private var visibleArchivedSessionId: Long = -1L
     private var isOnlySessionCatchesMode = false
+    private var isAutoPlayingToEnd = false
 
     fun replaySessionOnMap(
         sessionId: Long,
         onlySessionCatches: Boolean = false,
-        startAtEnd: Boolean = false
+        startAtEnd: Boolean = false,
+        autoPlayToEnd: Boolean = false
     ) {
         val request = cancelPendingWork()
         replayController.clear()
         isOnlySessionCatchesMode = onlySessionCatches
+        isAutoPlayingToEnd = false
         visibleArchivedSessionId = -1L
         onReplayVisibilityChanged(true)
 
@@ -70,15 +73,18 @@ class ReplayMapController(
             }
             val endTime = session.endedAt ?: points.last().timestamp
             val initialTime = if (startAtEnd) endTime else session.startedAt
+            val shouldAutoPlayToEnd = autoPlayToEnd && !startAtEnd && initialTime < endTime
 
             withContext(Dispatchers.Main) {
                 if (!isCurrentRequest(request)) return@withContext
 
+                isAutoPlayingToEnd = shouldAutoPlayToEnd
                 replayController.load(
                     points = points,
                     startTime = session.startedAt,
                     endTime = endTime,
-                    currentTime = initialTime
+                    currentTime = initialTime,
+                    speed = SessionReplayController.DEFAULT_SPEED
                 )
                 initReplayUi()
                 updateSessionInfoText(replayController.startTime, replayController.endTime)
@@ -87,11 +93,15 @@ class ReplayMapController(
                 updateReplayFrame()
                 zoomToPoints(points)
 
-                markerManager.setMaxTimestamp(replayController.startTime)
-                if (isOnlySessionCatchesMode) {
-                    markerManager.setTimeRange(replayController.startTime, replayController.startTime, true)
-                }
                 updateReplayUi()
+                if (isAutoPlayingToEnd) {
+                    replayController.playAtSpeedUntilEnd(
+                        SessionReplayController.speedForPlaybackDuration(endTime - session.startedAt)
+                    )
+                    startReplayLoop()
+                } else {
+                    updateReplayPlayPauseIcon()
+                }
             }
         }
     }
@@ -103,8 +113,10 @@ class ReplayMapController(
         replayController.restorePlaybackState(
             currentTime = savedInstanceState.getLong("currentReplayTime", 0L),
             speed = savedInstanceState.getInt("replaySpeed", SessionReplayController.DEFAULT_SPEED),
-            isPlaying = savedInstanceState.getBoolean("isReplayPlaying", false)
+            isPlaying = savedInstanceState.getBoolean("isReplayPlaying", false),
+            restoreSpeedAfterPlayback = savedInstanceState.getBoolean("restoreReplaySpeedAfterPlayback", false)
         )
+        isAutoPlayingToEnd = replayController.restoresSpeedAfterPlayback
         restoreReplaySession(sessionId, savedInstanceState.getBoolean("replayMinimized", false))
     }
 
@@ -113,6 +125,7 @@ class ReplayMapController(
         outState.putLong("currentReplayTime", replayController.currentTime)
         outState.putInt("replaySpeed", replayController.speed)
         outState.putBoolean("isReplayPlaying", replayController.isPlaying)
+        outState.putBoolean("restoreReplaySpeedAfterPlayback", replayController.restoresSpeedAfterPlayback)
         val playerContainer = activity.findViewById<View>(R.id.replayPlayerContainer)
         outState.putBoolean("replayMinimized", playerContainer.visibility == View.GONE)
     }
@@ -121,6 +134,7 @@ class ReplayMapController(
         val request = cancelPendingWork()
         replayController.clear()
         isOnlySessionCatchesMode = false
+        isAutoPlayingToEnd = false
         visibleArchivedSessionId = -1L
         onReplayVisibilityChanged(true)
         activity.findViewById<View>(R.id.replayPlayerLayout).visibility = View.GONE
@@ -159,6 +173,7 @@ class ReplayMapController(
         cancelPendingWork()
         replayController.clear()
         isOnlySessionCatchesMode = false
+        isAutoPlayingToEnd = false
 
         activity.findViewById<View>(R.id.replayPlayerLayout).visibility = View.GONE
         activity.findViewById<View>(R.id.sessionInfoText).visibility = View.GONE
@@ -192,16 +207,12 @@ class ReplayMapController(
                     endTime = session.endedAt ?: points.last().timestamp,
                     currentTime = replayController.currentTime,
                     speed = replayController.speed,
-                    isPlaying = replayController.isPlaying
+                    isPlaying = replayController.isPlaying,
+                    restoreSpeedAfterPlayback = replayController.restoresSpeedAfterPlayback
                 )
                 initReplayUi()
                 updateSessionInfoText(replayController.startTime, replayController.endTime)
 
-                val speedOptions = listOf("10x", "30x", "60x", "120x", "360x", "720x", "1440x", "2880x")
-                val speedIndex = speedOptions.indexOf("${replayController.speed}x")
-                if (speedIndex != -1) {
-                    activity.findViewById<Spinner>(R.id.replaySpeedSpinner).setSelection(speedIndex)
-                }
                 if (minimized) {
                     activity.findViewById<View>(R.id.replayPlayerContainer).visibility = View.GONE
                     activity.findViewById<View>(R.id.replayRestoreButton).visibility = View.VISIBLE
@@ -233,6 +244,10 @@ class ReplayMapController(
         onReplayVisibilityChanged(true)
 
         playPauseButton.setOnClickListener {
+            if (isAutoPlayingToEnd) {
+                isAutoPlayingToEnd = false
+                replayController.setSpeed(SessionReplayController.DEFAULT_SPEED)
+            }
             replayController.setPlaying(!replayController.isPlaying)
             updateReplayPlayPauseIcon()
             if (replayController.isPlaying) startReplayLoop()
@@ -243,6 +258,10 @@ class ReplayMapController(
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
+                    if (isAutoPlayingToEnd) {
+                        isAutoPlayingToEnd = false
+                        replayController.setSpeed(SessionReplayController.DEFAULT_SPEED)
+                    }
                     replayController.seek(replayController.startTime + progress)
                     updateReplayFrame()
                 }
@@ -256,13 +275,25 @@ class ReplayMapController(
         val adapter = ArrayAdapter(activity, R.layout.spinner_item_narrow, speedOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         speedSpinner.adapter = adapter
-        speedSpinner.setSelection(4)
+        val spinnerSpeed = if (isAutoPlayingToEnd) {
+            SessionReplayController.DEFAULT_SPEED
+        } else {
+            replayController.speed
+        }
+        val defaultSpeedIndex = speedOptions.indexOf("${SessionReplayController.DEFAULT_SPEED}x")
+        val speedIndex = speedOptions.indexOf("${spinnerSpeed}x").takeIf { it >= 0 } ?: defaultSpeedIndex
+        speedSpinner.setSelection(speedIndex)
         speedSpinner.post {
             (speedSpinner.selectedView as? TextView)?.setTextColor(Color.WHITE)
         }
         speedSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                replayController.setSpeed(speedOptions[position].removeSuffix("x").toIntOrNull() ?: SessionReplayController.DEFAULT_SPEED)
+                val selectedSpeed = speedOptions[position].removeSuffix("x").toIntOrNull()
+                    ?: SessionReplayController.DEFAULT_SPEED
+                if (!isAutoPlayingToEnd || selectedSpeed != SessionReplayController.DEFAULT_SPEED) {
+                    isAutoPlayingToEnd = false
+                    replayController.setSpeed(selectedSpeed)
+                }
                 (view as? TextView)?.setTextColor(Color.WHITE)
             }
 
@@ -293,6 +324,7 @@ class ReplayMapController(
                 updateReplayFrame()
                 updateReplayUi()
                 if (!replayController.isPlaying) {
+                    isAutoPlayingToEnd = false
                     updateReplayPlayPauseIcon()
                     break
                 }

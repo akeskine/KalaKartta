@@ -52,6 +52,42 @@ class SessionReplayControllerTest {
     }
 
     @Test
+    fun `fast forward reaches the end in target time and restores default speed`() {
+        val controller = SessionReplayController()
+        val sessionDuration = 600_000L
+        val animationSpeed = SessionReplayController.speedForPlaybackDuration(sessionDuration)
+        controller.load(
+            points = listOf(firstPoint, secondPoint),
+            startTime = firstPoint.timestamp,
+            endTime = firstPoint.timestamp + sessionDuration
+        )
+
+        controller.playAtSpeedUntilEnd(animationSpeed)
+        val ticks = SessionReplayController.AUTO_PLAY_DURATION_MILLIS /
+                SessionReplayController.DEFAULT_STEP_MILLIS
+        repeat(ticks.toInt()) { controller.advance() }
+
+        assertEquals(300, animationSpeed)
+        assertEquals(firstPoint.timestamp + sessionDuration, controller.currentTime)
+        assertEquals(SessionReplayController.DEFAULT_SPEED, controller.speed)
+        assertFalse(controller.isPlaying)
+        assertFalse(controller.restoresSpeedAfterPlayback)
+    }
+
+    @Test
+    fun `pausing fast forward restores default speed`() {
+        val controller = SessionReplayController()
+        controller.load(listOf(firstPoint, secondPoint), firstPoint.timestamp, 100_000L)
+        controller.playAtSpeedUntilEnd(10_000)
+
+        controller.setPlaying(false)
+
+        assertEquals(SessionReplayController.DEFAULT_SPEED, controller.speed)
+        assertFalse(controller.isPlaying)
+        assertFalse(controller.restoresSpeedAfterPlayback)
+    }
+
+    @Test
     fun `load at session end shows the complete route and is paused`() {
         val controller = SessionReplayController()
 
