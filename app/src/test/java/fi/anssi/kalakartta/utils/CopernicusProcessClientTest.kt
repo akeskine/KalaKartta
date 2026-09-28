@@ -46,35 +46,44 @@ class CopernicusProcessClientTest {
     }
 
     @Test
-    fun tileGroupMapsEachRequestedCoordinateToItsCorrectQuadrant() {
-        val group = CopernicusTileGroup.fromTile(2, 3, 2)
+    fun tileGroupMapsEachRequestedCoordinateToItsCorrectCell() {
+        val group = CopernicusTileGroup.fromTile(4, 11, 10)
 
-        assertEquals(2, group.firstX)
-        assertEquals(2, group.firstY)
-        assertEquals(
-            listOf(
-                CopernicusTileCoordinate(2, 2),
-                CopernicusTileCoordinate(3, 2),
-                CopernicusTileCoordinate(2, 3),
-                CopernicusTileCoordinate(3, 3)
-            ),
-            group.coordinates()
-        )
-        assertEquals(CopernicusTileCropRect(0, 0, 256, 256), group.cropRectFor(2, 2))
-        assertEquals(CopernicusTileCropRect(256, 0, 256, 256), group.cropRectFor(3, 2))
-        assertEquals(CopernicusTileCropRect(0, 256, 256, 256), group.cropRectFor(2, 3))
-        assertEquals(CopernicusTileCropRect(256, 256, 256, 256), group.cropRectFor(3, 3))
+        assertEquals(8, group.firstX)
+        assertEquals(8, group.firstY)
+        assertEquals(8, group.columns)
+        assertEquals(8, group.rows)
+        assertEquals(64, group.coordinates().size)
+        assertEquals(CopernicusTileCoordinate(8, 8), group.coordinates().first())
+        assertEquals(CopernicusTileCoordinate(15, 15), group.coordinates().last())
+        assertEquals(CopernicusTileCropRect(768, 512, 256, 256), group.cropRectFor(11, 10))
+        assertEquals(CopernicusTileCropRect(1792, 1792, 256, 256), group.cropRectFor(15, 15))
+
+        val body = JSONObject(CopernicusProcessRequest.body(4, 11, 10, "2026-09-27"))
+        val bounds = CopernicusTileBoundsCalculator.fromGroup(group)
+        val bbox = body.getJSONObject("input").getJSONObject("bounds").getJSONArray("bbox")
+        assertEquals(bounds.minX, bbox.getDouble(0), 0.0001)
+        assertEquals(bounds.minY, bbox.getDouble(1), 0.0001)
+        assertEquals(bounds.maxX, bbox.getDouble(2), 0.0001)
+        assertEquals(bounds.maxY, bbox.getDouble(3), 0.0001)
+        val output = body.getJSONObject("output")
+        assertEquals(2048, output.getInt("width"))
+        assertEquals(2048, output.getInt("height"))
     }
 
     @Test
-    fun zoomZeroUsesSingleWorldTileDimensions() {
-        val group = CopernicusTileGroup.fromTile(0, 0, 0)
-        val body = JSONObject(CopernicusProcessRequest.body(0, 0, 0, "2026-09-27"))
+    fun lowZoomGroupsAreClampedToWorldDimensions() {
+        val expectedSizes = listOf(256, 512, 1024)
+        for (zoom in 0..2) {
+            val group = CopernicusTileGroup.fromTile(zoom, 0, 0)
+            val body = JSONObject(CopernicusProcessRequest.body(zoom, 0, 0, "2026-09-27"))
+            val expectedTilesPerSide = 1 shl zoom
 
-        assertEquals(1, group.columns)
-        assertEquals(1, group.rows)
-        assertEquals(256, body.getJSONObject("output").getInt("width"))
-        assertEquals(256, body.getJSONObject("output").getInt("height"))
+            assertEquals(expectedTilesPerSide, group.columns)
+            assertEquals(expectedTilesPerSide, group.rows)
+            assertEquals(expectedSizes[zoom], body.getJSONObject("output").getInt("width"))
+            assertEquals(expectedSizes[zoom], body.getJSONObject("output").getInt("height"))
+        }
     }
 
     @Test

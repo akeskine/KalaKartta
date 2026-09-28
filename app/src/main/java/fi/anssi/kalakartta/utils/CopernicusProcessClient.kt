@@ -52,20 +52,21 @@ data class CopernicusTileGroup(
 
     companion object {
         const val TILE_SIZE_PIXELS = 256
+        const val TILES_PER_GROUP = 8
 
         fun fromTile(zoom: Int, x: Int, y: Int): CopernicusTileGroup {
             require(zoom in 0..30) { "Zoom level is outside the supported range" }
             val tileCount = 1L shl zoom
             require(x >= 0 && x.toLong() < tileCount) { "Tile x is outside the zoom level" }
             require(y >= 0 && y.toLong() < tileCount) { "Tile y is outside the zoom level" }
-            val firstX = x / 2 * 2
-            val firstY = y / 2 * 2
+            val firstX = x / TILES_PER_GROUP * TILES_PER_GROUP
+            val firstY = y / TILES_PER_GROUP * TILES_PER_GROUP
             return CopernicusTileGroup(
                 zoom = zoom,
                 firstX = firstX,
                 firstY = firstY,
-                columns = minOf(2, (tileCount - firstX).toInt()),
-                rows = minOf(2, (tileCount - firstY).toInt())
+                columns = minOf(TILES_PER_GROUP, (tileCount - firstX).toInt()),
+                rows = minOf(TILES_PER_GROUP, (tileCount - firstY).toInt())
             )
         }
     }

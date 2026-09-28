@@ -19,13 +19,14 @@ class CopernicusTileCacheTest {
         val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
         var loads = 0
 
-        val first = cache.getOrLoadGroup("2026-09-27", 2, 2, 1, loader = { group ->
+        val first = cache.getOrLoadGroup("2026-09-27", 4, 10, 9, loader = { group ->
             loads++
-            assertEquals(2, group.firstX)
-            assertEquals(0, group.firstY)
+            assertEquals(8, group.firstX)
+            assertEquals(8, group.firstY)
+            assertEquals(64, group.coordinates().size)
             jpeg
         }, splitter = ::splitIntoFakeTiles)
-        val second = cache.getOrLoadGroup("2026-09-27", 2, 2, 1, loader = {
+        val second = cache.getOrLoadGroup("2026-09-27", 4, 10, 9, loader = {
             loads++
             byteArrayOf()
         }, splitter = ::splitIntoFakeTiles)
@@ -34,10 +35,8 @@ class CopernicusTileCacheTest {
         assertArrayEquals(jpeg, first)
         assertArrayEquals(jpeg, second)
         assertEquals(1, loads)
-        assertTrue(cache.cacheFile("2026-09-27", 2, 2, 1).isFile)
-        assertTrue(cache.cacheFile("2026-09-27", 2, 3, 1).isFile)
-        assertTrue(cache.cacheFile("2026-09-27", 2, 2, 0).isFile)
-        assertTrue(cache.cacheFile("2026-09-27", 2, 3, 0).isFile)
+        assertTrue(cache.cacheFile("2026-09-27", 4, 10, 9).isFile)
+        assertEquals(64, cache.cacheDirectoryTileCount("2026-09-27", 4, 8, 8))
         assertTrue(!differentDate.exists())
         assertEquals("satellite/2026-09-27/13/2345/1148.jpg", cache.cacheFile("2026-09-27", 13, 2345, 1148)
             .relativeTo(root).path.replace('\\', '/'))
@@ -55,7 +54,7 @@ class CopernicusTileCacheTest {
         val executor = Executors.newFixedThreadPool(2)
         try {
             val first = executor.submit<ByteArray> {
-                cache.getOrLoadGroup("2026-09-27", 2, 2, 2, loader = {
+                cache.getOrLoadGroup("2026-09-27", 3, 2, 2, loader = {
                     loads.incrementAndGet()
                     loadStarted.countDown()
                     allowLoadToFinish.await(3, TimeUnit.SECONDS)
@@ -64,7 +63,7 @@ class CopernicusTileCacheTest {
             }
             assertTrue(loadStarted.await(3, TimeUnit.SECONDS))
             val second = executor.submit<ByteArray> {
-                secondCache.getOrLoadGroup("2026-09-27", 2, 3, 2, loader = {
+                secondCache.getOrLoadGroup("2026-09-27", 3, 3, 2, loader = {
                     loads.incrementAndGet()
                     jpeg
                 }, splitter = ::splitIntoFakeTiles)
@@ -105,5 +104,14 @@ class CopernicusTileCacheTest {
         group: CopernicusTileGroup
     ): Map<CopernicusTileCoordinate, ByteArray> = group.coordinates().associateWith {
         byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
+    }
+
+    private fun CopernicusTileCache.cacheDirectoryTileCount(
+        imageDate: String,
+        zoom: Int,
+        firstX: Int,
+        firstY: Int
+    ): Int = CopernicusTileGroup.fromTile(zoom, firstX, firstY).coordinates().count { coordinate ->
+        cacheFile(imageDate, zoom, coordinate.x, coordinate.y).isFile
     }
 }
