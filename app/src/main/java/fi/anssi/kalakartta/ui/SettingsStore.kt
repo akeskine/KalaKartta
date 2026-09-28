@@ -47,6 +47,24 @@ class SettingsStore(private val preferences: SharedPreferences) {
             ?.takeIf { it.isNotBlank() } ?: CopernicusDateSettings.today()
         set(value) { preferences.edit().putString(SettingsKeys.COPERNICUS_TARGET_DATE, value).apply() }
 
+    var copernicusTileCacheLimitMb: Int
+        get() = preferences.getInt(
+            SettingsKeys.COPERNICUS_TILE_CACHE_LIMIT_MB,
+            SettingsDefaults.COPERNICUS_TILE_CACHE_LIMIT_MB
+        ).coerceIn(
+            SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB,
+            SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB
+        )
+        set(value) {
+            preferences.edit().putInt(
+                SettingsKeys.COPERNICUS_TILE_CACHE_LIMIT_MB,
+                value.coerceIn(
+                    SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB,
+                    SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB
+                )
+            ).apply()
+        }
+
     var showQuickMapSource: Boolean
         get() = preferences.getBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
         set(value) { preferences.edit().putBoolean(SettingsKeys.SHOW_QUICK_MAP_SOURCE, value).apply() }

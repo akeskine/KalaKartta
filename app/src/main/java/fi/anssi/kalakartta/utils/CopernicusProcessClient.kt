@@ -18,6 +18,59 @@ data class CopernicusTileBounds(
     val maxY: Double
 )
 
+data class CopernicusTileCoordinate(val x: Int, val y: Int)
+
+data class CopernicusTileCropRect(val left: Int, val top: Int, val width: Int, val height: Int)
+
+data class CopernicusTileGroup(
+    val zoom: Int,
+    val firstX: Int,
+    val firstY: Int,
+    val columns: Int,
+    val rows: Int
+) {
+    val pixelWidth: Int get() = columns * TILE_SIZE_PIXELS
+    val pixelHeight: Int get() = rows * TILE_SIZE_PIXELS
+
+    fun coordinates(): List<CopernicusTileCoordinate> = buildList {
+        for (y in firstY until firstY + rows) {
+            for (x in firstX until firstX + columns) add(CopernicusTileCoordinate(x, y))
+        }
+    }
+
+    fun cropRectFor(x: Int, y: Int): CopernicusTileCropRect {
+        require(x in firstX until firstX + columns && y in firstY until firstY + rows) {
+            "Tile is outside its Copernicus image group"
+        }
+        return CopernicusTileCropRect(
+            left = (x - firstX) * TILE_SIZE_PIXELS,
+            top = (y - firstY) * TILE_SIZE_PIXELS,
+            width = TILE_SIZE_PIXELS,
+            height = TILE_SIZE_PIXELS
+        )
+    }
+
+    companion object {
+        const val TILE_SIZE_PIXELS = 256
+
+        fun fromTile(zoom: Int, x: Int, y: Int): CopernicusTileGroup {
+            require(zoom in 0..30) { "Zoom level is outside the supported range" }
+            val tileCount = 1L shl zoom
+            require(x >= 0 && x.toLong() < tileCount) { "Tile x is outside the zoom level" }
+            require(y >= 0 && y.toLong() < tileCount) { "Tile y is outside the zoom level" }
+            val firstX = x / 2 * 2
+            val firstY = y / 2 * 2
+            return CopernicusTileGroup(
+                zoom = zoom,
+                firstX = firstX,
+                firstY = firstY,
+                columns = minOf(2, (tileCount - firstX).toInt()),
+                rows = minOf(2, (tileCount - firstY).toInt())
+            )
+        }
+    }
+}
+
 object CopernicusTileBoundsCalculator {
     private const val EARTH_RADIUS_METERS = 6_378_137.0
     private val halfWorldMeters = Math.PI * EARTH_RADIUS_METERS
@@ -32,6 +85,17 @@ object CopernicusTileBoundsCalculator {
         val minX = -halfWorldMeters + x * tileSpan
         val maxY = halfWorldMeters - y * tileSpan
         return CopernicusTileBounds(minX, maxY - tileSpan, minX + tileSpan, maxY)
+    }
+
+    fun fromGroup(group: CopernicusTileGroup): CopernicusTileBounds {
+        val northWestTile = fromTile(group.zoom, group.firstX, group.firstY)
+        val tileSpan = northWestTile.maxX - northWestTile.minX
+        return CopernicusTileBounds(
+            minX = northWestTile.minX,
+            minY = northWestTile.maxY - tileSpan * group.rows,
+            maxX = northWestTile.minX + tileSpan * group.columns,
+            maxY = northWestTile.maxY
+        )
     }
 }
 
@@ -58,7 +122,8 @@ function evaluatePixel(s) {
 }"""
 
     fun body(zoom: Int, x: Int, y: Int, imageDate: String): String {
-        val bbox = CopernicusTileBoundsCalculator.fromTile(zoom, x, y)
+        val group = CopernicusTileGroup.fromTile(zoom, x, y)
+        val bbox = CopernicusTileBoundsCalculator.fromGroup(group)
         val dateRange = dateRange(imageDate)
         val bounds = JSONObject()
             .put("bbox", JSONArray().put(bbox.minX).put(bbox.minY).put(bbox.maxX).put(bbox.maxY))
@@ -71,8 +136,8 @@ function evaluatePixel(s) {
             .put("bounds", bounds)
             .put("data", JSONArray().put(JSONObject().put("type", "sentinel-2-l2a").put("dataFilter", dataFilter)))
         val output = JSONObject()
-            .put("width", 256)
-            .put("height", 256)
+            .put("width", group.pixelWidth)
+            .put("height", group.pixelHeight)
             .put(
                 "responses",
                 JSONArray().put(

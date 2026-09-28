@@ -6,34 +6,63 @@ import java.io.IOException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
-class CopernicusTileCache(private val rootDirectory: File) {
-    private val inFlightLoads = ConcurrentHashMap<String, CompletableFuture<ByteArray>>()
+class CopernicusTileCache(
+    private val rootDirectory: File,
+    private val maximumSizeBytes: () -> Long = { DEFAULT_MAXIMUM_SIZE_BYTES }
+) {
+    private val cleanupScheduled = AtomicBoolean(false)
+    private val fileLock = lockFor(rootDirectory.absolutePath)
 
-    fun getOrLoad(imageDate: String, zoom: Int, x: Int, y: Int, loader: () -> ByteArray): ByteArray {
+    fun getOrLoadGroup(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        loader: (CopernicusTileGroup) -> ByteArray,
+        splitter: (ByteArray, CopernicusTileGroup) -> Map<CopernicusTileCoordinate, ByteArray>
+    ): ByteArray {
         getCached(imageDate, zoom, x, y)?.let { return it }
-        val cacheFile = cacheFile(imageDate, zoom, x, y)
-
-        val key = cacheFile.absolutePath
-        val newLoad = CompletableFuture<ByteArray>()
-        val activeLoad = inFlightLoads.putIfAbsent(key, newLoad)
-        if (activeLoad != null) return await(activeLoad)
+        val group = CopernicusTileGroup.fromTile(zoom, x, y)
+        val coordinate = CopernicusTileCoordinate(x, y)
+        val groupKey = cacheFile(imageDate, zoom, group.firstX, group.firstY).absolutePath
+        val newLoad = CompletableFuture<Map<CopernicusTileCoordinate, ByteArray>>()
+        val activeLoad = IN_FLIGHT_GROUP_LOADS.putIfAbsent(groupKey, newLoad)
+        if (activeLoad != null) {
+            return await(activeLoad)[coordinate]
+                ?: getCached(imageDate, zoom, x, y)
+                ?: throw IOException("Copernicus image group did not contain the requested tile")
+        }
 
         try {
-            readCache(cacheFile)?.let {
-                newLoad.complete(it)
-                return it
+            val expectedCoordinates = group.coordinates().toSet()
+            val cachedGroup = expectedCoordinates.mapNotNull { cachedCoordinate ->
+                getCached(imageDate, zoom, cachedCoordinate.x, cachedCoordinate.y)
+                    ?.let { cachedCoordinate to it }
+            }.toMap()
+            if (cachedGroup.keys == expectedCoordinates) {
+                newLoad.complete(cachedGroup)
+                return cachedGroup.getValue(coordinate)
             }
-            val loaded = loader()
-            if (!isJpeg(loaded)) throw IOException("Copernicus tile response is not a JPEG")
-            writeCache(cacheFile, loaded)
-            newLoad.complete(loaded)
-            return loaded
+            val groupImage = loader(group)
+            val tiles = splitter(groupImage, group)
+            if (tiles.keys != expectedCoordinates || tiles.values.any { !isJpeg(it) }) {
+                throw IOException("Copernicus image could not be split into valid JPEG tiles")
+            }
+            tiles.forEach { (tileCoordinate, jpeg) ->
+                val tileFile = cacheFile(imageDate, zoom, tileCoordinate.x, tileCoordinate.y)
+                if (readCache(tileFile) == null) writeCache(tileFile, jpeg)
+            }
+            enforceSizeLimitAsync()
+            newLoad.complete(tiles)
+            return tiles[coordinate] ?: throw IOException("Copernicus image group did not contain the requested tile")
         } catch (failure: Throwable) {
             newLoad.completeExceptionally(failure)
             throw failure
         } finally {
-            inFlightLoads.remove(key, newLoad)
+            IN_FLIGHT_GROUP_LOADS.remove(groupKey, newLoad)
         }
     }
 
@@ -51,38 +80,72 @@ class CopernicusTileCache(private val rootDirectory: File) {
     }
 
     fun remove(imageDate: String, zoom: Int, x: Int, y: Int) {
-        cacheFile(imageDate, zoom, x, y).delete()
+        synchronized(fileLock) {
+            cacheFile(imageDate, zoom, x, y).delete()
+        }
+    }
+
+    fun enforceSizeLimitAsync(maxSizeBytes: Long = maximumSizeBytes()) {
+        if (!cleanupScheduled.compareAndSet(false, true)) return
+        CACHE_CLEANUP_EXECUTOR.execute {
+            try {
+                trimToSize(maxSizeBytes)
+            } finally {
+                cleanupScheduled.set(false)
+            }
+        }
+    }
+
+    fun trimToSize(maxSizeBytes: Long): Long = synchronized(fileLock) {
+        val files = cachedJpegFiles().sortedBy(File::lastModified)
+        var totalBytes = files.sumOf(File::length)
+        for (file in files) {
+            if (totalBytes <= maxSizeBytes.coerceAtLeast(0)) break
+            val fileSize = file.length()
+            if (file.delete()) totalBytes -= fileSize
+        }
+        totalBytes
+    }
+
+    private fun cachedJpegFiles(): List<File> {
+        val cacheRoot = File(rootDirectory, "satellite")
+        if (!cacheRoot.isDirectory) return emptyList()
+        return cacheRoot.walkTopDown().filter { it.isFile && it.extension.equals("jpg", ignoreCase = true) }.toList()
     }
 
     private fun readCache(file: File): ByteArray? {
         if (!file.isFile) return null
         return try {
             file.readBytes().takeIf(::isJpeg) ?: run {
-                file.delete()
+                synchronized(fileLock) { file.delete() }
                 null
             }
         } catch (_: IOException) {
-            file.delete()
+            synchronized(fileLock) { file.delete() }
             null
         }
     }
 
     private fun writeCache(file: File, bytes: ByteArray) {
-        val parent = file.parentFile ?: throw IOException("Invalid Copernicus cache path")
-        if (!parent.exists() && !parent.mkdirs()) throw IOException("Unable to create Copernicus tile cache")
-        val temporaryFile = File(file.parentFile, "${file.name}.${Thread.currentThread().id}.${System.nanoTime()}.tmp")
-        try {
-            FileOutputStream(temporaryFile).use { output ->
-                output.write(bytes)
-                output.fd.sync()
+        synchronized(fileLock) {
+            if (file.isFile && runCatching { isJpeg(file.readBytes()) }.getOrDefault(false)) return
+            val parent = file.parentFile ?: throw IOException("Invalid Copernicus cache path")
+            if (!parent.exists() && !parent.mkdirs()) throw IOException("Unable to create Copernicus tile cache")
+            val temporaryFile = File(parent, "${file.name}.${Thread.currentThread().id}.${System.nanoTime()}.tmp")
+            try {
+                FileOutputStream(temporaryFile).use { output ->
+                    output.write(bytes)
+                    output.fd.sync()
+                }
+                if (file.exists() && !file.delete()) throw IOException("Unable to replace Copernicus tile cache")
+                if (!temporaryFile.renameTo(file)) throw IOException("Unable to persist Copernicus tile cache")
+            } finally {
+                temporaryFile.delete()
             }
-            if (!temporaryFile.renameTo(file)) throw IOException("Unable to persist Copernicus tile cache")
-        } finally {
-            temporaryFile.delete()
         }
     }
 
-    private fun await(future: CompletableFuture<ByteArray>): ByteArray {
+    private fun <T> await(future: CompletableFuture<T>): T {
         return try {
             future.get()
         } catch (failure: ExecutionException) {
@@ -93,4 +156,18 @@ class CopernicusTileCache(private val rootDirectory: File) {
     private fun isJpeg(bytes: ByteArray): Boolean =
         bytes.size >= 4 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() &&
                 bytes[bytes.lastIndex - 1] == 0xFF.toByte() && bytes.last() == 0xD9.toByte()
+
+    companion object {
+        const val BYTES_PER_MEGABYTE = 1024L * 1024
+        const val DEFAULT_MAXIMUM_SIZE_BYTES = 512L * 1024 * 1024
+
+        private val CACHE_CLEANUP_EXECUTOR = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "CopernicusCacheCleanup").apply { isDaemon = true }
+        }
+        private val FILE_LOCKS = ConcurrentHashMap<String, Any>()
+        private val IN_FLIGHT_GROUP_LOADS =
+            ConcurrentHashMap<String, CompletableFuture<Map<CopernicusTileCoordinate, ByteArray>>>()
+
+        private fun lockFor(path: String): Any = FILE_LOCKS.computeIfAbsent(path) { Any() }
+    }
 }

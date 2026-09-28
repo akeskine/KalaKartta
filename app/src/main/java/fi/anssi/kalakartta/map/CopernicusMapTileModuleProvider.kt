@@ -43,7 +43,14 @@ private class CopernicusMapTileModuleProvider(
 ) : MapTileModuleProviderBase(2, 40) {
     private val appContext = context.applicationContext
     private val credentialStore = CopernicusCredentialStore(appContext)
-    private val tileCache = CopernicusTileCache(appContext.filesDir)
+    private val tileCache = CopernicusTileCache(appContext.filesDir) {
+        settingsStore.copernicusTileCacheLimitMb.toLong() * CopernicusTileCache.BYTES_PER_MEGABYTE
+    }
+
+    init {
+        tileCache.enforceSizeLimitAsync()
+    }
+
     private val tileSourceLock = Any()
     @Volatile
     private var tileSource: ITileSource? = null
@@ -71,9 +78,14 @@ private class CopernicusMapTileModuleProvider(
                 val jpeg = tileCache.getCached(source.imageDate, zoom, x, y)
                     ?: run {
                         if (!hasValidatedNetwork()) return null
-                        tileCache.getOrLoad(source.imageDate, zoom, x, y) {
-                            processClient.getTile(zoom, x, y, source.imageDate)
-                        }
+                        tileCache.getOrLoadGroup(
+                            source.imageDate,
+                            zoom,
+                            x,
+                            y,
+                            loader = { group -> processClient.getTile(group.zoom, group.firstX, group.firstY, source.imageDate) },
+                            splitter = CopernicusTileImageSplitter::split
+                        )
                     }
                 if (!isCurrentSource(sourceSnapshot)) return null
                 val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: run {

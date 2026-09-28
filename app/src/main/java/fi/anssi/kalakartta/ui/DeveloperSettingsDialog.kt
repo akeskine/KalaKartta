@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
+import fi.anssi.kalakartta.utils.CopernicusTileCache
 import fi.anssi.kalakartta.service.FishingSessionService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -40,6 +41,26 @@ class DeveloperSettingsDialog(
             }
         }
         layout.addView(debugCheckbox)
+
+        val copernicusCacheLimitRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        val copernicusCacheLimitLabel = TextView(activity).apply {
+            text = "Copernicus-tiilivälimuistin raja (MB, 64–4096):"
+        }
+        val copernicusCacheLimitEdit = EditText(activity).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(settingsStore.copernicusTileCacheLimitMb.toString())
+        }
+        val copernicusCacheLimitHint = TextView(activity).apply {
+            text = "Oletus 512 MB. Vanhimpia tiilejä poistetaan tarvittaessa taustalla."
+            textSize = 12f
+        }
+        copernicusCacheLimitRow.addView(copernicusCacheLimitLabel)
+        copernicusCacheLimitRow.addView(copernicusCacheLimitEdit)
+        copernicusCacheLimitRow.addView(copernicusCacheLimitHint)
+        layout.addView(copernicusCacheLimitRow)
 
         // Rivi 1: Reittipisteitä max
         val row1 = LinearLayout(activity).apply {
@@ -351,6 +372,13 @@ class DeveloperSettingsDialog(
                     automaticWeatherUpdateIntervalEdit.text,
                     SettingsDefaults.AUTOMATIC_WEATHER_UPDATE_INTERVAL_HOURS
                 )
+                val copernicusCacheLimitMb = SettingsValueValidator.positiveIntOrDefault(
+                    copernicusCacheLimitEdit.text,
+                    SettingsDefaults.COPERNICUS_TILE_CACHE_LIMIT_MB
+                ).coerceIn(
+                    SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB,
+                    SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB
+                )
                 
                 settingsStore.maxTrackPoints = maxPoints
                 settingsStore.maxHeatmapCells = maxCells
@@ -361,6 +389,10 @@ class DeveloperSettingsDialog(
                 settingsStore.seaLevelTrendThreshold = seaLevelTrendThreshold
                 settingsStore.seaLevelTurningTrendThreshold = seaLevelTurningTrendThreshold
                 settingsStore.automaticWeatherUpdateIntervalHours = automaticWeatherUpdateInterval
+                settingsStore.copernicusTileCacheLimitMb = copernicusCacheLimitMb
+                CopernicusTileCache(activity.filesDir).enforceSizeLimitAsync(
+                    copernicusCacheLimitMb.toLong() * CopernicusTileCache.BYTES_PER_MEGABYTE
+                )
                 onOpenGeneralSettings()
             }
             .setPositiveButton("Takaisin") { _, _ -> onOpenGeneralSettings() }
