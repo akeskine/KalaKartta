@@ -85,8 +85,8 @@ class MapDisplayController(
             }
         }
 
-        activity.findViewById<MaterialButton>(R.id.quickMapSourceButton).visibility =
-            if (showQuickMap) View.VISIBLE else View.GONE
+        val quickMapSourceButton = activity.findViewById<MaterialButton>(R.id.quickMapSourceButton)
+        quickMapSourceButton.visibility = if (showQuickMap) View.VISIBLE else View.GONE
 
         scaleBarOverlay?.let { map.overlays.remove(it) }
         if (showScale) {
@@ -138,8 +138,17 @@ class MapDisplayController(
 
         onDefaultFishermanChanged()
         val shortcutMode = settingsStore.heatmapShortcutMode
-        activity.findViewById<MaterialButton>(R.id.heatmapShortcutButton).visibility =
-            if (shortcutMode > 0) View.VISIBLE else View.GONE
+        val heatmapShortcutButton = activity.findViewById<MaterialButton>(R.id.heatmapShortcutButton)
+        heatmapShortcutButton.visibility = if (shortcutMode > 0) View.VISIBLE else View.GONE
+        val quickMapLayoutParams = quickMapSourceButton.layoutParams as FrameLayout.LayoutParams
+        val shortcutLayoutParams = heatmapShortcutButton.layoutParams as FrameLayout.LayoutParams
+        val shortcutOffset = (70 * activity.resources.displayMetrics.density).toInt()
+        shortcutLayoutParams.topMargin = if (showQuickMap) {
+            quickMapLayoutParams.topMargin + shortcutOffset
+        } else {
+            quickMapLayoutParams.topMargin
+        }
+        heatmapShortcutButton.layoutParams = shortcutLayoutParams
 
         updateFishingHeatmap()
         map.invalidate()
