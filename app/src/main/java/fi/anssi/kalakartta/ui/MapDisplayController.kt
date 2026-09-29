@@ -12,7 +12,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
-import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.tilesource.ITileSource
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
@@ -22,8 +21,8 @@ import android.os.Looper
 import android.content.res.ColorStateList
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.R
-import fi.anssi.kalakartta.map.CopernicusMapTileProvider
-import fi.anssi.kalakartta.map.usesCopernicusTileProvider
+import fi.anssi.kalakartta.map.CopernicusTilesOverlay
+import fi.anssi.kalakartta.map.mapBaseTileSource
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.utils.CopernicusCatalogClient
 import fi.anssi.kalakartta.utils.CopernicusSceneDateResolver
@@ -65,6 +64,7 @@ class MapDisplayController(
     private var pendingCopernicusSceneKey: String? = null
     private var resolvedCopernicusSceneKey: String? = null
     private var copernicusSceneResolutionJob: Job? = null
+    private var copernicusTilesOverlay: CopernicusTilesOverlay? = null
     private val heatmapUpdateHandler = Handler(Looper.getMainLooper())
     private val heatmapUpdateRunnable = Runnable {
         heatmapOverlay?.refreshData(map.boundingBox)
@@ -114,14 +114,34 @@ class MapDisplayController(
     }
 
     private fun setMapTileSource(tileSource: ITileSource) {
-        if (usesCopernicusTileProvider(tileSource)) {
-            if (map.tileProvider !is CopernicusMapTileProvider) {
-                map.setTileProvider(CopernicusMapTileProvider(activity.applicationContext, settingsStore))
+        val copernicusTileSource = tileSource as? CopernicusTileSource
+        if (copernicusTileSource != null) {
+            val overlay = copernicusTilesOverlay ?: CopernicusTilesOverlay(
+                activity.applicationContext,
+                settingsStore,
+                map
+            ).also { copernicusTilesOverlay = it }
+            overlay.setCopernicusTileSource(copernicusTileSource)
+            if (overlay !in map.overlays) {
+                map.overlays.add(0, overlay)
             }
-        } else if (map.tileProvider is CopernicusMapTileProvider) {
-            map.setTileProvider(MapTileProviderBasic(activity.applicationContext))
+        } else {
+            removeCopernicusTileOverlay()
         }
-        map.setTileSource(tileSource)
+
+        val baseTileSource = mapBaseTileSource(tileSource)
+        if (map.tileProvider.tileSource !== baseTileSource) {
+            map.setTileSource(baseTileSource)
+        }
+        map.invalidate()
+    }
+
+    private fun removeCopernicusTileOverlay() {
+        copernicusTilesOverlay?.let { overlay ->
+            map.overlays.remove(overlay)
+            overlay.onDetach(map)
+            copernicusTilesOverlay = null
+        }
     }
 
     private fun updateCopernicusSceneDateForCenter() {

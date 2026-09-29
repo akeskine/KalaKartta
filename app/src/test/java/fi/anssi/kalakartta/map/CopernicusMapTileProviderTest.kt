@@ -4,8 +4,10 @@ import fi.anssi.kalakartta.utils.CopernicusTileSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 
 class CopernicusMapTileProviderTest {
@@ -17,5 +19,13 @@ class CopernicusMapTileProviderTest {
         assertTrue(usesCopernicusTileProvider(CopernicusTileSource()))
         assertNull(copernicusProviderZoomRange(otherSource))
         assertEquals(0..18, copernicusProviderZoomRange(CopernicusTileSource()))
+    }
+
+    @Test
+    fun copernicusUsesOsmAsBaseWhileOtherSourcesRemainTheBaseLayer() {
+        val otherSource = XYTileSource("Other source", 0, 18, 256, ".png", arrayOf("https://example.com/"))
+
+        assertSame(TileSourceFactory.MAPNIK, mapBaseTileSource(CopernicusTileSource()))
+        assertSame(otherSource, mapBaseTileSource(otherSource))
     }
 }

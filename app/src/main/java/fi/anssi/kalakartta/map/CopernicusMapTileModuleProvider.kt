@@ -2,6 +2,7 @@ package fi.anssi.kalakartta.map
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.ConnectivityManager
@@ -18,7 +19,10 @@ import org.osmdroid.tileprovider.modules.MapTileDownloader
 import org.osmdroid.tileprovider.modules.MapTileModuleProviderBase
 import org.osmdroid.tileprovider.tilesource.ITileSource
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.util.SimpleInvalidationHandler
 import org.osmdroid.util.MapTileIndex
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.TilesOverlay
 import java.io.IOException
 
 internal fun usesCopernicusTileProvider(tileSource: ITileSource): Boolean =
@@ -27,6 +31,9 @@ internal fun usesCopernicusTileProvider(tileSource: ITileSource): Boolean =
 internal fun copernicusProviderZoomRange(tileSource: ITileSource?): IntRange? =
     tileSource?.takeIf(::usesCopernicusTileProvider)?.let { it.minimumZoomLevel..it.maximumZoomLevel }
 
+internal fun mapBaseTileSource(tileSource: ITileSource): ITileSource =
+    if (usesCopernicusTileProvider(tileSource)) TileSourceFactory.MAPNIK else tileSource
+
 class CopernicusMapTileProvider(context: Context, settingsStore: SettingsStore) : MapTileProviderBasic(context) {
     init {
         val copernicusProvider = CopernicusMapTileModuleProvider(context, settingsStore)
@@ -34,6 +41,38 @@ class CopernicusMapTileProvider(context: Context, settingsStore: SettingsStore) 
         val downloaderIndex = mTileProviderList.indexOfFirst { it is MapTileDownloader }
         val insertionIndex = if (downloaderIndex >= 0) downloaderIndex else mTileProviderList.size
         mTileProviderList.add(insertionIndex, copernicusProvider)
+    }
+}
+
+class CopernicusTilesOverlay private constructor(
+    private val copernicusTileProvider: CopernicusMapTileProvider,
+    context: Context,
+    mapView: MapView
+) : TilesOverlay(copernicusTileProvider, context) {
+    private val invalidationHandler = SimpleInvalidationHandler(mapView)
+    private var detached = false
+
+    constructor(context: Context, settingsStore: SettingsStore, mapView: MapView) : this(
+        CopernicusMapTileProvider(context, settingsStore),
+        context,
+        mapView
+    )
+
+    init {
+        copernicusTileProvider.tileRequestCompleteHandlers.add(invalidationHandler)
+        setLoadingBackgroundColor(Color.TRANSPARENT)
+    }
+
+    fun setCopernicusTileSource(tileSource: CopernicusTileSource) {
+        copernicusTileProvider.setTileSource(tileSource)
+    }
+
+    override fun onDetach(mapView: MapView) {
+        if (detached) return
+        detached = true
+        copernicusTileProvider.tileRequestCompleteHandlers.remove(invalidationHandler)
+        invalidationHandler.destroy()
+        super.onDetach(mapView)
     }
 }
 
