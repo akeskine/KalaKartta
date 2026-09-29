@@ -301,6 +301,7 @@ class MarkerManager(
         } else {
             addIndividualMarker(fish)
         }
+        setMarkersVisible(zoom >= 1.0, zoom)
         map.invalidate()
     }
 
@@ -335,6 +336,12 @@ class MarkerManager(
         val hidden = visibilityOverride.toggleHidden()
         setMarkersVisible(zoom >= 1.0, zoom, forceRebuild = !hidden)
         return hidden
+    }
+
+    fun restoreMarkersIfHidden(zoom: Double): Boolean {
+        if (!visibilityOverride.restoreIfHidden()) return false
+        setMarkersVisible(zoom >= 1.0, zoom, forceRebuild = true)
+        return true
     }
 
     fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
@@ -536,7 +543,11 @@ class MarkerManager(
 
     fun setMarkersVisible(visible: Boolean, zoom: Double, forceRebuild: Boolean = false) {
         val shouldBeVisible = visibilityOverride.shouldBeVisible(visible)
-        if (markersFolder.isEnabled != shouldBeVisible || Math.abs(lastZoom - zoom) > 0.1 || forceRebuild) {
+        val folderVisibilityChanged = defaultPointsFolder.isEnabled != shouldBeVisible ||
+                catchesFolder.isEnabled != shouldBeVisible ||
+                placesFolder.isEnabled != shouldBeVisible ||
+                markersFolder.isEnabled != shouldBeVisible
+        if (folderVisibilityChanged || Math.abs(lastZoom - zoom) > 0.1 || forceRebuild) {
             defaultPointsFolder.isEnabled = shouldBeVisible
             catchesFolder.isEnabled = shouldBeVisible
             placesFolder.isEnabled = shouldBeVisible

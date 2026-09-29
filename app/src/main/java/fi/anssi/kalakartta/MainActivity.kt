@@ -447,9 +447,7 @@ class MainActivity : AppCompatActivity() {
             var touchStartX = 0f
             var touchStartY = 0f
             val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
-            val toggleMarkerVisibility = Runnable {
-                markerVisibilityLongPressTriggered = true
-                val markersHidden = markerManager.toggleMarkersHidden(map.zoomLevelDouble)
+            val showMarkerVisibilityStatus: (Boolean) -> Unit = { markersHidden ->
                 val message = if (markersHidden) {
                     "Kala- ja paikkapisteet piilotettu"
                 } else {
@@ -457,8 +455,18 @@ class MainActivity : AppCompatActivity() {
                 }
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
             }
+            val toggleMarkerVisibility = Runnable {
+                markerVisibilityLongPressTriggered = true
+                val markersHidden = markerManager.toggleMarkersHidden(map.zoomLevelDouble)
+                showMarkerVisibilityStatus(markersHidden)
+            }
             addCatchButton.setOnClickListener {
-                if (!markerVisibilityLongPressTriggered) {
+                if (markerVisibilityLongPressTriggered) {
+                    return@setOnClickListener
+                }
+                if (markerManager.restoreMarkersIfHidden(map.zoomLevelDouble)) {
+                    showMarkerVisibilityStatus(false)
+                } else {
                     catchManager.showSpeciesDialog()
                 }
             }
@@ -468,7 +476,7 @@ class MainActivity : AppCompatActivity() {
                         markerVisibilityLongPressTriggered = false
                         touchStartX = event.x
                         touchStartY = event.y
-                        view.postDelayed(toggleMarkerVisibility, 2_000L)
+                        view.postDelayed(toggleMarkerVisibility, 1_000L)
                     }
                     android.view.MotionEvent.ACTION_MOVE -> {
                         if (kotlin.math.abs(event.x - touchStartX) > touchSlop ||

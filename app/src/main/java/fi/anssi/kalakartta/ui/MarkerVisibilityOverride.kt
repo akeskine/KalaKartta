@@ -8,5 +8,11 @@ class MarkerVisibilityOverride {
         return isHidden
     }
 
+    fun restoreIfHidden(): Boolean {
+        if (!isHidden) return false
+        isHidden = false
+        return true
+    }
+
     fun shouldBeVisible(mapAllowsVisibility: Boolean): Boolean = mapAllowsVisibility && !isHidden
 }

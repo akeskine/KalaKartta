@@ -19,6 +19,17 @@ class MarkerVisibilityOverrideTest {
     }
 
     @Test
+    fun `restore tap only consumes hidden state once`() {
+        assertFalse(visibilityOverride.restoreIfHidden())
+
+        visibilityOverride.toggleHidden()
+
+        assertTrue(visibilityOverride.restoreIfHidden())
+        assertFalse(visibilityOverride.restoreIfHidden())
+        assertTrue(visibilityOverride.shouldBeVisible(mapAllowsVisibility = true))
+    }
+
+    @Test
     fun `hidden override does not bypass map visibility`() {
         visibilityOverride.toggleHidden()
 
