@@ -360,7 +360,7 @@ class MapSettingsDialog(
 
         fun selectedId(): Int = radioButtons.indexOfFirst { it.isChecked }
 
-        fun validateApiKey(apiKey: String) {
+        fun validateApiKey(apiKey: String, showSuccessToast: Boolean = false) {
             if (apiKey.isBlank()) return
             val selectedLayer = if (selectedId() == 2) "ortokuva" else "maastokartta"
             val validatedSourceId = if (selectedLayer == "ortokuva") "MML_ILMA" else "MML_MAASTO"
@@ -378,7 +378,9 @@ class MapSettingsDialog(
                             settingsStore.mmlApiKeyInvalid = false
                             mmlApiKeyInvalid = false
                             arrayOf("MML_MAASTO", "MML_ILMA").forEach(::refreshSourceAvailability)
-                            Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
+                            if (showSuccessToast) {
+                                Toast.makeText(activity, "API-avain OK", Toast.LENGTH_SHORT).show()
+                            }
                             activateSelectedSourceIfAvailable(validatedSourceId)
                             if (!settingsStore.hasQuickMapSourceSetting("MML_MAASTO") && checkBoxes["MML_MAASTO"]?.isChecked == false) {
                                 checkBoxes["MML_MAASTO"]?.isChecked = true
@@ -405,7 +407,9 @@ class MapSettingsDialog(
             }
         }
 
-        setApiKeyButton.setOnClickListener { validateApiKey(apiKeyInput.text.toString()) }
+        setApiKeyButton.setOnClickListener {
+            validateApiKey(apiKeyInput.text.toString(), showSuccessToast = true)
+        }
 
         if (currentApiKey.isNotBlank()) validateApiKey(currentApiKey)
 
