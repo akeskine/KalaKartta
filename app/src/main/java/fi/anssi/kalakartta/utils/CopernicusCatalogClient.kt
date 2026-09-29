@@ -11,13 +11,29 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
+object CopernicusCloudCoverage {
+    const val DEFAULT_PERCENT = 20
+    const val MIN_PERCENT = 0
+    const val MAX_PERCENT = 100
+
+    fun normalize(percent: Int): Int = percent.coerceIn(MIN_PERCENT, MAX_PERCENT)
+
+    fun requireValid(percent: Int) {
+        require(percent in MIN_PERCENT..MAX_PERCENT) { "Cloud coverage must be between 0 and 100" }
+    }
+}
+
 class CopernicusCatalogClient(
     private val connectionFactory: CopernicusHttpConnectionFactory = CopernicusHttpConnectionFactory {
         it.openConnection() as HttpURLConnection
     }
 ) {
-    fun findLatestSceneDate(tileId: String, targetDate: String): String? {
-        val connection = connectionFactory.open(buildUrl(tileId, targetDate))
+    fun findLatestSceneDate(
+        tileId: String,
+        targetDate: String,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ): String? {
+        val connection = connectionFactory.open(buildUrl(tileId, targetDate, maxCloudCoveragePercent))
         try {
             connection.requestMethod = "GET"
             connection.connectTimeout = CONNECTION_TIMEOUT_MILLIS
@@ -41,8 +57,13 @@ class CopernicusCatalogClient(
         }
     }
 
-    fun buildUrl(tileId: String, targetDate: String): URL {
+    fun buildUrl(
+        tileId: String,
+        targetDate: String,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ): URL {
         require(tileId.matches(MGRS_TILE_ID_PATTERN)) { "Invalid Sentinel MGRS tileId" }
+        CopernicusCloudCoverage.requireValid(maxCloudCoveragePercent)
         val exclusiveEnd = followingDate(targetDate)
         val filter = "Collection/Name eq 'SENTINEL-2'" +
                 " and Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType'" +
@@ -50,7 +71,7 @@ class CopernicusCatalogClient(
                 " and Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'tileId'" +
                 " and att/OData.CSC.StringAttribute/Value eq '$tileId')" +
                 " and Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover'" +
-                " and att/OData.CSC.DoubleAttribute/Value lt 20)" +
+                " and att/OData.CSC.DoubleAttribute/Value le $maxCloudCoveragePercent)" +
                 " and ContentDate/Start lt $exclusiveEnd"
         val query = listOf(
             "\$filter=${encode(filter)}",
@@ -89,7 +110,7 @@ class CopernicusCatalogClient(
 
     companion object {
         const val CATALOG_ENDPOINT = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
-        const val FILTER_VERSION = "sentinel2-l2a-cloud20-v2"
+        const val FILTER_VERSION = "sentinel2-l2a-cloud-v3"
         private const val CONNECTION_TIMEOUT_MILLIS = 20_000
         private const val DATE_FORMAT = "yyyy-MM-dd"
         private val MGRS_TILE_ID_PATTERN = Regex("(?:[1-9]|[1-5][0-9]|60)[C-HJ-NP-X][A-HJ-NP-Z]{2}")

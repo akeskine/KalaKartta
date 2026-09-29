@@ -18,11 +18,35 @@ class CopernicusCatalogClientTest {
         assertTrue(query.contains("Collection/Name eq 'SENTINEL-2'"))
         assertTrue(query.contains("productType' and att/OData.CSC.StringAttribute/Value eq 'S2MSI2A'"))
         assertTrue(query.contains("tileId' and att/OData.CSC.StringAttribute/Value eq '35VLG'"))
-        assertTrue(query.contains("cloudCover' and att/OData.CSC.DoubleAttribute/Value lt 20"))
+        assertTrue(query.contains("cloudCover' and att/OData.CSC.DoubleAttribute/Value le 20"))
         assertTrue(query.contains("ContentDate/Start lt 2026-09-29T00:00:00.000Z"))
         assertTrue(query.contains("\$top=1"))
         assertTrue(query.contains("\$orderby=ContentDate/Start desc"))
         assertFalse(query.contains("Intersects"))
+    }
+
+    @Test
+    fun catalogQueryUsesConfiguredMaximumCloudCoverage() {
+        val client = CopernicusCatalogClient()
+        val url = client.buildUrl("35VLG", "2026-09-28", maxCloudCoveragePercent = 37)
+        val query = URLDecoder.decode(url.query, StandardCharsets.UTF_8.name())
+
+        assertTrue(query.contains("cloudCover' and att/OData.CSC.DoubleAttribute/Value le 37"))
+    }
+
+    @Test
+    fun catalogQueryAcceptsBothCloudCoverageLimits() {
+        val client = CopernicusCatalogClient()
+
+        for (percent in listOf(0, 100)) {
+            val query = URLDecoder.decode(
+                client.buildUrl("35VLG", "2026-09-28", percent).query,
+                StandardCharsets.UTF_8.name()
+            )
+            assertTrue(query.contains("cloudCover' and att/OData.CSC.DoubleAttribute/Value le $percent"))
+        }
+        assertTrue(runCatching { client.buildUrl("35VLG", "2026-09-28", -1) }.isFailure)
+        assertTrue(runCatching { client.buildUrl("35VLG", "2026-09-28", 101) }.isFailure)
     }
 
     @Test

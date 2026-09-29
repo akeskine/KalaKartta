@@ -39,6 +39,25 @@ class CopernicusSceneDateResolverTest {
     }
 
     @Test
+    fun changingCloudCoverageLimitUsesASeparateCatalogCacheEntry() {
+        var catalogRequests = 0
+        val catalog = CopernicusCatalogClient(CopernicusHttpConnectionFactory { url ->
+            catalogRequests++
+            FakeCopernicusHttpURLConnection(
+                url,
+                200,
+                """{"value":[{"ContentDate":{"Start":"2026-09-27T09:41:21.024Z"}}]}"""
+                    .toByteArray(StandardCharsets.UTF_8)
+            )
+        })
+        val resolver = CopernicusSceneDateResolver(catalog, InMemorySceneDateCacheStore())
+
+        assertEquals("2026-09-27", resolver.resolveSceneDate("35VLG", "2026-09-28", 20))
+        assertEquals("2026-09-27", resolver.resolveSceneDate("35VLG", "2026-09-28", 40))
+        assertEquals(2, catalogRequests)
+    }
+
+    @Test
     fun temporaryCatalogFailureIsRetriedInsteadOfCachedAsNoScene() {
         var catalogRequests = 0
         val catalog = CopernicusCatalogClient(CopernicusHttpConnectionFactory { url ->

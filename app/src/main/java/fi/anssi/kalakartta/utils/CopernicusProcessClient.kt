@@ -144,18 +144,19 @@ function evaluatePixel(s) {
         x: Int,
         y: Int,
         imageDate: String,
-        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS
+        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
     ): String {
+        CopernicusCloudCoverage.requireValid(maxCloudCoveragePercent)
         val group = CopernicusTileGroup.fromTile(zoom, x, y, imageSizePixels)
         val bbox = CopernicusTileBoundsCalculator.fromGroup(group)
         val dateRange = dateRange(imageDate)
         val bounds = JSONObject()
             .put("bbox", JSONArray().put(bbox.minX).put(bbox.minY).put(bbox.maxX).put(bbox.maxY))
             .put("properties", JSONObject().put("crs", CRS_EPSG_3857))
-        val dataFilter = JSONObject().put(
-            "timeRange",
-            JSONObject().put("from", dateRange.first).put("to", dateRange.second)
-        )
+        val dataFilter = JSONObject()
+            .put("timeRange", JSONObject().put("from", dateRange.first).put("to", dateRange.second))
+            .put("maxCloudCoverage", maxCloudCoveragePercent)
         val input = JSONObject()
             .put("bounds", bounds)
             .put("data", JSONArray().put(JSONObject().put("type", "sentinel-2-l2a").put("dataFilter", dataFilter)))
@@ -204,9 +205,17 @@ class CopernicusProcessClient(
         x: Int,
         y: Int,
         imageDate: String,
-        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS
+        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
     ): ByteArray {
-        val requestBody = CopernicusProcessRequest.body(zoom, x, y, imageDate, imageSizePixels)
+        val requestBody = CopernicusProcessRequest.body(
+            zoom,
+            x,
+            y,
+            imageDate,
+            imageSizePixels,
+            maxCloudCoveragePercent
+        )
             .toByteArray(StandardCharsets.UTF_8)
         var token = tokenManager.getAccessToken()
 

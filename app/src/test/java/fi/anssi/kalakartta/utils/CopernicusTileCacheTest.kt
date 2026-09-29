@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class CopernicusTileCacheTest {
     @Test
-    fun cachedGroupTilesSkipLoaderAndDateIsPartOfCachePath() {
+    fun cachedGroupTilesSkipLoaderAndDateAndCloudLimitArePartOfCachePath() {
         val root = Files.createTempDirectory("copernicus-cache-test").toFile()
         val cache = CopernicusTileCache(root)
         val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
@@ -32,6 +32,7 @@ class CopernicusTileCacheTest {
             byteArrayOf()
         }, splitter = ::splitIntoFakeTiles)
         val differentDate = cache.cacheFile("2026-09-28", 13, 2345, 1148)
+        val differentCloudLimit = cache.cacheFile("2026-09-27", 13, 2345, 1148, maxCloudCoveragePercent = 35)
 
         assertArrayEquals(jpeg, first)
         assertArrayEquals(jpeg, second)
@@ -39,7 +40,8 @@ class CopernicusTileCacheTest {
         assertTrue(cache.cacheFile("2026-09-27", 4, 10, 9).isFile)
         assertEquals(64, cache.cacheDirectoryTileCount("2026-09-27", 4, 8, 8))
         assertTrue(!differentDate.exists())
-        assertEquals("satellite/2026-09-27/13/2345/1148.jpg", cache.cacheFile("2026-09-27", 13, 2345, 1148)
+        assertTrue(cache.cacheFile("2026-09-27", 13, 2345, 1148) != differentCloudLimit)
+        assertEquals("satellite/2026-09-27/20/13/2345/1148.jpg", cache.cacheFile("2026-09-27", 13, 2345, 1148)
             .relativeTo(root).path.replace('\\', '/'))
     }
 

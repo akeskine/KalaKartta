@@ -22,25 +22,27 @@ class CopernicusTileCache(
         x: Int,
         y: Int,
         imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT,
         loader: (CopernicusTileGroup) -> ByteArray,
         splitter: (ByteArray, CopernicusTileGroup) -> Map<CopernicusTileCoordinate, ByteArray>
     ): ByteArray {
-        getCached(imageDate, zoom, x, y)?.let { return it }
+        getCached(imageDate, zoom, x, y, maxCloudCoveragePercent)?.let { return it }
         val group = CopernicusTileGroup.fromTile(zoom, x, y, imageSizePixels)
         val coordinate = CopernicusTileCoordinate(x, y)
-        val groupKey = "${cacheFile(imageDate, zoom, group.firstX, group.firstY).absolutePath}/${group.imageSizePixels}"
+        val groupKey = "${cacheFile(imageDate, zoom, group.firstX, group.firstY, maxCloudCoveragePercent).absolutePath}/" +
+                group.imageSizePixels
         val newLoad = CompletableFuture<Map<CopernicusTileCoordinate, ByteArray>>()
         val activeLoad = IN_FLIGHT_GROUP_LOADS.putIfAbsent(groupKey, newLoad)
         if (activeLoad != null) {
             return await(activeLoad)[coordinate]
-                ?: getCached(imageDate, zoom, x, y)
+                ?: getCached(imageDate, zoom, x, y, maxCloudCoveragePercent)
                 ?: throw IOException("Copernicus image group did not contain the requested tile")
         }
 
         try {
             val expectedCoordinates = group.coordinates().toSet()
             val cachedGroup = expectedCoordinates.mapNotNull { cachedCoordinate ->
-                getCached(imageDate, zoom, cachedCoordinate.x, cachedCoordinate.y)
+                getCached(imageDate, zoom, cachedCoordinate.x, cachedCoordinate.y, maxCloudCoveragePercent)
                     ?.let { cachedCoordinate to it }
             }.toMap()
             if (cachedGroup.keys == expectedCoordinates) {
@@ -53,7 +55,13 @@ class CopernicusTileCache(
                 throw IOException("Copernicus image could not be split into valid JPEG tiles")
             }
             tiles.forEach { (tileCoordinate, jpeg) ->
-                val tileFile = cacheFile(imageDate, zoom, tileCoordinate.x, tileCoordinate.y)
+                val tileFile = cacheFile(
+                    imageDate,
+                    zoom,
+                    tileCoordinate.x,
+                    tileCoordinate.y,
+                    maxCloudCoveragePercent
+                )
                 if (readCache(tileFile) == null) writeCache(tileFile, jpeg)
             }
             enforceSizeLimitAsync()
@@ -67,12 +75,24 @@ class CopernicusTileCache(
         }
     }
 
-    fun getCached(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray? =
-        readCache(cacheFile(imageDate, zoom, x, y))
+    fun getCached(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ): ByteArray? = readCache(cacheFile(imageDate, zoom, x, y, maxCloudCoveragePercent))
 
-    fun putCached(imageDate: String, zoom: Int, x: Int, y: Int, jpeg: ByteArray) {
+    fun putCached(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        jpeg: ByteArray,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ) {
         if (!isJpeg(jpeg)) throw IOException("Copernicus tile cache accepts JPEG images only")
-        writeCache(cacheFile(imageDate, zoom, x, y), jpeg, replaceExisting = true)
+        writeCache(cacheFile(imageDate, zoom, x, y, maxCloudCoveragePercent), jpeg, replaceExisting = true)
         enforceSizeLimitAsync()
     }
 
@@ -84,19 +104,32 @@ class CopernicusTileCache(
             .sumOf(File::length)
     }
 
-    fun cacheFile(imageDate: String, zoom: Int, x: Int, y: Int): File {
+    fun cacheFile(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ): File {
         require(imageDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "Invalid Copernicus image date" }
+        CopernicusCloudCoverage.requireValid(maxCloudCoveragePercent)
         require(zoom in 0..30) { "Zoom level is outside the supported range" }
         val tileCount = 1L shl zoom
         require(x >= 0 && x.toLong() < tileCount && y >= 0 && y.toLong() < tileCount) {
             "Tile coordinates are outside the zoom level"
         }
-        return File(rootDirectory, "satellite/$imageDate/$zoom/$x/$y.jpg")
+        return File(rootDirectory, "satellite/$imageDate/$maxCloudCoveragePercent/$zoom/$x/$y.jpg")
     }
 
-    fun remove(imageDate: String, zoom: Int, x: Int, y: Int) {
+    fun remove(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ) {
         synchronized(fileLock) {
-            cacheFile(imageDate, zoom, x, y).delete()
+            cacheFile(imageDate, zoom, x, y, maxCloudCoveragePercent).delete()
         }
     }
 

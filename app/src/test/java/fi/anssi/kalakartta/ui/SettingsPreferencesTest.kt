@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.ui
 
+import fi.anssi.kalakartta.utils.CopernicusCloudCoverage
 import fi.anssi.kalakartta.utils.CopernicusTileImageSize
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -16,6 +17,11 @@ class SettingsPreferencesTest {
         assertEquals(false, SettingsDefaults.MML_API_KEY_INVALID)
         assertEquals("", SettingsDefaults.COPERNICUS_CLIENT_ID)
         assertEquals(false, SettingsDefaults.COPERNICUS_CUSTOM_DATE_ENABLED)
+        assertEquals(20, SettingsDefaults.COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT)
+        assertEquals(0, SettingsDefaults.MIN_COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT)
+        assertEquals(100, SettingsDefaults.MAX_COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT)
+        assertEquals(0, CopernicusCloudCoverage.normalize(-1))
+        assertEquals(100, CopernicusCloudCoverage.normalize(101))
         assertEquals(512, SettingsDefaults.COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals(64, SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals(4096, SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB)
@@ -86,6 +92,7 @@ class SettingsPreferencesTest {
         assertEquals("mml_api_key_invalid", SettingsKeys.MML_API_KEY_INVALID)
         assertEquals("copernicus_client_id", SettingsKeys.COPERNICUS_CLIENT_ID)
         assertEquals("copernicus_custom_date_enabled", SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED)
+        assertEquals("copernicus_max_cloud_coverage_percent", SettingsKeys.COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT)
         assertEquals("copernicus_target_date", SettingsKeys.COPERNICUS_TARGET_DATE)
         assertEquals("copernicus_tile_cache_limit_mb", SettingsKeys.COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals("copernicus_tile_image_size_pixels", SettingsKeys.COPERNICUS_TILE_IMAGE_SIZE_PIXELS)

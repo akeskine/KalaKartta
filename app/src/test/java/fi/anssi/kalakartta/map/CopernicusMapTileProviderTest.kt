@@ -22,6 +22,14 @@ class CopernicusMapTileProviderTest {
     }
 
     @Test
+    fun copernicusTileSourceCarriesAValidatedCloudCoverageLimit() {
+        assertEquals(20, CopernicusTileSource().maxCloudCoveragePercent)
+        assertEquals(0, CopernicusTileSource(maxCloudCoveragePercent = 0).maxCloudCoveragePercent)
+        assertEquals(100, CopernicusTileSource(maxCloudCoveragePercent = 100).maxCloudCoveragePercent)
+        assertTrue(runCatching { CopernicusTileSource(maxCloudCoveragePercent = 101) }.isFailure)
+    }
+
+    @Test
     fun copernicusUsesOsmAsBaseWhileOtherSourcesRemainTheBaseLayer() {
         val otherSource = XYTileSource("Other source", 0, 18, 256, ".png", arrayOf("https://example.com/"))
 

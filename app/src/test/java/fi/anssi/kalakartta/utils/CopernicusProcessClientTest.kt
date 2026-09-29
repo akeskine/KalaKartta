@@ -35,6 +35,16 @@ class CopernicusProcessClientTest {
         val timeRange = data.getJSONObject("dataFilter").getJSONObject("timeRange")
         assertEquals("2026-09-27T00:00:00Z", timeRange.getString("from"))
         assertEquals("2026-09-28T00:00:00Z", timeRange.getString("to"))
+        assertEquals(20, data.getJSONObject("dataFilter").getInt("maxCloudCoverage"))
+
+        val cloudLimitedBody = JSONObject(
+            CopernicusProcessRequest.body(1, 1, 0, "2026-09-27", maxCloudCoveragePercent = 63)
+        )
+        assertEquals(
+            63,
+            cloudLimitedBody.getJSONObject("input").getJSONArray("data")
+                .getJSONObject(0).getJSONObject("dataFilter").getInt("maxCloudCoverage")
+        )
         val output = body.getJSONObject("output")
         assertEquals(512, output.getInt("width"))
         assertEquals(512, output.getInt("height"))
@@ -142,12 +152,20 @@ class CopernicusProcessClientTest {
         )
         val client = CopernicusProcessClient(tokenManager, factory)
 
-        assertArrayEquals(jpeg, client.getTile(1, 1, 0, "2026-09-27"))
+        assertArrayEquals(jpeg, client.getTile(1, 1, 0, "2026-09-27", maxCloudCoveragePercent = 67))
         assertEquals(2, tokenRequestCount)
         assertEquals(2, processRequestCount)
         assertEquals("Bearer access-1", processConnections[0].getRequestProperty("Authorization"))
         assertEquals("Bearer access-2", processConnections[1].getRequestProperty("Authorization"))
         assertEquals("POST", processConnections[0].requestMethod)
         assertEquals("application/json", processConnections[0].getRequestProperty("Content-Type"))
+        for (connection in processConnections) {
+            val requestBody = JSONObject(String(connection.requestBody, StandardCharsets.UTF_8))
+            assertEquals(
+                67,
+                requestBody.getJSONObject("input").getJSONArray("data")
+                    .getJSONObject(0).getJSONObject("dataFilter").getInt("maxCloudCoverage")
+            )
+        }
     }
 }

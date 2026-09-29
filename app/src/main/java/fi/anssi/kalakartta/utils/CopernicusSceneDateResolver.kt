@@ -51,8 +51,13 @@ class CopernicusSceneDateResolver(
 ) {
     private val inFlightLookups = ConcurrentHashMap<String, CompletableFuture<CopernicusSceneDateCacheEntry>>()
 
-    fun resolveSceneDate(tileId: String, targetDate: String): String? {
-        val key = "$tileId|$targetDate|${CopernicusCatalogClient.FILTER_VERSION}"
+    fun resolveSceneDate(
+        tileId: String,
+        targetDate: String,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ): String? {
+        CopernicusCloudCoverage.requireValid(maxCloudCoveragePercent)
+        val key = "$tileId|$targetDate|$maxCloudCoveragePercent|${CopernicusCatalogClient.FILTER_VERSION}"
         readFreshEntry(key)?.let { return it.sceneDate }
 
         val newLookup = CompletableFuture<CopernicusSceneDateCacheEntry>()
@@ -65,7 +70,7 @@ class CopernicusSceneDateResolver(
                 return it.sceneDate
             }
             val entry = CopernicusSceneDateCacheEntry(
-                catalogClient.findLatestSceneDate(tileId, targetDate),
+                catalogClient.findLatestSceneDate(tileId, targetDate, maxCloudCoveragePercent),
                 currentTimeMillis()
             )
             if (entry.sceneDate != null) cacheStore.put(key, entry)
@@ -79,9 +84,13 @@ class CopernicusSceneDateResolver(
         }
     }
 
-    fun resolvePreviousSceneDate(tileId: String, currentSceneDate: String): String? {
+    fun resolvePreviousSceneDate(
+        tileId: String,
+        currentSceneDate: String,
+        maxCloudCoveragePercent: Int = CopernicusCloudCoverage.DEFAULT_PERCENT
+    ): String? {
         val previousDate = previousDate(currentSceneDate)
-        return resolveSceneDate(tileId, previousDate)?.takeIf { it < currentSceneDate }
+        return resolveSceneDate(tileId, previousDate, maxCloudCoveragePercent)?.takeIf { it < currentSceneDate }
     }
 
     private fun readFreshEntry(key: String): CopernicusSceneDateCacheEntry? {

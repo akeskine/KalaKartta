@@ -151,13 +151,14 @@ class MapDisplayController(
 
     private fun updateCopernicusSceneDateForCenter() {
         if (settingsStore.mapSource != MapSourceIds.COPERNICUS_S2) return
+        val maxCloudCoveragePercent = settingsStore.copernicusMaxCloudCoveragePercent
         val targetDate = if (settingsStore.copernicusCustomDateEnabled) {
             settingsStore.copernicusTargetDate
         } else {
             CopernicusDateSettings.today()
         }
         if (settingsStore.copernicusClientId.isBlank() || !CopernicusCredentialStore(activity).hasClientSecret()) {
-            val missingCredentialsKey = "credentials|$targetDate"
+            val missingCredentialsKey = "credentials|$targetDate|$maxCloudCoveragePercent"
             cancelCopernicusFallback()
             copernicusSceneResolutionJob?.cancel()
             copernicusSceneResolutionJob = null
@@ -172,7 +173,7 @@ class MapDisplayController(
         val tileId = try {
             mgrsTileIdResolver.resolve(center.latitude, center.longitude)
         } catch (_: IllegalArgumentException) {
-            val unsupportedCenterKey = "unsupported|$targetDate"
+            val unsupportedCenterKey = "unsupported|$targetDate|$maxCloudCoveragePercent"
             cancelCopernicusFallback()
             copernicusSceneResolutionJob?.cancel()
             copernicusSceneResolutionJob = null
@@ -184,7 +185,7 @@ class MapDisplayController(
             }
             return
         }
-        val requestKey = "$tileId|$targetDate"
+        val requestKey = "$tileId|$targetDate|$maxCloudCoveragePercent"
         if (requestKey == pendingCopernicusSceneKey || requestKey == resolvedCopernicusSceneKey) return
 
         if (requestKey != copernicusSceneKey) cancelCopernicusFallback()
@@ -198,7 +199,7 @@ class MapDisplayController(
             delay(SCENE_DATE_LOOKUP_DEBOUNCE_MILLIS)
             try {
                 val sceneDate = withContext(Dispatchers.IO) {
-                    copernicusSceneDateResolver.resolveSceneDate(tileId, targetDate)
+                    copernicusSceneDateResolver.resolveSceneDate(tileId, targetDate, maxCloudCoveragePercent)
                 }
                 if (settingsStore.mapSource != MapSourceIds.COPERNICUS_S2 || pendingCopernicusSceneKey != requestKey) {
                     return@launch
@@ -215,7 +216,7 @@ class MapDisplayController(
                 } else {
                     CopernicusDateSettings.today()
                 }
-                val latestKey = "$latestTileId|$latestTargetDate"
+                val latestKey = "$latestTileId|$latestTargetDate|${settingsStore.copernicusMaxCloudCoveragePercent}"
                 if (latestKey != requestKey) {
                     pendingCopernicusSceneKey = null
                     updateCopernicusSceneDateForCenter()
@@ -228,7 +229,11 @@ class MapDisplayController(
                     setCopernicusScene(targetDate, sceneAvailable = false, sceneKey = requestKey)
                     if (lastCopernicusCatalogFailureKey != requestKey) {
                         lastCopernicusCatalogFailureKey = requestKey
-                        Toast.makeText(activity, R.string.copernicus_scene_not_found, Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            activity,
+                            activity.getString(R.string.copernicus_scene_not_found, maxCloudCoveragePercent),
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                     delay(SCENE_DATE_NO_SCENE_RETRY_MILLIS)
                     if (settingsStore.mapSource == MapSourceIds.COPERNICUS_S2 &&
@@ -281,7 +286,11 @@ class MapDisplayController(
     }
 
     private fun createCopernicusTileSource(imageDate: String, sceneAvailable: Boolean) =
-        CopernicusTileSource(imageDate, sceneAvailable) { blackSceneDate ->
+        CopernicusTileSource(
+            imageDate = imageDate,
+            sceneAvailable = sceneAvailable,
+            maxCloudCoveragePercent = settingsStore.copernicusMaxCloudCoveragePercent
+        ) { blackSceneDate ->
             activity.runOnUiThread { requestOlderSceneForBlackTile(blackSceneDate) }
         }
 
@@ -291,6 +300,7 @@ class MapDisplayController(
         ) return
 
         val sceneKey = copernicusSceneKey ?: return
+        val maxCloudCoveragePercent = settingsStore.copernicusMaxCloudCoveragePercent
         val center = map.mapCenter
         val tileId = try {
             mgrsTileIdResolver.resolve(center.latitude, center.longitude)
@@ -302,7 +312,7 @@ class MapDisplayController(
         } else {
             CopernicusDateSettings.today()
         }
-        if (sceneKey != "$tileId|$targetDate") return
+        if (sceneKey != "$tileId|$targetDate|$maxCloudCoveragePercent") return
 
         val fallbackKey = "$sceneKey|$blackSceneDate"
         if (pendingCopernicusFallbackKey == fallbackKey || attemptedCopernicusFallbackKey == fallbackKey) return
@@ -312,7 +322,11 @@ class MapDisplayController(
         copernicusFallbackJob = activity.lifecycleScope.launch {
             try {
                 val previousSceneDate = withContext(Dispatchers.IO) {
-                    copernicusSceneDateResolver.resolvePreviousSceneDate(tileId, blackSceneDate)
+                    copernicusSceneDateResolver.resolvePreviousSceneDate(
+                        tileId,
+                        blackSceneDate,
+                        maxCloudCoveragePercent
+                    )
                 }
                 if (pendingCopernicusFallbackKey != fallbackKey) return@launch
                 if (!isCurrentCopernicusFallback(tileId, sceneKey, blackSceneDate)) {
@@ -364,7 +378,8 @@ class MapDisplayController(
         } else {
             CopernicusDateSettings.today()
         }
-        return currentTileId == tileId && sceneKey == "$tileId|$targetDate"
+        val maxCloudCoveragePercent = settingsStore.copernicusMaxCloudCoveragePercent
+        return currentTileId == tileId && sceneKey == "$tileId|$targetDate|$maxCloudCoveragePercent"
     }
 
     private fun cancelCopernicusFallback() {

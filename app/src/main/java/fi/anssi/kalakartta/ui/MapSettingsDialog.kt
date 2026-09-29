@@ -1,12 +1,14 @@
 package fi.anssi.kalakartta.ui
 
 import android.app.DatePickerDialog
+import android.text.InputFilter
+import android.text.InputType
+import android.text.method.DigitsKeyListener
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
-import android.text.InputType
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.ScrollView
@@ -16,6 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
+import fi.anssi.kalakartta.utils.CopernicusCloudCoverage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -326,6 +329,48 @@ class MapSettingsDialog(
         }
         contentLayout.addView(copernicusClearButton)
 
+        val maxCloudCoverageLabel = TextView(activity).apply {
+            text = activity.getString(R.string.copernicus_max_cloud_coverage)
+            textSize = 16f
+            setPadding(0, 12, 0, 0)
+            visibility = if (copernicusVisible) View.VISIBLE else View.GONE
+        }
+        contentLayout.addView(maxCloudCoverageLabel)
+
+        val maxCloudCoverageInput = EditText(activity).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            keyListener = DigitsKeyListener.getInstance("0123456789")
+            filters = arrayOf(InputFilter.LengthFilter(3))
+            setText(settingsStore.copernicusMaxCloudCoveragePercent.toString())
+            hint = "${CopernicusCloudCoverage.MIN_PERCENT}–${CopernicusCloudCoverage.MAX_PERCENT}"
+            visibility = if (copernicusVisible) View.VISIBLE else View.GONE
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val value = s?.toString()?.toIntOrNull()
+                    if (value == null || value !in CopernicusCloudCoverage.MIN_PERCENT..CopernicusCloudCoverage.MAX_PERCENT) {
+                        error = if (s.isNullOrEmpty()) {
+                            null
+                        } else {
+                            activity.getString(
+                                R.string.copernicus_cloud_coverage_range_error,
+                                CopernicusCloudCoverage.MIN_PERCENT,
+                                CopernicusCloudCoverage.MAX_PERCENT
+                            )
+                        }
+                        return
+                    }
+                    error = null
+                    if (settingsStore.copernicusMaxCloudCoveragePercent != value) {
+                        settingsStore.copernicusMaxCloudCoveragePercent = value
+                        onMapSettingsChanged()
+                    }
+                }
+            })
+        }
+        contentLayout.addView(maxCloudCoverageInput)
+
         val dateButton = Button(activity).apply {
             text = CopernicusDateSettings.display(settingsStore.copernicusTargetDate)
             visibility = if (copernicusVisible && settingsStore.copernicusCustomDateEnabled) View.VISIBLE else View.GONE
@@ -436,6 +481,8 @@ class MapSettingsDialog(
                 copernicusSecretInput.visibility = copernicusVisibility
                 copernicusSaveButton.visibility = copernicusVisibility
                 copernicusClearButton.visibility = copernicusVisibility
+                maxCloudCoverageLabel.visibility = copernicusVisibility
+                maxCloudCoverageInput.visibility = copernicusVisibility
                 customDateCheckBox.visibility = copernicusVisibility
                 dateButton.visibility = if (id == MapSourceIds.COPERNICUS_S2 && settingsStore.copernicusCustomDateEnabled) {
                     View.VISIBLE

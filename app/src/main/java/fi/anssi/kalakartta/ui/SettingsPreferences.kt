@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.ui
 
+import fi.anssi.kalakartta.utils.CopernicusCloudCoverage
 import fi.anssi.kalakartta.utils.CopernicusTileImageSize
 
 /**
@@ -17,6 +18,7 @@ object SettingsKeys {
     const val MML_API_KEY_INVALID = "mml_api_key_invalid"
     const val COPERNICUS_CLIENT_ID = "copernicus_client_id"
     const val COPERNICUS_CUSTOM_DATE_ENABLED = "copernicus_custom_date_enabled"
+    const val COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT = "copernicus_max_cloud_coverage_percent"
     const val COPERNICUS_TARGET_DATE = "copernicus_target_date"
     const val COPERNICUS_TILE_CACHE_LIMIT_MB = "copernicus_tile_cache_limit_mb"
     const val COPERNICUS_TILE_IMAGE_SIZE_PIXELS = "copernicus_tile_image_size_pixels"
@@ -94,6 +96,9 @@ object SettingsDefaults {
     const val MML_API_KEY_INVALID = false
     const val COPERNICUS_CLIENT_ID = ""
     const val COPERNICUS_CUSTOM_DATE_ENABLED = false
+    const val COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT = CopernicusCloudCoverage.DEFAULT_PERCENT
+    const val MIN_COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT = CopernicusCloudCoverage.MIN_PERCENT
+    const val MAX_COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT = CopernicusCloudCoverage.MAX_PERCENT
     const val COPERNICUS_TILE_CACHE_LIMIT_MB = 512
     const val MIN_COPERNICUS_TILE_CACHE_LIMIT_MB = 64
     const val MAX_COPERNICUS_TILE_CACHE_LIMIT_MB = 4096

@@ -65,7 +65,9 @@ class CopernicusTilesOverlay private constructor(
 
     fun setCopernicusTileSource(tileSource: CopernicusTileSource) {
         val previousSource = copernicusTileProvider.tileSource as? CopernicusTileSource
-        if (previousSource?.imageDate != tileSource.imageDate) {
+        if (previousSource?.imageDate != tileSource.imageDate ||
+            previousSource.maxCloudCoveragePercent != tileSource.maxCloudCoveragePercent
+        ) {
             copernicusTileProvider.tileCache.clear()
         }
         copernicusTileProvider.setTileSource(tileSource)
@@ -117,11 +119,12 @@ private class CopernicusMapTileModuleProvider(
             val zoom = MapTileIndex.getZoom(pMapTileIndex)
             val x = MapTileIndex.getX(pMapTileIndex)
             val y = MapTileIndex.getY(pMapTileIndex)
+            val maxCloudCoveragePercent = source.maxCloudCoveragePercent
             return try {
-                val jpeg = loadTileBytes(source.imageDate, zoom, x, y) ?: return null
+                val jpeg = loadTileBytes(source.imageDate, zoom, x, y, maxCloudCoveragePercent) ?: return null
                 if (!isCurrentSource(sourceSnapshot)) return null
                 val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: run {
-                    tileCache.remove(source.imageDate, zoom, x, y)
+                    tileCache.remove(source.imageDate, zoom, x, y, maxCloudCoveragePercent)
                     return null
                 }
                 if (CopernicusTileFallback.isMostlyBlack(bitmap.pixels())) {
@@ -147,26 +150,40 @@ private class CopernicusMapTileModuleProvider(
         }
     }
 
-    private fun loadTileBytes(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray? {
-        tileCache.getCached(imageDate, zoom, x, y)?.let { return it }
+    private fun loadTileBytes(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        maxCloudCoveragePercent: Int
+    ): ByteArray? {
+        tileCache.getCached(imageDate, zoom, x, y, maxCloudCoveragePercent)?.let { return it }
         if (!hasInternetNetwork()) return null
-        return loadTileGroup(imageDate, zoom, x, y)
+        return loadTileGroup(imageDate, zoom, x, y, maxCloudCoveragePercent)
     }
 
-    private fun loadTileGroup(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray =
+    private fun loadTileGroup(
+        imageDate: String,
+        zoom: Int,
+        x: Int,
+        y: Int,
+        maxCloudCoveragePercent: Int
+    ): ByteArray =
         tileCache.getOrLoadGroup(
             imageDate,
             zoom,
             x,
             y,
             imageSizePixels = settingsStore.copernicusTileImageSizePixels,
+            maxCloudCoveragePercent = maxCloudCoveragePercent,
             loader = { group ->
                 processClient.getTile(
                     group.zoom,
                     group.firstX,
                     group.firstY,
                     imageDate,
-                    group.imageSizePixels
+                    group.imageSizePixels,
+                    maxCloudCoveragePercent
                 )
             },
             splitter = CopernicusTileImageSplitter::split

@@ -1,6 +1,7 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.SharedPreferences
+import fi.anssi.kalakartta.utils.CopernicusCloudCoverage
 import fi.anssi.kalakartta.utils.CopernicusTileImageSize
 
 /**
@@ -46,6 +47,20 @@ class SettingsStore(private val preferences: SharedPreferences) {
             SettingsDefaults.COPERNICUS_CUSTOM_DATE_ENABLED
         )
         set(value) { preferences.edit().putBoolean(SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED, value).apply() }
+
+    var copernicusMaxCloudCoveragePercent: Int
+        get() = CopernicusCloudCoverage.normalize(
+            preferences.getInt(
+                SettingsKeys.COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT,
+                SettingsDefaults.COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT
+            )
+        )
+        set(value) {
+            preferences.edit().putInt(
+                SettingsKeys.COPERNICUS_MAX_CLOUD_COVERAGE_PERCENT,
+                CopernicusCloudCoverage.normalize(value)
+            ).apply()
+        }
 
     var copernicusTargetDate: String
         get() = preferences.getString(SettingsKeys.COPERNICUS_TARGET_DATE, CopernicusDateSettings.today())
