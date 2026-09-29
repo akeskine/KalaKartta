@@ -442,8 +442,48 @@ class MainActivity : AppCompatActivity() {
             map.setOnTouchListener { _, event ->
                 locationController.onMapTouch(event)
             }
-            findViewById<MaterialButton>(R.id.addCatchButton).setOnClickListener {
-                catchManager.showSpeciesDialog()
+            val addCatchButton = findViewById<MaterialButton>(R.id.addCatchButton)
+            var markerVisibilityLongPressTriggered = false
+            var touchStartX = 0f
+            var touchStartY = 0f
+            val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+            val toggleMarkerVisibility = Runnable {
+                markerVisibilityLongPressTriggered = true
+                val markersHidden = markerManager.toggleMarkersHidden(map.zoomLevelDouble)
+                val message = if (markersHidden) {
+                    "Kala- ja paikkapisteet piilotettu"
+                } else {
+                    "Kala- ja paikkapisteet palautettu"
+                }
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            }
+            addCatchButton.setOnClickListener {
+                if (!markerVisibilityLongPressTriggered) {
+                    catchManager.showSpeciesDialog()
+                }
+            }
+            addCatchButton.setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        markerVisibilityLongPressTriggered = false
+                        touchStartX = event.x
+                        touchStartY = event.y
+                        view.postDelayed(toggleMarkerVisibility, 2_000L)
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        if (kotlin.math.abs(event.x - touchStartX) > touchSlop ||
+                            kotlin.math.abs(event.y - touchStartY) > touchSlop
+                        ) {
+                            view.removeCallbacks(toggleMarkerVisibility)
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_UP,
+                    android.view.MotionEvent.ACTION_CANCEL,
+                    android.view.MotionEvent.ACTION_POINTER_DOWN -> {
+                        view.removeCallbacks(toggleMarkerVisibility)
+                    }
+                }
+                false
             }
 
             findViewById<MaterialButton>(R.id.heatmapShortcutButton).setOnClickListener {

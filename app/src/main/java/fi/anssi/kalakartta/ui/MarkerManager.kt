@@ -58,6 +58,7 @@ class MarkerManager(
     private val iconFactory = MarkerIconFactory(context)
     private val clusterCalculator = ClusterCalculator()
     private val visibilityCalculator = MarkerVisibilityCalculator()
+    private val visibilityOverride = MarkerVisibilityOverride()
     private val speciesCache = mutableMapOf<String, fi.anssi.kalakartta.data.FishSpecies>()
     private val placeTypeCache = mutableMapOf<String, PlaceOfInterestType>()
 
@@ -330,6 +331,12 @@ class MarkerManager(
         rebuildMarkers(lastZoom)
     }
 
+    fun toggleMarkersHidden(zoom: Double): Boolean {
+        val hidden = visibilityOverride.toggleHidden()
+        setMarkersVisible(zoom >= 1.0, zoom, forceRebuild = !hidden)
+        return hidden
+    }
+
     fun rebuildMarkers(zoom: Double, forceRefreshSpecies: Boolean = false) {
         if (isClosed) return
 
@@ -528,12 +535,13 @@ class MarkerManager(
     }
 
     fun setMarkersVisible(visible: Boolean, zoom: Double, forceRebuild: Boolean = false) {
-        if (markersFolder.isEnabled != visible || Math.abs(lastZoom - zoom) > 0.1 || forceRebuild) {
-            defaultPointsFolder.isEnabled = visible
-            catchesFolder.isEnabled = visible
-            placesFolder.isEnabled = visible
-            markersFolder.isEnabled = visible
-            if (visible) {
+        val shouldBeVisible = visibilityOverride.shouldBeVisible(visible)
+        if (markersFolder.isEnabled != shouldBeVisible || Math.abs(lastZoom - zoom) > 0.1 || forceRebuild) {
+            defaultPointsFolder.isEnabled = shouldBeVisible
+            catchesFolder.isEnabled = shouldBeVisible
+            placesFolder.isEnabled = shouldBeVisible
+            markersFolder.isEnabled = shouldBeVisible
+            if (shouldBeVisible) {
                 // Tarkistetaan pitääkö klusterointi päivittää
                 // Jos zoom on muuttunut merkittävästi tai eka kerta tai pakotettu (skrollaus)
                 if (forceRebuild || shouldRebuild(zoom)) {
