@@ -64,6 +64,10 @@ class CopernicusTilesOverlay private constructor(
     }
 
     fun setCopernicusTileSource(tileSource: CopernicusTileSource) {
+        val previousSource = copernicusTileProvider.tileSource as? CopernicusTileSource
+        if (previousSource?.imageDate != tileSource.imageDate) {
+            copernicusTileProvider.tileCache.clear()
+        }
         copernicusTileProvider.setTileSource(tileSource)
     }
 
@@ -122,17 +126,9 @@ private class CopernicusMapTileModuleProvider(
                 }
                 if (CopernicusTileFallback.isMostlyBlack(bitmap.pixels())) {
                     bitmap.recycle()
-                    val fallbackJpeg = findUsableParentTile(sourceSnapshot, zoom, x, y)
-                        ?: return null
                     if (!isCurrentSource(sourceSnapshot)) return null
-                    tileCache.putCached(source.imageDate, zoom, x, y, fallbackJpeg)
-                    val fallbackBitmap = BitmapFactory.decodeByteArray(fallbackJpeg, 0, fallbackJpeg.size)
-                        ?: return null
-                    if (!isCurrentSource(sourceSnapshot)) {
-                        fallbackBitmap.recycle()
-                        return null
-                    }
-                    BitmapDrawable(appContext.resources, fallbackBitmap)
+                    source.onBlackTile?.invoke(source.imageDate)
+                    null
                 } else {
                     if (!isCurrentSource(sourceSnapshot)) {
                         bitmap.recycle()
@@ -157,49 +153,6 @@ private class CopernicusMapTileModuleProvider(
         return loadTileGroup(imageDate, zoom, x, y)
     }
 
-    private fun findUsableParentTile(
-        sourceSnapshot: TileSourceSnapshot,
-        zoom: Int,
-        x: Int,
-        y: Int
-    ): ByteArray? {
-        val imageDate = sourceSnapshot.source.imageDate
-        var networkAvailability: Boolean? = null
-        for (ancestor in CopernicusTileFallback.ancestors(zoom, x, y, minimumZoom = 0)) {
-            if (!isCurrentSource(sourceSnapshot)) return null
-            val jpeg = tileCache.getCached(imageDate, ancestor.zoom, ancestor.x, ancestor.y)
-            val parentJpeg = if (jpeg != null) {
-                jpeg
-            } else {
-                val hasNetwork = networkAvailability ?: hasInternetNetwork().also {
-                    networkAvailability = it
-                }
-                if (!hasNetwork) continue
-                try {
-                    loadTileGroup(imageDate, ancestor.zoom, ancestor.x, ancestor.y)
-                } catch (_: IOException) {
-                    continue
-                }
-            }
-            val parentBitmap = BitmapFactory.decodeByteArray(parentJpeg, 0, parentJpeg.size)
-            if (parentBitmap == null) {
-                tileCache.remove(imageDate, ancestor.zoom, ancestor.x, ancestor.y)
-                continue
-            }
-            val childBitmap = try {
-                CopernicusTileFallback.cropDescendantTile(parentBitmap, ancestor)
-            } finally {
-                parentBitmap.recycle()
-            }
-            try {
-                if (!CopernicusTileFallback.isMostlyBlack(childBitmap.pixels())) return childBitmap.toJpeg()
-            } finally {
-                childBitmap.recycle()
-            }
-        }
-        return null
-    }
-
     private fun loadTileGroup(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray =
         tileCache.getOrLoadGroup(
             imageDate,
@@ -222,13 +175,6 @@ private class CopernicusMapTileModuleProvider(
     private fun android.graphics.Bitmap.pixels(): IntArray =
         IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
 
-    private fun android.graphics.Bitmap.toJpeg(): ByteArray =
-        java.io.ByteArrayOutputStream().use { output ->
-            if (!compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, output)) {
-                throw IOException("Unable to encode Copernicus fallback tile")
-            }
-            output.toByteArray()
-        }
 
     private fun hasInternetNetwork(): Boolean {
         val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager

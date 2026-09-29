@@ -81,6 +81,28 @@ class CopernicusSceneDateResolverTest {
     }
 
     @Test
+    fun previousSceneLookupSearchesStrictlyBeforeTheBlackSceneDate() {
+        val requestedUrls = mutableListOf<String>()
+        val catalog = CopernicusCatalogClient(CopernicusHttpConnectionFactory { url ->
+            requestedUrls += url.toString()
+            FakeCopernicusHttpURLConnection(
+                url,
+                200,
+                """{"value":[{"ContentDate":{"Start":"2026-02-22T10:00:31.025Z"}}]}"""
+                    .toByteArray(StandardCharsets.UTF_8)
+            )
+        })
+        val resolver = CopernicusSceneDateResolver(catalog, InMemorySceneDateCacheStore())
+
+        assertEquals("2026-02-22", resolver.resolvePreviousSceneDate("35VMH", "2026-02-23"))
+        val query = java.net.URLDecoder.decode(
+            java.net.URL(requestedUrls.single()).query,
+            StandardCharsets.UTF_8.name()
+        )
+        assertTrue(query.contains("ContentDate/Start lt 2026-02-23T00:00:00.000Z"))
+    }
+
+    @Test
     fun concurrentRequestsForSameTileShareOneCatalogLookup() {
         val catalogRequests = AtomicInteger()
         val catalogRequestStarted = CountDownLatch(1)

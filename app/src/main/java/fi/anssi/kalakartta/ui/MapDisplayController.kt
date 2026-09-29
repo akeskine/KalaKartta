@@ -64,6 +64,9 @@ class MapDisplayController(
     private var pendingCopernicusSceneKey: String? = null
     private var resolvedCopernicusSceneKey: String? = null
     private var copernicusSceneResolutionJob: Job? = null
+    private var pendingCopernicusFallbackKey: String? = null
+    private var attemptedCopernicusFallbackKey: String? = null
+    private var copernicusFallbackJob: Job? = null
     private var lastCopernicusCatalogFailureKey: String? = null
     private var copernicusTilesOverlay: CopernicusTilesOverlay? = null
     private val heatmapUpdateHandler = Handler(Looper.getMainLooper())
@@ -90,7 +93,7 @@ class MapDisplayController(
                 updateUIColors(useBlack = true)
             }
             MapSourceIds.COPERNICUS_S2 -> {
-                setMapTileSource(CopernicusTileSource(copernicusSceneDate, copernicusSceneAvailable))
+                setMapTileSource(createCopernicusTileSource(copernicusSceneDate, copernicusSceneAvailable))
                 updateUIColors(useBlack = false)
             }
             else -> {
@@ -107,6 +110,7 @@ class MapDisplayController(
             copernicusSceneResolutionJob = null
             pendingCopernicusSceneKey = null
             resolvedCopernicusSceneKey = null
+            cancelCopernicusFallback()
         }
     }
 
@@ -154,6 +158,7 @@ class MapDisplayController(
         }
         if (settingsStore.copernicusClientId.isBlank() || !CopernicusCredentialStore(activity).hasClientSecret()) {
             val missingCredentialsKey = "credentials|$targetDate"
+            cancelCopernicusFallback()
             copernicusSceneResolutionJob?.cancel()
             copernicusSceneResolutionJob = null
             pendingCopernicusSceneKey = null
@@ -169,6 +174,7 @@ class MapDisplayController(
             mgrsTileIdResolver.resolve(center.latitude, center.longitude)
         } catch (_: IllegalArgumentException) {
             val unsupportedCenterKey = "unsupported|$targetDate"
+            cancelCopernicusFallback()
             copernicusSceneResolutionJob?.cancel()
             copernicusSceneResolutionJob = null
             pendingCopernicusSceneKey = null
@@ -182,6 +188,7 @@ class MapDisplayController(
         val requestKey = "$tileId|$targetDate"
         if (requestKey == pendingCopernicusSceneKey || requestKey == resolvedCopernicusSceneKey) return
 
+        if (requestKey != copernicusSceneKey) cancelCopernicusFallback()
         pendingCopernicusSceneKey = requestKey
         copernicusSceneResolutionJob?.cancel()
         if (copernicusSceneKey != requestKey || !copernicusSceneAvailable) {
@@ -269,9 +276,103 @@ class MapDisplayController(
         copernicusSceneAvailable = sceneAvailable
         copernicusSceneKey = sceneKey
         if (settingsStore.mapSource == MapSourceIds.COPERNICUS_S2) {
-            setMapTileSource(CopernicusTileSource(imageDate, sceneAvailable))
+            setMapTileSource(createCopernicusTileSource(imageDate, sceneAvailable))
         }
         updateCopernicusDateOverlay()
+    }
+
+    private fun createCopernicusTileSource(imageDate: String, sceneAvailable: Boolean) =
+        CopernicusTileSource(imageDate, sceneAvailable) { blackSceneDate ->
+            activity.runOnUiThread { requestOlderSceneForBlackTile(blackSceneDate) }
+        }
+
+    private fun requestOlderSceneForBlackTile(blackSceneDate: String) {
+        if (settingsStore.mapSource != MapSourceIds.COPERNICUS_S2 ||
+            !copernicusSceneAvailable || copernicusSceneDate != blackSceneDate
+        ) return
+
+        val sceneKey = copernicusSceneKey ?: return
+        val center = map.mapCenter
+        val tileId = try {
+            mgrsTileIdResolver.resolve(center.latitude, center.longitude)
+        } catch (_: IllegalArgumentException) {
+            return
+        }
+        val targetDate = if (settingsStore.copernicusCustomDateEnabled) {
+            settingsStore.copernicusTargetDate
+        } else {
+            CopernicusDateSettings.today()
+        }
+        if (sceneKey != "$tileId|$targetDate") return
+
+        val fallbackKey = "$sceneKey|$blackSceneDate"
+        if (pendingCopernicusFallbackKey == fallbackKey || attemptedCopernicusFallbackKey == fallbackKey) return
+
+        pendingCopernicusFallbackKey = fallbackKey
+        copernicusFallbackJob?.cancel()
+        copernicusFallbackJob = activity.lifecycleScope.launch {
+            try {
+                val previousSceneDate = withContext(Dispatchers.IO) {
+                    copernicusSceneDateResolver.resolvePreviousSceneDate(tileId, blackSceneDate)
+                }
+                if (pendingCopernicusFallbackKey != fallbackKey) return@launch
+                if (!isCurrentCopernicusFallback(tileId, sceneKey, blackSceneDate)) {
+                    pendingCopernicusFallbackKey = null
+                    return@launch
+                }
+
+                pendingCopernicusFallbackKey = null
+                attemptedCopernicusFallbackKey = fallbackKey
+                if (previousSceneDate != null) {
+                    setCopernicusScene(previousSceneDate, sceneAvailable = true, sceneKey = sceneKey)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (pendingCopernicusFallbackKey == fallbackKey) {
+                    android.util.Log.w(
+                        "CopernicusCatalog",
+                        "Previous-scene lookup failed for $tileId before $blackSceneDate: " +
+                                (failure.message ?: failure.javaClass.simpleName)
+                    )
+                    delay(SCENE_DATE_LOOKUP_RETRY_MILLIS)
+                    if (pendingCopernicusFallbackKey == fallbackKey &&
+                        isCurrentCopernicusFallback(tileId, sceneKey, blackSceneDate)
+                    ) {
+                        pendingCopernicusFallbackKey = null
+                        requestOlderSceneForBlackTile(blackSceneDate)
+                    } else if (pendingCopernicusFallbackKey == fallbackKey) {
+                        pendingCopernicusFallbackKey = null
+                    }
+                }
+            }
+        }
+    }
+
+    private fun isCurrentCopernicusFallback(tileId: String, sceneKey: String, imageDate: String): Boolean {
+        if (settingsStore.mapSource != MapSourceIds.COPERNICUS_S2 ||
+            copernicusSceneKey != sceneKey || copernicusSceneDate != imageDate || !copernicusSceneAvailable
+        ) return false
+
+        val center = map.mapCenter
+        val currentTileId = try {
+            mgrsTileIdResolver.resolve(center.latitude, center.longitude)
+        } catch (_: IllegalArgumentException) {
+            return false
+        }
+        val targetDate = if (settingsStore.copernicusCustomDateEnabled) {
+            settingsStore.copernicusTargetDate
+        } else {
+            CopernicusDateSettings.today()
+        }
+        return currentTileId == tileId && sceneKey == "$tileId|$targetDate"
+    }
+
+    private fun cancelCopernicusFallback() {
+        copernicusFallbackJob?.cancel()
+        copernicusFallbackJob = null
+        pendingCopernicusFallbackKey = null
+        attemptedCopernicusFallbackKey = null
     }
 
     private fun updateCopernicusDateOverlay() {

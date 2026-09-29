@@ -2,6 +2,10 @@ package fi.anssi.kalakartta.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
@@ -75,10 +79,29 @@ class CopernicusSceneDateResolver(
         }
     }
 
+    fun resolvePreviousSceneDate(tileId: String, currentSceneDate: String): String? {
+        val previousDate = previousDate(currentSceneDate)
+        return resolveSceneDate(tileId, previousDate)?.takeIf { it < currentSceneDate }
+    }
+
     private fun readFreshEntry(key: String): CopernicusSceneDateCacheEntry? {
         val entry = cacheStore.get(key) ?: return null
         val age = currentTimeMillis() - entry.cachedAtMillis
         return entry.takeIf { age in 0 until CACHE_TTL_MILLIS }
+    }
+
+    private fun previousDate(value: String): String {
+        val formatter = SimpleDateFormat(DATE_FORMAT, Locale.US).apply {
+            isLenient = false
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val parsed = formatter.parse(value) ?: throw IllegalArgumentException("Invalid Copernicus scene date")
+        require(formatter.format(parsed) == value) { "Invalid Copernicus scene date" }
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.US).apply {
+            time = parsed
+            add(Calendar.DAY_OF_MONTH, -1)
+        }
+        return formatter.format(calendar.time)
     }
 
     private fun await(future: CompletableFuture<CopernicusSceneDateCacheEntry>): CopernicusSceneDateCacheEntry {
@@ -91,5 +114,6 @@ class CopernicusSceneDateResolver(
 
     companion object {
         const val CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000L
+        private const val DATE_FORMAT = "yyyy-MM-dd"
     }
 }

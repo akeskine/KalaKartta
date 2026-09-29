@@ -4,7 +4,8 @@ import org.osmdroid.tileprovider.tilesource.XYTileSource
 
 class CopernicusTileSource(
     val imageDate: String = INITIAL_IMAGE_DATE,
-    val sceneAvailable: Boolean = true
+    val sceneAvailable: Boolean = true,
+    val onBlackTile: ((String) -> Unit)? = null
 ) : XYTileSource(
     "Copernicus Sentinel-2",
     0,
