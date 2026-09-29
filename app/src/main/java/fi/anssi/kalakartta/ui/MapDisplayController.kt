@@ -64,6 +64,7 @@ class MapDisplayController(
     private var pendingCopernicusSceneKey: String? = null
     private var resolvedCopernicusSceneKey: String? = null
     private var copernicusSceneResolutionJob: Job? = null
+    private var lastCopernicusCatalogFailureKey: String? = null
     private var copernicusTilesOverlay: CopernicusTilesOverlay? = null
     private val heatmapUpdateHandler = Handler(Looper.getMainLooper())
     private val heatmapUpdateRunnable = Runnable {
@@ -219,18 +220,42 @@ class MapDisplayController(
                 resolvedCopernicusSceneKey = requestKey
                 if (sceneDate == null) {
                     setCopernicusScene(targetDate, sceneAvailable = false, sceneKey = requestKey)
-                    Toast.makeText(activity, R.string.copernicus_scene_not_found, Toast.LENGTH_LONG).show()
+                    if (lastCopernicusCatalogFailureKey != requestKey) {
+                        lastCopernicusCatalogFailureKey = requestKey
+                        Toast.makeText(activity, R.string.copernicus_scene_not_found, Toast.LENGTH_LONG).show()
+                    }
+                    delay(SCENE_DATE_NO_SCENE_RETRY_MILLIS)
+                    if (settingsStore.mapSource == MapSourceIds.COPERNICUS_S2 &&
+                        pendingCopernicusSceneKey == null && resolvedCopernicusSceneKey == requestKey
+                    ) {
+                        resolvedCopernicusSceneKey = null
+                        updateCopernicusSceneDateForCenter()
+                    }
                 } else {
+                    lastCopernicusCatalogFailureKey = null
                     setCopernicusScene(sceneDate, sceneAvailable = true, sceneKey = requestKey)
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
                 if (pendingCopernicusSceneKey == requestKey) {
+                    android.util.Log.w(
+                        "CopernicusCatalog",
+                        "Scene lookup failed for $tileId before $targetDate: " +
+                                (failure.message ?: failure.javaClass.simpleName)
+                    )
                     pendingCopernicusSceneKey = null
-                    resolvedCopernicusSceneKey = requestKey
                     setCopernicusScene(targetDate, sceneAvailable = false, sceneKey = requestKey)
-                    Toast.makeText(activity, R.string.copernicus_catalog_unavailable, Toast.LENGTH_LONG).show()
+                    if (lastCopernicusCatalogFailureKey != requestKey) {
+                        lastCopernicusCatalogFailureKey = requestKey
+                        Toast.makeText(activity, R.string.copernicus_catalog_unavailable, Toast.LENGTH_LONG).show()
+                    }
+                    delay(SCENE_DATE_LOOKUP_RETRY_MILLIS)
+                    if (settingsStore.mapSource == MapSourceIds.COPERNICUS_S2 &&
+                        pendingCopernicusSceneKey == null
+                    ) {
+                        updateCopernicusSceneDateForCenter()
+                    }
                 }
             }
         }
@@ -450,5 +475,7 @@ class MapDisplayController(
 
     private companion object {
         const val SCENE_DATE_LOOKUP_DEBOUNCE_MILLIS = 400L
+        const val SCENE_DATE_LOOKUP_RETRY_MILLIS = 15_000L
+        const val SCENE_DATE_NO_SCENE_RETRY_MILLIS = 5 * 60_000L
     }
 }

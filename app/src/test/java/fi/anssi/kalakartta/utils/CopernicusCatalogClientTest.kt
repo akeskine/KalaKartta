@@ -48,4 +48,14 @@ class CopernicusCatalogClientTest {
         })
         assertNull(futureClient.findLatestSceneDate("35VLG", "2026-09-28"))
     }
+
+    @Test
+    fun selectedDateSceneIsAcceptedForHeinolaTile() {
+        val response = """{"value":[{"ContentDate":{"Start":"2026-02-23T10:00:31.025000Z"}}]}"""
+        val client = CopernicusCatalogClient(CopernicusHttpConnectionFactory { url ->
+            FakeCopernicusHttpURLConnection(url, 200, response.toByteArray(StandardCharsets.UTF_8))
+        })
+
+        assertEquals("2026-02-23", client.findLatestSceneDate("35VMH", "2026-02-23"))
+    }
 }

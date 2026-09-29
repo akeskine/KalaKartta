@@ -64,7 +64,7 @@ class CopernicusSceneDateResolver(
                 catalogClient.findLatestSceneDate(tileId, targetDate),
                 currentTimeMillis()
             )
-            cacheStore.put(key, entry)
+            if (entry.sceneDate != null) cacheStore.put(key, entry)
             newLookup.complete(entry)
             return entry.sceneDate
         } catch (failure: Throwable) {

@@ -70,6 +70,12 @@ class CopernicusTileCache(
     fun getCached(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray? =
         readCache(cacheFile(imageDate, zoom, x, y))
 
+    fun putCached(imageDate: String, zoom: Int, x: Int, y: Int, jpeg: ByteArray) {
+        if (!isJpeg(jpeg)) throw IOException("Copernicus tile cache accepts JPEG images only")
+        writeCache(cacheFile(imageDate, zoom, x, y), jpeg, replaceExisting = true)
+        enforceSizeLimitAsync()
+    }
+
     fun sizeBytes(): Long = synchronized(fileLock) {
         val cacheRoot = File(rootDirectory, "satellite")
         if (!cacheRoot.isDirectory) return@synchronized 0L
@@ -135,9 +141,9 @@ class CopernicusTileCache(
         }
     }
 
-    private fun writeCache(file: File, bytes: ByteArray) {
+    private fun writeCache(file: File, bytes: ByteArray, replaceExisting: Boolean = false) {
         synchronized(fileLock) {
-            if (file.isFile && runCatching { isJpeg(file.readBytes()) }.getOrDefault(false)) return
+            if (!replaceExisting && file.isFile && runCatching { isJpeg(file.readBytes()) }.getOrDefault(false)) return
             val parent = file.parentFile ?: throw IOException("Invalid Copernicus cache path")
             if (!parent.exists() && !parent.mkdirs()) throw IOException("Unable to create Copernicus tile cache")
             val temporaryFile = File(parent, "${file.name}.${Thread.currentThread().id}.${System.nanoTime()}.tmp")

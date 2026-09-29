@@ -78,7 +78,7 @@ class CopernicusTilesOverlay private constructor(
 
 private class CopernicusMapTileModuleProvider(
     context: Context,
-    settingsStore: SettingsStore
+    private val settingsStore: SettingsStore
 ) : MapTileModuleProviderBase(2, 40) {
     private val appContext = context.applicationContext
     private val credentialStore = CopernicusCredentialStore(appContext)
@@ -114,47 +114,128 @@ private class CopernicusMapTileModuleProvider(
             val x = MapTileIndex.getX(pMapTileIndex)
             val y = MapTileIndex.getY(pMapTileIndex)
             return try {
-                val jpeg = tileCache.getCached(source.imageDate, zoom, x, y)
-                    ?: run {
-                        if (!hasValidatedNetwork()) return null
-                        tileCache.getOrLoadGroup(
-                            source.imageDate,
-                            zoom,
-                            x,
-                            y,
-                            imageSizePixels = settingsStore.copernicusTileImageSizePixels,
-                            loader = { group ->
-                                processClient.getTile(
-                                    group.zoom,
-                                    group.firstX,
-                                    group.firstY,
-                                    source.imageDate,
-                                    group.imageSizePixels
-                                )
-                            },
-                            splitter = CopernicusTileImageSplitter::split
-                        )
-                    }
+                val jpeg = loadTileBytes(source.imageDate, zoom, x, y) ?: return null
                 if (!isCurrentSource(sourceSnapshot)) return null
                 val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: run {
                     tileCache.remove(source.imageDate, zoom, x, y)
                     return null
                 }
-                if (!isCurrentSource(sourceSnapshot)) return null
-                BitmapDrawable(appContext.resources, bitmap)
-            } catch (_: Exception) {
+                if (CopernicusTileFallback.isMostlyBlack(bitmap.pixels())) {
+                    bitmap.recycle()
+                    val fallbackJpeg = findUsableParentTile(sourceSnapshot, zoom, x, y)
+                        ?: return null
+                    if (!isCurrentSource(sourceSnapshot)) return null
+                    tileCache.putCached(source.imageDate, zoom, x, y, fallbackJpeg)
+                    val fallbackBitmap = BitmapFactory.decodeByteArray(fallbackJpeg, 0, fallbackJpeg.size)
+                        ?: return null
+                    if (!isCurrentSource(sourceSnapshot)) {
+                        fallbackBitmap.recycle()
+                        return null
+                    }
+                    BitmapDrawable(appContext.resources, fallbackBitmap)
+                } else {
+                    if (!isCurrentSource(sourceSnapshot)) {
+                        bitmap.recycle()
+                        return null
+                    }
+                    BitmapDrawable(appContext.resources, bitmap)
+                }
+            } catch (failure: Exception) {
+                android.util.Log.w(
+                    "CopernicusTiles",
+                    "Tile $zoom/$x/$y for ${source.imageDate} failed: " +
+                            (failure.message ?: failure.javaClass.simpleName)
+                )
                 null
             }
         }
     }
 
-    private fun hasValidatedNetwork(): Boolean {
+    private fun loadTileBytes(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray? {
+        tileCache.getCached(imageDate, zoom, x, y)?.let { return it }
+        if (!hasInternetNetwork()) return null
+        return loadTileGroup(imageDate, zoom, x, y)
+    }
+
+    private fun findUsableParentTile(
+        sourceSnapshot: TileSourceSnapshot,
+        zoom: Int,
+        x: Int,
+        y: Int
+    ): ByteArray? {
+        val imageDate = sourceSnapshot.source.imageDate
+        var networkAvailability: Boolean? = null
+        for (ancestor in CopernicusTileFallback.ancestors(zoom, x, y, minimumZoom = 0)) {
+            if (!isCurrentSource(sourceSnapshot)) return null
+            val jpeg = tileCache.getCached(imageDate, ancestor.zoom, ancestor.x, ancestor.y)
+            val parentJpeg = if (jpeg != null) {
+                jpeg
+            } else {
+                val hasNetwork = networkAvailability ?: hasInternetNetwork().also {
+                    networkAvailability = it
+                }
+                if (!hasNetwork) continue
+                try {
+                    loadTileGroup(imageDate, ancestor.zoom, ancestor.x, ancestor.y)
+                } catch (_: IOException) {
+                    continue
+                }
+            }
+            val parentBitmap = BitmapFactory.decodeByteArray(parentJpeg, 0, parentJpeg.size)
+            if (parentBitmap == null) {
+                tileCache.remove(imageDate, ancestor.zoom, ancestor.x, ancestor.y)
+                continue
+            }
+            val childBitmap = try {
+                CopernicusTileFallback.cropDescendantTile(parentBitmap, ancestor)
+            } finally {
+                parentBitmap.recycle()
+            }
+            try {
+                if (!CopernicusTileFallback.isMostlyBlack(childBitmap.pixels())) return childBitmap.toJpeg()
+            } finally {
+                childBitmap.recycle()
+            }
+        }
+        return null
+    }
+
+    private fun loadTileGroup(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray =
+        tileCache.getOrLoadGroup(
+            imageDate,
+            zoom,
+            x,
+            y,
+            imageSizePixels = settingsStore.copernicusTileImageSizePixels,
+            loader = { group ->
+                processClient.getTile(
+                    group.zoom,
+                    group.firstX,
+                    group.firstY,
+                    imageDate,
+                    group.imageSizePixels
+                )
+            },
+            splitter = CopernicusTileImageSplitter::split
+        )
+
+    private fun android.graphics.Bitmap.pixels(): IntArray =
+        IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
+
+    private fun android.graphics.Bitmap.toJpeg(): ByteArray =
+        java.io.ByteArrayOutputStream().use { output ->
+            if (!compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, output)) {
+                throw IOException("Unable to encode Copernicus fallback tile")
+            }
+            output.toByteArray()
+        }
+
+    private fun hasInternetNetwork(): Boolean {
         val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             ?: return false
         val activeNetwork = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     override fun getTileLoader(): TileLoader = tileLoader

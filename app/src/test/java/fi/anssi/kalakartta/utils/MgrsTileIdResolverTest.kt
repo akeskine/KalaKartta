@@ -11,6 +11,7 @@ class MgrsTileIdResolverTest {
     fun knownFinnishCoordinatesResolveToExpectedSentinelTiles() {
         assertEquals("35VMJ", resolver.resolve(61.74, 26.12))
         assertEquals("35VLG", resolver.resolve(60.1699, 24.9384))
+        assertEquals("35VMH", resolver.resolve(61.2, 26.04))
     }
 
     @Test

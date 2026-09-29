@@ -116,6 +116,19 @@ class CopernicusTileCacheTest {
         assertEquals(5L, cache.sizeBytes())
     }
 
+    @Test
+    fun derivedFallbackCanReplaceCachedBlackTile() {
+        val root = Files.createTempDirectory("copernicus-cache-fallback-test").toFile()
+        val cache = CopernicusTileCache(root)
+        val blackJpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0xFF.toByte(), 0xD9.toByte())
+        val fallbackJpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x02, 0xFF.toByte(), 0xD9.toByte())
+        cache.putCached("2026-09-27", 8, 135, 90, blackJpeg)
+
+        cache.putCached("2026-09-27", 8, 135, 90, fallbackJpeg)
+
+        assertArrayEquals(fallbackJpeg, cache.getCached("2026-09-27", 8, 135, 90))
+    }
+
     private fun splitIntoFakeTiles(
         @Suppress("UNUSED_PARAMETER") image: ByteArray,
         group: CopernicusTileGroup

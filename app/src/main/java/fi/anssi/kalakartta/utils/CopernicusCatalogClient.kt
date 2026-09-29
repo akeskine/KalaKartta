@@ -89,7 +89,7 @@ class CopernicusCatalogClient(
 
     companion object {
         const val CATALOG_ENDPOINT = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
-        const val FILTER_VERSION = "sentinel2-l2a-cloud20-v1"
+        const val FILTER_VERSION = "sentinel2-l2a-cloud20-v2"
         private const val CONNECTION_TIMEOUT_MILLIS = 20_000
         private const val DATE_FORMAT = "yyyy-MM-dd"
         private val MGRS_TILE_ID_PATTERN = Regex("(?:[1-9]|[1-5][0-9]|60)[C-HJ-NP-X][A-HJ-NP-Z]{2}")
