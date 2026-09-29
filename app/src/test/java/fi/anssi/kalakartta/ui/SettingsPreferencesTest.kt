@@ -165,6 +165,30 @@ class SettingsPreferencesTest {
     }
 
     @Test
+    fun quickMapShortcutRequiresAtLeastTwoAvailableCheckedSources() {
+        val sourceIds = listOf("OSM", "MML_MAASTO", "TRAFICOM_SEA")
+        val selectedSources = setOf("OSM", "TRAFICOM_SEA")
+
+        val oneEnabledSource = MapSourceQuickSelectPolicy.enabledQuickSelectSources(
+            sourceIds,
+            "",
+            false,
+            false
+        ) { sourceId, _ -> sourceId == "OSM" }
+        assertEquals(listOf("OSM"), oneEnabledSource)
+        assertEquals(false, MapSourceQuickSelectPolicy.shouldShowQuickSelect(oneEnabledSource))
+
+        val twoEnabledSources = MapSourceQuickSelectPolicy.enabledQuickSelectSources(
+            sourceIds,
+            "valid-key",
+            false,
+            false
+        ) { sourceId, _ -> sourceId in selectedSources }
+        assertEquals(listOf("OSM", "TRAFICOM_SEA"), twoEnabledSources)
+        assertEquals(true, MapSourceQuickSelectPolicy.shouldShowQuickSelect(twoEnabledSources))
+    }
+
+    @Test
     fun unavailableSelectedSourceFallsBackToFirstQuickSourceOrOsm() {
         val sources = listOf("OSM", "MML_MAASTO", "MML_ILMA", MapSourceIds.COPERNICUS_S2)
         val available = setOf("OSM", "MML_ILMA", MapSourceIds.COPERNICUS_S2)

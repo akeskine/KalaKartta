@@ -391,7 +391,15 @@ class MapDisplayController(
     fun updateScaleBar() {
         val showScale = settingsStore.showScaleBar
         val showMeasurement = settingsStore.showMeasurementTool
-        val showQuickMap = settingsStore.showQuickMapSource
+        val copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
+                CopernicusCredentialStore(activity).hasClientSecret()
+        val enabledQuickMapSources = MapSourceQuickSelectPolicy.enabledQuickSelectSources(
+            listOf("OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING", MapSourceIds.COPERNICUS_S2),
+            settingsStore.mmlApiKey,
+            settingsStore.mmlApiKeyInvalid,
+            copernicusCredentialsAvailable
+        ) { sourceId, default -> settingsStore.isQuickMapSourceEnabled(sourceId, default) }
+        val showQuickMap = MapSourceQuickSelectPolicy.shouldShowQuickSelect(enabledQuickMapSources)
         val useBlack = usesBlackMapControls(settingsStore.mapSource)
 
         val measurementButton = activity.findViewById<MaterialButton>(R.id.measurementButton)

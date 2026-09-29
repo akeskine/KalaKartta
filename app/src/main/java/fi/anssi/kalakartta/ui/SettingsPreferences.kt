@@ -187,6 +187,20 @@ object MapSourceQuickSelectPolicy {
         else -> true
     }
 
+    fun enabledQuickSelectSources(
+        sourceIds: List<String>,
+        mmlApiKey: String,
+        mmlApiKeyInvalid: Boolean,
+        copernicusCredentialsAvailable: Boolean,
+        isQuickSelectEnabled: (String, Boolean) -> Boolean
+    ): List<String> = sourceIds.filter { sourceId ->
+        val default = defaultEnabled(sourceId, mmlApiKey, mmlApiKeyInvalid, copernicusCredentialsAvailable)
+        isAvailable(sourceId, mmlApiKey, mmlApiKeyInvalid, copernicusCredentialsAvailable) &&
+                isQuickSelectEnabled(sourceId, default)
+    }
+
+    fun shouldShowQuickSelect(enabledSourceIds: List<String>): Boolean = enabledSourceIds.size >= 2
+
     fun selectedSourceAfterAvailabilityChange(
         currentSourceId: String,
         orderedSourceIds: List<String>,

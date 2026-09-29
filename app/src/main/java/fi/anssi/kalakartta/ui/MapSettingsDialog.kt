@@ -36,7 +36,6 @@ class MapSettingsDialog(
         val copernicusCredentialStore = CopernicusCredentialStore(activity)
         var copernicusCredentialsAvailable = settingsStore.copernicusClientId.isNotBlank() &&
                 copernicusCredentialStore.hasClientSecret()
-        var showQuickMapCurrent = settingsStore.showQuickMapSource
 
         val sources = arrayOf(
             "OpenStreetMap",
@@ -180,6 +179,7 @@ class MapSettingsDialog(
                 setOnCheckedChangeListener { _, isChecked ->
                     quickSelectEnabled[id] = isChecked
                     settingsStore.setQuickMapSourceEnabled(id, isChecked)
+                    onMapSettingsChanged()
                 }
             }
             checkBoxes[id] = cb
@@ -188,18 +188,6 @@ class MapSettingsDialog(
         }
 
         arrayOf("MML_MAASTO", "MML_ILMA", MapSourceIds.COPERNICUS_S2).forEach(::refreshSourceAvailability)
-
-        val quickMapCheckbox = CheckBox(activity).apply {
-            text = activity.getString(R.string.show_quick_map_source)
-            isChecked = showQuickMapCurrent
-            textSize = 18f
-            setPadding(0, 20, 0, 40)
-            setOnCheckedChangeListener { _, isChecked ->
-                showQuickMapCurrent = isChecked
-                settingsStore.showQuickMapSource = isChecked
-                onMapSettingsChanged()
-            }
-        }
 
         val apiKeyLabel = TextView(activity).apply {
             text = "MML API-avain:"
@@ -218,6 +206,8 @@ class MapSettingsDialog(
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
                 override fun afterTextChanged(s: android.text.Editable?) {
                     val mmlApiKey = s?.toString().orEmpty()
+                    val wasMmlAvailable = isSourceAvailable("MML_MAASTO")
+                    val sourceBeforeAvailabilityCheck = settingsStore.mapSource
                     if (mmlApiKey != settingsStore.mmlApiKey) {
                         settingsStore.mmlApiKeyInvalid = true
                     }
@@ -227,6 +217,11 @@ class MapSettingsDialog(
                         refreshSourceAvailability(sourceId)
                     }
                     ensureSelectedSourceAvailable()
+                    if (wasMmlAvailable != isSourceAvailable("MML_MAASTO") &&
+                        settingsStore.mapSource == sourceBeforeAvailabilityCheck
+                    ) {
+                        onMapSettingsChanged()
+                    }
                 }
             })
         }
@@ -392,11 +387,13 @@ class MapSettingsDialog(
                                 checkBoxes["MML_ILMA"]?.isChecked = true
                             }
                             ensureSelectedSourceAvailable()
+                            onMapSettingsChanged()
                         } else {
                             settingsStore.mmlApiKeyInvalid = true
                             mmlApiKeyInvalid = true
                             arrayOf("MML_MAASTO", "MML_ILMA").forEach(::refreshSourceAvailability)
                             ensureSelectedSourceAvailable()
+                            onMapSettingsChanged()
                             Toast.makeText(activity, "API-avain ei kelpaa (HTTP $responseCode).", Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -419,7 +416,6 @@ class MapSettingsDialog(
             alpha = 0.7f
         }
         contentLayout.addView(attributionText)
-        contentLayout.addView(quickMapCheckbox)
 
         radioButtons.forEachIndexed { index, radioButton ->
             radioButton.setOnCheckedChangeListener { _, isChecked ->

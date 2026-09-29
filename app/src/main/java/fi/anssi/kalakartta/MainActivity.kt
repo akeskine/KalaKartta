@@ -563,22 +563,12 @@ class MainActivity : AppCompatActivity() {
                     "OSM", "MML_MAASTO", "MML_ILMA", "TRAFICOM_SEA", "TRAFICOM_BOATING", MapSourceIds.COPERNICUS_S2
                 )
 
-                // Suodatetaan karttapohjat, jotka on valittu pikavalintaan
-                val enabledSources = internalIds.filter { id ->
-                    val default = MapSourceQuickSelectPolicy.defaultEnabled(
-                        id,
-                        currentApiKey,
-                        settingsStore.mmlApiKeyInvalid,
-                        copernicusCredentialsAvailable
-                    )
-                    MapSourceQuickSelectPolicy.isAvailable(
-                        id,
-                        currentApiKey,
-                        settingsStore.mmlApiKeyInvalid,
-                        copernicusCredentialsAvailable
-                    ) &&
-                            settingsStore.isQuickMapSourceEnabled(id, default)
-                }
+                val enabledSources = MapSourceQuickSelectPolicy.enabledQuickSelectSources(
+                    internalIds.toList(),
+                    currentApiKey,
+                    settingsStore.mmlApiKeyInvalid,
+                    copernicusCredentialsAvailable
+                ) { id, default -> settingsStore.isQuickMapSourceEnabled(id, default) }
 
                 if (enabledSources.isNotEmpty()) {
                     val currentIndex = enabledSources.indexOf(currentSource)
