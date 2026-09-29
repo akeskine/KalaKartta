@@ -366,7 +366,7 @@ class MapSettingsDialog(
         fun selectedId(): Int = radioButtons.indexOfFirst { it.isChecked }
 
         fun validateApiKey(apiKey: String) {
-            if (apiKey.isEmpty()) return
+            if (apiKey.isBlank()) return
             val selectedLayer = if (selectedId() == 2) "ortokuva" else "maastokartta"
             val validatedSourceId = if (selectedLayer == "ortokuva") "MML_ILMA" else "MML_MAASTO"
             activity.lifecycleScope.launch(Dispatchers.IO) {
@@ -410,7 +410,7 @@ class MapSettingsDialog(
 
         setApiKeyButton.setOnClickListener { validateApiKey(apiKeyInput.text.toString()) }
 
-        if (currentApiKey.isNotEmpty()) validateApiKey(currentApiKey)
+        if (currentApiKey.isNotBlank()) validateApiKey(currentApiKey)
 
         val attributionText = TextView(activity).apply {
             text = attribution(currentSource)

@@ -165,7 +165,6 @@ class MapDisplayController(
             if (resolvedCopernicusSceneKey != missingCredentialsKey) {
                 resolvedCopernicusSceneKey = missingCredentialsKey
                 setCopernicusScene(targetDate, sceneAvailable = false, sceneKey = missingCredentialsKey)
-                Toast.makeText(activity, R.string.copernicus_credentials_required, Toast.LENGTH_LONG).show()
             }
             return
         }
