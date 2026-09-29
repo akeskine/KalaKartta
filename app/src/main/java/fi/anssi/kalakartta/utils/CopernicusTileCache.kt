@@ -21,13 +21,14 @@ class CopernicusTileCache(
         zoom: Int,
         x: Int,
         y: Int,
+        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS,
         loader: (CopernicusTileGroup) -> ByteArray,
         splitter: (ByteArray, CopernicusTileGroup) -> Map<CopernicusTileCoordinate, ByteArray>
     ): ByteArray {
         getCached(imageDate, zoom, x, y)?.let { return it }
-        val group = CopernicusTileGroup.fromTile(zoom, x, y)
+        val group = CopernicusTileGroup.fromTile(zoom, x, y, imageSizePixels)
         val coordinate = CopernicusTileCoordinate(x, y)
-        val groupKey = cacheFile(imageDate, zoom, group.firstX, group.firstY).absolutePath
+        val groupKey = "${cacheFile(imageDate, zoom, group.firstX, group.firstY).absolutePath}/${group.imageSizePixels}"
         val newLoad = CompletableFuture<Map<CopernicusTileCoordinate, ByteArray>>()
         val activeLoad = IN_FLIGHT_GROUP_LOADS.putIfAbsent(groupKey, newLoad)
         if (activeLoad != null) {
@@ -68,6 +69,14 @@ class CopernicusTileCache(
 
     fun getCached(imageDate: String, zoom: Int, x: Int, y: Int): ByteArray? =
         readCache(cacheFile(imageDate, zoom, x, y))
+
+    fun sizeBytes(): Long = synchronized(fileLock) {
+        val cacheRoot = File(rootDirectory, "satellite")
+        if (!cacheRoot.isDirectory) return@synchronized 0L
+        cacheRoot.walkTopDown()
+            .filter { it.isFile && it.extension.equals("jpg", ignoreCase = true) }
+            .sumOf(File::length)
+    }
 
     fun cacheFile(imageDate: String, zoom: Int, x: Int, y: Int): File {
         require(imageDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "Invalid Copernicus image date" }

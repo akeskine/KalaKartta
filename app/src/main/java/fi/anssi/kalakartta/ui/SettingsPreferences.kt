@@ -1,5 +1,7 @@
 package fi.anssi.kalakartta.ui
 
+import fi.anssi.kalakartta.utils.CopernicusTileImageSize
+
 /**
  * SharedPreferences-avaimet ja niiden nykyiset oletusarvot.
  *
@@ -17,6 +19,7 @@ object SettingsKeys {
     const val COPERNICUS_CUSTOM_DATE_ENABLED = "copernicus_custom_date_enabled"
     const val COPERNICUS_TARGET_DATE = "copernicus_target_date"
     const val COPERNICUS_TILE_CACHE_LIMIT_MB = "copernicus_tile_cache_limit_mb"
+    const val COPERNICUS_TILE_IMAGE_SIZE_PIXELS = "copernicus_tile_image_size_pixels"
     const val SHOW_QUICK_MAP_SOURCE = "show_quick_map_source"
     const val SHOW_LIVE_SESSION_ROUTE = "show_live_session_route"
     const val LOCATION_CHECK_INTERVAL = "location_check_interval"
@@ -94,6 +97,7 @@ object SettingsDefaults {
     const val COPERNICUS_TILE_CACHE_LIMIT_MB = 512
     const val MIN_COPERNICUS_TILE_CACHE_LIMIT_MB = 64
     const val MAX_COPERNICUS_TILE_CACHE_LIMIT_MB = 4096
+    const val COPERNICUS_TILE_IMAGE_SIZE_PIXELS = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS
     const val SHOW_QUICK_MAP_SOURCE = false
     const val SHOW_LIVE_SESSION_ROUTE = true
     const val LOCATION_CHECK_INTERVAL = 10

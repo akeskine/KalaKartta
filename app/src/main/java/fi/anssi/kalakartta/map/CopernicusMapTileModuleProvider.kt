@@ -83,7 +83,16 @@ private class CopernicusMapTileModuleProvider(
                             zoom,
                             x,
                             y,
-                            loader = { group -> processClient.getTile(group.zoom, group.firstX, group.firstY, source.imageDate) },
+                            imageSizePixels = settingsStore.copernicusTileImageSizePixels,
+                            loader = { group ->
+                                processClient.getTile(
+                                    group.zoom,
+                                    group.firstX,
+                                    group.firstY,
+                                    source.imageDate,
+                                    group.imageSizePixels
+                                )
+                            },
                             splitter = CopernicusTileImageSplitter::split
                         )
                     }

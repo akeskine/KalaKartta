@@ -1,5 +1,6 @@
 package fi.anssi.kalakartta.ui
 
+import fi.anssi.kalakartta.utils.CopernicusTileImageSize
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -18,6 +19,8 @@ class SettingsPreferencesTest {
         assertEquals(512, SettingsDefaults.COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals(64, SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals(4096, SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB)
+        assertEquals(1024, SettingsDefaults.COPERNICUS_TILE_IMAGE_SIZE_PIXELS)
+        assertEquals(listOf(256, 512, 1024, 2048), CopernicusTileImageSize.OPTIONS_PIXELS)
         assertEquals(false, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
         assertEquals(true, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
         assertEquals(10, SettingsDefaults.LOCATION_CHECK_INTERVAL)
@@ -85,6 +88,7 @@ class SettingsPreferencesTest {
         assertEquals("copernicus_custom_date_enabled", SettingsKeys.COPERNICUS_CUSTOM_DATE_ENABLED)
         assertEquals("copernicus_target_date", SettingsKeys.COPERNICUS_TARGET_DATE)
         assertEquals("copernicus_tile_cache_limit_mb", SettingsKeys.COPERNICUS_TILE_CACHE_LIMIT_MB)
+        assertEquals("copernicus_tile_image_size_pixels", SettingsKeys.COPERNICUS_TILE_IMAGE_SIZE_PIXELS)
         assertEquals("show_quick_map_source", SettingsKeys.SHOW_QUICK_MAP_SOURCE)
         assertEquals("quick_select_MML_MAASTO", SettingsKeys.quickSelect("MML_MAASTO"))
         assertEquals("show_live_session_route", SettingsKeys.SHOW_LIVE_SESSION_ROUTE)
@@ -221,5 +225,14 @@ class SettingsPreferencesTest {
         assertEquals("2026-09-27", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
             .format(CopernicusDateSettings.calendarFor("2026-09-27").time))
         assertEquals("24.12.2025", CopernicusDateSettings.display("2025-12-24"))
+    }
+
+    @Test
+    fun copernicusImageSizeNormalizesUnsupportedStoredValuesToDefault() {
+        assertEquals(256, CopernicusTileImageSize.normalize(256))
+        assertEquals(512, CopernicusTileImageSize.normalize(512))
+        assertEquals(1024, CopernicusTileImageSize.normalize(1024))
+        assertEquals(2048, CopernicusTileImageSize.normalize(2048))
+        assertEquals(1024, CopernicusTileImageSize.normalize(1536))
     }
 }

@@ -47,7 +47,7 @@ class CopernicusProcessClientTest {
 
     @Test
     fun tileGroupMapsEachRequestedCoordinateToItsCorrectCell() {
-        val group = CopernicusTileGroup.fromTile(4, 11, 10)
+        val group = CopernicusTileGroup.fromTile(4, 11, 10, imageSizePixels = 2048)
 
         assertEquals(8, group.firstX)
         assertEquals(8, group.firstY)
@@ -59,7 +59,7 @@ class CopernicusProcessClientTest {
         assertEquals(CopernicusTileCropRect(768, 512, 256, 256), group.cropRectFor(11, 10))
         assertEquals(CopernicusTileCropRect(1792, 1792, 256, 256), group.cropRectFor(15, 15))
 
-        val body = JSONObject(CopernicusProcessRequest.body(4, 11, 10, "2026-09-27"))
+        val body = JSONObject(CopernicusProcessRequest.body(4, 11, 10, "2026-09-27", 2048))
         val bounds = CopernicusTileBoundsCalculator.fromGroup(group)
         val bbox = body.getJSONObject("input").getJSONObject("bounds").getJSONArray("bbox")
         assertEquals(bounds.minX, bbox.getDouble(0), 0.0001)
@@ -69,6 +69,32 @@ class CopernicusProcessClientTest {
         val output = body.getJSONObject("output")
         assertEquals(2048, output.getInt("width"))
         assertEquals(2048, output.getInt("height"))
+    }
+
+    @Test
+    fun configuredImageSizesSetGridDimensionsAndProcessOutput() {
+        for (imageSizePixels in CopernicusTileImageSize.OPTIONS_PIXELS) {
+            val group = CopernicusTileGroup.fromTile(4, 11, 10, imageSizePixels)
+            val tilesPerSide = imageSizePixels / CopernicusTileImageSize.TILE_SIZE_PIXELS
+            val body = JSONObject(CopernicusProcessRequest.body(4, 11, 10, "2026-09-27", imageSizePixels))
+            val output = body.getJSONObject("output")
+
+            assertEquals(tilesPerSide, group.columns)
+            assertEquals(tilesPerSide, group.rows)
+            assertEquals(imageSizePixels, group.pixelWidth)
+            assertEquals(imageSizePixels, group.pixelHeight)
+            assertEquals(imageSizePixels, output.getInt("width"))
+            assertEquals(imageSizePixels, output.getInt("height"))
+            assertEquals(
+                CopernicusTileCropRect(
+                    (11 - group.firstX) * CopernicusTileImageSize.TILE_SIZE_PIXELS,
+                    (10 - group.firstY) * CopernicusTileImageSize.TILE_SIZE_PIXELS,
+                    CopernicusTileImageSize.TILE_SIZE_PIXELS,
+                    CopernicusTileImageSize.TILE_SIZE_PIXELS
+                ),
+                group.cropRectFor(11, 10)
+            )
+        }
     }
 
     @Test

@@ -1,9 +1,11 @@
 package fi.anssi.kalakartta.ui
 
 import android.widget.CheckBox
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -11,11 +13,13 @@ import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.utils.CopernicusTileCache
+import fi.anssi.kalakartta.utils.CopernicusTileImageSize
 import fi.anssi.kalakartta.service.FishingSessionService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import kotlin.math.cos
 
 /** Kehittäjäasetusten dialogi ja näkyvien piste-/ruutumäärien laskenta. */
@@ -54,13 +58,57 @@ class DeveloperSettingsDialog(
             setText(settingsStore.copernicusTileCacheLimitMb.toString())
         }
         val copernicusCacheLimitHint = TextView(activity).apply {
-            text = "Oletus 512 MB. Vanhimpia tiilejä poistetaan tarvittaessa taustalla."
+            text = "Oletus 512 MB. Käytetty … / ${settingsStore.copernicusTileCacheLimitMb} MB."
             textSize = 12f
         }
         copernicusCacheLimitRow.addView(copernicusCacheLimitLabel)
         copernicusCacheLimitRow.addView(copernicusCacheLimitEdit)
         copernicusCacheLimitRow.addView(copernicusCacheLimitHint)
         layout.addView(copernicusCacheLimitRow)
+
+        var copernicusCacheUsedBytes: Long? = null
+        fun updateCopernicusCacheLimitHint() {
+            val limitMb = copernicusCacheLimitEdit.text.toString().toIntOrNull()
+                ?.coerceIn(
+                    SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB,
+                    SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB
+                ) ?: settingsStore.copernicusTileCacheLimitMb
+            copernicusCacheLimitHint.text = copernicusCacheUsedBytes?.let { usedBytes ->
+                copernicusCacheUsageHint(usedBytes, limitMb)
+            } ?: "Oletus 512 MB. Käytetty … / $limitMb MB."
+        }
+        copernicusCacheLimitEdit.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) =
+                updateCopernicusCacheLimitHint()
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            val usedBytes = CopernicusTileCache(activity.filesDir).sizeBytes()
+            withContext(Dispatchers.Main) {
+                copernicusCacheUsedBytes = usedBytes
+                updateCopernicusCacheLimitHint()
+            }
+        }
+
+        val copernicusTileImageSizeRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 20, 0, 0)
+        }
+        copernicusTileImageSizeRow.addView(TextView(activity).apply {
+            text = "Copernicus-ruutujen koko"
+        })
+        val copernicusTileImageSizeOptions = CopernicusTileImageSize.OPTIONS_PIXELS
+        val copernicusTileImageSizeSpinner = Spinner(activity).apply {
+            adapter = ArrayAdapter(
+                activity,
+                android.R.layout.simple_spinner_item,
+                copernicusTileImageSizeOptions.map { "${it}x$it" }
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            setSelection(copernicusTileImageSizeOptions.indexOf(settingsStore.copernicusTileImageSizePixels))
+        }
+        copernicusTileImageSizeRow.addView(copernicusTileImageSizeSpinner)
+        layout.addView(copernicusTileImageSizeRow)
 
         // Rivi 1: Reittipisteitä max
         val row1 = LinearLayout(activity).apply {
@@ -390,6 +438,10 @@ class DeveloperSettingsDialog(
                 settingsStore.seaLevelTurningTrendThreshold = seaLevelTurningTrendThreshold
                 settingsStore.automaticWeatherUpdateIntervalHours = automaticWeatherUpdateInterval
                 settingsStore.copernicusTileCacheLimitMb = copernicusCacheLimitMb
+                settingsStore.copernicusTileImageSizePixels = copernicusTileImageSizeOptions[
+                    copernicusTileImageSizeSpinner.selectedItemPosition
+                        .coerceIn(copernicusTileImageSizeOptions.indices)
+                ]
                 CopernicusTileCache(activity.filesDir).enforceSizeLimitAsync(
                     copernicusCacheLimitMb.toLong() * CopernicusTileCache.BYTES_PER_MEGABYTE
                 )
@@ -399,4 +451,13 @@ class DeveloperSettingsDialog(
             .create()
         onShowDialog(dialog)
     }
+}
+
+internal fun copernicusCacheUsageHint(usedBytes: Long, limitMb: Int): String {
+    val usedMb = String.format(
+        Locale.getDefault(),
+        "%.1f",
+        usedBytes.coerceAtLeast(0).toDouble() / CopernicusTileCache.BYTES_PER_MEGABYTE
+    )
+    return "Oletus 512 MB. Käytetty $usedMb / $limitMb MB."
 }

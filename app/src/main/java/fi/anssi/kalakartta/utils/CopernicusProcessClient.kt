@@ -22,15 +22,25 @@ data class CopernicusTileCoordinate(val x: Int, val y: Int)
 
 data class CopernicusTileCropRect(val left: Int, val top: Int, val width: Int, val height: Int)
 
+object CopernicusTileImageSize {
+    const val TILE_SIZE_PIXELS = 256
+    const val DEFAULT_IMAGE_SIZE_PIXELS = 1024
+    val OPTIONS_PIXELS = listOf(256, 512, 1024, 2048)
+
+    fun normalize(imageSizePixels: Int): Int =
+        imageSizePixels.takeIf { it in OPTIONS_PIXELS } ?: DEFAULT_IMAGE_SIZE_PIXELS
+}
+
 data class CopernicusTileGroup(
     val zoom: Int,
     val firstX: Int,
     val firstY: Int,
     val columns: Int,
-    val rows: Int
+    val rows: Int,
+    val imageSizePixels: Int
 ) {
-    val pixelWidth: Int get() = columns * TILE_SIZE_PIXELS
-    val pixelHeight: Int get() = rows * TILE_SIZE_PIXELS
+    val pixelWidth: Int get() = columns * CopernicusTileImageSize.TILE_SIZE_PIXELS
+    val pixelHeight: Int get() = rows * CopernicusTileImageSize.TILE_SIZE_PIXELS
 
     fun coordinates(): List<CopernicusTileCoordinate> = buildList {
         for (y in firstY until firstY + rows) {
@@ -43,30 +53,37 @@ data class CopernicusTileGroup(
             "Tile is outside its Copernicus image group"
         }
         return CopernicusTileCropRect(
-            left = (x - firstX) * TILE_SIZE_PIXELS,
-            top = (y - firstY) * TILE_SIZE_PIXELS,
-            width = TILE_SIZE_PIXELS,
-            height = TILE_SIZE_PIXELS
+            left = (x - firstX) * CopernicusTileImageSize.TILE_SIZE_PIXELS,
+            top = (y - firstY) * CopernicusTileImageSize.TILE_SIZE_PIXELS,
+            width = CopernicusTileImageSize.TILE_SIZE_PIXELS,
+            height = CopernicusTileImageSize.TILE_SIZE_PIXELS
         )
     }
 
     companion object {
-        const val TILE_SIZE_PIXELS = 256
-        const val TILES_PER_GROUP = 8
-
-        fun fromTile(zoom: Int, x: Int, y: Int): CopernicusTileGroup {
+        fun fromTile(
+            zoom: Int,
+            x: Int,
+            y: Int,
+            imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS
+        ): CopernicusTileGroup {
             require(zoom in 0..30) { "Zoom level is outside the supported range" }
             val tileCount = 1L shl zoom
             require(x >= 0 && x.toLong() < tileCount) { "Tile x is outside the zoom level" }
             require(y >= 0 && y.toLong() < tileCount) { "Tile y is outside the zoom level" }
-            val firstX = x / TILES_PER_GROUP * TILES_PER_GROUP
-            val firstY = y / TILES_PER_GROUP * TILES_PER_GROUP
+            require(imageSizePixels in CopernicusTileImageSize.OPTIONS_PIXELS) {
+                "Unsupported Copernicus image size"
+            }
+            val tilesPerGroup = imageSizePixels / CopernicusTileImageSize.TILE_SIZE_PIXELS
+            val firstX = x / tilesPerGroup * tilesPerGroup
+            val firstY = y / tilesPerGroup * tilesPerGroup
             return CopernicusTileGroup(
                 zoom = zoom,
                 firstX = firstX,
                 firstY = firstY,
-                columns = minOf(TILES_PER_GROUP, (tileCount - firstX).toInt()),
-                rows = minOf(TILES_PER_GROUP, (tileCount - firstY).toInt())
+                columns = minOf(tilesPerGroup, (tileCount - firstX).toInt()),
+                rows = minOf(tilesPerGroup, (tileCount - firstY).toInt()),
+                imageSizePixels = imageSizePixels
             )
         }
     }
@@ -122,8 +139,14 @@ function evaluatePixel(s) {
     ];
 }"""
 
-    fun body(zoom: Int, x: Int, y: Int, imageDate: String): String {
-        val group = CopernicusTileGroup.fromTile(zoom, x, y)
+    fun body(
+        zoom: Int,
+        x: Int,
+        y: Int,
+        imageDate: String,
+        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS
+    ): String {
+        val group = CopernicusTileGroup.fromTile(zoom, x, y, imageSizePixels)
         val bbox = CopernicusTileBoundsCalculator.fromGroup(group)
         val dateRange = dateRange(imageDate)
         val bounds = JSONObject()
@@ -176,8 +199,15 @@ class CopernicusProcessClient(
         it.openConnection() as HttpURLConnection
     }
 ) {
-    fun getTile(zoom: Int, x: Int, y: Int, imageDate: String): ByteArray {
-        val requestBody = CopernicusProcessRequest.body(zoom, x, y, imageDate).toByteArray(StandardCharsets.UTF_8)
+    fun getTile(
+        zoom: Int,
+        x: Int,
+        y: Int,
+        imageDate: String,
+        imageSizePixels: Int = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS
+    ): ByteArray {
+        val requestBody = CopernicusProcessRequest.body(zoom, x, y, imageDate, imageSizePixels)
+            .toByteArray(StandardCharsets.UTF_8)
         var token = tokenManager.getAccessToken()
 
         for (attempt in 0..1) {

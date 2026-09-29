@@ -1,6 +1,7 @@
 package fi.anssi.kalakartta.ui
 
 import android.content.SharedPreferences
+import fi.anssi.kalakartta.utils.CopernicusTileImageSize
 
 /**
  * Tyypitetty rajapinta nykyiseen settings-SharedPreferencesiin.
@@ -66,6 +67,20 @@ class SettingsStore(private val preferences: SharedPreferences) {
                     SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB,
                     SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB
                 )
+            ).apply()
+        }
+
+    var copernicusTileImageSizePixels: Int
+        get() = CopernicusTileImageSize.normalize(
+            preferences.getInt(
+                SettingsKeys.COPERNICUS_TILE_IMAGE_SIZE_PIXELS,
+                SettingsDefaults.COPERNICUS_TILE_IMAGE_SIZE_PIXELS
+            )
+        )
+        set(value) {
+            preferences.edit().putInt(
+                SettingsKeys.COPERNICUS_TILE_IMAGE_SIZE_PIXELS,
+                CopernicusTileImageSize.normalize(value)
             ).apply()
         }
 

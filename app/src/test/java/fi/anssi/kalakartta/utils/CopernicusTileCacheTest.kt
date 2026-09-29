@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -19,14 +20,14 @@ class CopernicusTileCacheTest {
         val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
         var loads = 0
 
-        val first = cache.getOrLoadGroup("2026-09-27", 4, 10, 9, loader = { group ->
+        val first = cache.getOrLoadGroup("2026-09-27", 4, 10, 9, imageSizePixels = 2048, loader = { group ->
             loads++
             assertEquals(8, group.firstX)
             assertEquals(8, group.firstY)
             assertEquals(64, group.coordinates().size)
             jpeg
         }, splitter = ::splitIntoFakeTiles)
-        val second = cache.getOrLoadGroup("2026-09-27", 4, 10, 9, loader = {
+        val second = cache.getOrLoadGroup("2026-09-27", 4, 10, 9, imageSizePixels = 2048, loader = {
             loads++
             byteArrayOf()
         }, splitter = ::splitIntoFakeTiles)
@@ -99,6 +100,22 @@ class CopernicusTileCacheTest {
         assertTrue(newest.exists())
     }
 
+    @Test
+    fun cacheUsageCountsJpegTilesOnly() {
+        val root = Files.createTempDirectory("copernicus-cache-size-test").toFile()
+        val cache = CopernicusTileCache(root)
+        val jpeg = cache.cacheFile("2026-09-27", 2, 0, 0)
+        jpeg.parentFile?.mkdirs()
+        jpeg.writeBytes(byteArrayOf(1, 2, 3, 4, 5))
+        File(root, "satellite/2026-09-27/2/0/1.tmp").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(1, 2, 3))
+        }
+        File(root, "satellite/2026-09-27/2/0/2.png").writeBytes(byteArrayOf(1, 2))
+
+        assertEquals(5L, cache.sizeBytes())
+    }
+
     private fun splitIntoFakeTiles(
         @Suppress("UNUSED_PARAMETER") image: ByteArray,
         group: CopernicusTileGroup
@@ -111,7 +128,8 @@ class CopernicusTileCacheTest {
         zoom: Int,
         firstX: Int,
         firstY: Int
-    ): Int = CopernicusTileGroup.fromTile(zoom, firstX, firstY).coordinates().count { coordinate ->
+    ): Int = CopernicusTileGroup.fromTile(zoom, firstX, firstY, imageSizePixels = 2048)
+        .coordinates().count { coordinate ->
         cacheFile(imageDate, zoom, coordinate.x, coordinate.y).isFile
     }
 }
