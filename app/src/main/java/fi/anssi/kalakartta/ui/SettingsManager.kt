@@ -84,6 +84,15 @@ class SettingsManager(
             settingsStore = settingsStore,
             onMapSettingsChanged = onMapSettingsChanged,
             onOpenSettings = { openSettings() },
+            onOpenCopernicusImageSettings = { showCopernicusImageSettings(returnToMapSettings = true) },
+            onShowDialog = ::showDialog
+        )
+    }
+    private val copernicusImageSettingsDialog by lazy {
+        CopernicusImageSettingsDialog(
+            activity = activity,
+            settingsStore = settingsStore,
+            onMapSettingsChanged = onMapSettingsChanged,
             onShowDialog = ::showDialog
         )
     }
@@ -189,6 +198,16 @@ class SettingsManager(
 
     fun openFishingSessionSettings() {
         fishingSessionSettingsDialog.show()
+    }
+
+    fun showCopernicusImageSettings(returnToMapSettings: Boolean = false) {
+        copernicusImageSettingsDialog.show(
+            onReturnToMapSettings = if (returnToMapSettings) {
+                { mapSettingsDialog.show() }
+            } else {
+                null
+            }
+        )
     }
 
     private fun showDialog(dialog: AlertDialog) {

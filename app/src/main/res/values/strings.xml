@@ -180,7 +180,12 @@
     <string name="copernicus_custom_date">Valitse kuvauspäivä</string>
     <string name="copernicus_max_cloud_coverage">Max. pilvisyys</string>
     <string name="copernicus_cloud_coverage_range_error">Anna arvo väliltä %1$d–%2$d.</string>
+    <string name="copernicus_image_settings">Kuvauspäivä ja pilvisyys</string>
+    <string name="copernicus_image_settings_title">Copernicus-kuvan asetukset</string>
+    <string name="copernicus_settings_done">Valmis</string>
+    <string name="copernicus_latest_image_note">Kun kuvauspäivää ei valita, käytetään uusinta saatavilla olevaa kuvaa.</string>
     <string name="copernicus_image_date">Kuvattu %1$s</string>
+    <string name="copernicus_image_date_content_description">Kuvattu %1$s. Avaa kuva-asetukset.</string>
     <string name="copernicus_attribution">Kuva: Copernicus Sentinel-2, Euroopan unionin ohjelma.</string>
     <string name="copernicus_scene_not_found">Tälle päivälle ei löytynyt kuvaa, jonka pilvisyys olisi enintään %1$d %%.</string>
     <string name="copernicus_catalog_unavailable">Satelliittikuvien haku epäonnistui. Tarkista verkkoyhteys ja yritä myöhemmin uudelleen.</string>

@@ -269,6 +269,7 @@ class MainActivity : AppCompatActivity() {
                 database = db,
                 measurementPointCount = { measurementController.pointCount },
                 clearMeasurement = { measurementController.clear() },
+                onOpenCopernicusImageSettings = { settingsManager.showCopernicusImageSettings() },
                 onDefaultFishermanChanged = { updateDefaultFishermanUI() }
             )
 

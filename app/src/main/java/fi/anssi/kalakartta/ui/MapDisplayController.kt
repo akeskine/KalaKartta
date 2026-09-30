@@ -47,6 +47,7 @@ class MapDisplayController(
     private val database: AppDatabase,
     private val measurementPointCount: () -> Int,
     private val clearMeasurement: () -> Unit,
+    private val onOpenCopernicusImageSettings: () -> Unit,
     private val onDefaultFishermanChanged: () -> Unit
 ) {
     private var scaleBarOverlay: ScaleBarOverlay? = null
@@ -391,6 +392,7 @@ class MapDisplayController(
 
     private fun updateCopernicusDateOverlay() {
         val dateText = activity.findViewById<TextView>(R.id.copernicusDateText) ?: return
+        dateText.setOnClickListener { onOpenCopernicusImageSettings() }
         if (settingsStore.mapSource != MapSourceIds.COPERNICUS_S2 || !copernicusSceneAvailable || copernicusSceneKey == null) {
             dateText.visibility = View.GONE
             return
@@ -398,6 +400,10 @@ class MapDisplayController(
 
         dateText.text = activity.getString(
             R.string.copernicus_image_date,
+            CopernicusDateSettings.display(copernicusSceneDate)
+        )
+        dateText.contentDescription = activity.getString(
+            R.string.copernicus_image_date_content_description,
             CopernicusDateSettings.display(copernicusSceneDate)
         )
         dateText.visibility = View.VISIBLE
