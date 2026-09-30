@@ -552,6 +552,9 @@ class MarkerManager(
             catchesFolder.isEnabled = shouldBeVisible
             placesFolder.isEnabled = shouldBeVisible
             markersFolder.isEnabled = shouldBeVisible
+            if (folderVisibilityChanged && shouldBeVisible) {
+                map.invalidate()
+            }
             if (shouldBeVisible) {
                 // Tarkistetaan pitääkö klusterointi päivittää
                 // Jos zoom on muuttunut merkittävästi tai eka kerta tai pakotettu (skrollaus)
