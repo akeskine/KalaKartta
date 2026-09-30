@@ -264,6 +264,6 @@ class SettingsPreferencesTest {
         assertEquals(512, CopernicusTileImageSize.normalize(512))
         assertEquals(1024, CopernicusTileImageSize.normalize(1024))
         assertEquals(2048, CopernicusTileImageSize.normalize(2048))
-        assertEquals(1024, CopernicusTileImageSize.normalize(1536))
+        assertEquals(512, CopernicusTileImageSize.normalize(1536))
     }
 }

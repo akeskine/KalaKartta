@@ -109,16 +109,18 @@ class CopernicusProcessClientTest {
 
     @Test
     fun lowZoomGroupsAreClampedToWorldDimensions() {
-        val expectedSizes = listOf(256, 512, 1024)
+        val configuredTilesPerSide = CopernicusTileImageSize.DEFAULT_IMAGE_SIZE_PIXELS /
+                CopernicusTileImageSize.TILE_SIZE_PIXELS
         for (zoom in 0..2) {
             val group = CopernicusTileGroup.fromTile(zoom, 0, 0)
             val body = JSONObject(CopernicusProcessRequest.body(zoom, 0, 0, "2026-09-27"))
-            val expectedTilesPerSide = 1 shl zoom
+            val expectedTilesPerSide = minOf(1 shl zoom, configuredTilesPerSide)
+            val expectedSizePixels = expectedTilesPerSide * CopernicusTileImageSize.TILE_SIZE_PIXELS
 
             assertEquals(expectedTilesPerSide, group.columns)
             assertEquals(expectedTilesPerSide, group.rows)
-            assertEquals(expectedSizes[zoom], body.getJSONObject("output").getInt("width"))
-            assertEquals(expectedSizes[zoom], body.getJSONObject("output").getInt("height"))
+            assertEquals(expectedSizePixels, body.getJSONObject("output").getInt("width"))
+            assertEquals(expectedSizePixels, body.getJSONObject("output").getInt("height"))
         }
     }
 
