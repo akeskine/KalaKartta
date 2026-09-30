@@ -24,7 +24,7 @@ data class CopernicusTileCropRect(val left: Int, val top: Int, val width: Int, v
 
 object CopernicusTileImageSize {
     const val TILE_SIZE_PIXELS = 256
-    const val DEFAULT_IMAGE_SIZE_PIXELS = 1024
+    const val DEFAULT_IMAGE_SIZE_PIXELS = 512
     val OPTIONS_PIXELS = listOf(256, 512, 1024, 2048)
 
     fun normalize(imageSizePixels: Int): Int =

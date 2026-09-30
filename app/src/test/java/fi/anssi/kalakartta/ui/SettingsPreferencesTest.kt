@@ -25,7 +25,7 @@ class SettingsPreferencesTest {
         assertEquals(512, SettingsDefaults.COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals(64, SettingsDefaults.MIN_COPERNICUS_TILE_CACHE_LIMIT_MB)
         assertEquals(4096, SettingsDefaults.MAX_COPERNICUS_TILE_CACHE_LIMIT_MB)
-        assertEquals(1024, SettingsDefaults.COPERNICUS_TILE_IMAGE_SIZE_PIXELS)
+        assertEquals(512, SettingsDefaults.COPERNICUS_TILE_IMAGE_SIZE_PIXELS)
         assertEquals(listOf(256, 512, 1024, 2048), CopernicusTileImageSize.OPTIONS_PIXELS)
         assertEquals(false, SettingsDefaults.SHOW_QUICK_MAP_SOURCE)
         assertEquals(true, SettingsDefaults.SHOW_LIVE_SESSION_ROUTE)
