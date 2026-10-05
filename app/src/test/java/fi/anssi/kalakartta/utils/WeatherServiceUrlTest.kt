@@ -146,6 +146,35 @@ class WeatherServiceUrlTest {
     }
 
     @Test
+    fun forecastWindDataIsMergedFromTheNearestHarmonieRow() {
+        val merged = mergeForecastWindData(
+            forecastRows = mapOf(
+                100L to mapOf("WindSpeedMS" to 4.0),
+                200L to mapOf("WindSpeedMS" to 5.0)
+            ),
+            harmonieWindRows = mapOf(
+                101L to mapOf(
+                    "WindSpeedMS" to 6.0,
+                    "WindGust" to 8.0,
+                    "WindDirection" to 180.0
+                ),
+                199L to mapOf(
+                    "WindSpeedMS" to 7.0,
+                    "WindGust" to 9.0,
+                    "WindDirection" to 200.0
+                )
+            )
+        )
+
+        assertEquals(6.0, merged[100L]?.get("WindSpeedMS"))
+        assertEquals(8.0, merged[100L]?.get("WindGust"))
+        assertEquals(180.0, merged[100L]?.get("WindDirection"))
+        assertEquals(7.0, merged[200L]?.get("WindSpeedMS"))
+        assertEquals(9.0, merged[200L]?.get("WindGust"))
+        assertEquals(200.0, merged[200L]?.get("WindDirection"))
+    }
+
+    @Test
     fun sparsePressureHistoryGetsAnExtrapolatedSampleInCompletionWindow() {
         val hourMillis = 60 * 60 * 1000L
         val caughtAt = 10 * hourMillis

@@ -109,6 +109,21 @@ internal fun buildSeaLevelForecastUrl(
     endTime: String
 ): String = "$forecastUrl&latlon=$latitude,$longitude&starttime=$startTime&endtime=$endTime&timestep=60"
 
+internal fun mergeForecastWindData(
+    forecastRows: Map<Long, Map<String, Double>>,
+    harmonieWindRows: Map<Long, Map<String, Double>>
+): Map<Long, Map<String, Double>> = forecastRows.mapValues { (time, values) ->
+    val harmonieWindValues = harmonieWindRows.entries
+        .minByOrNull { entry -> abs(entry.key - time) }
+        ?.value
+        ?.filter { (key, value) ->
+            key in setOf("WindSpeedMS", "WindGust", "WindDirection") && value.isFinite()
+        }
+        .orEmpty()
+
+    if (harmonieWindValues.isEmpty()) values else values + harmonieWindValues
+}
+
 internal fun seaLevelForecastSamples(
     observations: List<SeaLevelObservation>,
     startTime: Long,
@@ -343,7 +358,8 @@ class WeatherService(private val context: Context) {
     private val OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::observations::weather::simple&fmisid="
     private val SEA_LEVEL_OBSERVATIONS_URL = "https://opendata.fmi.fi/wfs?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::observations::mareograph::instant::multipointcoverage"
     private val SEA_LEVEL_FORECAST_URL = "https://opendata.fmi.fi/wfs?service=WFS&version=2.0.0&request=getFeature&storedquery_id=fmi::forecast::sealevel::point::multipointcoverage"
-    private val FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::harmonie::surface::point::simple"
+    private val FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::edited::weather::scandinavia::point::simple"
+    private val HARMONIE_FORECAST_URL = "https://opendata.fmi.fi/wfs?request=getFeature&storedquery_id=fmi::forecast::harmonie::surface::point::simple"
     private val finlandSeaService by lazy { FinlandSeaService.fromAssets(context) }
     private val requestScope: CoroutineScope = if (context is LifecycleOwner) {
         context.lifecycleScope
@@ -368,27 +384,52 @@ class WeatherService(private val context: Context) {
                 val maxTargetHours = targetHours.maxOrNull()?.coerceAtLeast(0)?.toLong()
                     ?: return@withContext emptyList()
                 val endTime = dateFormat.format(java.util.Date(now + (maxTargetHours + 1) * 60 * 60 * 1000L))
-                val urlString = "$FORECAST_URL&latlon=$latitude,$longitude" +
+                val editedUrlString = "$FORECAST_URL&latlon=$latitude,$longitude" +
                     "&starttime=$startTime&endtime=$endTime&timestep=60" +
-                    "&parameters=Temperature,WindSpeedMS,WindGust,WindDirection,Precipitation1h,TotalCloudCover"
+                    "&parameters=Temperature,Precipitation1h,TotalCloudCover,SmartSymbol"
+                val harmonieGustUrlString = "$HARMONIE_FORECAST_URL&latlon=$latitude,$longitude" +
+                    "&starttime=$startTime&endtime=$endTime&timestep=60" +
+                    "&parameters=WindSpeedMS,WindGust,WindDirection"
 
-                val connection = URL(urlString).openConnection() as HttpURLConnection
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                    return@withContext emptyList()
-                }
+                coroutineScope {
+                    val editedRequest = async { fetchForecastRowsOrEmpty(editedUrlString) }
+                    val harmonieGustRequest = async { fetchForecastRowsOrEmpty(harmonieGustUrlString) }
+                    val rows = mergeForecastWindData(
+                        editedRequest.await(),
+                        harmonieGustRequest.await()
+                    )
 
-                val rows = connection.inputStream.use { parseAllWeatherObservations(it) }
-                targetHours.sorted().mapNotNull { hours ->
-                    val targetTime = now + hours * 60 * 60 * 1000L
-                    val closest = rows.minByOrNull { abs(it.key - targetTime) } ?: return@mapNotNull null
-                    hours to ForecastRow(closest.key, closest.value.toMap())
+                    targetHours.sorted().mapNotNull { hours ->
+                        val targetTime = now + hours * 60 * 60 * 1000L
+                        val closest = rows.minByOrNull { abs(it.key - targetTime) }
+                            ?: return@mapNotNull null
+                        hours to ForecastRow(closest.key, closest.value.toMap())
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("KalaKartta", "Virhe sääennusteen haussa: ${e.message}", e)
                 emptyList()
             }
+        }
+    }
+
+    private fun fetchForecastRowsOrEmpty(urlString: String): Map<Long, Map<String, Double>> {
+        return try {
+            val connection = URL(urlString).openConnection() as HttpURLConnection
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+            try {
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    emptyMap()
+                } else {
+                    connection.inputStream.use { parseAllWeatherObservations(it) }
+                }
+            } finally {
+                connection.disconnect()
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("KalaKartta", "FMI:n ennusteen osan haku epäonnistui: ${e.message}")
+            emptyMap()
         }
     }
 
@@ -1498,12 +1539,21 @@ data class ForecastSummary(
     val conditions: String,
     val temperatureText: String?,
     val cloudCoverPercent: Double?,
+    val cloudCoverLevel: ForecastCloudCoverLevel?,
     val cloudCoverDescription: String?,
     val precipitationMmPerHour: Double?,
     val precipitationDescription: String?,
     val windText: String?,
     val windDirectionDegrees: Float?
 )
+
+enum class ForecastCloudCoverLevel(val description: String) {
+    CLEAR("selkeää"),
+    MOSTLY_CLEAR("enimmäkseen selkeää"),
+    PARTLY_CLOUDY("puolipilvistä"),
+    MOSTLY_CLOUDY("enimmäkseen pilvistä"),
+    OVERCAST("pilvistä")
+}
 
 fun formatForecastSummary(
     row: ForecastRow,
@@ -1518,7 +1568,14 @@ fun formatForecastSummary(
         "$sign${formatForecastNumber(temperature)}°"
     }
     val cloudCoverPercent = values["TotalCloudCover"]?.takeIf(Double::isFinite)
-    val cloudCoverDescription = cloudCoverPercent?.let(::formatCloudCover)
+    val cloudCoverLevel = forecastCloudCoverLevel(
+        smartSymbol = values["SmartSymbol"],
+        totalCloudCoverPercent = cloudCoverPercent
+    )
+    val cloudCoverDescription = when {
+        values["SmartSymbol"]?.isFinite() == true -> cloudCoverLevel?.description
+        else -> cloudCoverPercent?.let(::formatCloudCover)
+    }
     val precipitationMmPerHour = values["Precipitation1h"]?.takeIf(Double::isFinite)
     val precipitationDescription = precipitationMmPerHour?.let(::formatPrecipitation)
     temperatureText?.let(parts::add)
@@ -1552,6 +1609,7 @@ fun formatForecastSummary(
         conditions = parts.joinToString(", "),
         temperatureText = temperatureText,
         cloudCoverPercent = cloudCoverPercent,
+        cloudCoverLevel = cloudCoverLevel,
         cloudCoverDescription = cloudCoverDescription,
         precipitationMmPerHour = precipitationMmPerHour,
         precipitationDescription = precipitationDescription,
@@ -1568,7 +1626,7 @@ fun formatForecastSpeech(hours: Int, row: ForecastRow): String? {
         val sign = if (temperature >= 0) "+" else ""
         parts.add("$sign${formatForecastNumber(temperature)} astetta")
     }
-    values["TotalCloudCover"]?.let { parts.add(formatCloudCover(it)) }
+    forecastCloudCoverDescription(values)?.let(parts::add)
     values["Precipitation1h"]?.let { parts.add(formatPrecipitation(it)) }
 
     val windParts = mutableListOf<String>()
@@ -1600,6 +1658,47 @@ private fun formatHourFinnish(hours: Int): String = when (hours) {
     6 -> "kuuden tunnin"
     12 -> "kahdentoista tunnin"
     else -> "$hours tunnin"
+}
+
+private fun forecastCloudCoverDescription(values: Map<String, Double>): String? {
+    val smartSymbol = values["SmartSymbol"]?.takeIf(Double::isFinite)
+    val totalCloudCoverPercent = values["TotalCloudCover"]?.takeIf(Double::isFinite)
+    return when {
+        smartSymbol != null -> forecastCloudCoverLevel(smartSymbol, totalCloudCoverPercent)?.description
+        totalCloudCoverPercent != null -> formatCloudCover(totalCloudCoverPercent)
+        else -> null
+    }
+}
+
+private fun forecastCloudCoverLevel(
+    smartSymbol: Double?,
+    totalCloudCoverPercent: Double?
+): ForecastCloudCoverLevel? {
+    smartSymbol?.takeIf(Double::isFinite)?.let { symbolValue ->
+        val symbol = (round(symbolValue).toInt() % 100 + 100) % 100
+        when (symbol) {
+            1 -> return ForecastCloudCoverLevel.CLEAR
+            2 -> return ForecastCloudCoverLevel.MOSTLY_CLEAR
+            4 -> return ForecastCloudCoverLevel.PARTLY_CLOUDY
+            6 -> return ForecastCloudCoverLevel.MOSTLY_CLOUDY
+            7 -> return ForecastCloudCoverLevel.OVERCAST
+            in 31..33, in 41..43, in 51..53 -> return ForecastCloudCoverLevel.PARTLY_CLOUDY
+            in 34..36, in 44..46, in 54..56 -> return ForecastCloudCoverLevel.MOSTLY_CLOUDY
+            // Sade- ja räntäsymbolit eivät itsessään kerro pilvisyysluokkaa.
+            // Käytetään tällöin saman ennusterivin TotalCloudCover-arvoa.
+            else -> Unit
+        }
+    }
+
+    return totalCloudCoverPercent?.takeIf(Double::isFinite)?.let { value ->
+        when {
+            value < 20.0 -> ForecastCloudCoverLevel.CLEAR
+            value < 33.0 -> ForecastCloudCoverLevel.MOSTLY_CLEAR
+            value < 72.0 -> ForecastCloudCoverLevel.PARTLY_CLOUDY
+            value < 93.0 -> ForecastCloudCoverLevel.MOSTLY_CLOUDY
+            else -> ForecastCloudCoverLevel.OVERCAST
+        }
+    }
 }
 
 private fun formatCloudCover(value: Double): String = when {

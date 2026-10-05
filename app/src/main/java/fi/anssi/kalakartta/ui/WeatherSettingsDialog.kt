@@ -18,6 +18,7 @@ import fi.anssi.kalakartta.data.PressureSample
 import fi.anssi.kalakartta.MainActivity
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.utils.ForecastSummary
+import fi.anssi.kalakartta.utils.ForecastCloudCoverLevel
 import fi.anssi.kalakartta.utils.MoonCalculator
 import fi.anssi.kalakartta.utils.SunService
 import fi.anssi.kalakartta.utils.WeatherService
@@ -373,8 +374,15 @@ class WeatherSettingsDialog(
                     val timeText = createForecastText("${summary.time}:")
                     timeText.paint.measureText(timeText.text.toString()).toInt() + dp(4)
                 } ?: 0
+                val temperatureColumnWidth = maxOf(
+                    dp(40),
+                    forecastSummaries.maxOfOrNull { summary ->
+                        val temperatureText = createForecastText(summary.temperatureText.orEmpty())
+                        temperatureText.paint.measureText(temperatureText.text.toString()).toInt() + dp(4)
+                    } ?: 0
+                )
                 forecastSummaries.forEach { summary ->
-                    rowsLayout.addView(createForecastRow(summary, timeColumnWidth))
+                    rowsLayout.addView(createForecastRow(summary, timeColumnWidth, temperatureColumnWidth))
                 }
                 if (rowsLayout.childCount == 0) {
                     rowsLayout.addView(createInfoText("Sääennustetta ei saatu haettua."))
@@ -405,38 +413,51 @@ class WeatherSettingsDialog(
         }
     }
 
-    private fun createForecastRow(summary: ForecastSummary, timeColumnWidth: Int): LinearLayout {
+    private fun createForecastRow(
+        summary: ForecastSummary,
+        timeColumnWidth: Int,
+        temperatureColumnWidth: Int
+    ): LinearLayout {
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(2), 0, dp(2))
 
             addView(createForecastText("${summary.time}:").apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
             }, LinearLayout.LayoutParams(timeColumnWidth, LinearLayout.LayoutParams.WRAP_CONTENT))
-            summary.temperatureText?.let { temperature ->
-                addView(createForecastText(temperature), forecastItemLayoutParams())
+            addView(
+                createForecastText(summary.temperatureText.orEmpty()),
+                forecastItemLayoutParams(temperatureColumnWidth)
+            )
+
+            val cloudIcon = createWeatherIcon(
+                resource = summary.cloudCoverLevel?.let(::cloudCoverIcon) ?: R.drawable.ic_weather_cloudy,
+                description = summary.cloudCoverDescription ?: "Pilvisyys"
+            ).apply {
+                if (summary.cloudCoverLevel == null) visibility = android.view.View.INVISIBLE
             }
-            summary.cloudCoverPercent?.let { cloudCover ->
-                addView(createWeatherIcon(
-                    resource = cloudCoverIcon(cloudCover),
-                    description = summary.cloudCoverDescription ?: "Pilvisyys"
-                ), forecastIconLayoutParams())
+            addView(cloudIcon, forecastIconLayoutParams())
+
+            val rainIconResource = summary.precipitationMmPerHour?.let { precipitation ->
+                if (precipitation < 0.025) {
+                    R.drawable.ic_weather_no_rain
+                } else if (precipitation < 1.5) {
+                    R.drawable.ic_weather_rain_light
+                } else if (precipitation < 3.0) {
+                    R.drawable.ic_weather_rain
+                } else {
+                    R.drawable.ic_weather_rain_heavy
+                }
             }
-            summary.precipitationMmPerHour?.let { precipitation ->
-                addView(createWeatherIcon(
-                    resource = if (precipitation < 0.025) {
-                        R.drawable.ic_weather_no_rain
-                    } else if (precipitation < 1.5) {
-                        R.drawable.ic_weather_rain_light
-                    } else if (precipitation < 3.0) {
-                        R.drawable.ic_weather_rain
-                    } else {
-                        R.drawable.ic_weather_rain_heavy
-                    },
-                    description = summary.precipitationDescription ?: "Sade"
-                ), forecastIconLayoutParams())
+            val rainIcon = createWeatherIcon(
+                resource = rainIconResource ?: R.drawable.ic_weather_no_rain,
+                description = summary.precipitationDescription ?: "Sade"
+            ).apply {
+                if (rainIconResource == null) visibility = android.view.View.INVISIBLE
             }
+            addView(rainIcon, forecastIconLayoutParams())
+
             summary.windText?.let { wind ->
                 addView(createForecastText(wind), forecastItemLayoutParams())
             }
@@ -465,8 +486,8 @@ class WeatherSettingsDialog(
         contentDescription = description
     }
 
-    private fun forecastItemLayoutParams() = LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.WRAP_CONTENT,
+    private fun forecastItemLayoutParams(width: Int = LinearLayout.LayoutParams.WRAP_CONTENT) = LinearLayout.LayoutParams(
+        width,
         LinearLayout.LayoutParams.WRAP_CONTENT
     ).apply {
         marginStart = dp(4)
@@ -476,11 +497,13 @@ class WeatherSettingsDialog(
         marginStart = dp(4)
     }
 
-    private fun cloudCoverIcon(cloudCover: Double): Int = when {
-        cloudCover < 20.0 -> R.drawable.ic_weather_clear
-        cloudCover < 72.0 -> R.drawable.ic_weather_partly_cloudy
-        cloudCover < 93.0 -> R.drawable.ic_weather_cloudy
-        else -> R.drawable.ic_weather_overcast
+    private fun cloudCoverIcon(level: ForecastCloudCoverLevel?): Int = when (level) {
+        ForecastCloudCoverLevel.CLEAR,
+        ForecastCloudCoverLevel.MOSTLY_CLEAR -> R.drawable.ic_weather_clear
+        ForecastCloudCoverLevel.PARTLY_CLOUDY -> R.drawable.ic_weather_partly_cloudy
+        ForecastCloudCoverLevel.MOSTLY_CLOUDY -> R.drawable.ic_weather_cloudy
+        ForecastCloudCoverLevel.OVERCAST -> R.drawable.ic_weather_overcast
+        null -> R.drawable.ic_weather_cloudy
     }
 
     private fun createInfoText(text: String): TextView = TextView(activity).apply {

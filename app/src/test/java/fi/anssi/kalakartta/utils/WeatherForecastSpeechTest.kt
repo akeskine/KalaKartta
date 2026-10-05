@@ -67,6 +67,47 @@ class WeatherForecastSpeechTest {
     }
 
     @Test
+    fun smartSymbolOverridesTotalCloudCoverForForecastCloudiness() {
+        val row = ForecastRow(
+            time = 0L,
+            parameters = mapOf(
+                "Temperature" to 10.0,
+                "TotalCloudCover" to 100.0,
+                "SmartSymbol" to 2.0
+            )
+        )
+
+        val summary = formatForecastSummary(row, java.util.Locale.US, referenceTime = row.time)
+        assertEquals("enimm\u00e4kseen selke\u00e4\u00e4", summary?.cloudCoverDescription)
+        assertEquals(ForecastCloudCoverLevel.MOSTLY_CLEAR, summary?.cloudCoverLevel)
+        assertEquals(
+            "S\u00e4\u00e4 yhden tunnin p\u00e4\u00e4st\u00e4: +10 astetta, enimm\u00e4kseen selke\u00e4\u00e4.",
+            formatForecastSpeech(1, row)
+        )
+    }
+
+    @Test
+    fun precipitationSmartSymbolFallsBackToTotalCloudCover() {
+        val row = ForecastRow(
+            time = 0L,
+            parameters = mapOf(
+                "Temperature" to 10.0,
+                "TotalCloudCover" to 100.0,
+                "SmartSymbol" to 137.0,
+                "Precipitation1h" to 1.0
+            )
+        )
+
+        val summary = formatForecastSummary(row, java.util.Locale.US, referenceTime = row.time)
+        assertEquals(ForecastCloudCoverLevel.OVERCAST, summary?.cloudCoverLevel)
+        assertEquals("pilvist\u00e4", summary?.cloudCoverDescription)
+        assertEquals(
+            "S\u00e4\u00e4 yhden tunnin p\u00e4\u00e4st\u00e4: +10 astetta, pilvist\u00e4, heikkoa sadetta.",
+            formatForecastSpeech(1, row)
+        )
+    }
+
+    @Test
     fun compactSummaryMarksForecastOnFollowingDay() {
         val referenceCalendar = java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, 11)
