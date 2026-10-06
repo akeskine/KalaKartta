@@ -22,8 +22,13 @@ KalaKartassa on käytettävissä seuraavat karttapohjat:
 - **MML Maastokartta ja Ilmakuva:** Maanmittauslaitoksen tarkat aineistot Suomesta. Käyttö vaatii ilmaisen API-avaimen, jonka voit hankkia Maanmittauslaitoksen asiointipalvelusta.
 - **Traficom merikartta:** Traficomin virallinen merikartta-aineisto (Merikarttasarjat). *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
 - **Traficom veneilykartta:** Traficomin virallinen veneilykartta-aineisto eräiltä järvialueilta, mm. Puula ja Inari. *Huom: Sisältää Liikenne- ja viestintävirasto Traficomin merikartta-aineistoa. Ei navigointikäyttöön.*
+- **Copernicus Sentinel-2:** Copernicus-ohjelman satelliittikuvia. Kuvasta näytetään kartalla myös kuvauspäivä. Satelliittikuvat voivat auttaa esimerkiksi jäätilanteen tai merialueen veden värin seuraamisessa, mutta pilvisyys, aallokko ja kuvan ajankohta vaikuttavat tulkintaan.
 
-Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet kytkenyt **Karttapohjan pikavalinnan** päälle asetuksista.
+Copernicus-karttapohja vaatii ilmaisen Copernicus Data Space Ecosystem -tilin sekä siellä luodun OAuth-asiakkaan. Luo tilin asetuksissa **Client Credentials** -tyyppinen asiakas ja talleta näytettävä **Client ID** ja **Client Secret**. Valitse sitten **Valikko -> Taustakartta -> Copernicus Sentinel-2**, syötä tunnukset ja paina **Tallenna Copernicus-tunnukset**. Client Secret näytetään vain luomisen yhteydessä, joten tallenna se turvallisesti. Tunnukset säilytetään laitteessa.
+
+Copernicus-kartan **Kuvauspäivä ja pilvisyys** -asetuksissa voit valita päivämäärän, jota vastaavaa tai sitä edeltävää sopivaa kuvaa etsitään, sekä suurimman hyväksyttävän pilvisyyden. Jos päivää ei valita, käytetään uusinta saatavilla olevaa kuvaa. Jos valitulle päivälle ei löydy pilvisyysrajan täyttävää kuvaa, sovellus voi käyttää aiempaa kuvaa. Kartalla näkyvä kuvauspäivä kertoo satelliittikuvan ajankohdan, ei kartan käyttöpäivää.
+
+Voit vaihtaa karttapohjan lennossa suoraan karttanäkymästä, jos olet valinnut vähintään kaksi käytettävissä olevaa karttapohjaa **Pikavalinta**-sarakkeesta.
 
 ## 2. Kalapisteen lisääminen
 
@@ -34,6 +39,8 @@ Lisää kalapiste painamalla kartan oikeassa alakulmassa olevaa **+**-painiketta
 - **Lisää tarkemmat tiedot:** Tästä painikkeesta pääset täyttämään laajemmat tiedot (esim. viehe, syvyys, sää).
 
 Piste tallentuu aina kartan keskipisteen (tähtäimen) kohdalle.
+
+Voit myös painaa **+**-painiketta pitkään (noin yhden sekunnin), jolloin kala- ja paikkapisteet piilotetaan kartalta. Toista pitkä painallus palauttaa pisteet. Piilotus on vain karttanäkymän esitystapa: se ei muuta valittua suodatusta, suodattimien tuloksia tai tallennettuja tietoja. Jos pisteet ovat piilossa, lyhyt **+**-painallus palauttaa ne.
 
 ## 3. Muun paikan lisääminen
 
@@ -53,7 +60,7 @@ Klikkaa kartalla olevaa kuvaketta nähdäksesi sen tiedot.
 Klikkaamalla tiedot-ikkunaa aukeaa muokkausnäkymä, jossa voit:
 - Muuttaa kaikkia tallennettuja tietoja.
 - Poistaa pisteen.
-- **Meriveden korkeus:** Jos kalapisteen sijainti tunnistetaan merialueeksi, tiedoissa näytetään korkeus, jos se on saatavilla, ja sen kehityskäyrä, jos näytteitä on. Muokkausnäkymässä voit tarvittaessa syöttää tai muuttaa arvon itse kentässä **Meriveden korkeus (MW)**.
+- **Meriveden korkeus:** Suomen merialueilla sijaitsevalle kalapisteelle näytetään meriveden korkeus, jos se on saatavilla, sekä sen kehityskäyrä, jos näytteitä on. Muokkausnäkymässä voit tarvittaessa syöttää tai muuttaa arvon itse kentässä **Meriveden korkeus (MW)**.
 - **Media:** Voit liittää pisteeseen kuvia, äänitteitä ja videoita. Media voidaan myös yhdistää automaattisesti, jos se on tallennettu 5 metrin etäisyydellä ja 1 sekunnin aikaikkunalla pisteen tallennushetkestä. Liitetyt mediatiedostot näkyvät pisteen tiedot -dialogissa.
 
 ## 5. Tiedon suodatus
@@ -75,11 +82,12 @@ Suodatus on voimassa, kunnes se nollataan (Poista suodattimet). Aktiivinen suoda
 
 ## 6. Sääasetukset ja automaattinen haku
 
-Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämä ominaisuus on myös mahdollista kytkeä pois päältä **Valikko -> Sää -> Sääasetukset** -valikosta.
+Sovellus hakee oletuksena säätiedot automaattisesti lähimmiltä sääasemilta, kun lisäät kalapisteen. Tämän säädatan automaattisen haun voi kytkeä pois päältä **Valikko -> Sää -> Sääasetukset** -valikosta. Erillinen puuttuvien säätietojen päivitys täydentää jo tallennettujen pisteiden tietoja.
 - **Sääasemat:** Tiedot haetaan usein usealta lähimmältä asemalta (max. 300 km säteeltä kalapisteestä) parhaan tarkkuuden saavuttamiseksi.
-- **Meriveden korkeus:** Sovellus tarkistaa pisteen sijainnin ja hakee korkeustiedon vain, jos sijainti tunnistetaan merialueeksi; sisävesille tai maalle sitä ei haeta. Arvo haetaan lähimmältä havaintoja tarjoavalta mareografiasemalta. Korkeus ilmoitetaan senttimetreinä suhteessa teoreettiseen keskiveteen (MW), joka on vertailutaso: esimerkiksi **+22 cm** tarkoittaa 22 cm keskiveden yläpuolella ja **−22 cm** sen alapuolella.
-- **Automaattinen päivitys:** Voit kytkeä automaattihaun pois päältä sääasetuksista.
-- **Puuttuvien tietojen haku:** Voit hakea puuttuvat säätiedot takautuvasti "Päivitä puuttuvat säätiedot" -toiminnolla. Päivitys hakee myös puuttuvat meriveden korkeustiedot.
+- **Sää-näkymä:** Näet sääennusteen lämpötiloineen, pilvisyys- ja sade-ennusteineen sekä tuulitietoineen. Ilmanpaineesta ja Suomen merialueille sijoittuvista pisteistä myös meriveden korkeudesta voidaan näyttää kehityskäyrä ja ennuste.
+- **Meriveden korkeus:** Sovellus tarkistaa pisteen sijainnin ja hakee korkeustiedon Suomen merialueilla sijaitseville pisteille. Sisävesille tai maalle sitä ei haeta. Arvo haetaan lähimmältä havaintoja tarjoavalta mareografiasemalta. Korkeus ilmoitetaan senttimetreinä suhteessa teoreettiseen keskiveteen (MW), joka on vertailutaso: esimerkiksi **+22 cm** tarkoittaa 22 cm keskiveden yläpuolella ja **−22 cm** sen alapuolella.
+- **Puuttuvien tietojen automaattinen päivitys:** Kun otat **Päivitä puuttuvat säätiedot automaattisesti** -asetuksen käyttöön, sovellus tarkistaa sovellukseen palattaessa, onko pisteillä puuttuvia säätietoja. Tarkistus tehdään asetetun päivitysvälin mukaan (oletus 6 tuntia). Se hakee sääarvojen lisäksi puuttuvat paine- ja meriveden korkeustiedot sekä niiden historiatiedot. Yhdellä automaattikerralla käsitellään enintään 500 pistettä.
+- **Puuttuvien tietojen haku:** Voit käynnistää saman päivityksen takautuvasti **Päivitä puuttuvat säätiedot** -toiminnolla. Päivitys hakee myös puuttuvat meriveden korkeustiedot. Automaattisen päivitysvälin voi muuttaa **Kehittäjäasetukset**-valikossa.
 
 ## 7. Kalalajien hallinta
 
@@ -123,11 +131,9 @@ Yleisistä asetuksista voit:
 
 Pikavalinnan avulla voit vaihtaa karttapohjaa nopeasti suoraan karttanäkymästä ilman asetuksiin menemistä.
 
-- Mene kohtaan **Valikko -> Taustakartta**. 
-- Laita ruksi kohtaan **"Näytä karttapohjan pikavalinta"**.
-- Kartan vasempaan yläreunaan ilmestyy karttakuvake (mittauspainikkeen alapuolelle). Painiketta klikkaamalla karttapohja vaihtuu seuraavaan valittuun vaihtoehtoon.
-- Voit itse päättää mitkä karttapohjat ovat mukana pikavalinnan kierrossa: rasti haluamasi kartat **"Pikavalinta"**-sarakkeesta Taustakartta-asetuksissa.
-- Huom: MML:n kartat ovat mukana pikavalinnassa vain, jos olet asettanut toimivan API-avaimen.
+- Mene kohtaan **Valikko -> Taustakartta** ja valitse haluamasi karttapohjat **Pikavalinta**-sarakkeesta.
+- Kun pikavalintaan on valittu vähintään kaksi käytettävissä olevaa karttapohjaa, kartan vasempaan yläreunaan ilmestyy karttavalinnan pikakuvake. Painiketta klikkaamalla karttapohja vaihtuu seuraavaan valittuun vaihtoehtoon.
+- Pikavalinta poistuu näkyvistä, jos käytettävissä olevia valittuja karttapohjia on vähemmän kuin kaksi. MML:n kartat ovat mukana vain, jos olet asettanut toimivan API-avaimen, ja Copernicus vain, jos tunnukset on asetettu.
 
 ## 12. Mittaustyökalu
 
