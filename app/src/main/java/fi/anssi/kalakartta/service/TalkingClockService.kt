@@ -45,6 +45,15 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var intervalMinutes = 10
     private var isTtsInitialized = false
+    private var isTtsStarting = false
+    private var isDestroyed = false
+    private var ttsGeneration = 0
+    private val speechHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val scoreTransport by lazy { TalkingClockScoreTransport(this) }
+    private val speechRecovery = TalkingClockSpeechRecovery()
+    private val activeSpeech = mutableMapOf<String, TalkingClockSpeechRequest>()
+    private var speechSequence = 0L
+    private var initTimeout: Runnable? = null
     private var isEnding = false
     private var pendingAction: String? = null
     private var pendingDurationMs: Long = 0L
@@ -85,7 +94,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         } else {
             startForeground(NOTIFICATION_ID, createNotification())
         }
-        tts = TextToSpeech(this, this)
+        initializeTts()
         
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         try {
@@ -152,6 +161,7 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
             pendingAction = intent?.action
             pendingDurationMs = intent?.getLongExtra("duration_ms", 0L) ?: 0L
             pendingDistanceM = intent?.getDoubleExtra("distance_m", 0.0) ?: 0.0
+            if (!isTtsStarting) initializeTts()
         }
         
         return START_STICKY
@@ -229,40 +239,86 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
         pendingDistanceM = 0.0
     }
 
+    private fun initializeTts() {
+        initTimeout?.let(speechHandler::removeCallbacks)
+        val generation = ++ttsGeneration
+        isTtsInitialized = false
+        isTtsStarting = true
+        scoreTransport.clear()
+        activeSpeech.clear()
+        tts?.shutdown()
+        tts = TextToSpeech(this) { status ->
+            speechHandler.post { if (!isDestroyed && generation == ttsGeneration) onInit(status) }
+        }
+        initTimeout = Runnable {
+            if (!isDestroyed && generation == ttsGeneration && isTtsStarting) {
+                Log.e("TalkingClockService", "TTS initialization timed out")
+                onInit(TextToSpeech.ERROR)
+            }
+        }.also { speechHandler.postDelayed(it, 10_000L) }
+    }
+
     override fun onInit(status: Int) {
+        initTimeout?.let(speechHandler::removeCallbacks)
+        initTimeout = null
+        isTtsStarting = false
         if (status == TextToSpeech.SUCCESS) {
+            val generation = ttsGeneration
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
-                override fun onDone(utteranceId: String?) { 
-                    abandonAudioFocus()
-                    releaseWakeLock()
-                    if (utteranceId == "SessionEnded") {
-                        stopSelf()
-                    }
-                }
-                override fun onError(utteranceId: String?) { 
-                    abandonAudioFocus()
-                    releaseWakeLock()
-                    if (utteranceId == "SessionEnded") {
-                        stopSelf()
+                override fun onDone(utteranceId: String?) = completed(utteranceId, null)
+                override fun onError(utteranceId: String?) = completed(utteranceId, TextToSpeech.ERROR)
+                override fun onError(utteranceId: String?, errorCode: Int) = completed(utteranceId, errorCode)
+                override fun onStop(utteranceId: String?, interrupted: Boolean) = completed(utteranceId, null)
+
+                private fun completed(id: String?, errorCode: Int?) {
+                    speechHandler.post {
+                        if (isDestroyed || generation != ttsGeneration || id == null) return@post
+                        val request = activeSpeech.remove(id) ?: return@post
+                        scoreTransport.release(id)
+                        if (errorCode != null) Log.w("TalkingClockService", "TTS utterance failed id=${request.utteranceId} code=$errorCode")
+                        if (errorCode == TextToSpeech.ERROR_SERVICE) recoverSpeech(request)
+                        else finishSpeech(request)
                     }
                 }
             })
 
-            val result = tts?.setLanguage(Locale("fi", "FI"))
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.e("TalkingClockService", "Finnish language not supported")
+            val result = tts?.setLanguage(Locale("fi", "FI")) ?: TextToSpeech.ERROR
+            if (result < TextToSpeech.LANG_AVAILABLE) {
+                Log.e("TalkingClockService", "Finnish language setup failed code=$result")
+                ttsInitializationFailed()
             } else {
                 isTtsInitialized = true
                 if (pendingAction != null) {
+                    // A new service action supersedes the request that failed before reconnecting.
+                    speechRecovery.clear()
                     handlePendingAction()
                 } else {
-                    // Ajoitetaan seuraava tasaväli ilman välitöntä puhetta
-                    scheduleNext()
+                    val retry = speechRecovery.take()
+                    if (retry != null) submitSpeech(retry)
+                    else scheduleNext()
                 }
             }
         } else {
             Log.e("TalkingClockService", "TTS Initialization failed")
+            ttsInitializationFailed()
+        }
+    }
+
+    private fun ttsInitializationFailed() {
+        ++ttsGeneration // Ignore any late init/progress callback from this connection.
+        isTtsInitialized = false
+        isTtsStarting = false
+        tts?.shutdown()
+        tts = null
+        scoreTransport.clear()
+        val retry = speechRecovery.take()
+        if (retry != null) finishSpeech(retry)
+        else {
+            abandonAudioFocus()
+            releaseWakeLock()
+            if (pendingAction == "SESSION_ENDED") stopSelf()
+            else if (pendingAction != null) scheduleNext()
         }
     }
 
@@ -504,18 +560,71 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun speakText(text: String, flush: Boolean = true, utteranceId: String = "TalkingClock") {
-        if (isEnding && utteranceId != "SessionEnded") return
-        
+        submitSpeech(TalkingClockSpeechRequest(text, flush, utteranceId))
+    }
+
+    private fun submitSpeech(request: TalkingClockSpeechRequest) {
+        if (isDestroyed || isEnding && request.utteranceId != "SessionEnded") return
+        if (request.flush) {
+            activeSpeech.clear()
+            scoreTransport.clear()
+            speechRecovery.clear()
+        }
+        if (request.retries > 0) acquireWakeLock()
         if (requestAudioFocus()) {
-            val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            val result = tts?.speak(text, queueMode, null, utteranceId)
+            val client = tts
+            if (client == null) { recoverSpeech(request); return }
+            // Unique IDs keep a flushed utterance's late onStop from releasing the new score/focus.
+            val id = "${request.utteranceId}-${++speechSequence}"
+            val input = try {
+                scoreTransport.prepare(request.text, id, client)
+            } catch (_: TalkingClockScoreTransport.ConnectionUnavailable) {
+                recoverSpeech(request)
+                return
+            } catch (error: Exception) {
+                Log.w("TalkingClockService", "Score transport failed", error)
+                finishSpeech(request)
+                return
+            }
+            activeSpeech[id] = request
+            val queueMode = if (request.flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            Log.d("TalkingClockService", "TTS request id=${request.utteranceId} chars=${request.text.length} memory=${input.params != null} retry=${request.retries}")
+            val result = client.speak(input.text, queueMode, input.params, id)
             if (result == TextToSpeech.ERROR) {
-                releaseWakeLock()
-                abandonAudioFocus()
+                activeSpeech.remove(id)
+                scoreTransport.release(id)
+                if (input.text.length > TextToSpeech.getMaxSpeechInputLength()) {
+                    Log.w("TalkingClockService", "Selected TTS engine cannot receive this long text")
+                    finishSpeech(request)
+                } else recoverSpeech(request)
             }
         } else {
             releaseWakeLock()
         }
+    }
+
+    private fun recoverSpeech(request: TalkingClockSpeechRequest) {
+        abandonAudioFocus()
+        releaseWakeLock()
+        if (speechRecovery.offer(request)) {
+            Log.w("TalkingClockService", "Reinitializing TTS for one retry id=${request.utteranceId}")
+            initializeTts()
+        } else {
+            isTtsInitialized = false
+            ++ttsGeneration
+            tts?.shutdown()
+            tts = null
+            activeSpeech.clear()
+            scoreTransport.clear()
+            Log.e("TalkingClockService", "TTS retry failed id=${request.utteranceId}")
+            finishSpeech(request)
+        }
+    }
+
+    private fun finishSpeech(request: TalkingClockSpeechRequest) {
+        abandonAudioFocus()
+        releaseWakeLock()
+        if (request.utteranceId == "SessionEnded") stopSelf()
     }
 
     private fun getSunTimeSpeech(location: Location?, settingsStore: SettingsStore): String {
@@ -753,6 +862,12 @@ class TalkingClockService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        isDestroyed = true
+        ++ttsGeneration
+        speechHandler.removeCallbacksAndMessages(null)
+        speechRecovery.clear()
+        activeSpeech.clear()
+        scoreTransport.clear()
         weatherRequestId.incrementAndGet()
         serviceScope.cancel()
         cancelScheduledTalk()
