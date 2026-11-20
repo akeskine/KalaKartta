@@ -8,9 +8,12 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.StyleSpan
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.*
@@ -21,6 +24,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.lifecycleScope
 import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
@@ -33,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
 class DiaryActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
@@ -60,6 +65,16 @@ class DiaryActivity : AppCompatActivity() {
     private var searchRequestId = 0L
     private var isSearchMode = false
     private val searchResultPages = mutableListOf<FishDiaryPage>()
+    private var diarySwipe: DiarySwipe? = null
+    private var diaryListRequestId = 0L
+
+    private data class DiarySwipe(
+        val item: View,
+        val x: Float,
+        val y: Float,
+        var captured: Boolean = false,
+        var cancelled: Boolean = false
+    )
 
     companion object {
         private const val EDIT_PAGE_REQUEST = 2001
@@ -133,9 +148,8 @@ class DiaryActivity : AppCompatActivity() {
         loadMoreSearchButton.setOnClickListener { loadMoreSearchResults() }
 
         val restoredSearchQuery = savedInstanceState?.getString(SEARCH_QUERY_STATE).orEmpty()
-        if (restoredSearchQuery.isBlank()) {
-            loadDiaryPages()
-        } else {
+        loadDiaryPages()
+        if (restoredSearchQuery.isNotBlank()) {
             searchEdit.setText(restoredSearchQuery)
             performSearch(restoredSearchQuery)
         }
@@ -147,13 +161,13 @@ class DiaryActivity : AppCompatActivity() {
     }
 
     private fun loadDiaryPages() {
-        if (isSearchMode && searchQuery.isNotBlank()) {
-            performSearch(searchQuery)
-            return
-        }
-        lifecycleScope.launch(Dispatchers.IO) {
-            allDiaryPages = db.fishDiaryPageDao().getAll()
-            withContext(Dispatchers.Main) { updateCalendar(); selectDate(selectedCalendar) }
+        if (isSearchMode) performSearch(searchQuery)
+        lifecycleScope.launch {
+            allDiaryPages = withContext(Dispatchers.IO) {
+                db.fishDiaryPageDao().getAll()
+                    .sortedWith(compareBy<FishDiaryPage> { it.startDate }.thenBy { it.id })
+            }
+            if (!isSearchMode) selectDate(selectedCalendar)
         }
     }
 
@@ -177,7 +191,7 @@ class DiaryActivity : AppCompatActivity() {
         loadSearchPage(append = false, requestId = searchRequestId)
     }
 
-    private fun clearSearchMode() {
+    private fun clearSearchMode(date: Calendar = selectedCalendar, expandedPageId: Long? = null) {
         searchRequestId++
         searchQuery = ""
         searchOffset = 0
@@ -186,8 +200,7 @@ class DiaryActivity : AppCompatActivity() {
         searchResultPages.clear()
         searchResultsRecyclerView.removeAllViews()
         setSearchModeViews(false)
-        updateCalendar()
-        updateDiaryPageList()
+        selectDate(date, expandedPageId)
     }
 
     private fun setSearchModeViews(searchMode: Boolean) {
@@ -269,47 +282,156 @@ class DiaryActivity : AppCompatActivity() {
         val target = selectedCalendar.clone() as Calendar
         target.set(Calendar.DAY_OF_MONTH, 1); target.set(Calendar.YEAR, year); target.set(Calendar.MONTH, month)
         target.set(Calendar.DAY_OF_MONTH, minOf(day, target.getActualMaximum(Calendar.DAY_OF_MONTH)))
-        currentCalendar.set(Calendar.DAY_OF_MONTH, 1); currentCalendar.set(Calendar.YEAR, year); currentCalendar.set(Calendar.MONTH, month)
         selectDate(target)
     }
 
-    private fun selectDate(cal: Calendar) {
+    private fun selectDate(cal: Calendar, expandedPageId: Long? = null) {
         selectedCalendar = normalizeCalendar(cal.clone() as Calendar)
-        updateCalendar(); updateDiaryPageList()
+        currentCalendar = (selectedCalendar.clone() as Calendar).apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        updateCalendar()
+        updateDiaryPageList(expandedPageId)
     }
 
-    private fun updateDiaryPageList() {
+    private fun updateDiaryPageList(expandedPageId: Long?) {
+        val requestId = ++diaryListRequestId
         val selectedDate = selectedCalendar.clone() as Calendar
-        val pages = allDiaryPages.filter { pageCoversDate(it, selectedDate) }.sortedBy { it.startDate }
-        lifecycleScope.launch(Dispatchers.IO) {
-            val media = mediaForDate(selectedDate)
-            withContext(Dispatchers.Main) {
-                if (isFinishing || isDestroyed) return@withContext
-                diaryPagesContainer.removeAllViews()
-                noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
-                pages.forEachIndexed { index, page ->
-                    val pageNumber = if (pages.size > 1) index + 1 else null
-                    addDiaryPageItem(page, pageNumber, media)
+        val pages = allDiaryPages.filter { pageCoversDate(it, selectedDate) }
+        diaryPagesContainer.removeAllViews()
+        noPagesText.visibility = View.GONE
+        lifecycleScope.launch {
+            val media = withContext(Dispatchers.IO) { mediaForDate(selectedDate) }
+            if (requestId != diaryListRequestId || isSearchMode || isFinishing) return@launch
+            noPagesText.visibility = if (pages.isEmpty()) View.VISIBLE else View.GONE
+            pages.forEachIndexed { index, page ->
+                val pageNumber = if (pages.size > 1) index + 1 else null
+                val item = addDiaryPageItem(page, pageNumber, media)
+                if (page.id == expandedPageId) {
+                    setPageExpanded(item, true)
+                    scrollToPage(item)
                 }
             }
         }
     }
 
-    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int?, media: List<Media>) {
+    private fun addDiaryPageItem(page: FishDiaryPage, pageNumber: Int?, media: List<Media>): View {
         val item = LayoutInflater.from(this).inflate(R.layout.item_diary_page, diaryPagesContainer, false)
         val details = item.findViewById<TextView>(R.id.diaryPageDetails)
-        val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
         val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
+        item.tag = page.id
         item.findViewById<TextView>(R.id.diaryPageTitle).text = formatPageTitle(page, pageNumber)
-        details.text = buildPageDetails(page); details.visibility = View.GONE
+        details.text = buildPageDetails(page)
         MediaComponent.render(this, mediaLayout, media, { false }, showFileName = false)
-        item.setOnClickListener {
-            details.visibility = if (details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-            expandIcon.rotation = if (details.visibility == View.VISIBLE) 180f else 0f
-            mediaLayout.visibility = details.visibility
-        }
+        setPageExpanded(item, false)
+        item.setOnClickListener { setPageExpanded(item, details.visibility != View.VISIBLE) }
         item.findViewById<ImageView>(R.id.editDiaryPageButton).setOnClickListener { showPageMenu(it, page) }
         diaryPagesContainer.addView(item)
+        return item
+    }
+
+    private fun setPageExpanded(item: View, expanded: Boolean) {
+        val visibility = if (expanded) View.VISIBLE else View.GONE
+        item.findViewById<View>(R.id.diaryPageDetails).visibility = visibility
+        item.findViewById<View>(R.id.expandDiaryPageIcon).rotation = if (expanded) 180f else 0f
+        val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
+        mediaLayout.visibility = if (mediaLayout.childCount > 0) visibility else View.GONE
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!::diaryPagesContainer.isInitialized) return super.dispatchTouchEvent(event)
+
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            val item = expandedPageAt(event.rawX, event.rawY)
+            diarySwipe = item?.let { DiarySwipe(it, event.x, event.y) }
+        }
+
+        val swipe = diarySwipe ?: return super.dispatchTouchEvent(event)
+        val dx = event.x - swipe.x
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> if (!swipe.captured) {
+                val dy = event.y - swipe.y
+                val slop = ViewConfiguration.get(this).scaledTouchSlop
+                if (abs(dx) > slop && abs(dx) > abs(dy) * 1.5f) {
+                    swipe.captured = true
+                    val cancel = MotionEvent.obtain(event)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                } else if (abs(dy) > slop) {
+                    diarySwipe = null
+                }
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                swipe.cancelled = true
+                if (!swipe.captured) diarySwipe = null
+            }
+            MotionEvent.ACTION_CANCEL -> diarySwipe = null
+            MotionEvent.ACTION_UP -> {
+                diarySwipe = null
+                val minDistance = 56 * resources.displayMetrics.density
+                if (swipe.captured && !swipe.cancelled && abs(dx) >= minDistance &&
+                    abs(dx) > abs(event.y - swipe.y) * 1.5f
+                ) {
+                    openAdjacentPage(swipe.item, if (dx < 0) -1 else 1)
+                }
+            }
+        }
+        return swipe.captured || super.dispatchTouchEvent(event)
+    }
+
+    private fun expandedPageAt(rawX: Float, rawY: Float): View? {
+        val container = if (isSearchMode) searchResultsRecyclerView else diaryPagesContainer
+        val location = IntArray(2)
+        val bounds = Rect()
+        for (index in 0 until container.childCount) {
+            val item = container.getChildAt(index)
+            if (item.findViewById<View>(R.id.diaryPageDetails).visibility != View.VISIBLE ||
+                !item.getLocalVisibleRect(bounds)
+            ) continue
+            item.getLocationOnScreen(location)
+            if (bounds.contains((rawX - location[0]).toInt(), (rawY - location[1]).toInt())) return item
+        }
+        return null
+    }
+
+    private fun openAdjacentPage(source: View, direction: Int) {
+        val container = if (isSearchMode) searchResultsRecyclerView else diaryPagesContainer
+        if (source.parent != container ||
+            source.findViewById<View>(R.id.diaryPageDetails).visibility != View.VISIBLE
+        ) return
+        val index = allDiaryPages.indexOfFirst { it.id == source.tag }
+        if (index == -1) return
+        val target = allDiaryPages.getOrNull(index + direction) ?: return
+        val targetDate = if (pageCoversDate(target, selectedCalendar)) {
+            selectedCalendar
+        } else {
+            Calendar.getInstance(timeZone).apply { timeInMillis = target.startDate }
+        }
+        if (isSearchMode) {
+            clearSearchMode(targetDate, target.id)
+            searchEdit.text.clear()
+            searchEdit.clearFocus()
+        } else if (isSameDay(targetDate, selectedCalendar)) {
+            val item = diaryPagesContainer.findViewWithTag<View>(target.id) ?: return
+            setPageExpanded(source, false)
+            setPageExpanded(item, true)
+            scrollToPage(item)
+        } else {
+            selectDate(targetDate, target.id)
+        }
+    }
+
+    private fun scrollToPage(item: View) {
+        diaryScrollView.doOnPreDraw {
+            if (!isSearchMode && item.parent == diaryPagesContainer &&
+                item.findViewById<View>(R.id.diaryPageDetails).visibility == View.VISIBLE
+            ) {
+                val visibleHeight = diaryScrollView.height - diaryScrollView.paddingTop - diaryScrollView.paddingBottom
+                val bounds = Rect(0, 0, item.width, minOf(item.height, visibleHeight))
+                item.requestRectangleOnScreen(bounds, true)
+            }
+        }
     }
 
     private fun buildPageDetails(page: FishDiaryPage): CharSequence {
@@ -353,17 +475,9 @@ class DiaryActivity : AppCompatActivity() {
     private fun confirmDelete(page: FishDiaryPage) {
         AlertDialog.Builder(this).setTitle("Poistetaanko päiväkirjasivu?")
             .setMessage("Haluatko varmasti poistaa tämän päiväkirjasivun?")
-            .setPositiveButton("Poista") { _, _ -> lifecycleScope.launch(Dispatchers.IO) {
-                db.fishDiaryPageDao().delete(page)
-                withContext(Dispatchers.Main) {
-                    if (isSearchMode) {
-                        performSearch(searchQuery)
-                    } else {
-                        allDiaryPages = db.fishDiaryPageDao().getAll()
-                        updateCalendar()
-                        updateDiaryPageList()
-                    }
-                }
+            .setPositiveButton("Poista") { _, _ -> lifecycleScope.launch {
+                withContext(Dispatchers.IO) { db.fishDiaryPageDao().delete(page) }
+                loadDiaryPages()
             } }.setNegativeButton("Peruuta", null).show()
     }
 
@@ -444,17 +558,11 @@ class DiaryActivity : AppCompatActivity() {
             false
         )
         val details = item.findViewById<TextView>(R.id.diaryPageDetails)
-        val expandIcon = item.findViewById<ImageView>(R.id.expandDiaryPageIcon)
-        val mediaLayout = item.findViewById<LinearLayout>(R.id.mediaListLayout)
+        item.tag = page.id
         item.findViewById<TextView>(R.id.diaryPageTitle).text = formatPageTitle(page)
         details.text = buildPageDetails(page)
-        details.visibility = View.GONE
-        mediaLayout.removeAllViews()
-        mediaLayout.visibility = View.GONE
-        item.setOnClickListener {
-            details.visibility = if (details.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-            expandIcon.rotation = if (details.visibility == View.VISIBLE) 180f else 0f
-        }
+        setPageExpanded(item, false)
+        item.setOnClickListener { setPageExpanded(item, details.visibility != View.VISIBLE) }
         item.findViewById<ImageView>(R.id.editDiaryPageButton)
             .setOnClickListener { showPageMenu(it, page) }
         searchResultsRecyclerView.addView(item)
