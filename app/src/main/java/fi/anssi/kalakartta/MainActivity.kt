@@ -294,9 +294,12 @@ class MainActivity : AppCompatActivity() {
                 }
             )
 
-            importExportManager = ImportExportManager(this, db) { forceRefreshSpecies ->
-                reloadMarkersFromDb(forceRefreshSpecies)
-            }
+            importExportManager = ImportExportManager(
+                activity = this,
+                db = db,
+                onDocumentPickerReturned = { locationController.suppressAutoCenterUntilStop() },
+                onImportDone = { forceRefreshSpecies -> reloadMarkersFromDb(forceRefreshSpecies) }
+            )
 
             settingsManager = SettingsManager(this, db, importExportManager, onWeatherSettingsChanged = { isEnabled ->
                 if (isEnabled) {
@@ -402,6 +405,7 @@ class MainActivity : AppCompatActivity() {
                 filterManager = filterManager,
                 scope = lifecycleScope,
                 closeSettings = { settingsManager.closeSettings() },
+                onSummaryNavigation = { locationController.suppressAutoCenterUntilStop() },
                 reloadMarkers = { reloadMarkersFromDb() },
                 updateFilterStatus = { updateFilterStatusUI() }
             )
@@ -889,7 +893,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (::locationController.isInitialized) {
-            locationController.onStart()
+            locationController.onStart((application as KalaKarttaApplication).isForegroundEntry(this))
         }
         if (::fishingSessionController.isInitialized) {
             fishingSessionController.onStart()

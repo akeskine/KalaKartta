@@ -8,6 +8,7 @@ import android.widget.TextView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
@@ -30,6 +31,7 @@ import java.util.*
 class ImportExportManager(
     private val activity: ComponentActivity,
     private val db: AppDatabase,
+    private val onDocumentPickerReturned: () -> Unit,
     private val onImportDone: (forceRefreshSpecies: Boolean) -> Unit
 ) {
     private val jsonService = JsonService()
@@ -42,10 +44,18 @@ class ImportExportManager(
         }
     }
 
+    private fun <I> registerDocumentLauncher(
+        contract: ActivityResultContract<I, Uri?>,
+        onResult: (Uri?) -> Unit
+    ) = activity.registerForActivityResult(contract) { uri ->
+        onDocumentPickerReturned()
+        onResult(uri)
+    }
+
     private var pendingExportCatches: List<FishCatch>? = null
     private var pendingExportPlaces: List<PlaceOfInterest>? = null
 
-    private val exportLauncher = activity.registerForActivityResult(
+    private val exportLauncher = registerDocumentLauncher(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { exportToJson(it, pendingExportCatches, pendingExportPlaces) }
@@ -53,55 +63,55 @@ class ImportExportManager(
         pendingExportPlaces = null
     }
 
-    private val exportSpeciesLauncher = activity.registerForActivityResult(
+    private val exportSpeciesLauncher = registerDocumentLauncher(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { exportSpeciesToJson(it) }
     }
 
-    private val exportRoutesLauncher = activity.registerForActivityResult(
+    private val exportRoutesLauncher = registerDocumentLauncher(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { exportRoutesToJson(it) }
     }
 
-    private val exportDiaryLauncher = activity.registerForActivityResult(
+    private val exportDiaryLauncher = registerDocumentLauncher(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { exportDiaryToJson(it) }
     }
 
-    private val importLauncher = activity.registerForActivityResult(
+    private val importLauncher = registerDocumentLauncher(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importFromJson(it) }
     }
 
-    private val importSpeciesLauncher = activity.registerForActivityResult(
+    private val importSpeciesLauncher = registerDocumentLauncher(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importSpeciesFromJson(it) }
     }
 
-    private val importRoutesLauncher = activity.registerForActivityResult(
+    private val importRoutesLauncher = registerDocumentLauncher(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importRoutesFromJson(it) }
     }
 
-    private val importDiaryLauncher = activity.registerForActivityResult(
+    private val importDiaryLauncher = registerDocumentLauncher(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importDiaryFromJson(it) }
     }
 
-    private val exportMediaLauncher = activity.registerForActivityResult(
+    private val exportMediaLauncher = registerDocumentLauncher(
         ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let { exportMediaToZip(it) }
     }
 
-    private val importMediaLauncher = activity.registerForActivityResult(
+    private val importMediaLauncher = registerDocumentLauncher(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importMediaFromZip(it) }
@@ -149,13 +159,13 @@ class ImportExportManager(
         importMediaLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
     }
 
-    private val exportAllLauncher = activity.registerForActivityResult(
+    private val exportAllLauncher = registerDocumentLauncher(
         ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let { exportAllToZip(it) }
     }
 
-    private val importAllLauncher = activity.registerForActivityResult(
+    private val importAllLauncher = registerDocumentLauncher(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { importAllFromZip(it) }

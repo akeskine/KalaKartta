@@ -17,11 +17,13 @@ class MapNavigationController(
     private val filterManager: FilterManager,
     private val scope: LifecycleCoroutineScope,
     private val closeSettings: () -> Unit,
+    private val onSummaryNavigation: () -> Unit,
     private val reloadMarkers: () -> Unit,
     private val updateFilterStatus: () -> Unit
 ) {
     fun handleIntent(intent: Intent) {
         if (!intent.getBooleanExtra("EXTRA_ZOOM_TO_SUMMARY", false)) return
+        onSummaryNavigation()
 
         val start = intent.getLongExtraOrNull("EXTRA_START_TIME")
         val end = intent.getLongExtraOrNull("EXTRA_END_TIME")

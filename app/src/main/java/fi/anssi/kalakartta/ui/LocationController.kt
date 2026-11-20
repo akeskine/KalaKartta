@@ -38,7 +38,8 @@ class LocationController(
     private var userScrolling = false
     private var activityResumed = false
     private var replayActive = false
-    private var autoCenterPending = true
+    private var autoCenterPending = false
+    private var autoCenterSuppressed = false
     private var autoCenterRequestId = 0L
     private var autoCenterWaitingForRequestId: Long? = null
     private val locationPermissionLauncher = activity.registerForActivityResult(
@@ -46,7 +47,6 @@ class LocationController(
     ) { isGranted ->
         if (isGranted) {
             enableMyLocationIfPermitted()
-            autoCenterPending = true
             if (activityResumed) {
                 centerOnForegroundEntryIfNeeded()
             }
@@ -157,8 +157,8 @@ class LocationController(
         }
     }
 
-    fun onStart() {
-        autoCenterPending = true
+    fun onStart(isAppForegroundEntry: Boolean) {
+        autoCenterPending = isAppForegroundEntry
         registerScreenReceiver()
     }
 
@@ -172,9 +172,16 @@ class LocationController(
         }
     }
 
+    fun suppressAutoCenterUntilStop() {
+        autoCenterSuppressed = true
+        autoCenterRequestId++
+        autoCenterWaitingForRequestId = null
+    }
+
     fun onStop() {
         activityResumed = false
-        autoCenterPending = true
+        autoCenterSuppressed = false
+        autoCenterPending = false
         autoCenterRequestId++
         autoCenterWaitingForRequestId = null
         unregisterScreenReceiver()
@@ -182,6 +189,7 @@ class LocationController(
 
     private fun centerOnForegroundEntryIfNeeded() {
         if (!autoCenterPending ||
+            autoCenterSuppressed ||
             replayActive ||
             !settingsStore.autoCenterOnStart ||
             isSelectionMode() ||
@@ -314,6 +322,7 @@ class LocationController(
 
                 when (intent?.action) {
                     Intent.ACTION_SCREEN_OFF -> {
+                        autoCenterSuppressed = false
                         autoCenterPending = true
                         autoCenterRequestId++
                         autoCenterWaitingForRequestId = null
