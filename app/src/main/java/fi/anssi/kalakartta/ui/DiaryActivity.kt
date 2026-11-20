@@ -76,6 +76,8 @@ class DiaryActivity : AppCompatActivity() {
         var cancelled: Boolean = false
     )
 
+    private data class SwipeDestination(val pageId: Long, val chronologicalStep: Int)
+
     companion object {
         private const val EDIT_PAGE_REQUEST = 2001
         private const val SEARCH_QUERY_STATE = "diary_search_query"
@@ -191,7 +193,7 @@ class DiaryActivity : AppCompatActivity() {
         loadSearchPage(append = false, requestId = searchRequestId)
     }
 
-    private fun clearSearchMode(date: Calendar = selectedCalendar, expandedPageId: Long? = null) {
+    private fun clearSearchMode(date: Calendar = selectedCalendar, destination: SwipeDestination? = null) {
         searchRequestId++
         searchQuery = ""
         searchOffset = 0
@@ -200,7 +202,7 @@ class DiaryActivity : AppCompatActivity() {
         searchResultPages.clear()
         searchResultsRecyclerView.removeAllViews()
         setSearchModeViews(false)
-        selectDate(date, expandedPageId)
+        selectDate(date, destination)
     }
 
     private fun setSearchModeViews(searchMode: Boolean) {
@@ -285,16 +287,16 @@ class DiaryActivity : AppCompatActivity() {
         selectDate(target)
     }
 
-    private fun selectDate(cal: Calendar, expandedPageId: Long? = null) {
+    private fun selectDate(cal: Calendar, destination: SwipeDestination? = null) {
         selectedCalendar = normalizeCalendar(cal.clone() as Calendar)
         currentCalendar = (selectedCalendar.clone() as Calendar).apply {
             set(Calendar.DAY_OF_MONTH, 1)
         }
         updateCalendar()
-        updateDiaryPageList(expandedPageId)
+        updateDiaryPageList(destination)
     }
 
-    private fun updateDiaryPageList(expandedPageId: Long?) {
+    private fun updateDiaryPageList(destination: SwipeDestination?) {
         val requestId = ++diaryListRequestId
         val selectedDate = selectedCalendar.clone() as Calendar
         val pages = allDiaryPages.filter { pageCoversDate(it, selectedDate) }
@@ -307,9 +309,8 @@ class DiaryActivity : AppCompatActivity() {
             pages.forEachIndexed { index, page ->
                 val pageNumber = if (pages.size > 1) index + 1 else null
                 val item = addDiaryPageItem(page, pageNumber, media)
-                if (page.id == expandedPageId) {
-                    setPageExpanded(item, true)
-                    scrollToPage(item)
+                if (destination != null && page.id == destination.pageId) {
+                    showSwipedPage(item, destination.chronologicalStep)
                 }
             }
         }
@@ -349,35 +350,51 @@ class DiaryActivity : AppCompatActivity() {
         val swipe = diarySwipe ?: return super.dispatchTouchEvent(event)
         val dx = event.x - swipe.x
         when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> if (!swipe.captured) {
-                val dy = event.y - swipe.y
-                val slop = ViewConfiguration.get(this).scaledTouchSlop
-                if (abs(dx) > slop && abs(dx) > abs(dy) * 1.5f) {
-                    swipe.captured = true
-                    val cancel = MotionEvent.obtain(event)
-                    cancel.action = MotionEvent.ACTION_CANCEL
-                    super.dispatchTouchEvent(cancel)
-                    cancel.recycle()
-                } else if (abs(dy) > slop) {
-                    diarySwipe = null
+            MotionEvent.ACTION_MOVE -> {
+                if (!swipe.captured) {
+                    val dy = event.y - swipe.y
+                    val slop = ViewConfiguration.get(this).scaledTouchSlop
+                    if (abs(dx) > slop && abs(dx) > abs(dy) * 1.5f) {
+                        swipe.captured = true
+                        swipe.item.animate().cancel()
+                        swipe.item.alpha = 1f
+                        val cancel = MotionEvent.obtain(event)
+                        cancel.action = MotionEvent.ACTION_CANCEL
+                        super.dispatchTouchEvent(cancel)
+                        cancel.recycle()
+                    } else if (abs(dy) > slop) {
+                        diarySwipe = null
+                    }
+                }
+                if (swipe.captured && !swipe.cancelled) {
+                    val maxOffset = swipe.item.width * 0.3f
+                    swipe.item.translationX = (dx * 0.75f).coerceIn(-maxOffset, maxOffset)
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 swipe.cancelled = true
-                if (!swipe.captured) diarySwipe = null
+                if (swipe.captured) resetSwipedPage(swipe.item) else diarySwipe = null
             }
-            MotionEvent.ACTION_CANCEL -> diarySwipe = null
+            MotionEvent.ACTION_CANCEL -> {
+                diarySwipe = null
+                if (swipe.captured) resetSwipedPage(swipe.item)
+            }
             MotionEvent.ACTION_UP -> {
                 diarySwipe = null
                 val minDistance = 56 * resources.displayMetrics.density
-                if (swipe.captured && !swipe.cancelled && abs(dx) >= minDistance &&
-                    abs(dx) > abs(event.y - swipe.y) * 1.5f
-                ) {
-                    openAdjacentPage(swipe.item, if (dx < 0) -1 else 1)
+                if (swipe.captured && !swipe.cancelled) {
+                    val step = if (dx < 0) 1 else -1
+                    val opened = abs(dx) >= minDistance && abs(dx) > abs(event.y - swipe.y) * 1.5f &&
+                        openAdjacentPage(swipe.item, step)
+                    if (!opened) resetSwipedPage(swipe.item)
                 }
             }
         }
         return swipe.captured || super.dispatchTouchEvent(event)
+    }
+
+    private fun resetSwipedPage(item: View) {
+        item.animate().translationX(0f).setDuration(160L).start()
     }
 
     private fun expandedPageAt(rawX: Float, rawY: Float): View? {
@@ -395,34 +412,37 @@ class DiaryActivity : AppCompatActivity() {
         return null
     }
 
-    private fun openAdjacentPage(source: View, direction: Int) {
+    private fun openAdjacentPage(source: View, step: Int): Boolean {
         val container = if (isSearchMode) searchResultsRecyclerView else diaryPagesContainer
         if (source.parent != container ||
             source.findViewById<View>(R.id.diaryPageDetails).visibility != View.VISIBLE
-        ) return
+        ) return false
         val index = allDiaryPages.indexOfFirst { it.id == source.tag }
-        if (index == -1) return
-        val target = allDiaryPages.getOrNull(index + direction) ?: return
+        if (index == -1) return false
+        val target = allDiaryPages.getOrNull(index + step) ?: return false
+        val destination = SwipeDestination(target.id, step)
         val targetDate = if (pageCoversDate(target, selectedCalendar)) {
             selectedCalendar
         } else {
             Calendar.getInstance(timeZone).apply { timeInMillis = target.startDate }
         }
         if (isSearchMode) {
-            clearSearchMode(targetDate, target.id)
+            clearSearchMode(targetDate, destination)
             searchEdit.text.clear()
             searchEdit.clearFocus()
         } else if (isSameDay(targetDate, selectedCalendar)) {
-            val item = diaryPagesContainer.findViewWithTag<View>(target.id) ?: return
+            val item = diaryPagesContainer.findViewWithTag<View>(target.id) ?: return false
+            source.translationX = 0f
             setPageExpanded(source, false)
-            setPageExpanded(item, true)
-            scrollToPage(item)
+            showSwipedPage(item, step)
         } else {
-            selectDate(targetDate, target.id)
+            selectDate(targetDate, destination)
         }
+        return true
     }
 
-    private fun scrollToPage(item: View) {
+    private fun showSwipedPage(item: View, step: Int) {
+        setPageExpanded(item, true)
         diaryScrollView.doOnPreDraw {
             if (!isSearchMode && item.parent == diaryPagesContainer &&
                 item.findViewById<View>(R.id.diaryPageDetails).visibility == View.VISIBLE
@@ -430,6 +450,9 @@ class DiaryActivity : AppCompatActivity() {
                 val visibleHeight = diaryScrollView.height - diaryScrollView.paddingTop - diaryScrollView.paddingBottom
                 val bounds = Rect(0, 0, item.width, minOf(item.height, visibleHeight))
                 item.requestRectangleOnScreen(bounds, true)
+                item.translationX = step * 40f * resources.displayMetrics.density
+                item.alpha = 0.75f
+                item.animate().translationX(0f).alpha(1f).setDuration(180L).start()
             }
         }
     }
