@@ -51,6 +51,7 @@ class PlaceDetailsDialog(
         }
         if (place.originalRef.isNotEmpty()) {
             if (message.isNotEmpty()) message.append("\n")
+            if (place.additionalInfo.isNotBlank()) message.append("\n")
             message.append("Alkuperäinen viite: ${place.originalRef}")
         }
 
