@@ -269,7 +269,7 @@ class MarkerManager(
     private fun addOrUpdateMarkerIncrementalInternal(fish: FishCatch, zoom: Double, filterManager: FilterManager? = null) {
         // Tarkistetaan suodatus jos filterManager on annettu
         if (filterManager != null) {
-            val filtered = filterManager.applyFilter(listOf(fish))
+            val filtered = filterManager.applyFilter(listOf(fish), speciesCache)
             if (filtered.isEmpty()) {
                 // Jos kala ei läpäise suodatinta, poistetaan se kartalta (jos oli siellä) ja poistutaan
                 val folder = if (fish.species == "UNKNOWN") defaultPointsFolder else catchesFolder

@@ -278,4 +278,10 @@
     <string name="route_advanced_settings">Reittien lisäasetukset</string>
     <string name="moon_phase">Kuun vaihe</string>
     <string name="moon_altitude">Kuun korkeus</string>
+    <string name="fish_size_category">Kalan kokokategoria</string>
+    <string name="fish_size_small">pieni</string>
+    <string name="fish_size_normal">normaali</string>
+    <string name="fish_size_large">suuri</string>
+    <string name="fish_size_giant">jätti</string>
+    <string name="fish_size_none">ei valintoja</string>
 </resources>

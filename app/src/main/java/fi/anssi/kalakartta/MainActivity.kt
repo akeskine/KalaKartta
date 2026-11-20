@@ -1159,8 +1159,7 @@ class MainActivity : AppCompatActivity() {
                     settingsManager.openSettings()
                 }
             } else if (requestCode == 1002) {
-                // Kalalajit muokattu: pakotetaan MarkerManagerin päivitys
-                markerManager.rebuildMarkers(map.zoomLevelDouble, forceRefreshSpecies = true)
+                reloadMarkersFromDb(forceRefreshSpecies = true)
                 if (data?.getBooleanExtra("BACK_TO_SETTINGS", false) == true) {
                     settingsManager.openSettings()
                 }

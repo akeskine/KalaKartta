@@ -414,6 +414,47 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/fish_size_category"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/fishSizeSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/fish_size_small"/>
+
+                <CheckBox
+                    android:id="@+id/fishSizeNormal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/fish_size_normal"/>
+
+                <CheckBox
+                    android:id="@+id/fishSizeLarge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/fish_size_large"/>
+
+                <CheckBox
+                    android:id="@+id/fishSizeGiant"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/fish_size_giant"/>
+            </LinearLayout>
+
             <!-- Tuulen suunta -->
             <TextView
                 android:layout_width="match_parent"

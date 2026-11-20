@@ -3,8 +3,10 @@ package fi.anssi.kalakartta.ui
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.room.Room
+import fi.anssi.kalakartta.R
 import fi.anssi.kalakartta.data.AppDatabase
 import fi.anssi.kalakartta.data.FishCatch
+import fi.anssi.kalakartta.data.FishSpecies
 import fi.anssi.kalakartta.data.PlaceOfInterest
 import fi.anssi.kalakartta.data.TrackPoint
 import java.text.SimpleDateFormat
@@ -57,7 +59,8 @@ class FilterManager(private val context: Context) {
         val weightMax: Long? = null,
         val lengthMin: Long? = null,
         val lengthMax: Long? = null,
-        val weightLengthOperator: String = "OR" // "AND" tai "OR"
+        val weightLengthOperator: String = "OR", // "AND" tai "OR"
+        val fishSizeCategories: Set<FishSizeCategory> = FishSizeCategory.all
     )
 
     companion object {
@@ -201,7 +204,10 @@ class FilterManager(private val context: Context) {
             moonAltitudeMin, moonAltitudeMax,
             speciesId, otherSpecies, placeTypeId, freeText, fisherman, onlyCaughtFish, onlyFishPoints, onlyNonFishPoints,
             latNorth, latSouth, lonEast, lonWest,
-            weightMin, weightMax, lengthMin, lengthMax, weightLengthOperator
+            weightMin, weightMax, lengthMin, lengthMax, weightLengthOperator,
+            prefs.getStringSet("fishSizeCategories", null)?.let { names ->
+                FishSizeCategory.entries.filter { it.name in names }.toSet()
+            } ?: FishSizeCategory.all
         )
     }
 
@@ -254,6 +260,7 @@ class FilterManager(private val context: Context) {
             if (filters.lengthMin != null) putLong("lengthMin", filters.lengthMin) else remove("lengthMin")
             if (filters.lengthMax != null) putLong("lengthMax", filters.lengthMax) else remove("lengthMax")
             putString("weightLengthOperator", filters.weightLengthOperator)
+            putStringSet("fishSizeCategories", filters.fishSizeCategories.map { it.name }.toSet())
             apply()
         }
     }
@@ -275,10 +282,13 @@ class FilterManager(private val context: Context) {
                 f.moonAltitudeMin != null || f.moonAltitudeMax != null ||
                 f.speciesId != null || f.placeTypeId != null || f.freeText != null || f.fisherman != null || 
                 f.onlyCaughtFish || f.onlyFishPoints || f.onlyNonFishPoints ||
-                f.latNorth != null
+                f.latNorth != null || f.fishSizeCategories != FishSizeCategory.all
     }
 
-    fun applyFilter(catches: List<FishCatch>): List<FishCatch> {
+    fun applyFilter(
+        catches: List<FishCatch>,
+        speciesById: Map<String, FishSpecies>? = null
+    ): List<FishCatch> {
         if (!hasActiveFilters()) return catches
         val f = getFilters()
         val pressureTrendThreshold = settingsStore.pressureTrendThreshold.toDouble()
@@ -287,7 +297,17 @@ class FilterManager(private val context: Context) {
         val seaLevelTurningTrendThreshold = settingsStore.seaLevelTurningTrendThreshold.toDouble()
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Helsinki"))
 
+        val species = if (f.fishSizeCategories != FishSizeCategory.all) {
+            speciesById ?: AppDatabase.getInstance(context).fishSpeciesDao().getAll().associateBy { it.id }
+        } else {
+            null
+        }
+
         return catches.filter { fish ->
+            if (species != null) {
+                val category = FishSizeCategory.classify(fish, species[fish.species])
+                if (category !in f.fishSizeCategories) return@filter false
+            }
             val caughtAt = fish.caughtAt ?: 0L
             calendar.timeInMillis = caughtAt
             
@@ -720,6 +740,12 @@ class FilterManager(private val context: Context) {
             }
         }
 
+        if (f.fishSizeCategories != FishSizeCategory.all) {
+            val sizes = FishSizeCategory.entries.filter { it in f.fishSizeCategories }
+                .joinToString(", ") { context.getString(it.label) }
+                .ifEmpty { context.getString(R.string.fish_size_none) }
+            parts.add("${context.getString(R.string.fish_size_category)}: $sizes")
+        }
         if (f.weightMin != null || f.weightMax != null) {
             val min = f.weightMin?.toString() ?: "..."
             val max = f.weightMax?.toString() ?: "..."

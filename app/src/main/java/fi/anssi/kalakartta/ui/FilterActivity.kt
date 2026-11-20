@@ -97,6 +97,7 @@ class FilterActivity : AppCompatActivity() {
     private lateinit var weightMaxEdit: EditText
     private lateinit var lengthMinEdit: EditText
     private lateinit var lengthMaxEdit: EditText
+    private lateinit var fishSizeChecks: Map<FishSizeCategory, CheckBox>
     private lateinit var operatorAndRadio: RadioButton
     private lateinit var operatorOrRadio: RadioButton
 
@@ -254,6 +255,12 @@ class FilterActivity : AppCompatActivity() {
         weightMaxEdit = findViewById(R.id.weightMaxEdit)
         lengthMinEdit = findViewById(R.id.lengthMinEdit)
         lengthMaxEdit = findViewById(R.id.lengthMaxEdit)
+        fishSizeChecks = mapOf(
+            FishSizeCategory.SMALL to findViewById(R.id.fishSizeSmall),
+            FishSizeCategory.NORMAL to findViewById(R.id.fishSizeNormal),
+            FishSizeCategory.LARGE to findViewById(R.id.fishSizeLarge),
+            FishSizeCategory.GIANT to findViewById(R.id.fishSizeGiant)
+        )
         operatorAndRadio = findViewById(R.id.operatorAndRadio)
         operatorOrRadio = findViewById(R.id.operatorOrRadio)
     }
@@ -451,6 +458,9 @@ class FilterActivity : AppCompatActivity() {
         weightMaxEdit.setText(currentFilters.weightMax?.toString() ?: "")
         lengthMinEdit.setText(currentFilters.lengthMin?.toString() ?: "")
         lengthMaxEdit.setText(currentFilters.lengthMax?.toString() ?: "")
+        fishSizeChecks.forEach { (category, check) ->
+            check.isChecked = category in currentFilters.fishSizeCategories
+        }
         if (currentFilters.weightLengthOperator == "AND") {
             operatorAndRadio.isChecked = true
         } else {
@@ -529,7 +539,8 @@ class FilterActivity : AppCompatActivity() {
                 speciesSelected || otherSpeciesSelected || placeTypeSelected || 
                 freeText != null || fishermanSelected || 
                 onlyCaughtFishCheckBox.isChecked || onlyFishPointsCheckBox.isChecked || 
-                onlyNonFishPointsCheckBox.isChecked || f.latNorth != null
+                onlyNonFishPointsCheckBox.isChecked || f.latNorth != null ||
+                fishSizeChecks.values.any { !it.isChecked }
     }
 
     private fun updateButtons() {
@@ -644,6 +655,9 @@ class FilterActivity : AppCompatActivity() {
             }
         }
 
+        fishSizeChecks.values.forEach { check ->
+            check.setOnCheckedChangeListener { _, _ -> updateButtons() }
+        }
         onlyCaughtFishCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
         onlyFishPointsCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
         onlyNonFishPointsCheckBox.setOnCheckedChangeListener { _, _ -> updateButtons() }
@@ -769,6 +783,7 @@ class FilterActivity : AppCompatActivity() {
             weightMaxEdit.setText("")
             lengthMinEdit.setText("")
             lengthMaxEdit.setText("")
+            fishSizeChecks.values.forEach { it.isChecked = true }
             operatorOrRadio.isChecked = true
             areaThumbnailContainer.visibility = View.GONE
             val thumbFile = File(cacheDir, "area_thumb.jpg")
@@ -1001,7 +1016,8 @@ class FilterActivity : AppCompatActivity() {
             weightMax = weightMax,
             lengthMin = lengthMin,
             lengthMax = lengthMax,
-            weightLengthOperator = weightLengthOperator
+            weightLengthOperator = weightLengthOperator,
+            fishSizeCategories = fishSizeChecks.filterValues { it.isChecked }.keys
         )
         return newFilters
     }

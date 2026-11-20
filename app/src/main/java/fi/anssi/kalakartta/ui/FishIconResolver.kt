@@ -32,23 +32,17 @@ class FishIconResolver(
                 scaleFactor *= 1.3
             }
         } else if (species != null) {
-            val weight = fish.weight ?: 0L
-            val length = fish.length ?: 0L
-
-            when {
-                (species.giant_weight > 0 && weight >= species.giant_weight) ||
-                    (species.giant_length > 0 && length >= species.giant_length) -> {
+            when (FishSizeCategory.classify(fish, species)) {
+                FishSizeCategory.GIANT -> {
                     if (species.icon_giant.isNotEmpty()) iconName = species.icon_giant else scaleFactor = 1.6
                 }
-                (species.large_weight > 0 && weight >= species.large_weight) ||
-                    (species.large_length > 0 && length >= species.large_length) -> {
+                FishSizeCategory.LARGE -> {
                     if (species.icon_large.isNotEmpty()) iconName = species.icon_large else scaleFactor = 1.3
                 }
-                species.small_weight > 0 && species.small_length > 0 &&
-                    ((fish.weight != null && fish.weight > 0 && weight < species.small_weight) ||
-                        (fish.length != null && fish.length > 0 && length < species.small_length)) -> {
+                FishSizeCategory.SMALL -> {
                     if (species.icon_small.isNotEmpty()) iconName = species.icon_small else scaleFactor = 0.7
                 }
+                FishSizeCategory.NORMAL -> Unit
             }
         }
 
